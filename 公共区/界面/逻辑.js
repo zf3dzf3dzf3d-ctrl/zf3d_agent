@@ -120,7 +120,14 @@ document.addEventListener("DOMContentLoaded", () => {
     initGallerySelection();
     loadSystemStatus();
     // 加载对话列表后自动新建对话（每个新窗口/标签页都是全新对话）
-    loadConvList().then(() => { newConversation(); });
+    loadConvList().then((d) => {
+        const list = d?.对话列表 || [];
+        if (list.length > 0) {
+            switchConv(list[0].id);
+        } else {
+            newConversation();
+        }
+    });
     pollPending();
     const savedRoot = localStorage.getItem("lastFolder");
     const initPath = savedRoot || "./";
@@ -1232,7 +1239,7 @@ async function loadConvList() {
         container.innerHTML = "";
         if (list.length === 0) {
             container.innerHTML = '<div style="padding:8px 10px;color:var(--text2);font-size:11px;text-align:center">暂无对话</div>';
-            return;
+            return d;
         }
         for (const c of list) {
             const el = document.createElement("div");
@@ -1242,7 +1249,9 @@ async function loadConvList() {
             el.addEventListener("click", () => switchConv(c.id));
             container.appendChild(el);
         }
+        return d;
     } catch (e) {}
+    return null;
 }
 
 function toggleConvList() {
