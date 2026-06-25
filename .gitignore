@@ -68,6 +68,10 @@ stdout.log
 # === 发布产物 ===
 *.zip
 智能体_v2_发布_*.zip
+build/
+dist/
+*.egg-info/
+zf3d.egg-info/
 
 # === 开发日志（私有版本，不发布）===
 开发日志.md
