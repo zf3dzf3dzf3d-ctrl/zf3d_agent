@@ -35,7 +35,7 @@ if not defined PYTHON (
 
 echo.
 echo   ZF3D Agent v2.0
-echo   http://localhost:8080
+echo   http://localhost:8765
 echo.
 
 %PYTHON% -X utf8 public\core\main.py

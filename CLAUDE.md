@@ -65,4 +65,4 @@
 
 ## 启动方式
 - Windows: 双击 `启动.bat` 或 `python 公共区/内核/启动器.py`
-- 浏览器打开 http://localhost:8080
+- 浏览器打开 http://localhost:8765
