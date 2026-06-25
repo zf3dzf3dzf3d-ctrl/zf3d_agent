@@ -1,0 +1,16 @@
+/* 编辑器样式 */
+.编辑器关键词 { color: #c792ea; font-weight: bold; }
+.编辑器字符串 { color: #c3e88d; }
+.编辑器数字 { color: #f78c6c; }
+.编辑器注释 { color: #546e7a; font-style: italic; }
+.编辑器布尔 { color: #ff5370; }
+.编辑器键名 { color: #82aaff; }
+.编辑器符号 { color: #89ddff; }
+.编辑器新增行 { background: rgba(76,175,80,0.15); }
+.编辑器删除行 { background: rgba(244,67,54,0.15); }
+.编辑器修改行 { background: rgba(255,152,0,0.15); }
+
+/* 补全提示 */
+.补全列表 { position: absolute; background: var(--卡片色); border: 1px solid var(--边框色); border-radius: 6px; padding: 4px 0; z-index: 100; min-width: 180px; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.补全项 { padding: 6px 12px; cursor: pointer; font-size: 13px; font-family: monospace; }
+.补全项:hover, .补全项.选中 { background: rgba(33,150,243,0.15); }

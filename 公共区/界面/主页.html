@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com; font-src 'self'; worker-src 'self'">
+    <title>朱峰社区智能体 v2.0</title>
+    <link rel="stylesheet" href="样式.css?v=20260624g">
+    <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
+    <link rel="stylesheet" href="highlight-theme.min.css?v=1">
+    <link rel="stylesheet" href="katex.min.css?v=1">
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <div class="topbar">
+        <div class="topbar-left">
+            <button class="topbar-icon" id="toggleFiles" title="显示/隐藏文件面板">📁</button>
+            <button class="topbar-icon" id="toggleEditor" title="显示/隐藏编辑器面板">📝</button>
+            <button class="topbar-icon" id="toggleChat" title="显示/隐藏对话面板">💬</button>
+        </div>
+        <span class="topbar-title">🤖 朱峰社区智能体</span>
+        <div class="topbar-right">
+            <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
+            <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
+        </div>
+    </div>
+
+    <!-- 三栏主体 -->
+    <div class="workspace">
+        <!-- 左侧：文件浏览器 -->
+        <div class="panel files-panel" id="filesPanel">
+            <div class="panel-bar">
+                <span>📁 资源管理器</span>
+                <div class="panel-bar-actions">
+                    <button class="bar-btn" onclick="goUpFolder()" title="返回上级文件夹">⬆️</button>
+                    <button class="bar-btn" onclick="openMyComputer()" title="我的电脑 - 查看所有磁盘">💻</button>
+                    <button class="bar-btn" onclick="openFolderDialog()" title="选择并打开文件夹">📂</button>
+                    <button class="bar-btn" onclick="newItem('file')" title="新建文件">📄</button>
+                    <button class="bar-btn" onclick="newItem('folder')" title="新建文件夹">📁+</button>
+                    <button class="bar-btn" onclick="refreshTree()" title="刷新文件树">🔄</button>
+                </div>
+            </div>
+            <div class="file-tree" id="fileTree">
+                <div class="tree-hint">点击 📂 打开一个文件夹开始工作</div>
+            </div>
+            <div class="open-folder-bar" id="openFolderBar" style="display:none;">
+                <input type="text" id="folderPathInput" placeholder="输入文件夹路径，如 D:\myproject" />
+                <button onclick="openFolderByPath()">打开</button>
+            </div>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="divider" data-left="filesPanel" data-right="editorPanel"></div>
+
+        <!-- 中间：编辑器 -->
+        <div class="panel editor-panel" id="editorPanel">
+            <!-- Tab栏 -->
+            <div class="tab-bar" id="tabBar">
+            </div>
+            <!-- 编辑器工具栏 -->
+            <div class="editor-toolbar" id="editorToolbar">
+                    <button class="toolbar-btn" onclick="editorUndo()" title="撤销操作 (Ctrl+Z)">↩️ <span class="btn-text">撤销</span></button>
+                <button class="toolbar-btn" onclick="editorRedo()" title="重做操作 (Ctrl+Y)">↪️ <span class="btn-text">重做</span></button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn primary" onclick="saveEditorContent()" title="保存当前文件 (Ctrl+S)">💾 <span class="btn-text">保存</span></button>
+                <button class="toolbar-btn" onclick="reloadCurrentFile()" title="从磁盘重新加载当前文件">🔄 <span class="btn-text">刷新</span></button>
+                <div class="toolbar-sep"></div>
+                <span id="editorFilePath" class="toolbar-path"></span>
+            </div>
+            <!-- 编辑器主体 -->
+            <div class="editor-body" id="editorContainer">
+                <div class="line-numbers" id="lineNumbers">1</div>
+                <div class="code-area">
+                    <pre id="codePreview"></pre>
+                    <textarea id="codeInput" spellcheck="false" wrap="soft" placeholder="在左侧点击文件打开..."></textarea>
+                </div>
+            </div>
+            <!-- 图片/画廊视图 -->
+            <div class="media-view" id="mediaView" style="display:none;">
+                <div class="gallery-header" id="galleryHeader">
+                    <button class="bar-btn" onclick="goUpGallery()" title="返回上级文件夹，同时刷新左侧树和中间画廊">⬆️ <span class="btn-text">上级文件夹</span></button>
+                    <span class="gallery-current-path" id="galleryCurrentPath"></span>
+                    <div class="gallery-sort-bar">
+                        <button class="bar-btn" onclick="cycleSortKey()" id="sortBtn" title="切换排序方式">名称</button>
+                        <button class="bar-btn" onclick="toggleSortOrder()" id="sortOrderBtn" title="升序/降序切换">▲</button>
+                    </div>
+                    <div class="gallery-selection-bar">
+                        <button class="bar-btn" id="toggleSelectAllBtn" onclick="toggleSelectAll()" title="全选/取消选择 (Ctrl+A / Ctrl+D)">☑️ 全选</button>
+                    </div>
+                    <div class="gallery-view-toggle">
+                        <button class="bar-btn" id="viewBtnGrid" onclick="toggleGalleryView('grid')" title="缩略图视图">📋</button>
+                        <button class="bar-btn" id="viewBtnList" onclick="toggleGalleryView('list')" title="列表视图">📊</button>
+                    </div>
+                </div>
+                <div class="gallery-grid" id="galleryGrid"></div>
+                <div class="gallery-list" id="galleryList" style="display:none;"></div>
+                <div class="image-viewer" id="imageViewer" style="display:none;">
+                    <div class="image-viewer-topbar">
+                        <button class="back-to-gallery" onclick="backToGallery()" title="返回缩略图画廊">◀ 返回</button>
+                        <span class="image-counter" id="imageCounter"></span>
+                    </div>
+                    <div class="image-viewer-stage" id="imageViewerStage">
+                        <button class="img-nav-btn img-nav-prev" id="imgNavPrev" onclick="prevImage()" title="上一张图片（左键/←键）">◀</button>
+                        <img id="imageViewerImgBack" class="img-back" />
+                        <img id="imageViewerImg" />
+                        <button class="img-nav-btn img-nav-next" id="imgNavNext" onclick="nextImage()" title="下一张图片（右键/→键）">▶</button>
+                    </div>
+                    <div class="image-viewer-bottombar">
+                        <button class="slideshow-btn" id="slideshowBtn" onclick="toggleSlideshow()" title="开始/停止自动幻灯片轮播">▶️ 幻灯片</button>
+                        <span class="slideshow-speed-label">速度</span>
+                        <input type="range" class="slideshow-speed-slider" id="slideshowSpeedSlider" min="0.5" max="10" step="0.5" value="3" />
+                        <span class="slideshow-speed-value" id="slideshowSpeedValue">3.0s</span>
+                    </div>
+                </div>
+                <!-- 音频播放器 -->
+                <div class="audio-player" id="audioPlayer" style="display:none;">
+                    <button class="back-to-gallery" onclick="backToGallery()" title="返回缩略图画廊" style="position:absolute;top:8px;left:8px;z-index:10;">◀ 返回</button>
+                    <div class="audio-player-card">
+                        <div class="audio-file-info">
+                            <span class="audio-file-icon">🎵</span>
+                            <span class="audio-file-name" id="audioFileName"></span>
+                        </div>
+                        <div class="audio-controls">
+                            <button class="audio-nav-btn" id="audioPrevBtn" onclick="prevAudio()" title="上一首">⏮</button>
+                            <button class="audio-play-btn" id="audioPlayBtn" onclick="toggleAudioPlay()" title="播放/暂停">▶</button>
+                            <button class="audio-nav-btn" id="audioNextBtn" onclick="nextAudio()" title="下一首">⏭</button>
+                        </div>
+                        <div class="audio-progress-row">
+                            <span class="audio-time" id="audioCurrentTime">0:00</span>
+                            <div class="audio-progress" id="audioProgress">
+                                <div class="audio-progress-fill" id="audioProgressFill"></div>
+                                <div class="audio-progress-handle" id="audioProgressHandle"></div>
+                            </div>
+                            <span class="audio-time" id="audioTotalTime">0:00</span>
+                        </div>
+                        <div class="audio-volume-row">
+                            <span class="audio-volume-icon" id="audioVolumeIcon" onclick="toggleMute()" title="静音/取消静音">🔊</span>
+                            <input type="range" class="audio-volume-slider" id="audioVolumeSlider" min="0" max="100" value="100" />
+                        </div>
+                        <audio id="audioElement" preload="metadata"></audio>
+                    </div>
+                </div>
+                <!-- 视频播放器 -->
+                <div class="video-player" id="videoPlayer" style="display:none;">
+                    <button class="back-to-gallery" onclick="backToGallery()" title="返回缩略图画廊" style="position:absolute;top:8px;left:8px;z-index:10;">◀ 返回</button>
+                    <div class="video-file-name" id="videoFileName"></div>
+                    <span class="video-counter" id="videoCounter"></span>
+                    <button class="img-nav-btn img-nav-prev" id="videoPrevBtn" onclick="prevVideo()" title="上一个视频" style="display:none;">◀</button>
+                    <button class="img-nav-btn img-nav-next" id="videoNextBtn" onclick="nextVideo()" title="下一个视频" style="display:none;">▶</button>
+                    <div class="video-stage" id="videoStage">
+                        <video id="videoElement" controls autoplay data-x="0" data-y="0" data-scale="1"></video>
+                    </div>
+                </div>
+                <!-- 文档预览器 -->
+                <div class="doc-viewer" id="docViewer" style="display:none;">
+                    <button class="back-to-gallery" onclick="backToGallery()" title="返回缩略图画廊" style="position:absolute;top:8px;left:8px;z-index:10;">◀ 返回</button>
+                    <div class="doc-file-name" id="docFileName"></div>
+                    <div class="doc-content" id="docContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分隔线 -->
+        <div class="divider" data-left="editorPanel" data-right="chatPanel"></div>
+
+        <!-- 右侧：对话 -->
+        <div class="panel chat-panel" id="chatPanel">
+            <div class="panel-bar">
+                <span>💬 对话</span>
+                <div class="panel-bar-actions">
+                    <button class="bar-btn" onclick="toggleConvList()" title="显示/隐藏对话列表">📋</button>
+                    <button class="bar-btn" onclick="newConversation()" title="新建对话">➕</button>
+                    <button class="bar-btn" onclick="clearChat()" title="清空当前对话内容">🗑️</button>
+                </div>
+            </div>
+            <!-- 对话列表（折叠式，不占主界面） -->
+            <div class="conv-list" id="convList" style="display:none;">
+                <div id="convListItems"></div>
+            </div>
+            <div class="msg-list" id="msgList"></div>
+            <div class="chat-input-area">
+                <div class="thinking-indicator" id="thinkingIndicator">
+                    <span class="ti-cat" id="thinkingCat">准备</span>
+                    <span class="ti-sep">›</span>
+                    <span class="ti-phrase" id="thinkingPhrase">初始化</span>
+                    <span class="ti-sep">›</span>
+                    <span class="ti-num" id="thinkingNum">0</span>
+                    <span class="ti-track"><span class="ti-track-fill" id="thinkingTrack"></span></span>
+                </div>
+                <div class="chat-input-row">
+                    <textarea id="userInput" placeholder="输入消息... (Enter发送, Shift+Enter换行)"></textarea>
+                    <button class="mic-btn" id="micBtn" title="🎤 语音输入">🎤</button>
+                    <button class="send-btn" id="sendBtn" title="发送消息（Enter键也可发送）">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="statusbar">
+        <span><span class="dot on"></span>运行中</span>
+        <span id="statusInfo">就绪</span>
+    </div>
+
+    <!-- 设置 overlay -->
+    <div class="overlay" id="settingsOverlay" style="display:none;">
+        <div class="settings-box">
+            <button class="settings-close-btn" onclick="closeSettings()" title="关闭设置面板">✖</button>
+            <div class="settings-nav">
+                <div class="settings-title">⚙️ 设置</div>
+                <div class="snav-item active" data-tab="memory" title="查看记忆事件和用户画像">🧠 记忆</div>
+                <div class="snav-item" data-tab="logs" title="查看运行日志">📋 日志</div>
+                <div class="snav-item" data-tab="models" title="管理AI模型和密钥">🤖 模型</div>
+                <div class="snav-item" data-tab="engine" title="查看引擎状态和合并历史">⚙️ 引擎</div>
+                <div class="snav-item" data-tab="tokenstats" title="查看Token用量统计">📊 Token</div>
+                <div class="snav-item" data-tab="config" title="查看系统配置">🔧 配置</div>
+            </div>
+            <div class="settings-body">
+                <div class="stab active" id="tab_memory">
+                    <div class="scard"><h3>🧠 当前事件</h3><div id="currentEvent">无</div></div>
+                    <div class="scard"><h3>📋 事件列表</h3><div id="eventList"></div></div>
+                    <div class="scard"><h3>👤 用户画像</h3><pre id="userProfile">加载中...</pre></div>
+                </div>
+                <div class="stab" id="tab_logs"><div class="log-box" id="logContent"><p style="color:#888">暂无日志</p></div></div>
+                <div class="stab" id="tab_models">
+                    <div class="scard">
+                        <h3>🤖 当前模型: <span id="currentModelName" style="color:var(--blue)">加载中...</span></h3>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px;margin-bottom:6px;">
+                            <div style="font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:2px;">🇨🇳 国内</div>
+                            <div style="font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:2px;">🌍 国外</div>
+                        </div>
+                        <div id="modelList" style="display:flex;flex-direction:column;gap:8px;"></div>
+                    </div>
+                    <div class="scard">
+                        <h3>🔑 模型密钥配置</h3>
+                        <div style="margin:8px 0;font-size:12px;color:var(--text2);">选择模型后填写密钥，保存后生效</div>
+                        <div id="modelKeyEditor" style="display:flex;flex-direction:column;gap:8px;"></div>
+                        <button class="dlg-btn primary" onclick="saveModelConfig()" title="保存当前模型的密钥配置" style="margin-top:10px;">💾 保存密钥</button>
+                    </div>
+                </div>
+                <div class="stab" id="tab_engine">
+                    <div style="display:flex;gap:12px;">
+                        <div class="scard" style="flex:1"><h3>🔵 主引擎</h3><p>版本: <span id="mainVer">-</span></p><p>状态: <span id="mainStatus">-</span></p></div>
+                        <div class="scard" style="flex:1"><h3>🔴 工作引擎</h3><p>版本: <span id="workVer">-</span></p><p>状态: <span id="workStatus">-</span></p></div>
+                    </div>
+                    <div class="scard">
+                        <h3>🔄 文件差异分析</h3>
+                        <div style="display:flex;gap:8px;margin-bottom:10px;">
+                            <button class="dlg-btn primary" onclick="loadEngineDiff()" title="扫描工作引擎与主引擎的文件差异">🔍 扫描差异</button>
+                            <button class="dlg-btn" onclick="doEngineMerge()" title="将勾选的文件从工作引擎合并到主引擎" id="mergeBtn" disabled>⬆️ 执行合并</button>
+                            <button class="dlg-btn" onclick="loadEngineBackups()" title="查看可用的备份列表">📦 查看备份</button>
+                        </div>
+                        <div id="engineDiff"></div>
+                    </div>
+                    <div class="scard"><h3>📝 合并历史</h3><div id="mergeHistory"></div></div>
+                </div>
+                <div class="stab" id="tab_tokenstats">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <div class="scard" style="flex:1;min-width:140px;"><h3>📊 总调用</h3><div id="tsTotalCalls" style="font-size:24px;font-weight:bold;color:var(--blue);">0</div></div>
+                        <div class="scard" style="flex:1;min-width:140px;"><h3>📝 提示Tokens</h3><div id="tsPromptTokens" style="font-size:24px;font-weight:bold;color:var(--green);">0</div></div>
+                        <div class="scard" style="flex:1;min-width:140px;"><h3>✨ 生成Tokens</h3><div id="tsGenTokens" style="font-size:24px;font-weight:bold;color:var(--orange);">0</div></div>
+                        <div class="scard" style="flex:1;min-width:140px;"><h3>⏱️ 总耗时</h3><div id="tsTotalTime" style="font-size:24px;font-weight:bold;color:var(--text2);">0ms</div></div>
+                    </div>
+                    <div class="scard">
+                        <h3>📈 按模型统计</h3>
+                        <div id="tsModelStats"></div>
+                    </div>
+                    <div class="scard">
+                        <h3>📋 最近调用 <button class="dlg-btn" onclick="loadTokenStats()" title="刷新统计" style="float:right;padding:2px 8px;font-size:11px;">🔄 刷新</button></h3>
+                        <div id="tsHistory" style="max-height:300px;overflow-y:auto;"></div>
+                    </div>
+                </div>
+                <div class="stab" id="tab_config">
+                    <div class="scard">
+                        <h3>🔐 API访问令牌</h3>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">网络共享时启用鉴权，本地访问无需令牌。在系统配置中设置"API鉴权.启用": true</div>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="authTokenInput" class="dialog-input" placeholder="输入令牌..." style="flex:1;" />
+                            <button class="dlg-btn primary" onclick="saveAuthToken()" style="white-space:nowrap;">💾 保存</button>
+                            <button class="dlg-btn" onclick="clearAuthToken()" style="white-space:nowrap;">🗑️ 清除</button>
+                        </div>
+                    </div>
+                    <div id="configContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 打开文件夹弹窗 -->
+    <div class="overlay" id="openFolderOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:520px;">
+            <h3>📂 打开文件夹</h3>
+            <p style="color:#888;margin:8px 0;font-size:13px;">选择一个磁盘或输入文件夹路径：</p>
+            <div id="driveList" class="drive-list"></div>
+            <div style="margin:10px 0;">
+                <input type="text" id="openFolderPath" class="dialog-input" placeholder="例如: D:\myproject 或 C:\Users\..." style="width:100%;" />
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="dlg-btn" onclick="document.getElementById('openFolderOverlay').style.display='none'" title="取消打开文件夹">取消</button>
+                <button class="dlg-btn primary" onclick="doOpenFolder()" title="打开输入的文件夹路径">打开</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="marked.min.js?v=1"></script>
+    <script src="highlight.min.js?v=1"></script>
+    <script src="katex.min.js?v=1"></script>
+    <script src="katex-auto-render.min.js?v=1"></script>
+    <script src="xlsx.full.min.js?v=1"></script>
+    <script src="mammoth.browser.min.js?v=1"></script>
+    <script src="pdf.min.js?v=1"></script>
+    <script src="编辑器/编辑器.js?v=20260620u"></script>
+    <script src="模块/Toast通知.js?v=20260624a"></script>
+    <script src="逻辑.js?v=20260624g"></script>
+
+    <!-- 新建文件弹窗 -->
+    <div class="overlay" id="newFileOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:400px;">
+            <h3>📄 新建文件</h3>
+            <div style="margin:10px 0;">
+                <label style="color:var(--text2);font-size:12px;display:block;margin-bottom:4px;">文件类型</label>
+                <select id="newFileType" class="dialog-input" style="cursor:pointer;">
+                    <option value=".py">🐍 Python (.py)</option>
+                    <option value=".js">📜 JavaScript (.js)</option>
+                    <option value=".html">🌐 HTML (.html)</option>
+                    <option value=".css">🎨 CSS (.css)</option>
+                    <option value=".json">📋 JSON (.json)</option>
+                    <option value=".md">📝 Markdown (.md)</option>
+                    <option value=".txt">📄 Text (.txt)</option>
+                    <option value=".bat">⚙️ Batch (.bat)</option>
+                    <option value=".cs">🔵 C# (.cs)</option>
+                    <option value=".ts">🔷 TypeScript (.ts)</option>
+                    <option value="">📄 无后缀</option>
+                </select>
+            </div>
+            <div style="margin:10px 0;">
+                <label style="color:var(--text2);font-size:12px;display:block;margin-bottom:4px;">文件名（不含后缀会自动添加）</label>
+                <input type="text" id="newFileName" class="dialog-input" placeholder="例如: main" onkeydown="if(event.key==='Enter')doNewFile()" />
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                <button class="dlg-btn" onclick="closeNewFile()" title="取消新建文件">取消</button>
+                <button class="dlg-btn primary" onclick="doNewFile()" title="创建新文件">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 路径授权弹窗 -->
+    <div class="overlay" id="permissionOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:480px;">
+            <h3>🔐 路径授权请求</h3>
+            <p style="color:var(--text2);font-size:13px;margin:8px 0;">AI需要以下路径的操作权限：</p>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;margin:8px 0;">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">路径：</div>
+                <div id="permPath" style="font-size:13px;font-family:monospace;word-break:break-all;color:var(--text);"></div>
+                <div style="font-size:12px;color:var(--text2);margin:8px 0 4px;">操作：</div>
+                <div id="permAction" style="font-size:13px;color:var(--blue);"></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+                <button class="dlg-btn" id="permOnceBtn" onclick="respondPermission('允许一次')" title="仅授权本次操作，下次还会弹窗" style="flex:1;">⏱️ 授权一次</button>
+                <button class="dlg-btn primary" id="permForeverBtn" onclick="respondPermission('永久授权文件夹')" title="永久授权此文件所在文件夹，后续同文件夹下的文件不再弹窗" style="flex:1;">♾️ 永久授权</button>
+                <button class="dlg-btn" id="permCancelBtn" onclick="respondPermission('拒绝')" title="拒绝授权，AI将无法操作此路径" style="flex:1;">❌ 不授权</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

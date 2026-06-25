@@ -1,0 +1,81 @@
+# ============================================
+# ZF3D Agent v2 - .gitignore
+# ============================================
+
+# === Python 缓存 ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# === IDE / 工具缓存 ===
+.codely/
+.codely-cli/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === 日志文件 ===
+*.log
+run.log
+server.log
+server_run.log
+server_err.log
+stderr.log
+stdout.log
+
+# === 数据库文件 ===
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# === 隐私区 - 实际数据（保留目录结构，排除数据）===
+# 密钥 - 绝对不可提交
+隐私区/我的配置/密钥.json
+# 询问记录 - 个人权限记录
+隐私区/我的配置/询问记录.json
+# 对话记录 - 全部历史对话
+隐私区/对话记录/*.json
+隐私区/对话记录/**/*.json
+# 浏览器会话 - Cookie/缓存/历史
+隐私区/浏览器会话/**
+!隐私区/浏览器会话/.gitkeep
+# 记忆库 - 个人记忆数据
+隐私区/我的记忆/记忆库.json
+隐私区/我的记忆/用户画像.json
+隐私区/我的记忆/摘要索引.json
+隐私区/我的记忆/_索引.json
+隐私区/我的记忆/MEMORY.md
+隐私区/我的记忆/条目/**
+!隐私区/我的记忆/条目/.gitkeep
+# 日志 - 运行日志含LLM原始数据
+隐私区/我的日志/**
+!隐私区/我的日志/.gitkeep
+# 数据 - 个人数据库
+隐私区/我的数据/**
+!隐私区/我的数据/.gitkeep
+
+# === 公共区内嵌隐私区（架构缺陷，运行时产物）===
+公共区/内核/隐私区/
+公共区/隐私区/
+
+# === 发布产物 ===
+*.zip
+智能体_v2_发布_*.zip
+
+# === 临时文件 ===
+_test_*
+_test_py.txt
+_test_write.json
+_test_deploy.bat
+
+# === 系统文件 ===
+Thumbs.db
+.DS_Store
+desktop.ini

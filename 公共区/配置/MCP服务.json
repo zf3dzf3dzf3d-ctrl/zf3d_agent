@@ -1,0 +1,32 @@
+{
+  "说明": "MCP Server 配置 — 在此添加 MCP 服务，自动发现工具并注册为操作",
+  "启用": true,
+  "服务列表": [
+    {
+      "名称": "filesystem",
+      "传输方式": "stdio",
+      "命令": ["npx", "@modelcontextprotocol/server-filesystem"],
+      "参数": ["D:/允许访问的目录"],
+      "环境变量": {},
+      "启用": false,
+      "说明": "文件系统MCP服务（示例，需安装npx和对应npm包）"
+    },
+    {
+      "名称": "github",
+      "传输方式": "stdio",
+      "命令": ["npx", "@modelcontextprotocol/server-github"],
+      "环境变量": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxx"
+      },
+      "启用": false,
+      "说明": "GitHub MCP服务（需配置Token）"
+    },
+    {
+      "名称": "sqlite",
+      "传输方式": "stdio",
+      "命令": ["uvx", "mcp-server-sqlite", "--db-path", "D:/data/test.db"],
+      "启用": false,
+      "说明": "SQLite数据库MCP服务（需安装uvx）"
+    }
+  ]
+}

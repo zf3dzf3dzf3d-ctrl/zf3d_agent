@@ -1,0 +1,38 @@
+{
+  "说明": "密钥配置文件 - 请填入你自己的API密钥，此文件绝不进入发布包",
+  "密钥列表": {
+    "LLM_API_KEY": "在此填入你的API Key",
+    "LLM_MODEL": "deepseek-chat"
+  },
+  "多模型配置": {
+    "DeepSeek": {
+      "API_KEY": "",
+      "模型": "deepseek-chat"
+    },
+    "豆包": {
+      "API_KEY": "",
+      "模型": "doubao-pro-32k"
+    },
+    "智谱": {
+      "API_KEY": "",
+      "模型": "glm-4"
+    },
+    "Kimi": {
+      "API_KEY": "",
+      "模型": "moonshot-v1-8k"
+    },
+    "Claude": {
+      "API_KEY": "",
+      "模型": "claude-3-sonnet"
+    },
+    "Gemini": {
+      "API_KEY": "",
+      "模型": "gemini-pro"
+    }
+  },
+  "读取规则": {
+    "仅限模型直连器读取": true,
+    "界面显示时掩码": true,
+    "日志中掩码": true
+  }
+}
