@@ -19,7 +19,7 @@
   "操作统计": {"启用": true, "保存周期天": 7},
   "自检间隔秒": 300,
   "ComfyUI地址": "127.0.0.1:8000",
-  "ComfyUI安装路径": "C:/Users/Administrator/Documents/ComfyUI",
+  "ComfyUI安装路径": "",
   "ComfyUI工作流目录": "",
   "数据库路径": "./隐私区/我的数据/智能体.db",
   "API鉴权": {"启用": false, "令牌": ""}
