@@ -1,6 +1,6 @@
 # ZF3D Agent v2
 
-> 全JSON配置驱动的AI智能体框架 — 纯Python标准库，零依赖，复制即用
+> 全能桌面AI助手 — 管理文件、浏览网页、编辑文档、AI生图/视频、自动化任务，90+内置操作，ReAct推理引擎，语义记忆，纯Python零依赖
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
