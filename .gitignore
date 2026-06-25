@@ -77,6 +77,14 @@ _test_*
 _test_py.txt
 _test_write.json
 _test_deploy.bat
+_*.py
+测试key.py
+快速测试.py
+测试启动系统.py
+调试web.py
+调试服务.py
+start_server.bat
+server_deploy.ps1
 
 # === 系统文件 ===
 Thumbs.db
