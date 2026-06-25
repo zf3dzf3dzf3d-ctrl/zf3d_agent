@@ -1,0 +1,289 @@
+{
+  "当前模型": "DeepSeek(深度求索)",
+  "模型配置列表": [
+    {
+      "名称": "DeepSeek(深度求索)",
+      "接口地址": "https://api.deepseek.com/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "LLM_API_KEY",
+        "模型名称": "LLM_MODEL"
+      }
+    },
+    {
+      "名称": "通义千问(阿里云)",
+      "接口地址": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "DASHSCOPE_API_KEY",
+        "模型名称": "DASHSCOPE_MODEL"
+      }
+    },
+    {
+      "名称": "智谱大模型(GLM)",
+      "接口地址": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "ZHIPU_API_KEY",
+        "模型名称": "ZHIPU_MODEL"
+      }
+    },
+    {
+      "名称": "Kimi(月之暗面)",
+      "接口地址": "https://api.moonshot.cn/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "KIMI_API_KEY",
+        "模型名称": "KIMI_MODEL"
+      }
+    },
+    {
+      "名称": "豆包(火山大模型)",
+      "接口地址": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "ARK_API_KEY",
+        "模型名称": "ARK_MODEL"
+      }
+    },
+    {
+      "名称": "OpenAI(ChatGPT)",
+      "接口地址": "https://api.openai.com/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "OPENAI_API_KEY",
+        "模型名称": "OPENAI_MODEL"
+      }
+    },
+    {
+      "名称": "Claude(Anthropic)",
+      "接口地址": "https://api.anthropic.com/v1/messages",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "x-api-key": "${API密钥}",
+        "anthropic-version": "2023-06-01"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "max_tokens": 4096
+      },
+      "响应路径": "$.content[0].text",
+      "环境变量": {
+        "API密钥": "ANTHROPIC_API_KEY",
+        "模型名称": "ANTHROPIC_MODEL"
+      }
+    },
+    {
+      "名称": "Gemini(Google)",
+      "接口地址": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "GEMINI_API_KEY",
+        "模型名称": "GEMINI_MODEL"
+      }
+    },
+    {
+      "名称": "自定义模型",
+      "接口地址": "",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 4096
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "CUSTOM_API_KEY",
+        "模型名称": "CUSTOM_MODEL"
+      }
+    }
+  ],
+  "请求方法": "POST",
+  "请求头": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer ${API密钥}"
+  },
+  "请求模板": {
+    "model": "${模型名称}",
+    "messages": "${消息列表}",
+    "temperature": 0.7,
+    "max_tokens": 4096
+  },
+  "响应路径": "$.choices[0].message.content",
+  "重试": {
+    "最大次数": 3,
+    "基础延迟秒": 1,
+    "最大延迟秒": 30
+  },
+  "缓存": {
+    "启用": true,
+    "最大条目": 200,
+    "TTL秒": 300
+  },
+  "规则": {
+    "系统提示词": "你是朱峰社区智能体(ZF3D Agent)，一个功能强大的AI助手。你可以通过执行操作来帮助用户完成任务。\n\n## 核心原则\n1. **先判断意图**：用户是在闲聊/提问，还是要求执行任务？闲聊和提问直接文字回复，不要调用任何工具。\n2. **任务完成即停**：任务完成后立即输出文字总结并停止，不要继续调用工具。不要画蛇添足做额外操作。\n3. **不主动启动程序**：不要主动帮用户启动ComfyUI或其他程序，除非用户明确要求。\n4. **精简执行**：能用一步完成的任务不要拆成多步。不需要先列出工作流再列出模型再生图，直接生图即可。\n5. **批量生成**：用户要求生成N张图时，连续调用N次生图操作（每次不同种子），全部完成后输出总结。不要在每次生成之间停下来问用户。",
+    "消息格式": "openai",
+    "最大历史数": 50,
+    "超时秒数": 120,
+    "最大推理步数": 25,
+    "工作模式": "商量",
+    "记忆注入模板": "【用户画像】\n${用户画像}\n\n【相关记忆】\n${相关事件摘要}\n\n【当前对话】\n${当前事件原始}\n\n【近期摘要】\n${近期事件摘要}"
+  },
+  "function_calling": {
+    "启用": true,
+    "tool_choice": "auto"
+  },
+  "环境变量": {
+    "API密钥": "LLM_API_KEY",
+    "模型名称": "LLM_MODEL"
+  },
+  "密钥文件路径": "./隐私区/我的配置/密钥.json",
+  "自我进化": {
+    "启用": false,
+    "工作引擎路径": "./隐私区/我的工作引擎/",
+    "进化触发": "用户指令",
+    "定时间隔分钟": 60,
+    "允许修改范围": [
+      "公共区/模块/*/主程序.py",
+      "公共区/配置/*.json"
+    ],
+    "禁止修改范围": [
+      "公共区/内核/启动器.py",
+      "公共区/配置/文件权限.json"
+    ],
+    "单次最大修改文件数": 5,
+    "自我检测项": [
+      "语法检查",
+      "导入检查",
+      "配置完整性",
+      "功能回归"
+    ],
+    "检测失败回滚": true,
+    "最大连续失败次数": 3,
+    "暂停后需人工恢复": true
+  },
+  "决策模板": {
+    "摘要请求": {
+      "系统提示词": "你是一个摘要专家。根据以下对话，生成摘要JSON。",
+      "输出格式": "json",
+      "输出模式": {
+        "核心内容": "...",
+        "关键决策": [],
+        "用户意图": "...",
+        "待办事项": [],
+        "关联事件": []
+      }
+    },
+    "冗余判断": {
+      "系统提示词": "你是一个冗余检测专家。分析以下对话，标记冗余消息的索引。",
+      "输出格式": "json",
+      "输出模式": {
+        "冗余消息索引": [],
+        "冗余原因": "..."
+      }
+    },
+    "异常处理": {
+      "系统提示词": "系统发生异常。分析原因并给出处理方案。",
+      "输出格式": "json",
+      "输出模式": {
+        "原因分析": "...",
+        "处理方案": "...",
+        "是否需要人工介入": false
+      }
+    },
+    "自我优化": {
+      "系统提示词": "你是代码优化专家。分析以下代码，提出优化方案。",
+      "输出格式": "json",
+      "输出模式": {
+        "优化目标": "...",
+        "修改文件": "...",
+        "修改内容": "...",
+        "预期效果": "..."
+      }
+    }
+  }
+}
