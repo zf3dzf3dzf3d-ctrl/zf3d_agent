@@ -269,7 +269,7 @@ pre:hover .code-copy-btn { opacity:1; }
 .thinking-indicator .ti-phrase { color:var(--text2); flex-shrink:0; }
 .thinking-indicator .ti-num { color:#00E5FF; font-weight:bold; flex-shrink:0; min-width:28px; text-align:right; }
 .thinking-indicator .ti-track { flex:1; min-width:20px; max-width:120px; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; flex-shrink:1; }
-.thinking-indicator .ti-track-fill { display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--blue), #00E5FF); border-radius:2px; transition:width 0.1s linear; }
+.thinking-indicator .ti-track-fill { display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--blue), #00E5FF); border-radius:2px; transition:width 0.3s ease; }
 @keyframes ti-flicker { 0%{opacity:0.6;} 100%{opacity:1;} }
 
 /* 框选提示 */
@@ -294,10 +294,12 @@ pre:hover .code-copy-btn { opacity:1; }
 .send-btn { background:var(--blue); color:white; border:none; border-radius:8px; min-width:44px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 0.15s; }
 .send-btn:hover { background:#1976D2; }
 .send-btn:active { background:#1565C0; }
-.send-btn.stop { background:#D32F2F; animation:stop-pulse 1.5s infinite; }
-.send-btn.stop:hover { background:#C62828; }
-.send-btn.stop:active { background:#B71C1C; }
-@keyframes stop-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(211,47,47,0.4);} 50%{box-shadow:0 0 0 6px rgba(211,47,47,0);} }
+.send-btn.stop { background:var(--blue); }
+.send-btn.stop:hover { background:#1976D2; }
+.send-btn.stop:active { background:#1565C0; }
+/* 停止按钮内的SVG图标旋转动画 */
+.send-btn.stop svg { animation:btn-spin 1s linear infinite; }
+@keyframes btn-spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 
 /* === 麦克风按钮 === */
 .mic-btn { background:var(--input); color:var(--text2); border:1px solid var(--border); border-radius:8px; min-width:40px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.2s; }
@@ -486,3 +488,61 @@ pre:hover .code-copy-btn { opacity:1; }
 .file-selection-hint .fs-clear { float:right; cursor:pointer; color:#888; font-size:13px; }
 .file-selection-hint .fs-clear:hover { color:#fff; }
 .file-selection-hint .fs-list { margin-top:4px; max-height:80px; overflow-y:auto; font-size:10px; color:var(--text); line-height:1.6; }
+
+/* === 顶部栏分隔符 === */
+.topbar-sep { width:1px; height:20px; background:var(--border); margin:0 4px; display:inline-block; vertical-align:middle; }
+
+/* === 股票模式面板 === */
+.stock-panel { display:flex; flex-direction:row; overflow:hidden; }
+.stock-sidebar { width:48px; background:var(--bg4); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+.stock-sidebar-tabs { display:flex; flex-direction:column; }
+.stock-tab { background:none; border:none; color:var(--text2); cursor:pointer; padding:8px 4px; font-size:11px; text-align:center; border-left:2px solid transparent; transition:all 0.15s; line-height:1.4; }
+.stock-tab:hover { background:var(--hover); color:var(--text); }
+.stock-tab.active { border-left-color:var(--blue); color:var(--blue); background:rgba(0,122,204,0.08); }
+.stock-code-input { padding:4px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:4px; }
+.stock-code-input input { width:100%; background:var(--input); border:1px solid var(--border); color:var(--text); font-size:11px; padding:3px 4px; border-radius:3px; }
+.stock-code-input input:focus { border-color:var(--blue); outline:none; }
+.stock-code-input button { background:var(--bg3); border:1px solid var(--border); color:var(--text2); cursor:pointer; font-size:12px; padding:2px; border-radius:3px; }
+.stock-code-input button:hover { background:var(--hover); color:var(--text); }
+.stock-sidebar-list { flex:1; overflow-y:auto; font-size:11px; }
+.stock-sidebar-list .ss-item { padding:3px 6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid rgba(60,60,60,0.3); }
+.stock-sidebar-list .ss-item:hover { background:var(--hover); }
+.stock-sidebar-list .ss-item .ss-code { color:var(--text2); margin-right:4px; }
+.stock-sidebar-list .ss-item .ss-pct { float:right; font-weight:bold; }
+
+/* 股票主视图区 */
+.stock-main { flex:1; overflow:hidden; background:var(--bg4); position:relative; }
+.stock-view { position:absolute; inset:0; overflow-y:auto; }
+
+/* 盘面列表表格 */
+.sp-table { width:100%; border-collapse:collapse; font-size:12px; font-family:Consolas,monospace; }
+.sp-table th { position:sticky; top:0; background:var(--bg3); color:var(--text2); padding:4px 6px; text-align:right; font-weight:normal; border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+.sp-table th:first-child, .sp-table td:first-child { text-align:left; }
+.sp-table td { padding:3px 6px; text-align:right; white-space:nowrap; border-bottom:1px solid rgba(60,60,60,0.2); }
+.sp-table tr:hover td { background:var(--hover); }
+.sp-table .sp-code { color:var(--text2); }
+.sp-table .sp-name { color:var(--text); }
+.sp-up { color:#f14c4c; }
+.sp-down { color:#4EC9B0; }
+.sp-flat { color:var(--text2); }
+.sp-section-header { background:rgba(0,122,204,0.08); font-weight:bold; color:var(--blue); }
+.sp-loading { text-align:center; padding:40px; color:var(--text2); }
+.sp-refresh-bar { position:sticky; top:0; background:var(--bg3); padding:3px 8px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text2); border-bottom:1px solid var(--border); z-index:2; }
+.sp-refresh-bar .sp-last-update { color:var(--text2); }
+.sp-refresh-bar .sp-idx-row { display:flex; gap:12px; }
+.sp-refresh-bar .sp-idx { cursor:pointer; }
+.sp-refresh-bar .sp-idx:hover { text-decoration:underline; }
+
+/* K线图区域 */
+.stock-kline-container { padding:8px; height:100%; display:flex; flex-direction:column; }
+.stock-kline-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.stock-kline-header .sk-name { font-size:16px; font-weight:bold; color:var(--text); }
+.stock-kline-header .sk-info { font-size:12px; color:var(--text2); display:flex; gap:12px; }
+.stock-kline-canvas { flex:1; background:#0a0a0a; border:1px solid var(--border); border-radius:4px; position:relative; overflow:hidden; }
+
+/* 分时图区域 */
+.stock-minute-container { padding:8px; height:100%; display:flex; flex-direction:column; }
+.stock-minute-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.stock-minute-header .sm-name { font-size:16px; font-weight:bold; color:var(--text); }
+.stock-minute-header .sm-price { font-size:20px; font-weight:bold; }
+.stock-minute-canvas { flex:1; background:#0a0a0a; border:1px solid var(--border); border-radius:4px; position:relative; overflow:hidden; }

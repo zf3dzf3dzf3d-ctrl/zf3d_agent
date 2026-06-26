@@ -184,7 +184,11 @@ class 对话模块:
 
         # 2. 闲聊直接回复（不进ReAct循环，省token+加速）
         if 意图["类型"] == "闲聊" and not self.当前计划:
-            return self._直接回复(用户消息)
+            闲聊结果 = self._直接回复(用户消息)
+            if 闲聊结果 is not None:
+                return 闲聊结果
+            # _直接回复返回None=AI输出了操作调用，回退到ReAct
+            意图 = {"类型": "单步任务", "批量数": 0, "操作类型": None, "闲聊置信度": 0.0}
 
         # 3. 框选快捷路径
         if 意图["类型"] == "框选编辑":
@@ -239,11 +243,43 @@ class 对话模块:
             结果 = self.模型直连器.发送消息(消息列表, 系统提示词)
         if 结果.get("成功"):
             回复 = 结果["回复内容"]
+            # 检测AI是否在闲聊模式下输出了JSON操作调用（说明需要工具）
+            if self._包含操作调用(回复):
+                return None  # 返回None触发回退到ReAct
             self.对话历史.append({"角色": "助手", "内容": 回复,
                                    "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
             return {"成功": True, "回复": 回复, "推理过程": [],
                     "完整推理过程": [], "llm调用记录": [], "步数": 0}
         return {"成功": False, "错误": self.反思评估器.友好化错误(结果.get('错误', ''))}
+
+    def _包含操作调用(self, 文本: str) -> bool:
+        """检测文本是否包含JSON格式的操作调用"""
+        if '"操作"' not in 文本 and '"action"' not in 文本.lower():
+            return False
+        # 检查是否包含JSON代码块或内联JSON
+        import re
+        # ```json ... ``` 代码块
+        匹配 = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', 文本, re.DOTALL)
+        if 匹配:
+            import json
+            try:
+                数据 = json.loads(匹配.group(1).strip())
+                if isinstance(数据, dict) and "操作" in 数据:
+                    return True
+            except (json.JSONDecodeError, TypeError):
+                pass
+        # 内联JSON { ... }
+        start = 文本.find('{')
+        if start != -1:
+            end = 文本.rfind('}')
+            if end > start:
+                try:
+                    数据 = json.loads(文本[start:end + 1])
+                    if isinstance(数据, dict) and "操作" in 数据:
+                        return True
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        return False
 
     def _执行规划模式(self, 用户消息: str) -> dict:
         """规划模式：生成结构化计划"""

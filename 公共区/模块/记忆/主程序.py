@@ -5,6 +5,7 @@
 import json
 import re
 import os
+import threading
 from pathlib import Path
 from datetime import datetime
 
@@ -23,6 +24,7 @@ class 记忆模块:
         self.摘要索引 = {}
         self.事件计数 = 0
         self.摘要计数 = 0
+        self._摘要锁 = threading.Lock()  # 摘要生成线程安全锁
 
     def 初始化(self, 配置: dict):
         """初始化记忆模块"""
@@ -81,7 +83,8 @@ class 记忆模块:
         elif 操作 == "获取当前事件":
             return self._获取当前事件()
         elif 操作 == "获取记忆注入":
-            return self._获取记忆注入(输入数据.get("当前消息", ""), 输入数据.get("新对话", False))
+            return self._获取记忆注入(输入数据.get("当前消息", ""), 输入数据.get("新对话", False),
+                                      轻量=输入数据.get("轻量", False))
         elif 操作 == "归档当前事件":
             return self._归档当前事件()
         elif 操作 == "更新用户画像":
@@ -166,6 +169,15 @@ tags: [{', '.join(标签)}]
             self._保存索引数据()
             self._更新MEMORY索引()
 
+            # 同步插入向量索引（用于语义搜索）
+            try:
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                向量文本 = f"{name} {description} {content[:500]}"
+                引擎.插入记忆向量(name, 向量文本)
+            except Exception:
+                pass  # 向量索引失败不影响记忆保存
+
             return {"成功": True, "数据": f"已记住: {name}"}
         except Exception as e:
             return {"成功": False, "错误": f"保存记忆失败: {e}"}
@@ -209,6 +221,14 @@ tags: [{', '.join(标签)}]
 
         # 从条目索引移除
         del self.索引数据["条目"][name]
+
+        # 同步删除向量索引
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            引擎.删除记忆向量(name)
+        except Exception:
+            pass
 
         self._保存索引数据()
         self._更新MEMORY索引()
@@ -279,40 +299,29 @@ tags: [{', '.join(标签)}]
         相关.sort(key=lambda x: x["分数"], reverse=True)
         结果 = 相关[:最大数]
 
-        # 4. LLM语义匹配：当关键词结果不足3条且消息长度>5字时
-        if len(结果) < 3 and len(当前消息) > 5 and self.模型直连器:
+        # 4. 向量语义搜索：当关键词结果不足2条时，用TF-IDF向量搜索补充
+        if len(结果) < 2 and len(当前消息) > 5 and len(条目) > 2:
             try:
-                已有关键词名 = {r["name"] for r in 结果}
-                未匹配 = [(name, info) for name, info in 条目.items() if name not in 已有关键词名]
-                if 未匹配:
-                    候选描述 = "\n".join(
-                        f"- {name}: {info.get('描述','')[:100]}"
-                        for name, info in 未匹配[:20]
-                    )
-                    # 只保留前20条候选以防prompt过长
-                    语义提示 = f"用户当前问题/消息：{当前消息[:200]}\n\n请判断以下记忆中有哪些与此问题相关（返回相关项的名称，用逗号分隔，如果都不相关返回「无」）：\n{候选描述}"
-                    语义结果 = self.模型直连器.发送消息(
-                        [{"role": "user", "content": 语义提示}],
-                        "你是一个记忆匹配专家。只输出匹配项名称，用逗号分隔。"
-                    )
-                    if 语义结果.get("成功"):
-                        语义回复 = 语义结果.get("回复内容", "")
-                        匹配名称 = [名.strip() for 名 in 语义回复.replace("，", ",").split(",") if 名.strip() and 名.strip() != "无" and len(名.strip()) > 1]
-                        for name in 匹配名称:
-                            if name in 条目 and name not in 已有关键词名:
-                                结果.append({
-                                    "name": name,
-                                    "描述": 条目[name].get("描述", ""),
-                                    "类型": 条目[name].get("类型", ""),
-                                    "分数": 1,
-                                    "标签": 条目[name].get("标签", []),
-                                    "来源": "语义匹配"
-                                })
-                                已有关键词名.add(name)
-                                if len(结果) >= 最大数:
-                                    break
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                向量结果 = 引擎.搜索记忆向量(当前消息, 最大数)
+                已有名称 = {r["name"] for r in 结果}
+                for item in 向量结果:
+                    name = item["名称"]
+                    if name in 条目 and name not in 已有名称:
+                        结果.append({
+                            "name": name,
+                            "描述": 条目[name].get("描述", ""),
+                            "类型": 条目[name].get("类型", ""),
+                            "分数": round(item["相似度"] * 10, 1),
+                            "标签": 条目[name].get("标签", []),
+                            "来源": "向量搜索"
+                        })
+                        已有名称.add(name)
+                        if len(结果) >= 最大数:
+                            break
             except Exception as e:
-                print(f"  ⚠️ 语义记忆召回失败: {e}")
+                print(f"  ⚠️ 向量记忆搜索失败: {e}")
 
         return 结果[:最大数]
 
@@ -409,7 +418,12 @@ tags: [{', '.join(标签)}]
         return {"成功": True, "事件编号": 当前事件编号}
 
     def _生成摘要(self, 数据: dict):
-        """生成事件摘要"""
+        """生成事件摘要（异步执行，不阻塞对话）"""
+        线程 = threading.Thread(target=self._生成摘要_同步, args=(数据,), daemon=True)
+        线程.start()
+
+    def _生成摘要_同步(self, 数据: dict):
+        """生成事件摘要（实际执行，后台线程调用）"""
         事件编号 = 数据.get("事件编号", "")
         if not 事件编号:
             return
@@ -446,23 +460,24 @@ tags: [{', '.join(标签)}]
                 else:
                     摘要数据 = {"核心内容": 回复[:200]}
 
-                # 更新事件摘要
-                事件["摘要"] = 摘要数据
-                事件["标签"] = 摘要数据.get("关键词", [])
+                # 写入结果时加锁
+                with self._摘要锁:
+                    事件["摘要"] = 摘要数据
+                    事件["标签"] = 摘要数据.get("关键词", [])
 
-                # 更新摘要索引
-                self.摘要计数 += 1
-                self.摘要索引.setdefault("索引", []).append({
-                    "编号": f"摘要_{self.摘要计数:03d}",
-                    "事件编号": 事件编号,
-                    "标题": 事件.get("事件标题", ""),
-                    "核心内容": 摘要数据.get("核心内容", ""),
-                    "关键词": 摘要数据.get("关键词", []),
-                    "时间": datetime.now().isoformat()
-                })
+                    # 更新摘要索引
+                    self.摘要计数 += 1
+                    self.摘要索引.setdefault("索引", []).append({
+                        "编号": f"摘要_{self.摘要计数:03d}",
+                        "事件编号": 事件编号,
+                        "标题": 事件.get("事件标题", ""),
+                        "核心内容": 摘要数据.get("核心内容", ""),
+                        "关键词": 摘要数据.get("关键词", []),
+                        "时间": datetime.now().isoformat()
+                    })
 
-                self._保存记忆库()
-                self._保存摘要索引()
+                    self._保存记忆库()
+                    self._保存摘要索引()
 
                 # 自动保存为独立记忆文件
                 if 摘要数据.get("核心内容"):
@@ -554,15 +569,16 @@ tags: [{', '.join(标签)}]
         事件 = self.记忆库["事件列表"].get(当前事件编号, {})
         return {"成功": True, "事件编号": 当前事件编号, "事件": 事件}
 
-    def _获取记忆注入(self, 当前消息: str = "", 新对话: bool = False) -> dict:
+    def _获取记忆注入(self, 当前消息: str = "", 新对话: bool = False, 轻量: bool = False) -> dict:
         """按优先级获取记忆注入内容（v2：增加自动召回）
-        新对话=True时只保留用户画像，跳过旧事件摘要和召回，确保新对话干净"""
+        新对话=True时只保留用户画像，跳过旧事件摘要和召回，确保新对话干净
+        轻量=True时跳过自动召回记忆（避免LLM调用），只返回用户画像+近期摘要"""
         注入 = {
             "用户画像": self.用户画像 if self.用户画像 else None,
             "相关事件摘要": [] if 新对话 else self._查找相关事件(当前消息),
             "当前事件原始": None,
             "近期事件摘要": [] if 新对话 else self._获取近期摘要(5),
-            "自动召回记忆": [] if 新对话 else self._自动召回记忆(当前消息, 最大数=5)
+            "自动召回记忆": [] if (新对话 or 轻量) else self._自动召回记忆(当前消息, 最大数=5)
         }
 
         # 获取当前事件原始对话

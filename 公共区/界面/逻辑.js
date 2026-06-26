@@ -41,7 +41,7 @@ let galleryItemsCache = [];
 let logList = [];
 let isChatting = false;
 let chatAbortController = null;   // 对话中断控制器
-let thinkingAnimTimer = null;     // 思考动画定时器
+let thinkingAnimTimer = null;     // 思考状态定时器
 let editorSelection = null; // {text, start, end}
 let selectedItems = new Map();  // 选中项: path -> {名称, 类型, 路径}
 let diffMarkers = [];       // [{start, end, type:"add"|"del", text, timer}]
@@ -119,15 +119,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initToast();
     initGallerySelection();
     loadSystemStatus();
-    // 加载对话列表后自动新建对话（每个新窗口/标签页都是全新对话）
-    loadConvList().then((d) => {
-        const list = d?.对话列表 || [];
-        if (list.length > 0) {
-            switchConv(list[0].id);
-        } else {
-            newConversation();
-        }
-    });
+    // 每次打开页面都自动新建对话，不恢复上次对话
+    loadConvList();
+    newConversation();
     pollPending();
     const savedRoot = localStorage.getItem("lastFolder");
     const initPath = savedRoot || "./";
@@ -192,7 +186,7 @@ function initDividers() {
             const 关闭阈值 = 60;
             const onMove = (e) => {
                 const dx = e.clientX - startX;
-                if (leftId === "editorPanel") {
+                if (leftId === "editorPanel" || leftId === "stockPanel") {
                     const newW = Math.max(关闭阈值, startRW - dx);
                     rightP.style.width = newW + "px";
                     rightP.classList.toggle("panel-narrow", newW < 隐藏阈值);
@@ -461,12 +455,11 @@ function setThinkingState(thinking) {
     const input = document.getElementById("userInput");
     const btn = document.getElementById("sendBtn");
     const indicator = document.getElementById("thinkingIndicator");
-    const tiText = document.getElementById("thinkingText");
     if (thinking) {
         input.disabled = true;
         input.placeholder = "AI思考中...";
         btn.disabled = false;
-        btn.textContent = "⏹";
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>';
         btn.title = "停止生成";
         btn.classList.add("stop");
         if (indicator) indicator.classList.add("show");
@@ -475,7 +468,7 @@ function setThinkingState(thinking) {
         input.disabled = false;
         input.placeholder = "输入消息... (Enter发送, Shift+Enter换行)";
         btn.disabled = false;
-        btn.textContent = "➤";
+        btn.innerHTML = '➤';
         btn.title = "发送";
         btn.classList.remove("stop");
         if (indicator) indicator.classList.remove("show");
@@ -487,54 +480,38 @@ function setThinkingState(thinking) {
     }
 }
 
-const _thinkingData = [
-    { cat: "理解", phrases: ["分析语义", "提取意图", "解析指令", "识别实体", "拆解需求"] },
-    { cat: "检索", phrases: ["搜索记忆", "匹配上下文", "召回片段", "查找关联", "加载索引"] },
-    { cat: "推理", phrases: ["推理链路", "逻辑演绎", "因果推断", "假设验证", "回溯分析"] },
-    { cat: "生成", phrases: ["构建方案", "组织语言", "编排结构", "润色表达", "收敛结论"] },
-];
-let _thinkCounter = 0;
-let _thinkCatIdx = 0;
-let _thinkPhraseIdx = 0;
-let _thinkTrackW = 0;
+// 思考状态：基于真实推理流事件驱动，不再使用随机动画
+let _thinkTimer = null;
+let _thinkStartTime = 0;
 
 function startThinkingAnim() {
-    _thinkCounter = 0;
-    _thinkCatIdx = 0;
-    _thinkPhraseIdx = 0;
-    _thinkTrackW = 0;
+    _thinkStartTime = Date.now();
     stopThinkingAnim();
-    _renderThinking();
-    thinkingAnimTimer = setInterval(() => {
-        _thinkCounter += Math.floor(Math.random() * 60) + 40;
-        _thinkTrackW = Math.min(_thinkTrackW + Math.random() * 12 + 5, 100);
-        if (_thinkTrackW >= 100) _thinkTrackW = 0;
-        if (_thinkCounter >= 500) {
-            _thinkCounter = 0;
-            _thinkPhraseIdx++;
-            if (_thinkPhraseIdx >= _thinkingData[_thinkCatIdx].phrases.length) {
-                _thinkPhraseIdx = 0;
-                _thinkCatIdx = (_thinkCatIdx + 1) % _thinkingData.length;
-            }
-        }
-        _renderThinking();
-    }, 100);
+    _updateThinkingDisplay("等待", "连接AI中...", 0);
+    // 轻量计时器：只显示已等待时间，不伪造进度
+    _thinkTimer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - _thinkStartTime) / 1000);
+        const elNum = document.getElementById("thinkingNum");
+        if (elNum) elNum.textContent = elapsed + "s";
+        // 进度条做不确定效果：0→30%缓慢爬升，永不到100%
+        const pct = Math.min(elapsed * 3, 30);
+        const elTrack = document.getElementById("thinkingTrack");
+        if (elTrack) elTrack.style.width = pct + "%";
+    }, 500);
 }
 
-function _renderThinking() {
+function _updateThinkingDisplay(cat, phrase, progress) {
     const elCat = document.getElementById("thinkingCat");
     const elPhrase = document.getElementById("thinkingPhrase");
     const elNum = document.getElementById("thinkingNum");
     const elTrack = document.getElementById("thinkingTrack");
-    const d = _thinkingData[_thinkCatIdx];
-    if (elCat) elCat.textContent = d.cat;
-    if (elPhrase) elPhrase.textContent = d.phrases[_thinkPhraseIdx];
-    if (elNum) elNum.textContent = _thinkCounter.toLocaleString();
-    if (elTrack) elTrack.style.width = _thinkTrackW + "%";
+    if (elCat) elCat.textContent = cat;
+    if (elPhrase) elPhrase.textContent = phrase;
+    if (elTrack) elTrack.style.width = progress + "%";
 }
 
 function stopThinkingAnim() {
-    if (thinkingAnimTimer) { clearInterval(thinkingAnimTimer); thinkingAnimTimer = null; }
+    if (_thinkTimer) { clearInterval(_thinkTimer); _thinkTimer = null; }
 }
 
 function stopChat() {
@@ -646,6 +623,10 @@ async function sendMessage() {
                     for (const rec of data.记录) {
                         // 流式回复token → 直接追加到消息元素，不进推理面板
                         if (rec.类型 === "流式回复" && rec.内容?.内容) {
+                            // 收到首个token时更新思考状态
+                            if (!streamEl) {
+                                _updateThinkingDisplay("生成", "AI回复中...", 60);
+                            }
                             if (!streamEl) {
                                 streamEl = document.createElement("div");
                                 streamEl.className = "msg assistant";
@@ -655,9 +636,19 @@ async function sendMessage() {
                                 document.getElementById("msgList").appendChild(streamEl);
                             }
                             streamText += rec.内容.内容;
+                            // 增量渲染：仅追加新文本，不全量重渲染
                             streamBody.innerHTML = escapeHtml(streamText).replace(/\n/g, '<br>') + '<span class="stream-cursor"></span>';
                             document.getElementById("msgList").scrollTop = document.getElementById("msgList").scrollHeight;
                             continue; // 不进推理面板
+                        }
+
+                        // 根据真实事件更新思考状态显示
+                        if (rec.类型 === "操作调用" && rec.内容?.操作) {
+                            _updateThinkingDisplay("执行", rec.内容.操作, 40);
+                        } else if (rec.类型 === "操作结果" && rec.内容?.操作) {
+                            _updateThinkingDisplay("观察", "分析结果...", 50);
+                        } else if (rec.类型 === "思考") {
+                            _updateThinkingDisplay("思考", `第${rec.内容.步数}步推理`, 20);
                         }
 
                         // 其他推理记录 → 进推理面板
@@ -681,13 +672,23 @@ async function sendMessage() {
                     gotComplete = true;
                     const d = data.结果;
                     if (d.成功) {
-                        // 最终Markdown渲染
+                        // 最终Markdown渲染：平滑过渡而非突然替换
                         if (streamEl && streamText) {
+                            // 先淡出纯文本
+                            streamBody.style.transition = "opacity 0.15s ease";
+                            streamBody.style.opacity = "0.5";
+                            // 渲染完整Markdown
                             streamBody.innerHTML = renderMsg(d.回复 || streamText);
+                            // 淡入Markdown
+                            requestAnimationFrame(() => {
+                                streamBody.style.opacity = "1";
+                            });
                             document.getElementById("msgList").scrollTop = document.getElementById("msgList").scrollHeight;
                             if (voiceEnabled) speakText(d.回复);
                         } else {
-                            addMsgStream("assistant", d.回复);
+                            // 无流式token的回退：直接显示，不再用假打字机
+                            addMsg("assistant", d.回复);
+                            if (voiceEnabled) speakText(d.回复);
                         }
 
                         // 处理推理过程中的文件修改操作（从完整结果补充检测）
@@ -812,23 +813,21 @@ function appendReasoningRecord(rec) {
             div.className += " rc-action";
             const p = Object.entries(rec.内容.参数||{}).map(([k,v])=>`<span class="rc-param">${escapeHtml(k)}=<span class="rc-val">${escapeHtml(String(v).substring(0,40))}</span></span>`).join(" ");
             div.innerHTML = `<div class="rc-icon">🔧</div><div class="rc-content"><span class="rc-label rc-op-name">${escapeHtml(rec.内容.操作)}</span><div class="rc-params">${p}</div></div>`;
-            // 朗读操作时停止思考动画，显示静态提示
+            // 朗读操作时更新思考状态
             if (rec.内容.操作 === "普通话") {
-                stopThinkingAnim();
-                const tiText = document.getElementById("thinkingText");
-                if (tiText) tiText.textContent = "🔊 朗读中...";
+                _updateThinkingDisplay("朗读", "语音播报中...", 80);
             }
             break;
         case "操作结果":
             div.className += " rc-result" + (rec.内容.成功 ? " rc-success" : " rc-fail");
-            // 如果之前在等待生成，清理进度条并恢复思考动画
+            // 如果之前在等待生成，清理进度条
             if (document.getElementById("genProgressBar")) {
                 document.getElementById("genProgressBar").remove();
-                startThinkingAnim();
             }
-            // 朗读结束后恢复思考动画
-            if (document.getElementById("thinkingText")?.textContent === "🔊 朗读中...") {
-                startThinkingAnim();
+            // 朗读结束后恢复思考状态
+            const elCat = document.getElementById("thinkingCat");
+            if (elCat && elCat.textContent === "朗读") {
+                _updateThinkingDisplay("思考", "继续推理...", 50);
             }
             const resultText = escapeHtml((rec.内容.结果||"").substring(0,200));
             div.innerHTML = `<div class="rc-icon">${rec.内容.成功 ? "✅" : "❌"}</div><div class="rc-content">${resultText}</div>`;
@@ -871,9 +870,7 @@ function appendReasoningRecord(rec) {
             const isGen = rec.类型 === "生成进度";
             const label = isGen ? "ComfyUI生成中" : "ComfyUI启动中";
             const elapsed = p.已耗时秒 || 0;
-            stopThinkingAnim();
-            const tiText = document.getElementById("thinkingText");
-            if (tiText) tiText.textContent = `⏳ ${label}... ${elapsed}秒`;
+            _updateThinkingDisplay("等待", `${label}... ${elapsed}秒`, 70);
             let progBar = document.getElementById("genProgressBar");
             if (!progBar) {
                 progBar = document.createElement("div");
@@ -1126,41 +1123,6 @@ function addMsg(role, text, time) {
 }
 
 // 快速流式输出（Claude Code风格：文字快速涌入）
-function addMsgStream(role, text) {
-    const list = document.getElementById("msgList");
-    const el = document.createElement("div");
-    el.className = `msg ${role === "user" ? "user" : role === "system" ? "system" : "assistant"}`;
-    const contentEl = document.createElement("div");
-    el.appendChild(contentEl);
-    list.appendChild(el);
-
-    const total = text.length;
-    if (total === 0) { contentEl.innerHTML = ""; return; }
-    // 目标~500ms完成，按帧分块
-    const totalFrames = Math.max(1, Math.ceil(500 / (1000 / 60)));
-    const charsPerFrame = Math.max(3, Math.ceil(total / totalFrames));
-    let idx = 0;
-
-    function tick() {
-        idx = Math.min(total, idx + charsPerFrame);
-        // 流式阶段：简单渲染+光标
-        contentEl.innerHTML = escapeHtml(text.substring(0, idx)).replace(/\n/g, '<br>') + '<span class="stream-cursor"></span>';
-        list.scrollTop = list.scrollHeight;
-        if (idx >= total) {
-            // 最终：完整格式化渲染
-            contentEl.innerHTML = renderMsg(text);
-            list.scrollTop = list.scrollHeight;
-            // AI回复完成后触发语音播报
-            if (role === "assistant" && voiceEnabled) {
-                speakText(text);
-            }
-        } else {
-            requestAnimationFrame(tick);
-        }
-    }
-    requestAnimationFrame(tick);
-}
-
 function renderMsg(text) {
     if (typeof marked !== 'undefined') {
         try {
@@ -2811,8 +2773,16 @@ document.getElementById("fileTree").addEventListener("contextmenu", (e) => e.pre
 
 function goUpFolder() {
     if (!currentRoot) return;
+    // 如果已经是盘符根目录（如 C:\ D:\ E:\），往上进入"此电脑"视图
+    const 盘符匹配 = currentRoot.match(/^([A-Za-z]):[\/\\]?$/);
+    if (盘符匹配) {
+        // 切换到"此电脑"驱动器列表
+        loadDriveList();
+        return;
+    }
     const parent = currentRoot.replace(/[\/\\]+$/, "").replace(/[\/\\][^\/\\]+$/, "");
     if (parent && parent !== currentRoot) {
+        // 如果上级变成了盘符根目录（如 C:\），也允许进入
         openFolder(parent);
         showGallery(parent);
     }
@@ -2820,10 +2790,48 @@ function goUpFolder() {
 
 function goUpGallery() {
     if (!galleryPath) return;
+    // 如果已经是盘符根目录，往上进入"此电脑"视图
+    const 盘符匹配 = galleryPath.match(/^([A-Za-z]):[\/\\]?$/);
+    if (盘符匹配) {
+        loadDriveList();
+        return;
+    }
     const parent = galleryPath.replace(/[\/\\]+$/, "").replace(/[\/\\][^\/\\]+$/, "");
     if (parent && parent !== galleryPath) {
         openFolder(parent);
         showGallery(parent);
+    }
+}
+
+// 加载驱动器列表（"此电脑"视图）
+async function loadDriveList() {
+    const tree = document.getElementById("fileTree");
+    tree.innerHTML = '<div class="tree-loading">加载驱动器...</div>';
+    try {
+        const res = await fetch("/api/drives");
+        const d = await res.json();
+        if (d.成功 && d.驱动器列表) {
+            currentRoot = null;
+            tree.innerHTML = "";
+            const header = document.createElement("div");
+            header.className = "tree-folder";
+            header.style.fontWeight = "bold";
+            header.style.color = "var(--text2)";
+            header.innerHTML = '💻 此电脑';
+            tree.appendChild(header);
+            for (const drv of d.驱动器列表) {
+                const item = document.createElement("div");
+                item.className = "tree-folder";
+                item.style.paddingLeft = "12px";
+                item.innerHTML = `💽 ${escapeHtml(drv.盘符)}: <span class="tree-meta">${escapeHtml(drv.类型 || '')} ${drv.可用空间 ? '(' + drv.可用空间 + ' 可用)' : ''}</span>`;
+                item.onclick = () => openFolder(drv.盘符 + "\\");
+                tree.appendChild(item);
+            }
+        } else {
+            tree.innerHTML = '<div class="tree-empty">无法获取驱动器列表</div>';
+        }
+    } catch (e) {
+        tree.innerHTML = '<div class="tree-empty">加载失败: ' + escapeHtml(e.message) + '</div>';
     }
 }
 
@@ -3602,4 +3610,380 @@ async function respondPermission(choice) {
     } catch (e) {
         showToast("error", "❌ 授权响应失败", e.message);
     }
+}
+
+// ============ 股票模式 ============
+let stockModeActive = false;
+let stockCurrentView = 'panel';
+let stockRefreshTimer = null;
+let stockCurrentCode = '';
+
+function toggleStockMode() {
+    stockModeActive = !stockModeActive;
+    const filesPanel = document.getElementById('filesPanel');
+    const editorPanel = document.getElementById('editorPanel');
+    const stockPanel = document.getElementById('stockPanel');
+    const dividers = document.querySelectorAll('.divider');
+    const btn = document.getElementById('stockModeBtn');
+
+    if (stockModeActive) {
+        // 隐藏文件面板和编辑器面板
+        filesPanel.style.display = 'none';
+        editorPanel.style.display = 'none';
+        // 隐藏第一个分隔线（filesPanel↔editorPanel）
+        if (dividers[0]) dividers[0].style.display = 'none';
+        // 第二个分隔线改为 stockPanel↔chatPanel
+        if (dividers[1]) dividers[1].dataset.left = 'stockPanel';
+        // 显示股票面板（清理可能因拖拽折叠残留的 hidden 类）
+        stockPanel.classList.remove('hidden');
+        stockPanel.style.width = '';
+        stockPanel.style.display = 'flex';
+        stockPanel.style.flex = '1';
+        btn.style.color = 'var(--blue)';
+        btn.textContent = '📁';
+        btn.title = '切换回文件夹模式';
+        // 加载盘面数据
+        switchStockView('panel');
+    } else {
+        // 恢复文件面板和编辑器面板
+        filesPanel.style.display = 'flex';
+        editorPanel.style.display = 'flex';
+        if (dividers[0]) dividers[0].style.display = '';
+        // 第二个分隔线恢复为 editorPanel↔chatPanel
+        if (dividers[1]) dividers[1].dataset.left = 'editorPanel';
+        // 清理可能因拖拽折叠残留的 hidden 类
+        filesPanel.classList.remove('hidden');
+        editorPanel.classList.remove('hidden');
+        chatPanel.classList.remove('hidden');
+        filesPanel.style.width = '';
+        editorPanel.style.width = '';
+        stockPanel.style.display = 'none';
+        btn.style.color = '';
+        btn.textContent = '📊';
+        btn.title = '切换到股票模式';
+        // 停止刷新
+        if (stockRefreshTimer) { clearInterval(stockRefreshTimer); stockRefreshTimer = null; }
+    }
+}
+
+function switchStockView(view) {
+    stockCurrentView = view;
+    // 更新标签高亮
+    document.querySelectorAll('.stock-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.view === view);
+    });
+    // 切换视图显示
+    document.getElementById('stockViewPanel').style.display = view === 'panel' ? 'block' : 'none';
+    document.getElementById('stockViewKline').style.display = view === 'kline' ? 'block' : 'none';
+    document.getElementById('stockViewMinute').style.display = view === 'minute' ? 'block' : 'none';
+
+    // 停止之前的刷新
+    if (stockRefreshTimer) { clearInterval(stockRefreshTimer); stockRefreshTimer = null; }
+
+    if (view === 'panel') {
+        loadStockPanel();
+        // 每10秒刷新
+        stockRefreshTimer = setInterval(loadStockPanel, 10000);
+    } else if (view === 'kline' && stockCurrentCode) {
+        loadStockKline(stockCurrentCode);
+    } else if (view === 'minute' && stockCurrentCode) {
+        loadStockMinute(stockCurrentCode);
+    }
+}
+
+async function searchStock() {
+    const input = document.getElementById('stockCodeInput');
+    const code = input.value.trim();
+    if (!code) return;
+    stockCurrentCode = code;
+    // 根据当前视图加载对应数据
+    if (stockCurrentView === 'kline') {
+        loadStockKline(code);
+    } else if (stockCurrentView === 'minute') {
+        loadStockMinute(code);
+    } else {
+        // 在盘面视图下搜索，切换到K线
+        switchStockView('kline');
+    }
+}
+
+// 盘面列表
+async function loadStockPanel() {
+    const container = document.getElementById('stockViewPanel');
+    container.innerHTML = '<div class="sp-loading">⏳ 加载盘面数据...</div>';
+    try {
+        const res = await fetch('/api/stock-panel');
+        const d = await res.json();
+        if (!d.成功) {
+            container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(d.错误 || '加载失败') + '</div>';
+            return;
+        }
+        let html = '<div class="sp-refresh-bar">';
+        html += '<div class="sp-idx-row">';
+        // 指数快览
+        for (const idx of (d.指数 || [])) {
+            const cls = idx.涨跌幅 >= 0 ? 'sp-up' : 'sp-down';
+            const arrow = idx.涨跌幅 >= 0 ? '▲' : '▼';
+            html += `<span class="sp-idx" onclick="stockCurrentCode='${idx.代码}';switchStockView('kline')">${idx.名称} ${idx.最新价} <span class="${cls}">${arrow}${Math.abs(idx.涨跌幅).toFixed(2)}%</span></span>`;
+        }
+        html += '</div>';
+        html += `<span class="sp-last-update">更新: ${d.时间 || ''} (10s刷新)</span>`;
+        html += '</div>';
+
+        // 涨幅榜
+        html += '<table class="sp-table"><thead><tr>';
+        html += '<th>代码</th><th>名称</th><th>最新价</th><th>涨幅%</th><th>涨速</th><th>主力净流入</th><th>成交额</th><th>量比</th>';
+        html += '</tr></thead><tbody>';
+        for (const s of (d.涨幅榜 || [])) {
+            const cls = s.涨幅 >= 0 ? 'sp-up' : 'sp-down';
+            const code = s.代码 || '';
+            html += `<tr onclick="stockCurrentCode='${code}';switchStockView('kline')" style="cursor:pointer">`;
+            html += `<td class="sp-code">${code}</td>`;
+            html += `<td class="sp-name">${escapeHtml(s.名称 || '')}</td>`;
+            html += `<td class="${cls}">${s.最新价 || '-'}</td>`;
+            html += `<td class="${cls}">${(s.涨幅 || 0).toFixed(2)}</td>`;
+            html += `<td>${s.涨速 != null ? s.涨速.toFixed(2) : '-'}</td>`;
+            const flow = s.主力净流入;
+            const flowCls = flow >= 0 ? 'sp-up' : 'sp-down';
+            html += `<td class="${flowCls}">${flow != null ? (flow >= 0 ? '+' : '') + flow.toFixed(2) + '亿' : '-'}</td>`;
+            html += `<td>${s.成交额 || '-'}</td>`;
+            html += `<td>${s.量比 != null ? s.量比.toFixed(2) : '-'}</td>`;
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+
+        // 跌幅榜
+        if (d.跌幅榜 && d.跌幅榜.length > 0) {
+            html += '<table class="sp-table" style="margin-top:8px;"><thead><tr>';
+            html += '<th>代码</th><th>名称</th><th>最新价</th><th>跌幅%</th><th>主力净流入</th><th>成交额</th>';
+            html += '</tr></thead><tbody>';
+            for (const s of d.跌幅榜) {
+                const cls = s.涨幅 >= 0 ? 'sp-up' : 'sp-down';
+                const code = s.代码 || '';
+                html += `<tr onclick="stockCurrentCode='${code}';switchStockView('kline')" style="cursor:pointer">`;
+                html += `<td class="sp-code">${code}</td>`;
+                html += `<td class="sp-name">${escapeHtml(s.名称 || '')}</td>`;
+                html += `<td class="${cls}">${s.最新价 || '-'}</td>`;
+                html += `<td class="${cls}">${(s.涨幅 || 0).toFixed(2)}</td>`;
+                const flow = s.主力净流入;
+                const flowCls = flow >= 0 ? 'sp-up' : 'sp-down';
+                html += `<td class="${flowCls}">${flow != null ? (flow >= 0 ? '+' : '') + flow.toFixed(2) + '亿' : '-'}</td>`;
+                html += `<td>${s.成交额 || '-'}</td>`;
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="sp-loading">❌ 连接失败: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+// K线图
+async function loadStockKline(code) {
+    const container = document.getElementById('stockViewKline');
+    container.innerHTML = '<div class="sp-loading">⏳ 加载K线数据...</div>';
+    try {
+        const res = await fetch('/api/stock-kline?code=' + encodeURIComponent(code));
+        const d = await res.json();
+        if (!d.成功) {
+            container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(d.错误 || '加载失败') + '</div>';
+            return;
+        }
+        const data = d.数据 || [];
+        if (data.length === 0) {
+            container.innerHTML = '<div class="sp-loading">无数据</div>';
+            return;
+        }
+        // 用Canvas绘制简易K线图
+        let html = '<div class="stock-kline-container">';
+        html += '<div class="stock-kline-header">';
+        const info = d.股票信息 || {};
+        const cls = (info.涨跌幅 || 0) >= 0 ? 'sp-up' : 'sp-down';
+        html += `<span class="sk-name">${escapeHtml(info.名称 || code)} <span style="font-size:12px;color:var(--text2)">${code}</span></span>`;
+        html += `<div class="sk-info">`;
+        html += `<span class="${cls}" style="font-size:16px;font-weight:bold">${info.最新价 || '-'}</span>`;
+        html += `<span class="${cls}">${(info.涨跌幅 || 0) >= 0 ? '+' : ''}${(info.涨跌幅 || 0).toFixed(2)}%</span>`;
+        html += `<span>MA5:${info.MA5 || '-'}</span><span>MA20:${info.MA20 || '-'}</span>`;
+        html += `</div></div>`;
+        html += `<canvas class="stock-kline-canvas" id="klineCanvas"></canvas>`;
+        html += '</div>';
+        container.innerHTML = html;
+        // 绘制K线
+        drawKline('klineCanvas', data);
+    } catch (e) {
+        container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function drawKline(canvasId, data) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth, h = canvas.offsetHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h);
+
+    if (data.length === 0) return;
+    const maxPrice = Math.max(...data.map(d => d.高));
+    const minPrice = Math.min(...data.map(d => d.低));
+    const range = maxPrice - minPrice || 1;
+    const padLeft = 8, padRight = 50, padTop = 10, padBottom = 60;
+    const chartW = w - padLeft - padRight, chartH = h - padTop - padBottom;
+    const candleW = Math.max(2, chartW / data.length * 0.7);
+    const gap = chartW / data.length;
+
+    // 网格线
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = padTop + chartH * i / 4;
+        ctx.beginPath(); ctx.moveTo(padLeft, y); ctx.lineTo(padLeft + chartW, y); ctx.stroke();
+        // 价格刻度
+        const price = maxPrice - range * i / 4;
+        ctx.fillStyle = '#666'; ctx.font = '10px Consolas';
+        ctx.fillText(price.toFixed(2), padLeft + chartW + 4, y + 3);
+    }
+
+    // K线
+    data.forEach((d, i) => {
+        const x = padLeft + i * gap + gap / 2;
+        const openY = padTop + (maxPrice - d.开) / range * chartH;
+        const closeY = padTop + (maxPrice - d.收) / range * chartH;
+        const highY = padTop + (maxPrice - d.高) / range * chartH;
+        const lowY = padTop + (maxPrice - d.低) / range * chartH;
+        const isUp = d.收 >= d.开;
+        const color = isUp ? '#f14c4c' : '#4EC9B0';
+
+        // 影线
+        ctx.strokeStyle = color; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, highY); ctx.lineTo(x, lowY); ctx.stroke();
+        // 实体
+        const bodyTop = Math.min(openY, closeY);
+        const bodyH = Math.max(1, Math.abs(closeY - openY));
+        if (isUp) {
+            ctx.strokeStyle = color; ctx.strokeRect(x - candleW/2, bodyTop, candleW, bodyH);
+        } else {
+            ctx.fillStyle = color; ctx.fillRect(x - candleW/2, bodyTop, candleW, bodyH);
+        }
+    });
+
+    // 成交量
+    const volMax = Math.max(...data.map(d => d.量 || 0)) || 1;
+    const volH = 40;
+    const volTop = h - padBottom + 10;
+    data.forEach((d, i) => {
+        const x = padLeft + i * gap + gap / 2;
+        const vh = (d.量 || 0) / volMax * volH;
+        const isUp = d.收 >= d.开;
+        ctx.fillStyle = isUp ? 'rgba(241,76,76,0.5)' : 'rgba(78,201,176,0.5)';
+        ctx.fillRect(x - candleW/2, volTop + volH - vh, candleW, vh);
+    });
+}
+
+// 分时图
+async function loadStockMinute(code) {
+    const container = document.getElementById('stockViewMinute');
+    container.innerHTML = '<div class="sp-loading">⏳ 加载分时数据...</div>';
+    try {
+        const res = await fetch('/api/stock-minute?code=' + encodeURIComponent(code));
+        const d = await res.json();
+        if (!d.成功) {
+            container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(d.错误 || '加载失败') + '</div>';
+            return;
+        }
+        const data = d.数据 || [];
+        if (data.length === 0) {
+            container.innerHTML = '<div class="sp-loading">无数据</div>';
+            return;
+        }
+        let html = '<div class="stock-minute-container">';
+        html += '<div class="stock-minute-header">';
+        const info = d.股票信息 || {};
+        const cls = (info.涨跌幅 || 0) >= 0 ? 'sp-up' : 'sp-down';
+        html += `<span class="sm-name">${escapeHtml(info.名称 || code)} <span style="font-size:12px;color:var(--text2)">${code}</span></span>`;
+        html += `<span class="sm-price ${cls}">${info.最新价 || '-'} (${(info.涨跌幅 || 0) >= 0 ? '+' : ''}${(info.涨跌幅 || 0).toFixed(2)}%)</span>`;
+        html += '</div>';
+        html += `<canvas class="stock-minute-canvas" id="minuteCanvas"></canvas>`;
+        html += '</div>';
+        container.innerHTML = html;
+        drawMinute('minuteCanvas', data, d.昨收价);
+    } catch (e) {
+        container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+function drawMinute(canvasId, data, prevClose) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.offsetWidth, h = canvas.offsetHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, w, h);
+
+    if (data.length === 0) return;
+    const prices = data.map(d => d.价格);
+    const maxP = Math.max(...prices, prevClose || 0);
+    const minP = Math.min(...prices, prevClose || prices[0]);
+    const range = Math.max(maxP - minP, prevClose * 0.01, 0.01);
+    const padL = 8, padR = 50, padT = 10, padB = 30;
+    const cW = w - padL - padR, cH = h - padT - padB;
+
+    // 网格+刻度
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+        const y = padT + cH * i / 4;
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + cW, y); ctx.stroke();
+        // 涨跌幅
+        const pct = (1 - i / 4) * range / (prevClose || 1) * 100;
+        ctx.fillStyle = pct >= 0 ? '#f14c4c' : '#4EC9B0';
+        ctx.font = '10px Consolas';
+        ctx.fillText((pct >= 0 ? '+' : '') + pct.toFixed(2) + '%', padL + cW + 4, y + 3);
+    }
+
+    // 昨收线
+    if (prevClose) {
+        const yPrev = padT + (maxP - prevClose) / range * cH;
+        ctx.strokeStyle = '#555'; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.moveTo(padL, yPrev); ctx.lineTo(padL + cW, yPrev); ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // 分时线
+    ctx.strokeStyle = '#d4d4d4'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    data.forEach((d, i) => {
+        const x = padL + i / (data.length - 1) * cW;
+        const y = padT + (maxP - d.价格) / range * cH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // 均价线（如果有）
+    if (data[0].均价 != null) {
+        ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        data.forEach((d, i) => {
+            const x = padL + i / (data.length - 1) * cW;
+            const y = padT + (maxP - d.均价) / range * cH;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
+
+    // 成交量柱
+    const volMax = Math.max(...data.map(d => d.量 || 0)) || 1;
+    const volH = 25;
+    const volTop = h - padB + 5;
+    data.forEach((d, i) => {
+        const x = padL + i / (data.length - 1) * cW;
+        const vh = (d.量 || 0) / volMax * volH;
+        const isUp = d.价格 >= (prevClose || d.价格);
+        ctx.fillStyle = isUp ? 'rgba(241,76,76,0.3)' : 'rgba(78,201,176,0.3)';
+        ctx.fillRect(x - 1, volTop + volH - vh, 2, vh);
+    });
 }

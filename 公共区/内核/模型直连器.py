@@ -141,6 +141,7 @@ class 模型直连器类:
         self.响应路径 = self.配置.get("响应路径", "$.choices[0].message.content")
         self.环境变量 = self.配置.get("环境变量", {})
         # 从模型配置列表中覆盖
+        已匹配 = False
         for m in self.模型配置列表:
             if m.get("名称") == 模型名:
                 self.接口地址 = m.get("接口地址", self.接口地址)
@@ -150,10 +151,27 @@ class 模型直连器类:
                 self.响应路径 = m.get("响应路径", self.响应路径)
                 self.环境变量 = m.get("环境变量", self.环境变量)
                 self.当前模型名 = 模型名
+                已匹配 = True
                 break
+        # 兜底：未匹配到模型名时，用第一个有接口地址的模型
+        if not 已匹配 and self.模型配置列表:
+            for m in self.模型配置列表:
+                if m.get("接口地址"):
+                    self.接口地址 = m.get("接口地址", self.接口地址)
+                    self.请求方法 = m.get("请求方法", self.请求方法)
+                    self.请求头模板 = m.get("请求头", self.请求头模板)
+                    self.请求模板 = m.get("请求模板", self.请求模板)
+                    self.响应路径 = m.get("响应路径", self.响应路径)
+                    self.环境变量 = m.get("环境变量", self.环境变量)
+                    self.当前模型名 = m.get("名称", "")
+                    break
 
     def 切换模型(self, 模型名: str) -> dict:
         """切换当前使用的模型"""
+        # 校验模型是否存在
+        存在 = any(m.get("名称") == 模型名 for m in self.模型配置列表)
+        if not 存在 and self.模型配置列表:
+            return {"成功": False, "错误": f"模型 '{模型名}' 不存在"}
         self._应用模型配置(模型名)
         # 清空缓存（不同模型的缓存不通用）
         self.清空缓存()
