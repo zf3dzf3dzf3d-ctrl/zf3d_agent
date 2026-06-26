@@ -152,7 +152,6 @@ async function silentUpdate(info) {
         showToast("error", "❌ 静默更新失败", e.message);
     }
 }
-}
 
 // ============ 初始化 ============
 document.addEventListener("DOMContentLoaded", () => {
