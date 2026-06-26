@@ -84,4 +84,8 @@ if __name__ == "__main__":
         print(f"\n启动失败: {e}")
         import traceback
         traceback.print_exc()
-        input("按回车键退出...")
+        # 有控制台时等待用户确认，无控制台时直接退出
+        try:
+            input("按回车键退出...")
+        except (EOFError, RuntimeError):
+            pass

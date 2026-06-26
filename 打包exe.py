@@ -47,6 +47,7 @@ EXE名称 = "朱峰社区智能体"
     "edge_tts",
     "pygame",
     "win32com", "win32com.client",
+    "sqlite3", "_sqlite3",
 ]
 
 
@@ -137,7 +138,7 @@ def 构建PyInstaller命令():
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
-        "--noconsole",
+        "--console",
         f"--name={EXE名称}",
     ]
 
@@ -211,10 +212,15 @@ def 打包():
 
 
 def 创建发布包(exe路径):
-    """创建最终发布zip：exe + 说明.md + 隐私区模板"""
+    """创建最终发布zip：所有文件在朱峰社区智能体/主文件夹下"""
     print("\n📦 创建发布包...")
 
-    发布目录 = 项目根 / "dist" / "发布包"
+    主文件夹名 = EXE名称
+    发布根目录 = 项目根 / "dist" / "发布包"
+    发布目录 = 发布根目录 / 主文件夹名
+    # 清理旧内容
+    if 发布根目录.exists():
+        shutil.rmtree(发布根目录, ignore_errors=True)
     发布目录.mkdir(parents=True, exist_ok=True)
 
     # 复制exe
@@ -224,10 +230,6 @@ def 创建发布包(exe路径):
     隐私区 = 发布目录 / "隐私区"
     for 子目录 in ["我的配置", "我的记忆", "我的日志", "我的数据", "对话记录"]:
         (隐私区 / 子目录).mkdir(parents=True, exist_ok=True)
-
-    # 创建公共区配置目录（首次运行不需要，但放一个空的便于理解）
-    公共区 = 发布目录 / "公共区" / "配置"
-    公共区.mkdir(parents=True, exist_ok=True)
 
     # 创建说明文件
     说明 = 发布目录 / "使用说明.txt"
@@ -240,24 +242,23 @@ def 创建发布包(exe路径):
         "3. 首次使用请在设置中配置AI模型密钥\n\n"
         "目录说明:\n"
         "- 朱峰社区智能体.exe  主程序\n"
-        "- 隐私区/             你的个人数据（密钥/记忆/对话记录等）\n"
-        "- 公共区/             系统配置（更新时会被覆盖）\n\n"
+        "- 隐私区/             你的个人数据（密钥/记忆/对话记录等）\n\n"
         "自动更新:\n"
-        "- 系统启动后自动检查GitHub新版本\n"
-        "- 点击右上角🔄按钮下载更新\n"
-        "- 更新后重启程序即可\n\n"
+        "- 系统启动后自动检查新版本并静默更新\n"
+        "- 更新后点击右上角✅重启即可\n\n"
         "注意:\n"
         "- 不要删除隐私区文件夹\n"
-        "- 如需重置，删除公共区文件夹后重启程序即可自动恢复\n",
+        "- 首次运行会自动创建所需配置目录\n",
         encoding="utf-8"
     )
 
-    # 打包zip
+    # 打包zip（文件放在主文件夹下，解压后只有一个文件夹）
     zip路径 = 项目根 / "dist" / f"{EXE名称}_发布包.zip"
     with zipfile.ZipFile(zip路径, "w", zipfile.ZIP_DEFLATED) as zf:
         for 文件 in 发布目录.rglob("*"):
             if 文件.is_file():
-                相对路径 = 文件.relative_to(发布目录)
+                # zip内路径：朱峰社区智能体/xxx
+                相对路径 = 文件.relative_to(发布根目录)
                 zf.write(文件, 相对路径)
 
     print(f"   发布包: {zip路径}")
