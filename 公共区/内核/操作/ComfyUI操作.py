@@ -1566,3 +1566,552 @@ class ComfyUI列出工作流(操作基类):
             "工作流数": len(结果列表),
             "工作流列表": [{"分类": i["分类"], "文件名": i["文件名"], "路径": i["路径"]} for i in 结果列表]
         })
+
+
+# ============ 诊断与修复 ============
+
+def _获取ComfyUI安装路径() -> str:
+    """从系统配置读取ComfyUI安装路径"""
+    try:
+        from 操作注册中心 import 操作注册中心类
+        实例 = 操作注册中心类._实例引用
+        if 实例 and 实例._配置加载器:
+            系统配置 = 实例._配置加载器.配置缓存.get("系统配置", {})
+            安装路径 = 系统配置.get("ComfyUI安装路径", "")
+            if 安装路径 and os.path.exists(安装路径):
+                return 安装路径
+    except Exception:
+        pass
+    return ""
+
+
+def _保存ComfyUI安装路径(路径: str):
+    """将ComfyUI安装路径保存到系统配置，下次自动读取"""
+    try:
+        from 操作注册中心 import 操作注册中心类
+        实例 = 操作注册中心类._实例引用
+        if 实例 and 实例._配置加载器:
+            系统配置 = 实例._配置加载器.配置缓存.get("系统配置", {})
+            系统配置["ComfyUI安装路径"] = 路径
+            实例._配置加载器.保存配置("系统配置", 系统配置, 区域="公共区")
+    except Exception:
+        pass
+
+
+def _探测ComfyUI安装路径() -> str:
+    """自动探测ComfyUI安装路径（配置为空时调用）"""
+    home = os.path.expanduser("~")
+    候选路径 = [
+        os.path.join(home, "Documents", "ComfyUI"),
+        os.path.join(home, "AppData", "Local", "ComfyUI"),
+        r"C:\ComfyUI",
+        r"D:\ComfyUI",
+        r"D:\AI\ComfyUI",
+    ]
+    for 路径 in 候选路径:
+        if os.path.isdir(路径) and os.path.exists(os.path.join(路径, "main.py")):
+            # 找到了，自动保存
+            _保存ComfyUI安装路径(路径)
+            return 路径
+
+    # 尝试从运行中的进程获取
+    try:
+        import subprocess
+        结果 = subprocess.run(
+            ["wmic", "process", "where",
+             "name='python.exe' and CommandLine like '%ComfyUI%main.py%'",
+             "get", "CommandLine", "/format:value"],
+            capture_output=True, text=True, timeout=10, encoding='utf-8', errors='replace'
+        )
+        for line in 结果.stdout.split("\n"):
+            if "CommandLine=" in line and "main.py" in line:
+                # 提取 --base-directory 参数
+                if "--base-directory" in line:
+                    parts = line.split("--base-directory")
+                    if len(parts) > 1:
+                        路径 = parts[1].strip().split("--")[0].strip().strip('"')
+                        if os.path.isdir(路径):
+                            _保存ComfyUI安装路径(路径)
+                            return 路径
+                # 从 main.py 路径反推
+                if "main.py" in line:
+                    idx = line.find("ComfyUI")
+                    if idx > 0:
+                        路径 = line[:idx + 7].strip().strip('"')
+                        if os.path.isdir(路径):
+                            _保存ComfyUI安装路径(路径)
+                            return 路径
+    except Exception:
+        pass
+
+    return ""
+
+
+def _运行子进程(命令列表: list, 工作目录: str = "", 超时秒: int = 15) -> tuple:
+    """运行子进程，返回(成功, stdout+stderr合并文本)"""
+    import subprocess
+    try:
+        结果 = subprocess.run(
+            命令列表, capture_output=True, text=True,
+            timeout=超时秒, encoding='utf-8', errors='replace',
+            cwd=工作目录 if 工作目录 else None
+        )
+        输出 = (结果.stdout or "") + (结果.stderr or "")
+        return 结果.returncode == 0, 输出.strip()
+    except subprocess.TimeoutExpired:
+        return False, f"命令超时({超时秒}秒)"
+    except FileNotFoundError:
+        return False, f"命令未找到: {命令列表[0]}"
+    except Exception as e:
+        return False, str(e)
+
+
+class ComfyUI诊断(操作基类):
+    """ComfyUI全面诊断"""
+    名称 = "ComfyUI诊断"
+    描述 = "全面诊断ComfyUI状态：连通性、Python环境、自定义节点、GPU、模型完整性、启动日志。返回一目了然的诊断报告"
+    参数结构 = {
+        "安装路径": {"类型": "字符串", "必填": False, "说明": "ComfyUI安装路径，不填则从系统配置读取"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        安装路径 = 参数.get("安装路径", "") or _获取ComfyUI安装路径()
+        # 配置为空时自动探测并保存
+        if not 安装路径:
+            安装路径 = _探测ComfyUI安装路径()
+        # 用户通过参数提供了路径，自动保存到配置
+        if 安装路径 and 参数.get("安装路径") and not _获取ComfyUI安装路径():
+            _保存ComfyUI安装路径(安装路径)
+        地址 = _获取ComfyUI地址()
+        报告行 = []
+        问题列表 = []
+
+        报告行.append("🔍 ComfyUI 全面诊断报告")
+        报告行.append("=" * 50)
+
+        # 1. 连通性检查
+        成功, 数据 = _API请求(地址, "/system_stats")
+        if 成功:
+            报告行.append(f"\n✅ 连通性: ComfyUI运行中（{地址}）")
+            sys_info = 数据.get("system", {}) if isinstance(数据, dict) else {}
+            if sys_info:
+                报告行.append(f"   OS: {sys_info.get('os', '?')} | RAM: {sys_info.get('ram_total', 0) // (1024**3):.1f}GB | "
+                             f"VRAM: {sys_info.get('gpus', [{}])[0].get('vram_total', 0) // (1024**2):.0f}MB"
+                             if sys_info.get('gpus') else "VRAM: 无GPU")
+            设备列表 = sys_info.get('gpus', [])
+            for i, gpu in enumerate(设备列表):
+                报告行.append(f"   GPU{i}: {gpu.get('name', '?')} | VRAM: {gpu.get('vram_total', 0) // (1024**2):.0f}MB")
+        else:
+            报告行.append(f"\n❌ 连通性: 无法连接ComfyUI（{地址}）— {数据}")
+            问题列表.append("ComfyUI未运行或无法连接，可能需要启动")
+
+        # 2. 安装路径检查
+        if 安装路径:
+            if os.path.exists(安装路径):
+                报告行.append(f"\n✅ 安装路径存在: {安装路径}")
+            else:
+                报告行.append(f"\n❌ 安装路径不存在: {安装路径}")
+                问题列表.append(f"安装路径不存在: {安装路径}")
+        else:
+            报告行.append("\n⚠️ 未配置ComfyUI安装路径（系统配置.json中ComfyUI安装路径为空）")
+            问题列表.append("未配置ComfyUI安装路径")
+
+        # 3. Python环境检查
+        if 安装路径 and os.path.exists(安装路径):
+            venv_python = os.path.join(安装路径, ".venv", "python.exe")
+            py_exe = venv_python if os.path.exists(venv_python) else "py"
+
+            报告行.append(f"\n🐍 Python环境:")
+            报告行.append(f"   解释器: {py_exe}")
+
+            # Python版本
+            成功, 输出 = _运行子进程([py_exe, "--version"], 安装路径)
+            报告行.append(f"   版本: {输出}" if 成功 else f"   ❌ 获取版本失败: {输出}")
+
+            # torch + CUDA
+            成功, 输出 = _运行子进程(
+                [py_exe, "-c", "import torch; print(f'torch={torch.__version__} cuda={torch.cuda.is_available()} gpu={torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')"],
+                安装路径, 超时秒=30
+            )
+            if 成功 and "torch=" in 输出:
+                报告行.append(f"   ✅ {输出}")
+                if "cuda=False" in 输出 or "cuda=None" in 输出:
+                    问题列表.append("torch未检测到CUDA，GPU加速不可用（可能安装了CPU版torch）")
+            else:
+                报告行.append(f"   ❌ torch导入失败: {输出[:200]}")
+                问题列表.append("torch导入失败，需重新安装: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121")
+
+            # 4. 自定义节点扫描
+            custom_nodes_dir = os.path.join(安装路径, "custom_nodes")
+            if not os.path.isdir(custom_nodes_dir):
+                # 尝试 ComfyUI子目录
+                custom_nodes_dir = os.path.join(安装路径, "ComfyUI", "custom_nodes")
+
+            报告行.append(f"\n📦 自定义节点:")
+            if os.path.isdir(custom_nodes_dir):
+                节点列表 = []
+                for 名称 in sorted(os.listdir(custom_nodes_dir)):
+                    节点路径 = os.path.join(custom_nodes_dir, 名称)
+                    if not os.path.isdir(节点路径):
+                        continue
+                    if 名称.endswith(".disabled"):
+                        报告行.append(f"   ⏸️ {名称}（已禁用）")
+                        continue
+
+                    init_file = os.path.join(节点路径, "__init__.py")
+                    if not os.path.exists(init_file):
+                        报告行.append(f"   ⚠️ {名称}（无__init__.py）")
+                        问题列表.append(f"节点 {名称} 缺少__init__.py")
+                        continue
+
+                    # 尝试导入检测
+                    成功, 导入输出 = _运行子进程(
+                        [py_exe, "-c", f"import sys; sys.path.insert(0, r'{节点路径}'); import importlib; importlib.import_module('__init__')"],
+                        安装路径, 超时秒=10
+                    )
+                    if 成功:
+                        节点列表.append(名称)
+                    else:
+                        报告行.append(f"   ❌ {名称}（导入失败）")
+                        错误简述 = 导入输出[:200].replace('\n', ' ')
+                        问题列表.append(f"节点 {名称} 导入失败: {错误简述}")
+                        # 检查是否有requirements.txt
+                        req_file = os.path.join(节点路径, "requirements.txt")
+                        if os.path.exists(req_file):
+                            报告行.append(f"      📋 有requirements.txt，尝试: pip install -r requirements.txt")
+
+                报告行.append(f"   ✅ 正常节点: {len(节点列表)}个")
+                for n in 节点列表:
+                    报告行.append(f"      - {n}")
+            else:
+                报告行.append("   ⚠️ 未找到custom_nodes目录")
+                问题列表.append("未找到custom_nodes目录")
+
+            # 5. 模型目录检查
+            报告行.append(f"\n📁 模型目录:")
+            models_dir = os.path.join(安装路径, "models")
+            if not os.path.isdir(models_dir):
+                models_dir = os.path.join(安装路径, "ComfyUI", "models")
+            if os.path.isdir(models_dir):
+                for 子目录 in sorted(os.listdir(models_dir)):
+                    子路径 = os.path.join(models_dir, 子目录)
+                    if os.path.isdir(子路径):
+                        文件数 = sum(1 for f in os.listdir(子路径) if os.path.isfile(os.path.join(子路径, f)))
+                        状态 = "✅" if 文件数 > 0 else "⚠️ 空"
+                        报告行.append(f"   {状态} {子目录}/ ({文件数}个文件)")
+                        if 文件数 == 0:
+                            问题列表.append(f"模型目录 {子目录}/ 为空")
+            else:
+                报告行.append("   ⚠️ 未找到models目录")
+
+            # 6. 启动日志检查（自动搜索多个位置）
+            报告行.append(f"\n📄 启动日志:")
+            日志路径列表 = []
+            # 安装目录及子目录
+            for 根 in [安装路径, os.path.join(安装路径, "ComfyUI")]:
+                if os.path.isdir(根):
+                    for f in os.listdir(根):
+                        if f.endswith(".log"):
+                            日志路径列表.append(os.path.join(根, f))
+            # ComfyUI Desktop 日志目录
+            home = os.path.expanduser("~")
+            候选日志目录 = [
+                os.path.join(home, "AppData", "Local", "comfyui-electron", "logs"),
+                os.path.join(home, "AppData", "Roaming", "comfyui-electron", "logs"),
+                os.path.join(home, "AppData", "Local", "ComfyUI", "logs"),
+                os.path.join(home, ".comfyui", "logs"),
+                os.path.join(home, "Documents", "ComfyUI", "logs"),
+            ]
+            for 目录 in 候选日志目录:
+                if os.path.isdir(目录):
+                    for f in os.listdir(目录):
+                        if f.endswith(".log"):
+                            日志路径列表.append(os.path.join(目录, f))
+            # 去重
+            日志路径列表 = list(dict.fromkeys(日志路径列表))
+
+            找到日志 = False
+            for 日志路径 in 日志路径列表:
+                if not os.path.exists(日志路径) or os.path.getsize(日志路径) == 0:
+                    continue
+                找到日志 = True
+                try:
+                    with open(日志路径, "r", encoding="utf-8", errors="replace") as f:
+                        日志内容 = f.read()
+                    行列表 = 日志内容.strip().split("\n")
+                    报告行.append(f"   📝 {os.path.basename(日志路径)}（{len(行列表)}行，最后30行）:")
+                    报告行.append(f"   路径: {日志路径}")
+                    for line in 行列表[-30:]:
+                        报告行.append(f"      {line}")
+                    # 检测常见错误模式
+                    日志错误 = []
+                    if "ImportError" in 日志内容 or "ModuleNotFoundError" in 日志内容:
+                        # 提取具体缺失模块
+                        for line in 行列表:
+                            if "ModuleNotFoundError" in line or "ImportError" in line:
+                                日志错误.append(f"导入错误: {line.strip()[:150]}")
+                                break
+                    if "CUDA" in 日志内容 and "out of memory" in 日志内容.lower():
+                        日志错误.append("GPU显存不足(OOM)，建议降低图片尺寸或关闭其他占显存程序")
+                    if "FileNotFoundError" in 日志内容:
+                        for line in 行列表:
+                            if "FileNotFoundError" in line:
+                                日志错误.append(f"文件未找到: {line.strip()[:150]}")
+                                break
+                    if "RuntimeError" in 日志内容:
+                        for line in 行列表:
+                            if "RuntimeError" in line:
+                                日志错误.append(f"运行时错误: {line.strip()[:150]}")
+                                break
+                    if "Traceback" in 日志内容:
+                        # 提取最后一个Traceback块
+                        tb_start = 日志内容.rfind("Traceback")
+                        if tb_start >= 0:
+                            tb_block = 日志内容[tb_start:tb_start+500]
+                            日志错误.append(f"异常堆栈: {tb_block[:300].replace(chr(10), ' | ')}")
+                    for err in 日志错误:
+                        问题列表.append(err)
+                        报告行.append(f"   ⚠️ {err}")
+                except Exception as e:
+                    报告行.append(f"   ❌ 读取日志失败: {e}")
+                break  # 只读第一个有效日志
+            if not 找到日志:
+                报告行.append("   ℹ️ 未找到日志文件")
+                报告行.append("   💡 ComfyUI Desktop日志通常在: %AppData%\\comfyui-electron\\logs\\")
+                报告行.append("   💡 独立安装日志通常在ComfyUI目录下的 .log 文件")
+                # 尝试通过运行中的ComfyUI进程获取工作目录
+                成功2, 进程输出 = _运行子进程(["wmic", "process", "where", "name='python.exe'", "get", "CommandLine,ProcessId", "/format:csv"], 超时秒=10)
+                if 成功2 and "main.py" in 进程输出:
+                    报告行.append("   🔍 检测到ComfyUI进程正在运行（日志在终端输出中，无文件）")
+
+        # 7. GPU状态
+        报告行.append(f"\n🖥️ GPU状态:")
+        成功, 输出 = _运行子进程(["nvidia-smi", "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu", "--format=csv,noheader"])
+        if 成功 and 输出:
+            for line in 输出.split("\n"):
+                报告行.append(f"   ✅ {line.strip()}")
+        else:
+            报告行.append("   ⚠️ 无法运行nvidia-smi（可能无NVIDIA GPU或驱动未安装）")
+
+        # 8. 总结
+        报告行.append("\n" + "=" * 50)
+        if 问题列表:
+            报告行.append(f"⚠️ 发现 {len(问题列表)} 个问题:")
+            for i, p in enumerate(问题列表, 1):
+                报告行.append(f"   {i}. {p}")
+        else:
+            报告行.append("✅ 所有检查项通过，ComfyUI状态正常！")
+
+        报告 = "\n".join(报告行)
+        return 操作结果.成功(报告, 元数据={
+            "操作类型": "ComfyUI诊断",
+            "问题数": len(问题列表),
+            "问题列表": 问题列表,
+            "ComfyUI运行中": 成功 if '成功' in dir() else False
+        })
+
+
+class ComfyUI修复自定义节点(操作基类):
+    """ComfyUI自定义节点修复"""
+    名称 = "ComfyUI修复自定义节点"
+    描述 = "修复ComfyUI自定义节点问题：扫描问题节点、安装缺失依赖、禁用/启用节点、重启ComfyUI"
+    参数结构 = {
+        "操作": {"类型": "字符串", "必填": True, "说明": "修复操作：扫描问题节点(检测哪些节点有导入错误)、安装依赖(为指定节点安装pip依赖)、禁用节点(临时禁用问题节点)、启用节点(重新启用被禁用的节点)、重启ComfyUI(停止并重新启动)"},
+        "节点名称": {"类型": "字符串", "必填": False, "说明": "操作目标节点名（安装依赖/禁用/启用时需要）"},
+        "安装路径": {"类型": "字符串", "必填": False, "说明": "ComfyUI安装路径，不填则从系统配置读取"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        操作类型 = 参数.get("操作", "")
+        节点名称 = 参数.get("节点名称", "")
+        安装路径 = 参数.get("安装路径", "") or _获取ComfyUI安装路径()
+        # 配置为空时自动探测并保存
+        if not 安装路径:
+            安装路径 = _探测ComfyUI安装路径()
+        # 用户通过参数提供了路径，自动保存到配置
+        if 安装路径 and 参数.get("安装路径") and not _获取ComfyUI安装路径():
+            _保存ComfyUI安装路径(安装路径)
+
+        if not 安装路径 or not os.path.exists(安装路径):
+            return 操作结果.失败(
+                "ComfyUI安装路径未配置或不存在。请告诉我你的ComfyUI安装路径（如 C:\\Users\\Administrator\\Documents\\ComfyUI），我会自动保存，下次不用再提供"
+            )
+
+        # 定位custom_nodes目录
+        custom_nodes_dir = os.path.join(安装路径, "custom_nodes")
+        if not os.path.isdir(custom_nodes_dir):
+            custom_nodes_dir = os.path.join(安装路径, "ComfyUI", "custom_nodes")
+        if not os.path.isdir(custom_nodes_dir):
+            return 操作结果.失败(f"未找到custom_nodes目录: {custom_nodes_dir}")
+
+        venv_python = os.path.join(安装路径, ".venv", "python.exe")
+        py_exe = venv_python if os.path.exists(venv_python) else "py"
+
+        if 操作类型 == "扫描问题节点":
+            return self._扫描问题节点(custom_nodes_dir, py_exe, 安装路径)
+
+        elif 操作类型 == "安装依赖":
+            if not 节点名称:
+                return 操作结果.失败("请提供节点名称")
+            节点路径 = os.path.join(custom_nodes_dir, 节点名称)
+            if not os.path.isdir(节点路径):
+                # 尝试 .disabled 版本
+                节点路径 = os.path.join(custom_nodes_dir, 节点名称 + ".disabled")
+                if not os.path.isdir(节点路径):
+                    return 操作结果.失败(f"节点目录不存在: {节点名称}")
+
+            req_file = os.path.join(节点路径, "requirements.txt")
+            if not os.path.exists(req_file):
+                return 操作结果.成功(f"节点 {节点名称} 没有requirements.txt，无需安装依赖")
+
+            成功, 输出 = _运行子进程([py_exe, "-m", "pip", "install", "-r", "requirements.txt"], 节点路径, 超时秒=120)
+            if 成功:
+                return 操作结果.成功(f"✅ 已为节点 {节点名称} 安装依赖:\n{输出[-500:]}")
+            return 操作结果.失败(f"❌ 安装依赖失败:\n{输出[-500:]}")
+
+        elif 操作类型 == "禁用节点":
+            if not 节点名称:
+                return 操作结果.失败("请提供节点名称")
+            节点路径 = os.path.join(custom_nodes_dir, 节点名称)
+            if not os.path.isdir(节点路径):
+                return 操作结果.失败(f"节点目录不存在: {节点名称}")
+            禁用路径 = 节点路径 + ".disabled"
+            try:
+                os.rename(节点路径, 禁用路径)
+                return 操作结果.成功(f"✅ 已禁用节点: {节点名称}（重命名为 {节点名称}.disabled）\n重启ComfyUI后生效")
+            except Exception as e:
+                return 操作结果.失败(f"禁用失败: {e}")
+
+        elif 操作类型 == "启用节点":
+            if not 节点名称:
+                return 操作结果.失败("请提供节点名称")
+            禁用路径 = os.path.join(custom_nodes_dir, 节点名称 + ".disabled")
+            if not os.path.isdir(禁用路径):
+                return 操作结果.失败(f"未找到被禁用的节点: {节点名称}.disabled")
+            启用路径 = os.path.join(custom_nodes_dir, 节点名称)
+            try:
+                os.rename(禁用路径, 启用路径)
+                return 操作结果.成功(f"✅ 已启用节点: {节点名称}\n重启ComfyUI后生效")
+            except Exception as e:
+                return 操作结果.失败(f"启用失败: {e}")
+
+        elif 操作类型 == "重启ComfyUI":
+            return self._重启ComfyUI(安装路径)
+
+        else:
+            return 操作结果.失败(
+                f"不支持的操作: {操作类型}\n可用操作: 扫描问题节点、安装依赖、禁用节点、启用节点、重启ComfyUI"
+            )
+
+    def _扫描问题节点(self, custom_nodes_dir: str, py_exe: str, 安装路径: str) -> 操作结果:
+        """扫描所有自定义节点，检测导入错误"""
+        报告行 = ["🔍 自定义节点问题扫描", "=" * 40]
+        问题节点 = []
+        正常节点 = []
+
+        for 名称 in sorted(os.listdir(custom_nodes_dir)):
+            节点路径 = os.path.join(custom_nodes_dir, 名称)
+            if not os.path.isdir(节点路径):
+                continue
+            if 名称.endswith(".disabled"):
+                报告行.append(f"⏸️ {名称}（已禁用，跳过）")
+                continue
+
+            init_file = os.path.join(节点路径, "__init__.py")
+            if not os.path.exists(init_file):
+                报告行.append(f"⚠️ {名称}（无__init__.py，非标准节点）")
+                continue
+
+            成功, 输出 = _运行子进程(
+                [py_exe, "-c", f"import sys; sys.path.insert(0, r'{节点路径}'); import importlib; importlib.import_module('__init__')"],
+                安装路径, 超时秒=10
+            )
+            if 成功:
+                正常节点.append(名称)
+            else:
+                问题节点.append((名称, 输出[:300]))
+                报告行.append(f"❌ {名称}")
+                报告行.append(f"   错误: {输出[:200].replace(chr(10), ' ')}")
+                req_file = os.path.join(节点路径, "requirements.txt")
+                if os.path.exists(req_file):
+                    报告行.append(f"   💡 可尝试: 安装依赖({名称})")
+
+        报告行.append("=" * 40)
+        报告行.append(f"✅ 正常: {len(正常节点)}个 | ❌ 问题: {len(问题节点)}个")
+        if 问题节点:
+            报告行.append("\n💡 修复建议:")
+            for 名称, 错误 in 问题节点:
+                if "ModuleNotFoundError" in 错误 or "ImportError" in 错误:
+                    报告行.append(f"   - {名称}: 缺少依赖 → 用「安装依赖」操作安装")
+                else:
+                    报告行.append(f"   - {名称}: 其他错误 → 可先「禁用节点」再排查")
+
+        return 操作结果.成功("\n".join(报告行), 元数据={
+            "操作类型": "ComfyUI修复自定义节点",
+            "修复操作": "扫描问题节点",
+            "问题节点数": len(问题节点),
+            "正常节点数": len(正常节点)
+        })
+
+    def _重启ComfyUI(self, 安装路径: str) -> 操作结果:
+        """停止并重新启动ComfyUI（只杀ComfyUI进程，不影响智能体自身）"""
+        import subprocess
+
+        # 精准终止ComfyUI进程：通过命令行特征匹配（main.py + ComfyUI）
+        # 不能用 taskkill /IM python.exe — 那会杀掉智能体自己！
+        try:
+            # wmic查找含"ComfyUI"和"main.py"的python进程
+            查询结果 = subprocess.run(
+                ["wmic", "process", "where",
+                 "name='python.exe' and CommandLine like '%main.py%' and CommandLine like '%ComfyUI%'",
+                 "get", "ProcessId", "/format:value"],
+                capture_output=True, text=True, timeout=10, encoding='utf-8', errors='replace'
+            )
+            # 提取PID
+            pids = []
+            for line in 查询结果.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("ProcessId="):
+                    pid = line.split("=", 1)[1].strip()
+                    if pid.isdigit():
+                        pids.append(pid)
+
+            # 也检查 .venv 下的 python.exe
+            查询结果2 = subprocess.run(
+                ["wmic", "process", "where",
+                 "name='python.exe' and CommandLine like '%ComfyUI%'",
+                 "get", "ProcessId", "/format:value"],
+                capture_output=True, text=True, timeout=10, encoding='utf-8', errors='replace'
+            )
+            for line in 查询结果2.stdout.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("ProcessId="):
+                    pid = line.split("=", 1)[1].strip()
+                    if pid.isdigit() and pid not in pids:
+                        pids.append(pid)
+
+            # 逐个终止（排除自身进程）
+            当前pid = str(os.getpid())
+            for pid in pids:
+                if pid != 当前pid:
+                    subprocess.run(["taskkill", "/F", "/PID", pid, "/T"],
+                                 capture_output=True, timeout=10)
+        except Exception:
+            pass
+
+        # 等待2秒让进程完全退出
+        time.sleep(2)
+
+        # 使用ComfyUI启动操作
+        启动器 = ComfyUI启动()
+        启动器.文件管理器 = self.文件管理器
+        启动器.进度回调 = self.进度回调
+        启动器.取消检查 = self.取消检查
+        结果 = 启动器.执行({"等待就绪": "是"})
+
+        if 结果.成功:
+            return 操作结果.成功(
+                f"✅ ComfyUI已重启\n{结果.消息}",
+                元数据={"操作类型": "ComfyUI修复自定义节点", "修复操作": "重启ComfyUI"}
+            )
+        return 结果

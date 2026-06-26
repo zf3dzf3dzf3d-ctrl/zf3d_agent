@@ -232,6 +232,8 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .msg-body ul, .msg-body ol { padding-left:20px; margin:4px 0; }
 .msg-body li { margin:2px 0; }
 .msg-body a { color:var(--blue); text-decoration:underline; }
+.msg-body .folder-link { display:inline-flex; align-items:center; gap:2px; background:var(--active); border:1px solid var(--blue); border-radius:4px; padding:1px 6px; cursor:pointer; text-decoration:none; font-family:Consolas,monospace; font-size:12px; color:var(--blue); transition:all 0.15s; white-space:nowrap; }
+.msg-body .folder-link:hover { background:var(--blue); color:#fff; }
 .msg-body blockquote { border-left:3px solid var(--blue); padding:2px 8px; margin:4px 0; color:var(--text2); }
 .msg-body h1, .msg-body h2, .msg-body h3 { margin:8px 0 4px; }
 .msg-body h1 { font-size:16px; }
