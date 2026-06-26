@@ -48,24 +48,54 @@ class 运行命令(操作基类):
         工作目录 = 参数.get("工作目录", "")
         if not 工作目录 and self.文件管理器:
             工作目录 = str(self.文件管理器.项目根目录)
+        开始时间 = time.time()
         try:
-            结果 = subprocess.run(
-                命令, shell=True, capture_output=True, text=True,
-                timeout=超时, encoding='utf-8', errors='replace',
-                cwd=工作目录 if 工作目录 else None
+            # Windows下用CREATE_NEW_PROCESS_GROUP，超时后taskkill /T杀整棵进程树
+            创建标志 = 0
+            if sys.platform == 'win32':
+                创建标志 = subprocess.CREATE_NEW_PROCESS_GROUP
+            进程 = subprocess.Popen(
+                命令, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, encoding='utf-8', errors='replace',
+                cwd=工作目录 if 工作目录 else None,
+                creationflags=创建标志
             )
-            输出 = 结果.stdout.strip() if 结果.stdout else ""
-            错误 = 结果.stderr.strip() if 结果.stderr else ""
-            return 操作结果.成功(输出 or "(命令执行成功，无输出)", 元数据={
-                "耗时毫秒": 超时 * 1000,
-                "操作类型": "运行命令",
-                "命令": 命令[:200],
-                "退出码": 结果.returncode
-            })
-        except subprocess.TimeoutExpired:
-            return 操作结果.失败(f"命令超时({超时}秒)")
+            try:
+                输出, 错误 = 进程.communicate(timeout=超时)
+                耗时 = int((time.time() - 开始时间) * 1000)
+                输出 = 输出.strip() if 输出 else ""
+                错误 = 错误.strip() if 错误 else ""
+                return 操作结果.成功(输出 or "(命令执行成功，无输出)", 元数据={
+                    "耗时毫秒": 耗时,
+                    "操作类型": "运行命令",
+                    "命令": 命令[:200],
+                    "退出码": 进程.returncode
+                })
+            except subprocess.TimeoutExpired:
+                # 杀整棵进程树（shell=True时子进程不会被自动杀掉）
+                self._杀进程树(进程.pid)
+                进程.communicate()  # 回收资源
+                耗时 = int((time.time() - 开始时间) * 1000)
+                return 操作结果.失败(f"命令超时({超时}秒)，已强制终止进程树", 元数据={
+                    "耗时毫秒": 耗时, "操作类型": "运行命令", "命令": 命令[:200]
+                })
         except Exception as e:
             return 操作结果.失败(f"执行异常: {e}")
+
+    def _杀进程树(self, pid: int):
+        """杀掉进程及其所有子进程（Windows用taskkill /T，Linux用pgrep）"""
+        try:
+            if sys.platform == 'win32':
+                subprocess.run(f"taskkill /F /T /PID {pid}",
+                               shell=True, capture_output=True, timeout=10)
+            else:
+                import signal
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except Exception:
+            try:
+                os.kill(pid, 9)
+            except Exception:
+                pass
 
 
 class 截图(操作基类):
