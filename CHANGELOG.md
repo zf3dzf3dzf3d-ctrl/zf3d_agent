@@ -1,5 +1,23 @@
 # 更新日志
 
+## v2.1.0 (2026-06-26)
+
+### 新增
+- 静默自动更新：启动3秒后后台检查，多源回退（Gitee优先→GitHub→自建服务器）
+- EXE打包：PyInstaller一键打包，用户无需安装Python
+- 更新检查器：GitHub Release + Gitee发行版自动检测，下载覆盖公共区+自动备份+失败回滚
+- Gitee镜像仓库：国内用户更新走Gitee，不依赖翻墙
+
+### 修复
+- 运行命令超时卡死：subprocess.run超时后子进程成孤儿，改用Popen+taskkill /T杀进程树
+- LLM工具调用参数截断：max_tokens不足导致JSON不完整，json.loads失败后静默返回{}→AI收到"缺少必填参数"误报。现在检测finish_reason=length并提示AI拆分文件用追加文件分批写入
+- max_tokens 4096→8192，从源头减少截断
+- 跨对话记忆混淆：记忆注入标签"相关记忆""近期摘要"改为明确标注"非当前对话历史，不要混入当前对话"
+- Ctrl+A被拦截：焦点在对话输入框/编辑器时onSelectionKeyDown仍拦截，增加TEXTAREA/INPUT检查+mediaView可见性检查
+
+### 优化
+- 更新源优先级：Gitee优先（国内用户），GitHub次之，自建服务器兜底
+
 ## v2.0.0 (2026-06-25)
 
 ### 新增
