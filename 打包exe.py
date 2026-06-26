@@ -5,6 +5,14 @@
 使用方法: py 打包exe.py
 前提: pip install pyinstaller
 """
+import sys
+import os
+
+# Windows控制台UTF-8
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import os
 import sys
 import shutil
@@ -72,17 +80,33 @@ def 扫描隐私泄露():
         (r'[CDEFGH]:\\Users\\[^\\]+\\', "Windows个人路径"),
     ]
 
+    # 跳过第三方库文件（不可能含用户隐私）
+    跳过文件 = {"highlight.min.js", "marked.min.js", "katex.min.js", "katex-auto-render.min.js",
+                "xlsx.full.min.js", "mammoth.browser.min.js", "pdf.min.js", "pdf.worker.min.js"}
+
     发现 = False
     for 文件 in 公共区.rglob("*"):
+        if 文件.name in 跳过文件:
+            continue
         if 文件.is_file() and 文件.suffix in ('.py', '.json', '.js', '.html', '.css', '.md'):
             try:
                 内容 = 文件.read_text(encoding="utf-8", errors="replace")
                 for 模式, 描述 in 隐私模式:
                     匹配 = re.search(模式, 内容)
                     if 匹配:
-                        # 排除模板中的占位符
-                        if "${" in 匹配.group() or "example" in 匹配.group().lower():
+                        # 排除模板占位符、示例文本、代码注释中的路径正则
+                        匹配文本 = 匹配.group()
+                        if "${" in 匹配文本 or "example" in 匹配文本.lower():
                             continue
+                        # 邮箱：跳过第三方库中的作者邮箱
+                        if 描述 == "邮箱" and 文件.name.endswith(".min.js"):
+                            continue
+                        # Windows路径：跳过注释/正则中的示例路径
+                        if 描述 == "Windows个人路径":
+                            行号 = 内容[:匹配.start()].count('\n') + 1
+                            行内容 = 内容.split('\n')[行号 - 1].strip()
+                            if 行内容.startswith('//') or 行内容.startswith('*') or 行内容.startswith('#'):
+                                continue
                         print(f"  ⚠️ {描述} 泄露: {文件.relative_to(项目根)} → {匹配.group()[:30]}...")
                         发现 = True
             except Exception:
