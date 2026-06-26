@@ -13,7 +13,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -33,7 +33,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -53,7 +53,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -73,7 +73,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -93,7 +93,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -113,7 +113,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -133,7 +133,7 @@
       "请求模板": {
         "model": "${模型名称}",
         "messages": "${消息列表}",
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.content[0].text",
       "环境变量": {
@@ -153,7 +153,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -173,7 +173,7 @@
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 4096
+        "max_tokens": 8192
       },
       "响应路径": "$.choices[0].message.content",
       "环境变量": {
@@ -191,7 +191,7 @@
     "model": "${模型名称}",
     "messages": "${消息列表}",
     "temperature": 0.7,
-    "max_tokens": 4096
+    "max_tokens": 8192
   },
   "响应路径": "$.choices[0].message.content",
   "重试": {

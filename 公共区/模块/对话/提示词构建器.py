@@ -275,16 +275,16 @@ class 提示词构建器类:
                     部分.append(f"【用户画像】\n{json.dumps(注入['用户画像'], ensure_ascii=False)}")
                 if 注入.get("相关事件摘要"):
                     事件 = [f"  - {e['标题']}: {e.get('摘要', '')}" for e in 注入["相关事件摘要"]]
-                    部分.append("【相关记忆】\n" + "\n".join(事件))
+                    部分.append("【其他对话的相关记忆（非当前对话历史，仅供参考，不要混入当前对话）】\n" + "\n".join(事件))
                 if 注入.get("近期事件摘要"):
                     摘要 = [f"  - {s}" for s in 注入["近期事件摘要"]]
-                    部分.append("【近期摘要】\n" + "\n".join(摘要))
+                    部分.append("【近期其他对话摘要（非当前对话历史，仅供参考，不要混入当前对话）】\n" + "\n".join(摘要))
                 if 注入.get("自动召回记忆"):
                     召回行 = []
                     for m in 注入["自动召回记忆"]:
                         标签 = f" ({', '.join(m['标签'])})" if m.get("标签") else ""
                         召回行.append(f"  - [[{m['name']}]] — {m['描述']}{标签}")
-                    部分.append("【自动召回记忆（根据当前对话）】\n" + "\n".join(召回行))
+                    部分.append("【跨对话记忆召回（非当前对话历史，仅供参考）】\n" + "\n".join(召回行))
                 记忆文本 = "\n\n".join(部分)
                 # 缓存结果
                 self._记忆缓存 = 记忆文本
@@ -313,7 +313,7 @@ class 提示词构建器类:
                     部分.append(f"【用户画像】\n{json.dumps(注入['用户画像'], ensure_ascii=False)}")
                 if 注入.get("近期事件摘要"):
                     摘要 = [f"  - {s}" for s in 注入["近期事件摘要"]]
-                    部分.append("【近期摘要】\n" + "\n".join(摘要))
+                    部分.append("【近期其他对话摘要（非当前对话历史，仅供参考）】\n" + "\n".join(摘要))
                 return "\n\n".join(部分)
         except Exception:
             pass

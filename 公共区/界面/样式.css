@@ -15,6 +15,8 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .topbar-icon { background:none; border:none; color:var(--text2); font-size:15px; cursor:pointer; padding:4px 8px; border-radius:3px; }
 .topbar-icon:hover { background:var(--hover); color:var(--text); }
 .topbar-icon.active { color:var(--text); background:rgba(33,150,243,0.15); }
+.topbar-icon.has-update { animation: pulse-update 2s infinite; color:var(--green); }
+@keyframes pulse-update { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
 .topbar-title { font-size:13px; color:var(--text2); margin:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* 面板文字隐藏（窄屏或拖拽过窄时） */
@@ -548,3 +550,98 @@ pre:hover .code-copy-btn { opacity:1; }
 .stock-minute-header .sm-name { font-size:16px; font-weight:bold; color:var(--text); }
 .stock-minute-header .sm-price { font-size:20px; font-weight:bold; }
 .stock-minute-canvas { flex:1; background:#0a0a0a; border:1px solid var(--border); border-radius:4px; position:relative; overflow:hidden; }
+
+/* === 搜索联想下拉 === */
+.stock-search-dropdown { position:absolute; left:4px; right:4px; top:100%; background:var(--bg3); border:1px solid var(--border); border-radius:3px; max-height:200px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+.stock-search-dropdown .ssd-item { padding:4px 8px; cursor:pointer; font-size:11px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(60,60,60,0.3); }
+.stock-search-dropdown .ssd-item:hover { background:var(--hover); }
+.stock-search-dropdown .ssd-item .ssd-code { color:var(--text2); }
+.stock-search-dropdown .ssd-item .ssd-name { color:var(--text); }
+
+/* === 自选股列表 === */
+.stock-sidebar-list .ss-header { font-size:10px; color:var(--text2); padding:4px 6px 2px; border-bottom:1px solid var(--border); }
+.stock-sidebar-list .ss-watch-item { display:flex; align-items:center; padding:3px 6px; cursor:pointer; font-size:11px; border-bottom:1px solid rgba(60,60,60,0.3); }
+.stock-sidebar-list .ss-watch-item:hover { background:var(--hover); }
+.stock-sidebar-list .ss-watch-item .ssw-code { color:var(--text2); margin-right:4px; }
+.stock-sidebar-list .ss-watch-item .ssw-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+.stock-sidebar-list .ss-watch-item .ssw-pct { font-weight:bold; margin-left:4px; }
+.stock-sidebar-list .ss-watch-item .ssw-del { color:var(--text2); margin-left:4px; opacity:0; transition:opacity 0.15s; }
+.stock-sidebar-list .ss-watch-item:hover .ssw-del { opacity:1; }
+.stock-sidebar-list .ss-watch-item .ssw-del:hover { color:#f14c4c; }
+
+/* === K线周期切换 + 操作栏 === */
+.stock-kline-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.stock-period-btns { display:flex; gap:2px; }
+.stock-period-btn { background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-size:11px; padding:2px 8px; border-radius:3px; cursor:pointer; }
+.stock-period-btn:hover { background:var(--hover); color:var(--text); }
+.stock-period-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.stock-kline-actions { margin-left:auto; display:flex; gap:4px; }
+.stock-action-btn { background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-size:11px; padding:2px 6px; border-radius:3px; cursor:pointer; }
+.stock-action-btn:hover { background:var(--hover); color:var(--text); }
+.stock-action-btn.active { color:var(--blue); border-color:var(--blue); }
+
+/* === 个股详情面板 === */
+.stock-detail-bar { display:flex; flex-wrap:wrap; gap:6px 16px; padding:6px 8px; background:var(--bg3); border-radius:4px; margin-bottom:6px; font-size:11px; }
+.stock-detail-bar .sd-item { display:flex; gap:4px; }
+.stock-detail-bar .sd-label { color:var(--text2); }
+.stock-detail-bar .sd-value { color:var(--text); font-weight:bold; }
+
+/* === K线十字光标提示 === */
+.stock-tooltip { position:absolute; background:rgba(20,20,20,0.95); border:1px solid var(--border); border-radius:4px; padding:4px 8px; font-size:10px; font-family:Consolas,monospace; color:var(--text); pointer-events:none; z-index:50; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+.stock-tooltip .st-date { color:var(--text2); margin-bottom:2px; }
+.stock-tooltip .st-row { display:flex; gap:6px; }
+.stock-tooltip .st-label { color:var(--text2); }
+
+/* === 市场总览 === */
+.sp-breadth { display:flex; gap:10px; align-items:center; padding:4px 8px; background:var(--bg3); border-radius:4px; margin-bottom:6px; font-size:11px; }
+.sp-breadth .sb-item { display:flex; gap:3px; align-items:center; }
+.sp-breadth .sb-label { color:var(--text2); }
+.sp-breadth .sb-up { color:#f14c4c; font-weight:bold; }
+.sp-breadth .sb-down { color:#4EC9B0; font-weight:bold; }
+.sp-breadth .sb-flat { color:var(--text2); font-weight:bold; }
+.sp-breadth .sb-sep { color:var(--border); }
+
+/* === 板块表格 === */
+.sp-sector-table { width:100%; border-collapse:collapse; font-size:12px; font-family:Consolas,monospace; }
+.sp-sector-table th { position:sticky; top:0; background:var(--bg3); color:var(--text2); padding:4px 6px; text-align:right; font-weight:normal; border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+.sp-sector-table th:first-child, .sp-sector-table td:first-child { text-align:left; }
+.sp-sector-table td { padding:3px 6px; text-align:right; white-space:nowrap; border-bottom:1px solid rgba(60,60,60,0.2); }
+.sp-sector-table tr:hover td { background:var(--hover); }
+.sp-sector-title { font-size:13px; font-weight:bold; color:var(--blue); padding:6px 8px 2px; }
+
+/* === 资金流向表格 === */
+.sp-flow-table { width:100%; border-collapse:collapse; font-size:12px; font-family:Consolas,monospace; }
+.sp-flow-table th { position:sticky; top:0; background:var(--bg3); color:var(--text2); padding:4px 6px; text-align:right; font-weight:normal; border-bottom:1px solid var(--border); white-space:nowrap; z-index:1; }
+.sp-flow-table th:first-child, .sp-flow-table td:first-child { text-align:left; }
+.sp-flow-table td { padding:3px 6px; text-align:right; white-space:nowrap; border-bottom:1px solid rgba(60,60,60,0.2); }
+.sp-flow-table tr:hover td { background:var(--hover); }
+
+/* === 分页按钮 === */
+.sp-pagination { text-align:center; padding:8px; }
+.sp-page-btn { background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-size:12px; padding:4px 16px; border-radius:3px; cursor:pointer; }
+.sp-page-btn:hover { background:var(--hover); color:var(--text); }
+.sp-page-info { color:var(--text2); font-size:11px; margin-left:8px; }
+
+/* === 数据管理面板 === */
+.sp-data-panel { padding:16px; }
+.sp-data-section { background:var(--bg3); border-radius:6px; padding:12px; margin-bottom:12px; }
+.sp-data-title { font-size:14px; font-weight:bold; color:var(--blue); margin-bottom:8px; }
+.sp-data-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.sp-data-btn { background:var(--blue); color:#fff; border:none; padding:6px 16px; border-radius:4px; cursor:pointer; font-size:13px; }
+.sp-data-btn:hover { opacity:0.85; }
+.sp-data-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.sp-data-btn.secondary { background:var(--bg4); color:var(--text); border:1px solid var(--border); }
+.sp-data-btn.danger { background:#c0392b; }
+.sp-data-stat { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text2); }
+.sp-data-stat .ds-item { display:flex; gap:4px; }
+.sp-data-stat .ds-label { color:var(--text2); }
+.sp-data-stat .ds-value { color:var(--text); font-weight:bold; }
+.sp-bulk-progress { margin-top:8px; }
+.sp-bulk-bar-container { width:100%; height:20px; background:var(--bg4); border-radius:4px; overflow:hidden; margin-bottom:4px; }
+.sp-bulk-bar-fill { height:100%; background:var(--blue); transition:width 0.3s; }
+.sp-bulk-info { display:flex; justify-content:space-between; font-size:11px; color:var(--text2); }
+.sp-bulk-status { padding:4px 8px; border-radius:3px; font-size:11px; }
+.sp-bulk-status.idle { color:var(--text2); }
+.sp-bulk-status.running { color:var(--blue); }
+.sp-bulk-status.done { color:#4EC9B0; }
+.sp-bulk-status.error { color:#f14c4c; }

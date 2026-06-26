@@ -7,7 +7,7 @@
     <title>朱峰社区智能体 v2.0</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260626a">
+    <link rel="stylesheet" href="样式.css?v=20260626b">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -24,6 +24,7 @@
         </div>
         <span class="topbar-title"><img src="favicon.png?v=2" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;position:relative;top:-1px;">朱峰社区智能体</span>
         <div class="topbar-right">
+            <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
         </div>
@@ -172,10 +173,14 @@
                     <button class="stock-tab active" data-view="panel" onclick="switchStockView('panel')">📊<br>盘面</button>
                     <button class="stock-tab" data-view="kline" onclick="switchStockView('kline')">📈<br>K线</button>
                     <button class="stock-tab" data-view="minute" onclick="switchStockView('minute')">⏱️<br>分时</button>
+                    <button class="stock-tab" data-view="sectors" onclick="switchStockView('sectors')">🏦<br>板块</button>
+                    <button class="stock-tab" data-view="flow" onclick="switchStockView('flow')">💰<br>资金</button>
+                    <button class="stock-tab" data-view="data" onclick="switchStockView('data')">💾<br>数据</button>
                 </div>
                 <div class="stock-code-input">
-                    <input type="text" id="stockCodeInput" placeholder="输入代码/名称" onkeydown="if(event.key==='Enter')searchStock()" />
+                    <input type="text" id="stockCodeInput" placeholder="代码/名称" oninput="onStockSearchInput()" onkeydown="if(event.key==='Enter')searchStock()" autocomplete="off" />
                     <button onclick="searchStock()" title="搜索股票">🔍</button>
+                    <div class="stock-search-dropdown" id="stockSearchDropdown" style="display:none;"></div>
                 </div>
                 <div class="stock-sidebar-list" id="stockSidebarList"></div>
             </div>
@@ -184,6 +189,9 @@
                 <div class="stock-view" id="stockViewPanel"></div>
                 <div class="stock-view" id="stockViewKline" style="display:none;"></div>
                 <div class="stock-view" id="stockViewMinute" style="display:none;"></div>
+                <div class="stock-view" id="stockViewSectors" style="display:none;"></div>
+                <div class="stock-view" id="stockViewFlow" style="display:none;"></div>
+                <div class="stock-view" id="stockViewData" style="display:none;"></div>
             </div>
         </div>
 
@@ -338,7 +346,7 @@
     <script src="pdf.min.js?v=1"></script>
     <script src="编辑器/编辑器.js?v=20260620u"></script>
     <script src="模块/Toast通知.js?v=20260624a"></script>
-    <script src="逻辑.js?v=20260626d"></script>
+    <script src="逻辑.js?v=20260626f"></script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
@@ -373,6 +381,19 @@
 
     <!-- Toast通知容器 -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 更新弹窗 -->
+    <div class="overlay" id="updateOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:520px;">
+            <h3>🔄 发现新版本 <span id="updateNewVersion" style="color:var(--blue);"></span></h3>
+            <p style="color:var(--text2);font-size:13px;margin:8px 0;">当前版本: <span id="updateCurVersion">-</span></p>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin:10px 0;max-height:300px;overflow-y:auto;font-size:13px;line-height:1.6;" id="updateChangelog">加载中...</div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                <button class="dlg-btn" onclick="document.getElementById('updateOverlay').style.display='none'" title="稍后再更新">稍后</button>
+                <button class="dlg-btn primary" id="doUpdateBtn" onclick="doUpdate()" title="立即下载并更新">⬇️ 立即更新</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 路径授权弹窗 -->
     <div class="overlay" id="permissionOverlay" style="display:none;">

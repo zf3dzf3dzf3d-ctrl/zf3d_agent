@@ -344,12 +344,22 @@ class 模型直连器类:
 
             # 解析工具调用参数
             工具调用结果 = []
+            # 流式模式下finish_reason在最后一个非空chunk中
+            流式finish_reason = ""
+            for 块 in reversed(原始块列表):
+                ch = 块.get("choices", [{}])
+                if ch and ch[0].get("finish_reason"):
+                    流式finish_reason = ch[0]["finish_reason"]
+                    break
             for tc in 工具调用列表:
                 if tc["名称"]:
                     try:
                         参数 = json.loads(tc["参数"]) if tc["参数"] else {}
                     except json.JSONDecodeError:
+                        # JSON解析失败 — 可能是max_tokens截断导致JSON不完整
                         参数 = {}
+                        if 流式finish_reason == "length":
+                            参数 = {"__截断错误__": True}
                     工具调用结果.append({"id": tc["id"], "名称": tc["名称"], "参数": 参数})
 
             # Token统计（从最后一个块的usage取）
@@ -397,7 +407,8 @@ class 模型直连器类:
                 "原始响应": {"choices": [{"message": 助手消息, "finish_reason": "tool_calls" if 工具调用结果 else "stop"}], "chunks": len(原始块列表)},
                 "响应状态": 200,
                 "耗时毫秒": 耗时毫秒,
-                "流式": True
+                "流式": True,
+                "finish_reason": 流式finish_reason or ("tool_calls" if 工具调用结果 else "stop")
             }
             self._记录LLM调用日志(返回结果, 系统提示词, 消息列表)
             return 返回结果
@@ -536,7 +547,8 @@ class 模型直连器类:
                     "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
                     "原始响应": 响应JSON,
                     "响应状态": 响应.status,
-                    "耗时毫秒": 耗时毫秒
+                    "耗时毫秒": 耗时毫秒,
+                    "finish_reason": 响应JSON.get("choices", [{}])[0].get("finish_reason", "") if 响应JSON.get("choices") else ""
                 }
 
                 # v2.1: 存入缓存（不缓存工具调用响应，只缓存纯文本响应）
@@ -695,7 +707,9 @@ class 模型直连器类:
     def _提取工具调用(self, 响应JSON: dict) -> list:
         """从响应中提取function calling的工具调用列表"""
         try:
-            消息 = 响应JSON.get("choices", [{}])[0].get("message", {})
+            选择 = 响应JSON.get("choices", [{}])[0]
+            消息 = 选择.get("message", {})
+            finish_reason = 选择.get("finish_reason", "")
             工具调用原始 = 消息.get("tool_calls", [])
             if not 工具调用原始:
                 return []
@@ -706,7 +720,10 @@ class 模型直连器类:
                 try:
                     参数 = json.loads(参数字符串)
                 except (json.JSONDecodeError, TypeError):
+                    # JSON解析失败 — 可能是max_tokens截断导致JSON不完整
                     参数 = {}
+                    if finish_reason == "length":
+                        参数 = {"__截断错误__": True}
                 结果.append({
                     "id": 调用.get("id", ""),
                     "名称": 函数.get("name", ""),

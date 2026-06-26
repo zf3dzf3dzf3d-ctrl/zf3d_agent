@@ -623,18 +623,116 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 模型列表.append({"名称": "默认模型", "当前": True})
             self._返回JSON({"模型": 模型列表})
         elif 路径 == "/api/stock-panel":
-            """股票盘面：指数+涨幅榜+跌幅榜"""
-            self._返回JSON(self._获取股票盘面())
+            """股票盘面：指数+涨幅榜+跌幅榜+市场总览（缓存）"""
+            参数 = parse_qs(解析结果.query)
+            页码 = int(参数.get("page", ["1"])[0])
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"panel_{页码}", "panel", lambda: self._获取股票盘面(页码))
+            self._返回JSON(结果)
         elif 路径 == "/api/stock-kline":
-            """股票K线数据"""
+            """股票K线数据（支持日K/周K/月K，缓存+增量更新）"""
             参数 = parse_qs(解析结果.query)
             代码 = 参数.get("code", [""])[0]
-            self._返回JSON(self._获取股票K线(代码))
+            周期 = 参数.get("period", ["daily"])[0]
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"kline_{代码}_{周期}", "kline", lambda: self._获取股票K线(代码, 周期))
+            self._返回JSON(结果)
         elif 路径 == "/api/stock-minute":
-            """股票分时数据"""
+            """股票分时数据（缓存）"""
             参数 = parse_qs(解析结果.query)
             代码 = 参数.get("code", [""])[0]
-            self._返回JSON(self._获取股票分时(代码))
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"minute_{代码}", "minute", lambda: self._获取股票分时(代码))
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-search":
+            """搜索股票（代码/名称模糊匹配，缓存）"""
+            参数 = parse_qs(解析结果.query)
+            关键词 = 参数.get("q", [""])[0]
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"search_{关键词}", "search", lambda: self._搜索股票(关键词))
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-detail":
+            """个股详情（PE/PB/市值/换手率等，缓存）"""
+            参数 = parse_qs(解析结果.query)
+            代码 = 参数.get("code", [""])[0]
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"detail_{代码}", "detail", lambda: self._获取股票详情(代码))
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-sectors":
+            """板块行情（行业+概念，缓存）"""
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求("sectors", "sectors", lambda: self._获取板块行情())
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-capital-flow":
+            """个股资金流向明细（缓存）"""
+            参数 = parse_qs(解析结果.query)
+            代码 = 参数.get("code", [""])[0]
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            结果 = 缓存.读取或请求(f"flow_{代码}", "flow", lambda: self._获取资金流向(代码))
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-batch":
+            """批量查询自选股行情"""
+            参数 = parse_qs(解析结果.query)
+            代码列表 = 参数.get("codes", [""])[0].split(",")
+            代码列表 = [c.strip() for c in 代码列表 if c.strip()]
+            self._返回JSON(self._批量查询行情(代码列表))
+        elif 路径 == "/api/stock-export":
+            """导出K线数据为CSV"""
+            参数 = parse_qs(解析结果.query)
+            代码 = 参数.get("code", [""])[0]
+            周期 = 参数.get("period", ["daily"])[0]
+            self._返回CSV(self._导出K线CSV(代码, 周期), f"{代码}_{周期}.csv")
+        elif 路径 == "/api/stock-cache-stats":
+            """股票缓存统计"""
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            self._返回JSON({"成功": True, "统计": 缓存.获取缓存统计()})
+        elif 路径 == "/api/stock-cache-clear":
+            """清空股票缓存"""
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            缓存.清空缓存()
+            self._返回JSON({"成功": True, "消息": "股票缓存已清空"})
+        elif 路径 == "/api/stock-bulk-start":
+            """启动全量K线+财务数据下载"""
+            参数 = parse_qs(解析结果.query)
+            周期 = 参数.get("period", ["daily"])[0]
+            增量 = 参数.get("incremental", ["1"])[0] != "0"
+            含财务 = 参数.get("finance", ["1"])[0] != "0"
+            from 股票缓存 import 获取下载引擎
+            引擎 = 获取下载引擎()
+            结果 = 引擎.启动下载(周期, 增量, 含财务)
+            self._返回JSON(结果)
+        elif 路径 == "/api/stock-bulk-progress":
+            """查询全量下载进度"""
+            from 股票缓存 import 获取下载引擎, 获取股票缓存
+            引擎 = 获取下载引擎()
+            缓存 = 获取股票缓存()
+            进度 = 引擎.获取进度()
+            统计 = 缓存.取本地K线统计()
+            财务统计 = 缓存.取财务数据统计()
+            self._返回JSON({"成功": True, "进度": 进度, "本地统计": 统计, "财务统计": 财务统计})
+        elif 路径 == "/api/stock-bulk-stop":
+            """停止全量下载"""
+            from 股票缓存 import 获取下载引擎
+            引擎 = 获取下载引擎()
+            引擎.停止()
+            self._返回JSON({"成功": True, "消息": "正在停止..."})
+        elif 路径 == "/api/stock-finance":
+            """查询单只股票本地财务数据"""
+            参数 = parse_qs(解析结果.query)
+            代码 = 参数.get("code", [""])[0]
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            数据 = 缓存.取财务数据(代码)
+            self._返回JSON({"成功": True, "数据": 数据})
         elif 路径 == "/api/drives":
             # 返回可用磁盘驱动器列表
             驱动器列表 = []
@@ -998,6 +1096,35 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             if self.模块注册 and "对话" in self.模块注册:
                 self.模块注册["对话"]._保存当前对话()
             self._返回JSON({"成功": True})
+        elif 路径 == "/api/check-update":
+            """检查GitHub是否有新版本"""
+            try:
+                from 更新检查器 import 更新检查器类
+                系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                系统配置["项目根目录"] = str(self.配置加载器.项目根目录)
+                检查器 = 更新检查器类(系统配置)
+                结果 = 检查器.检查更新(强制=数据.get("强制", False))
+                self._返回JSON(结果)
+            except Exception as e:
+                self._返回JSON({"有更新": False, "错误": str(e)})
+        elif 路径 == "/api/do-update":
+            """执行更新：下载并覆盖公共区"""
+            try:
+                from 更新检查器 import 更新检查器类
+                系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                系统配置["项目根目录"] = str(self.配置加载器.项目根目录)
+                检查器 = 更新检查器类(系统配置)
+                下载地址 = 数据.get("下载地址", "")
+                if not 下载地址:
+                    结果 = 检查器.检查更新(强制=True)
+                    下载地址 = 结果.get("下载地址", "")
+                if not 下载地址:
+                    self._返回JSON({"成功": False, "错误": "无法获取下载地址"})
+                    return
+                结果 = 检查器.执行更新(下载地址)
+                self._返回JSON(结果)
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/memory-add":
             if self.模块注册 and "对话" in self.模块注册:
                 self.模块注册["对话"].添加永久记忆(数据.get("内容", ""))
@@ -1535,8 +1662,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     raise
                 import time; time.sleep(0.3)
 
-    def _获取股票盘面(self) -> dict:
-        """获取盘面数据：指数+涨幅榜+跌幅榜"""
+    def _获取股票盘面(self, 页码: int = 1) -> dict:
+        """获取盘面数据：指数+涨幅榜+跌幅榜+市场总览"""
         from datetime import datetime
         try:
             # 1. 获取指数
@@ -1558,11 +1685,13 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-            # 2. 获取涨幅榜（A股，按涨幅降序）
+            # 2. 获取涨幅榜（A股，按涨幅降序，支持翻页）
             涨幅榜 = []
-            url涨 = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=15&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f6,f7,f8,f12,f14,f15,f62,f184,f66&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid=f3"
+            总数涨 = 0
+            url涨 = f"https://push2.eastmoney.com/api/qt/clist/get?pn={页码}&pz=20&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f62,f184,f66&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid=f3"
             try:
                 数据 = self._东财请求(url涨)
+                总数涨 = 数据.get("data", {}).get("total", 0)
                 for item in (数据.get("data", {}).get("diff", []) or []):
                     涨幅榜.append({
                         "代码": item.get("f12", ""),
@@ -1572,7 +1701,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         "涨速": round(item.get("f7", 0) / 100, 2) if item.get("f7") else 0,
                         "主力净流入": round((item.get("f62", 0) or 0) / 100000000, 2),
                         "成交额": self._格式化成交额(item.get("f6", 0)),
-                        "量比": round(item.get("f8", 0) / 100, 2) if item.get("f8") else 0
+                        "量比": round(item.get("f8", 0) / 100, 2) if item.get("f8") else 0,
+                        "换手率": round(item.get("f8", 0) / 100, 2) if item.get("f8") else 0,
+                        "PE": round(item.get("f9", 0) / 100, 2) if item.get("f9") else 0,
+                        "PB": round(item.get("f10", 0) / 100, 2) if item.get("f10") else 0
                     })
             except Exception:
                 pass
@@ -1594,12 +1726,38 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+            # 4. 市场总览：涨跌家数、涨停跌停数
+            市场总览 = {"上涨": 0, "下跌": 0, "平盘": 0, "涨停": 0, "跌停": 0}
+            try:
+                url总 = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5000&po=1&np=1&fltt=2&invt=2&fields=f3,f12&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid=f3"
+                数据总 = self._东财请求(url总)
+                for item in (数据总.get("data", {}).get("diff", []) or []):
+                    pct = round(item.get("f3", 0) / 100, 2) if item.get("f3") else 0
+                    code = item.get("f12", "")
+                    涨停幅 = 19.9 if (code.startswith("30") or code.startswith("68")) else 9.9
+                    跌停幅 = -19.9 if (code.startswith("30") or code.startswith("68")) else -9.9
+                    if pct > 0:
+                        市场总览["上涨"] += 1
+                        if pct >= 涨停幅:
+                            市场总览["涨停"] += 1
+                    elif pct < 0:
+                        市场总览["下跌"] += 1
+                        if pct <= 跌停幅:
+                            市场总览["跌停"] += 1
+                    else:
+                        市场总览["平盘"] += 1
+            except Exception:
+                pass
+
             return {
                 "成功": True,
                 "时间": datetime.now().strftime("%H:%M:%S"),
                 "指数": 指数,
                 "涨幅榜": 涨幅榜,
-                "跌幅榜": 跌幅榜
+                "跌幅榜": 跌幅榜,
+                "市场总览": 市场总览,
+                "涨幅榜总数": 总数涨,
+                "当前页": 页码
             }
         except Exception as e:
             return {"成功": False, "错误": str(e)}
@@ -1612,14 +1770,16 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         万 = 值 / 10000
         return f"{万:.0f}万"
 
-    def _获取股票K线(self, 代码: str) -> dict:
-        """获取K线数据（日K，前120天）"""
+    def _获取股票K线(self, 代码: str, 周期: str = "daily") -> dict:
+        """获取K线数据（支持日K/周K/月K）"""
         try:
-            # 判断市场前缀
             secid = self._代码转secid(代码)
             if not secid:
                 return {"成功": False, "错误": f"无法识别股票代码: {代码}"}
-            url = f"https://push2his.eastmoney.com/api/qt/stock/kline/get?secid={secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&klt=101&fqt=1&beg=0&end=20500101&lmt=120"
+            周期映射 = {"daily": 101, "weekly": 102, "monthly": 103}
+            klt = 周期映射.get(周期, 101)
+            天数 = 120 if klt == 101 else (200 if klt == 102 else 240)
+            url = f"https://push2his.eastmoney.com/api/qt/stock/kline/get?secid={secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&klt={klt}&fqt=1&beg=0&end=20500101&lmt={天数}"
             数据 = self._东财请求(url)
             klines = 数据.get("data", {}).get("klines", []) or []
             结果 = []
@@ -1640,12 +1800,29 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 "最新价": 结果[-1]["收"] if 结果 else 0,
                 "涨跌幅": ((结果[-1]["收"] - 结果[-2]["收"]) / 结果[-2]["收"] * 100) if len(结果) >= 2 else 0
             }
-            # 计算MA5/MA20
+            # 计算MA5/MA10/MA20
             if len(结果) >= 5:
                 股票信息["MA5"] = round(sum(d["收"] for d in 结果[-5:]) / 5, 2)
+            if len(结果) >= 10:
+                股票信息["MA10"] = round(sum(d["收"] for d in 结果[-10:]) / 10, 2)
             if len(结果) >= 20:
                 股票信息["MA20"] = round(sum(d["收"] for d in 结果[-20:]) / 20, 2)
-            return {"成功": True, "数据": 结果, "股票信息": 股票信息}
+            # 计算完整MA序列（供前端画线）
+            ma5_list, ma10_list, ma20_list = [], [], []
+            for i in range(len(结果)):
+                if i >= 4:
+                    ma5_list.append(round(sum(d["收"] for d in 结果[i-4:i+1]) / 5, 2))
+                else:
+                    ma5_list.append(None)
+                if i >= 9:
+                    ma10_list.append(round(sum(d["收"] for d in 结果[i-9:i+1]) / 10, 2))
+                else:
+                    ma10_list.append(None)
+                if i >= 19:
+                    ma20_list.append(round(sum(d["收"] for d in 结果[i-19:i+1]) / 20, 2))
+                else:
+                    ma20_list.append(None)
+            return {"成功": True, "数据": 结果, "MA5": ma5_list, "MA10": ma10_list, "MA20": ma20_list, "股票信息": 股票信息, "周期": 周期}
         except Exception as e:
             return {"成功": False, "错误": str(e)}
 
@@ -1695,6 +1872,197 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         elif 代码.startswith("8") or 代码.startswith("4"):
             return f"0.{代码}"  # 北交所
         return ""
+
+    def _批量查询行情(self, 代码列表: list) -> dict:
+        """批量查询多只股票的实时行情（一次API请求）"""
+        try:
+            if not 代码列表:
+                return {"成功": True, "数据": []}
+            from 股票缓存 import 获取股票缓存
+            缓存 = 获取股票缓存()
+            # 先查缓存
+            joined_codes = "-".join(sorted(代码列表))
+            缓存键 = "batch_" + joined_codes
+            cached = 缓存.读取缓存(缓存键, "batch")
+            if cached is not None:
+                return cached
+            # 批量请求东财
+            secids = []
+            for 代码 in 代码列表:
+                secid = self._代码转secid(代码)
+                if secid:
+                    secids.append(secid)
+            if not secids:
+                return {"成功": False, "错误": "无有效代码"}
+            url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fields=f2,f3,f4,f6,f12,f14,f15,f16,f17,f62&secids=" + ",".join(secids)
+            数据 = self._东财请求(url)
+            结果 = []
+            for item in (数据.get("data", {}).get("diff", {}) or {}).values():
+                结果.append({
+                    "代码": item.get("f12", ""),
+                    "名称": item.get("f14", ""),
+                    "最新价": round(item.get("f2", 0) / 100, 2) if item.get("f2") else 0,
+                    "涨跌幅": round(item.get("f3", 0) / 100, 2) if item.get("f3") else 0,
+                    "涨跌额": round(item.get("f4", 0) / 100, 2) if item.get("f4") else 0,
+                    "成交额": self._格式化成交额(item.get("f6", 0)),
+                    "最高": round(item.get("f15", 0) / 100, 2) if item.get("f15") else 0,
+                    "最低": round(item.get("f16", 0) / 100, 2) if item.get("f16") else 0,
+                    "主力净流入": round((item.get("f62", 0) or 0) / 100000000, 2)
+                })
+            返回 = {"成功": True, "数据": 结果}
+            缓存.写入缓存(缓存键, "batch", 返回)
+            return 返回
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
+
+    def _导出K线CSV(self, 代码: str, 周期: str = "daily") -> str:
+        """导出K线数据为CSV字符串"""
+        from 股票缓存 import 获取股票缓存
+        缓存 = 获取股票缓存()
+        数据 = 缓存.读取或请求(f"kline_{代码}_{周期}", "kline", lambda: self._获取股票K线(代码, 周期))
+        if not 数据 or not 数据.get("成功"):
+            return "错误,数据获取失败\n"
+        lines = ["日期,开盘,收盘,最高,最低,成交量,成交额"]
+        for d in 数据.get("数据", []):
+            lines.append(f"{d['日期']},{d['开']},{d['收']},{d['高']},{d['低']},{d['量']},{d['额']}")
+        return "\n".join(lines)
+
+    def _返回CSV(self, csv内容: str, 文件名: str):
+        """返回CSV文件下载响应"""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{文件名}"')
+        body = csv内容.encode("utf-8-sig")  # BOM for Excel
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _搜索股票(self, 关键词: str) -> dict:
+        """搜索股票（代码/名称模糊匹配）"""
+        try:
+            关键词 = 关键词.strip()
+            if not 关键词:
+                return {"成功": True, "结果": []}
+            url = f"https://searchapi.eastmoney.com/api/suggest/get?input={关键词}&type=14&token=D43BF722C8E33BDC906FB84D85E326E8"
+            数据 = self._东财请求(url)
+            结果 = []
+            for item in (数据.get("QuotationCodeTable", {}).get("Data", []) or []):
+                code = item.get("Code", "")
+                name = item.get("Name", "")
+                mkt = item.get("MktNum", "")
+                # 只保留A股
+                if mkt in ("0", "1") or code.startswith(("0", "3", "6", "8", "4")):
+                    cat = "指数" if "指数" in name or "成指" in name else "A股"
+                    结果.append({"代码": code, "名称": name, "类型": cat})
+            return {"成功": True, "结果": 结果[:20]}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
+
+    def _获取股票详情(self, 代码: str) -> dict:
+        """获取个股详情：PE/PB/市值/换手率等"""
+        try:
+            secid = self._代码转secid(代码)
+            if not secid:
+                return {"成功": False, "错误": f"无法识别股票代码: {代码}"}
+            url = f"https://push2.eastmoney.com/api/qt/stock/get?secid={secid}&fields=f57,f58,f84,f85,f86,f92,f116,f117,f162,f167,f168,f169,f170,f171,f173,f177,f183,f184,f186,f187,f188,f190,f191"
+            数据 = self._东财请求(url)
+            d = 数据.get("data", {}) or {}
+            if not d:
+                return {"成功": False, "错误": "未获取到数据"}
+            def _val(key):
+                v = d.get(key, 0)
+                return v if v else 0
+            def _div100(key):
+                v = d.get(key, 0)
+                return round(v / 100, 2) if v else 0
+            详情 = {
+                "代码": d.get("f57", 代码),
+                "名称": d.get("f58", ""),
+                "最新价": _div100("f84") if d.get("f84") else _val("f43"),
+                "涨跌幅": _div100("f170"),
+                "涨跌额": _div100("f169"),
+                "成交量": self._格式化成交额(d.get("f135", 0) or d.get("f5", 0)),
+                "成交额": self._格式化成交额(d.get("f6", 0)),
+                "振幅": _div100("f171"),
+                "换手率": _div100("f168"),
+                "市盈率(动)": _div100("f162"),
+                "市盈率(静)": _div100("f167"),
+                "市净率": _div100("f184"),
+                "总市值": self._格式化成交额(d.get("f116", 0)),
+                "流通市值": self._格式化成交额(d.get("f117", 0)),
+                "52周最高": _div100("f177"),
+                "52周最低": _div100("f183"),
+                "上市日期": d.get("f186", ""),
+            }
+            return {"成功": True, "详情": 详情}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
+
+    def _获取板块行情(self) -> dict:
+        """获取板块行情：行业板块+概念板块"""
+        try:
+            结果 = {"行业": [], "概念": []}
+            # 行业板块
+            url行 = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f4,f8,f12,f14,f104,f105,f128&fs=m:90+t:2&fid=f3"
+            try:
+                数据 = self._东财请求(url行)
+                for item in (数据.get("data", {}).get("diff", []) or []):
+                    结果["行业"].append({
+                        "代码": item.get("f12", ""),
+                        "名称": item.get("f14", ""),
+                        "涨跌幅": round(item.get("f3", 0) / 100, 2) if item.get("f3") else 0,
+                        "涨家数": item.get("f104", 0),
+                        "跌家数": item.get("f105", 0),
+                        "领涨股": item.get("f128", ""),
+                        "换手率": round(item.get("f8", 0) / 100, 2) if item.get("f8") else 0
+                    })
+            except Exception:
+                pass
+            # 概念板块
+            url概 = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f4,f8,f12,f14,f104,f105,f128&fs=m:90+t:3&fid=f3"
+            try:
+                数据 = self._东财请求(url概)
+                for item in (数据.get("data", {}).get("diff", []) or []):
+                    结果["概念"].append({
+                        "代码": item.get("f12", ""),
+                        "名称": item.get("f14", ""),
+                        "涨跌幅": round(item.get("f3", 0) / 100, 2) if item.get("f3") else 0,
+                        "涨家数": item.get("f104", 0),
+                        "跌家数": item.get("f105", 0),
+                        "领涨股": item.get("f128", ""),
+                        "换手率": round(item.get("f8", 0) / 100, 2) if item.get("f8") else 0
+                    })
+            except Exception:
+                pass
+            return {"成功": True, "板块": 结果}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
+
+    def _获取资金流向(self, 代码: str) -> dict:
+        """获取个股资金流向明细（近5日）"""
+        try:
+            secid = self._代码转secid(代码)
+            if not secid:
+                return {"成功": False, "错误": f"无法识别股票代码: {代码}"}
+            url = f"https://push2.eastmoney.com/api/qt/stock/fflow/daykline/get?secid={secid}&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65&lmt=5"
+            数据 = self._东财请求(url)
+            klines = 数据.get("data", {}).get("klines", []) or []
+            结果 = []
+            for k in klines:
+                parts = k.split(",")
+                if len(parts) >= 10:
+                    结果.append({
+                        "日期": parts[0],
+                        "主力净流入": round(float(parts[1]) / 10000, 2),
+                        "小单净流入": round(float(parts[2]) / 10000, 2),
+                        "中单净流入": round(float(parts[3]) / 10000, 2),
+                        "大单净流入": round(float(parts[5]) / 10000, 2) if len(parts) > 5 else 0,
+                        "超大单净流入": round(float(parts[4]) / 10000, 2) if len(parts) > 4 else 0,
+                        "主力净流入占比": round(float(parts[6]) / 100, 2) if len(parts) > 6 else 0
+                    })
+            return {"成功": True, "数据": 结果, "代码": 代码}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
 
 
 class 网页服务类:
