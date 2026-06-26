@@ -108,6 +108,10 @@ class 反思评估器类:
         if "402" in 错误信息 or "payment required" in 错误小写:
             return self.配置错误
 
+        # 配置缺失（未配置接口地址/密钥等）
+        if "未配置" in 错误信息 or "not configured" in 错误小写 or "missing" in 错误小写:
+            return self.配置错误
+
         return self.未知错误
 
     def 友好化错误(self, 错误信息: str) -> str:

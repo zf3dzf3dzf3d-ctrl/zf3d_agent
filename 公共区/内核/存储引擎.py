@@ -2,16 +2,18 @@
 存储引擎 — SQLite封装，零外部依赖（sqlite3是Python标准库）
 线程安全，支持FTS5全文搜索，替代JSON全量读写
 用于：记忆索引、对话记录、知识库索引等结构化数据
+内置TF-IDF向量搜索引擎，零依赖语义搜索
 """
 import sqlite3
 import json
+import math
 import threading
 from pathlib import Path
 from datetime import datetime
 
 
 class 存储引擎类:
-    """SQLite存储引擎，线程安全，支持全文搜索"""
+    """SQLite存储引擎，线程安全，支持全文搜索+向量搜索"""
 
     def __init__(self, 路径: str):
         self._路径 = str(路径)
@@ -60,6 +62,16 @@ class 存储引擎类:
                     创建时间 TEXT,
                     更新时间 TEXT,
                     文件路径 TEXT
+                )
+            """)
+
+            # 记忆向量表（TF-IDF向量搜索）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 记忆向量 (
+                    名称 TEXT PRIMARY KEY,
+                    文本 TEXT NOT NULL,
+                    向量 TEXT NOT NULL,
+                    创建时间 TEXT
                 )
             """)
 
@@ -290,6 +302,114 @@ class 存储引擎类:
     def 删除剧本(self, 名称: str):
         """删除剧本"""
         self._执行("DELETE FROM 剧本 WHERE 名称 = ?", [名称])
+
+    # ==================== 记忆向量搜索（TF-IDF，零依赖） ====================
+
+    def 插入记忆向量(self, 名称: str, 文本: str):
+        """插入或更新记忆向量（自动生成TF-IDF向量）"""
+        向量 = self._生成向量(文本)
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._执行(
+            """INSERT INTO 记忆向量 (名称, 文本, 向量, 创建时间)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(名称) DO UPDATE SET 文本=?, 向量=?, 创建时间=?""",
+            [名称, 文本, json.dumps(向量, ensure_ascii=False), 时间,
+             文本, json.dumps(向量, ensure_ascii=False), 时间]
+        )
+
+    def 搜索记忆向量(self, 查询文本: str, 最大数: int = 5) -> list:
+        """向量相似度搜索记忆（余弦相似度，纯Python计算）"""
+        查询向量 = self._生成向量(查询文本)
+        if not 查询向量:
+            return []
+        rows = self._查询("SELECT 名称, 文本, 向量 FROM 记忆向量")
+        if not rows:
+            return []
+        # 计算查询向量的模
+        查询模 = math.sqrt(sum(v * v for v in 查询向量.values()))
+        if 查询模 == 0:
+            return []
+        结果 = []
+        for row in rows:
+            名称 = row[0]
+            文本 = row[1]
+            try:
+                文档向量 = json.loads(row[2])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            # 余弦相似度
+            点积 = sum(查询向量.get(k, 0) * v for k, v in 文档向量.items())
+            文档模 = math.sqrt(sum(v * v for v in 文档向量.values()))
+            if 文档模 == 0:
+                continue
+            相似度 = 点积 / (查询模 * 文档模)
+            if 相似度 > 0.01:
+                结果.append({"名称": 名称, "文本": 文本[:200], "相似度": round(相似度, 4)})
+        结果.sort(key=lambda x: x["相似度"], reverse=True)
+        return 结果[:最大数]
+
+    def 删除记忆向量(self, 名称: str):
+        """删除记忆向量"""
+        self._执行("DELETE FROM 记忆向量 WHERE 名称 = ?", [名称])
+
+    def _生成向量(self, 文本: str) -> dict:
+        """生成TF-IDF文本向量（字符bigram + 词混合，纯Python零依赖）
+
+        将中文文本转为字符二元组(bigram)+分词特征，计算TF-IDF权重。
+        不需要jieba等分词库，bigram已能捕获大量语义特征。
+        """
+        if not 文本 or len(文本) < 2:
+            return {}
+        # 1. 提取特征：字符bigram + 单字 + 英文单词
+        特征 = {}
+        # 字符bigram（中文语义特征核心）
+        for i in range(len(文本) - 1):
+            bigram = 文本[i:i+2]
+            if '\n' not in bigram and '\r' not in bigram and ' ' not in bigram:
+                特征[bigram] = 特征.get(bigram, 0) + 1
+        # 英文单词（按空格/标点分割）
+        import re
+        for word in re.findall(r'[a-zA-Z_]{2,}', 文本):
+            word = word.lower()
+            特征[word] = 特征.get(word, 0) + 1
+        # 2. 计算TF（词频归一化）
+        总频 = sum(特征.values())
+        if 总频 == 0:
+            return {}
+        tf = {k: v / 总频 for k, v in 特征.items()}
+        # 3. 计算IDF（从已存储文档统计文档频率）
+        df = self._统计文档频率(list(特征.keys()))
+        总文档数 = df.get("_总数", 1)
+        idf = {}
+        for k in 特征:
+            文档频 = df.get(k, 0)
+            if 文档频 == 0:
+                idf[k] = math.log(总文档数 + 1) + 1  # 新词给较高权重
+            else:
+                idf[k] = math.log((总文档数 + 1) / (文档频 + 1)) + 1
+        # 4. TF-IDF = TF * IDF
+        向量 = {k: tf[k] * idf[k] for k in 特征}
+        return 向量
+
+    def _统计文档频率(self, 特征列表: list) -> dict:
+        """统计各特征在已有文档中出现的频率（用于IDF计算）"""
+        if not 特征列表:
+            return {"_总数": 1}
+        rows = self._查询("SELECT 向量 FROM 记忆向量")
+        总数 = len(rows)
+        df = {"_总数": max(总数, 1)}
+        if 总数 == 0:
+            return df
+        # 统计每个特征在多少个文档中出现
+        for row in rows:
+            try:
+                文档向量 = json.loads(row[0])
+                for k in 特征列表:
+                    if k in 文档向量:
+                        df[k] = df.get(k, 0) + 1
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return df
 
     # ==================== 迁移 ====================
 

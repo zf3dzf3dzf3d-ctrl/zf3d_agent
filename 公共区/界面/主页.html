@@ -19,6 +19,8 @@
             <button class="topbar-icon" id="toggleFiles" title="显示/隐藏文件面板">📁</button>
             <button class="topbar-icon" id="toggleEditor" title="显示/隐藏编辑器面板">📝</button>
             <button class="topbar-icon" id="toggleChat" title="显示/隐藏对话面板">💬</button>
+            <span class="topbar-sep"></span>
+            <button class="topbar-icon" id="stockModeBtn" title="切换到股票模式" onclick="toggleStockMode()">📊</button>
         </div>
         <span class="topbar-title"><img src="favicon.png?v=2" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;position:relative;top:-1px;">朱峰社区智能体</span>
         <div class="topbar-right">
@@ -162,8 +164,31 @@
             </div>
         </div>
 
+        <!-- 股票模式面板（默认隐藏，切换时替代文件面板+编辑器面板） -->
+        <div class="panel stock-panel" id="stockPanel" style="display:none;">
+            <!-- 左侧导航栏 -->
+            <div class="stock-sidebar">
+                <div class="stock-sidebar-tabs">
+                    <button class="stock-tab active" data-view="panel" onclick="switchStockView('panel')">📊<br>盘面</button>
+                    <button class="stock-tab" data-view="kline" onclick="switchStockView('kline')">📈<br>K线</button>
+                    <button class="stock-tab" data-view="minute" onclick="switchStockView('minute')">⏱️<br>分时</button>
+                </div>
+                <div class="stock-code-input">
+                    <input type="text" id="stockCodeInput" placeholder="输入代码/名称" onkeydown="if(event.key==='Enter')searchStock()" />
+                    <button onclick="searchStock()" title="搜索股票">🔍</button>
+                </div>
+                <div class="stock-sidebar-list" id="stockSidebarList"></div>
+            </div>
+            <!-- 主视图区 -->
+            <div class="stock-main" id="stockMain">
+                <div class="stock-view" id="stockViewPanel"></div>
+                <div class="stock-view" id="stockViewKline" style="display:none;"></div>
+                <div class="stock-view" id="stockViewMinute" style="display:none;"></div>
+            </div>
+        </div>
+
         <!-- 分隔线 -->
-        <div class="divider" data-left="editorPanel" data-right="chatPanel"></div>
+        <div class="divider" data-left="editorPanel" data-right="chatPanel" id="dividerEditorChat"></div>
 
         <!-- 右侧：对话 -->
         <div class="panel chat-panel" id="chatPanel">
