@@ -124,7 +124,16 @@ document.addEventListener("DOMContentLoaded", () => {
     newConversation();
     pollPending();
     const savedRoot = localStorage.getItem("lastFolder");
-    const initPath = savedRoot || "./";
+    // 验证保存的路径是否有效（盘符必须有:\后缀）
+    let initPath = "./";
+    if (savedRoot) {
+        // 如果是单盘符如 "C" 或 "c:" 但没有反斜杠，修正为 "C:\"
+        if (/^[A-Za-z]:?$/.test(savedRoot)) {
+            initPath = savedRoot.charAt(0).toUpperCase() + ":\\";
+        } else {
+            initPath = savedRoot;
+        }
+    }
     openFolder(initPath);
     showGallery(initPath);
     initAudioPlayer();
@@ -655,7 +664,7 @@ async function sendMessage() {
                         reasoningStreamContent.push(rec);
                         appendReasoningRecord(rec);
 
-                        // 实时文件变更检测（同原pollReasoningStream逻辑）
+                        // 实时文件变更检测（仅标记，不立即刷新，完成时统一刷新一次）
                         if (rec.类型 === "操作结果" && rec.内容?.操作 && rec.内容?.成功) {
                             const 文件变更操作 = ["删除文件", "写入文件", "替换文本", "创建文件", "追加文件", "重命名",
                                 "多线程下载", "下载网页图片", "ComfyUI一键生图", "ComfyUI获取图片", "ComfyUI图片修改", "ComfyUI视频生成",
@@ -663,8 +672,6 @@ async function sendMessage() {
                                 "运行命令", "压缩文件", "解压文件"];
                             if (文件变更操作.includes(rec.内容.操作)) {
                                 hasFileChange = true;
-                                refreshTree();
-                                if (galleryPath) showGallery(galleryPath);
                             }
                         }
                     }
@@ -679,6 +686,7 @@ async function sendMessage() {
                             streamBody.style.opacity = "0.5";
                             // 渲染完整Markdown
                             streamBody.innerHTML = renderMsg(d.回复 || streamText);
+                            bindFolderLinks(streamBody);
                             // 淡入Markdown
                             requestAnimationFrame(() => {
                                 streamBody.style.opacity = "1";
@@ -1117,6 +1125,7 @@ function addMsg(role, text, time) {
     const body = document.createElement("div");
     body.className = "msg-body";
     body.innerHTML = renderMsg(text);
+    bindFolderLinks(body);
     el.appendChild(body);
     list.appendChild(el);
     list.scrollTop = list.scrollHeight;
@@ -1169,6 +1178,8 @@ function renderMsg(text) {
                 });
                 html = tmp2.innerHTML;
             }
+            // 文件夹路径链接化
+            html = linkifyFolderPaths(html);
             return html;
         } catch(e) {
             // 降级到简单渲染
@@ -1182,6 +1193,86 @@ function renderMsg(text) {
     html = html.replace(/^&gt;\s?(.+)$/gm, '<div style="border-left:3px solid var(--blue);padding:2px 8px;margin:2px 0;color:var(--text2)">$1</div>');
     html = html.replace(/\n/g, '<br>');
     return html;
+}
+
+// ============ 文件夹路径链接化 ============
+
+// 将消息HTML中的文件夹路径转为可点击链接
+function linkifyFolderPaths(html) {
+    try {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        // 匹配 Windows绝对路径 (如 D:\folder\sub 或 C:\Users\admin) 和 ./ 开头的相对路径
+        // 不处理 code/pre/a 标签内的文本
+        const 路径正则 = /([A-Za-z]:[\/\\][^\s<>"'|*?\u4e00-\u9fff\)\]]+|\.\/[^\s<>"'|*?\u4e00-\u9fff\)\]]+)/g;
+        const walker = document.createTreeWalker(tmp, NodeFilter.SHOW_TEXT, null);
+        const 待处理 = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            // 跳过 code/pre/a 标签内的文本
+            let parent = node.parentNode;
+            let skip = false;
+            while (parent && parent !== tmp) {
+                if (parent.tagName === 'CODE' || parent.tagName === 'PRE' || parent.tagName === 'A') {
+                    skip = true;
+                    break;
+                }
+                parent = parent.parentNode;
+            }
+            if (skip) continue;
+            if (路径正则.test(node.textContent)) {
+                待处理.push(node);
+            }
+        }
+        for (const textNode of 待处理) {
+            const text = textNode.textContent;
+            const fragment = document.createDocumentFragment();
+            let lastIndex = 0;
+            路径正则.lastIndex = 0;
+            let match;
+            while ((match = 路径正则.exec(text)) !== null) {
+                // 添加匹配前的文本
+                if (match.index > lastIndex) {
+                    fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+                }
+                const path = match[1].replace(/\/+$/, '').replace(/\\+$/, ''); // 去掉尾部斜杠
+                // 创建链接元素
+                const link = document.createElement('a');
+                link.className = 'folder-link';
+                link.setAttribute('data-path', path);
+                link.textContent = '📂 ' + path;
+                link.title = '点击在左侧打开: ' + path;
+                link.href = '#';
+                fragment.appendChild(link);
+                lastIndex = match.index + match[1].length;
+            }
+            // 添加剩余文本
+            if (lastIndex < text.length) {
+                fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+            }
+            textNode.parentNode.replaceChild(fragment, textNode);
+        }
+        return tmp.innerHTML;
+    } catch (e) {
+        return html; // 出错时返回原始HTML
+    }
+}
+
+// 为容器内的文件夹链接绑定点击事件
+function bindFolderLinks(container) {
+    const links = container.querySelectorAll('.folder-link:not([data-bound])');
+    links.forEach(link => {
+        link.setAttribute('data-bound', 'true');
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const path = link.getAttribute('data-path');
+            if (path) {
+                openFolder(path);
+                showToast('info', '📂 已打开文件夹', path);
+            }
+        });
+    });
 }
 
 function clearChat() { document.getElementById("msgList").innerHTML = ""; fetch("/api/clear-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }); }
@@ -2814,18 +2905,21 @@ async function loadDriveList() {
             currentRoot = null;
             tree.innerHTML = "";
             const header = document.createElement("div");
-            header.className = "tree-folder";
-            header.style.fontWeight = "bold";
-            header.style.color = "var(--text2)";
-            header.innerHTML = '💻 此电脑';
+            header.className = "ti active";
+            header.innerHTML = '<span class="arr">▼</span><span class="ico">💻</span><span class="nm">此电脑</span>';
             tree.appendChild(header);
-            for (const drv of d.驱动器列表) {
+            const kidsWrap = document.createElement("div");
+            kidsWrap.className = "tc open";
+            tree.appendChild(kidsWrap);
+            // 优先使用统一格式(含完整路径)，回退到驱动器列表
+            const drives = (d.驱动器 && d.驱动器.length > 0) ? d.驱动器 : d.驱动器列表.map(drv => ({盘符: drv.盘符, 路径: drv.盘符 + ":\\", 类型: drv.类型, 可用空间: drv.可用空间}));
+            for (const drv of drives) {
                 const item = document.createElement("div");
-                item.className = "tree-folder";
-                item.style.paddingLeft = "12px";
-                item.innerHTML = `💽 ${escapeHtml(drv.盘符)}: <span class="tree-meta">${escapeHtml(drv.类型 || '')} ${drv.可用空间 ? '(' + drv.可用空间 + ' 可用)' : ''}</span>`;
-                item.onclick = () => openFolder(drv.盘符 + "\\");
-                tree.appendChild(item);
+                item.className = "ti";
+                const 盘符名 = drv.盘符 || drv.标签 || '';
+                item.innerHTML = `<span class="arr"> </span><span class="ico">💽</span><span class="nm">${escapeHtml(盘符名)}: ${escapeHtml(drv.类型 || '')} ${drv.可用空间 ? '(' + drv.可用空间 + ')' : ''}</span>`;
+                item.addEventListener("click", (e) => { e.stopPropagation(); openFolder(drv.路径 || (盘符名 + ":\\")); });
+                kidsWrap.appendChild(item);
             }
         } else {
             tree.innerHTML = '<div class="tree-empty">无法获取驱动器列表</div>';

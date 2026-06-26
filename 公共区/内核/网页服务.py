@@ -550,7 +550,18 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         可用GB = d["FreeSpace"] / (1024**3)
                         可用空间 = f"{可用GB:.1f}GB" if 可用GB >= 1 else f"{可用GB*1024:.0f}MB"
                     驱动器列表.append({"盘符": 盘符, "类型": 类型, "可用空间": 可用空间})
-                self._返回JSON({"成功": True, "驱动器列表": 驱动器列表})
+                # 转换为统一格式（兼容两种前端调用）
+                统一列表 = []
+                for d in 驱动器列表:
+                    统一列表.append({
+                        "盘符": d["盘符"],
+                        "路径": f"{d['盘符']}:\\",
+                        "标签": d["盘符"],
+                        "图标": "💾",
+                        "类型": d.get("类型", ""),
+                        "可用空间": d.get("可用空间", "")
+                    })
+                self._返回JSON({"成功": True, "驱动器列表": 驱动器列表, "驱动器": 统一列表})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/token-stats":

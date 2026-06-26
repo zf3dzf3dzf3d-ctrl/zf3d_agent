@@ -31,6 +31,7 @@ from 操作基类 import (
 )
 from 操作.ComfyUI操作 import (
     ComfyUI图片修改, ComfyUI视频生成, ComfyUI反推, ComfyUI启动,
+    ComfyUI诊断, ComfyUI修复自定义节点,
 )
 from 操作.压缩 import (
     解压文件, 压缩文件,
@@ -113,6 +114,8 @@ class 操作注册中心类:
                     "ComfyUI视频生成": "comfyui_video_generate",
                     "ComfyUI反推": "comfyui_interrogate",
                     "ComfyUI启动": "comfyui_start",
+                    "ComfyUI诊断": "comfyui_diagnose",
+                    "ComfyUI修复自定义节点": "comfyui_fix_custom_nodes",
                     "解压文件": "extract_file",
                     "压缩文件": "compress_file",
                     "导入文档": "import_doc",
@@ -281,6 +284,7 @@ class 操作注册中心类:
             ComfyUI提交工作流(), ComfyUI查询进度(), ComfyUI获取图片(),
             ComfyUI队列控制(), ComfyUI上传图片(),
             ComfyUI图片修改(), ComfyUI视频生成(), ComfyUI反推(), ComfyUI启动(),
+            ComfyUI诊断(), ComfyUI修复自定义节点(),
             打开程序(), 运行命令(), 创建文件(), 读取文件(), 写入文件(),
             追加文件(), 删除文件(), 替换文本(), 列出目录(), 网页抓取(), 网络搜索(),
             截图(), 获取时间(), 系统信息(), 等待(), 数学计算(), JSON操作(),
@@ -376,6 +380,9 @@ class 操作注册中心类:
             "文生视频": "ComfyUI视频生成", "图生视频": "ComfyUI视频生成", "生成视频": "ComfyUI视频生成", "AI视频": "ComfyUI视频生成",
             "反推": "ComfyUI反推", "图片反推": "ComfyUI反推", "视频反推": "ComfyUI反推", "分析图片": "ComfyUI反推", "提示词反推": "ComfyUI反推",
             "启动ComfyUI": "ComfyUI启动", "启动comfyui": "ComfyUI启动", "ComfyUI启动": "ComfyUI启动",
+            "ComfyUI诊断": "ComfyUI诊断", "诊断ComfyUI": "ComfyUI诊断", "comfyui诊断": "ComfyUI诊断", "检查ComfyUI": "ComfyUI诊断",
+            "修复节点": "ComfyUI修复自定义节点", "ComfyUI修复节点": "ComfyUI修复自定义节点", "修复自定义节点": "ComfyUI修复自定义节点",
+            "扫描节点": "ComfyUI修复自定义节点", "节点修复": "ComfyUI修复自定义节点", "修复comfyui": "ComfyUI修复自定义节点",
             "回收站": "列出回收站", "查看回收站": "列出回收站",
             "还原文件": "恢复文件", "恢复": "恢复文件", "还原": "恢复文件",
             "清空垃圾桶": "清空回收站",
