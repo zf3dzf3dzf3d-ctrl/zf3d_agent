@@ -39,8 +39,8 @@ class 更新检查器类:
                 return self._缓存结果
 
         更新源 = [
-            ("GitHub", self._检查GitHub),
             ("Gitee", self._检查Gitee),
+            ("GitHub", self._检查GitHub),
             ("备用服务器", self._检查备用服务器),
         ]
 
