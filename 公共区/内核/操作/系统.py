@@ -54,11 +54,15 @@ class 运行命令(操作基类):
             创建标志 = 0
             if sys.platform == 'win32':
                 创建标志 = subprocess.CREATE_NEW_PROCESS_GROUP
+            # 注入UTF-8环境变量，防止Python子程序因GBK终端崩溃（emoji等Unicode字符）
+            子进程环境 = os.environ.copy()
+            子进程环境["PYTHONIOENCODING"] = "utf-8"
             进程 = subprocess.Popen(
                 命令, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                 text=True, encoding='utf-8', errors='replace',
                 cwd=工作目录 if 工作目录 else None,
-                creationflags=创建标志
+                creationflags=创建标志,
+                env=子进程环境
             )
             try:
                 输出, 错误 = 进程.communicate(timeout=超时)

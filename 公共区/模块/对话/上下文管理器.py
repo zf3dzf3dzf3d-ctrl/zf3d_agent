@@ -4,12 +4,14 @@
 1. 管理对话历史窗口
 2. 统一FC消息和推理过程为"对话轨迹"
 3. 渐进式历史压缩（保留摘要+标记，不再不可逆丢弃）
-4. Token预算控制
-5. 构建发送给LLM的消息列表
+4. Observation Masking（旧观察折叠为单行，零LLM调用）
+5. Token预算控制
+6. 构建发送给LLM的消息列表
 
 核心改进：
 - 废弃 _本轮FC消息 + 推理过程 双轨制，统一为"对话轨迹"
 - 压缩改为渐进式，异步执行不阻塞主流程
+- Observation Masking: 旧tool结果替换为单行摘要，比LLM摘要高2.6%成功率且便宜52%
 - 新增token预算控制
 """
 import json
@@ -46,6 +48,7 @@ class 上下文管理器类:
         统一处理FC模式和文本模式，不再双轨：
         - FC模式：直接使用assistant(tool_calls)+tool消息
         - 文本模式：重建为assistant内容+user观察
+        - Observation Masking：旧步骤的tool结果自动折叠为单行摘要（零LLM调用）
         """
         消息列表 = []
 
@@ -55,18 +58,26 @@ class 上下文管理器类:
             角色 = "user" if 消息.get("角色") == "用户" else "assistant"
             消息列表.append({"role": 角色, "content": 消息.get("内容", "")})
 
-        # 2. 添加本轮轨迹（统一FC和文本模式）
-        for 步骤 in self.本轮轨迹:
+        # 2. 添加本轮轨迹（统一FC和文本模式，应用observation masking）
+        总步数 = len(self.本轮轨迹)
+        保留步数 = 5  # 保留最近5步完整观察
+        for i, 步骤 in enumerate(self.本轮轨迹):
+            是旧步骤 = i < 总步数 - 保留步数
             # FC模式：有原始assistant消息和tool消息
             if 步骤.get("assistant消息"):
                 消息列表.append(步骤["assistant消息"])
             if 步骤.get("tool消息"):
-                消息列表.append(步骤["tool消息"])
+                tool消息 = 步骤["tool消息"]
+                if 是旧步骤:
+                    tool消息 = self._遮蔽tool消息(tool消息)
+                消息列表.append(tool消息)
             # 文本模式：有文本观察（重建为assistant+user对）
             elif 步骤.get("文本观察"):
                 思考 = 步骤["文本观察"].get("思考", "")
                 操作 = 步骤["文本观察"].get("操作", "")
                 结果 = 步骤["文本观察"].get("结果", "")
+                if 是旧步骤 and len(结果) > 100:
+                    结果 = f"[已折叠] {结果[:50]}... (原{len(结果)}字符)"
                 if 思考:
                     消息列表.append({"role": "assistant", "content": f"{思考}\n调用操作: {操作}"})
                 else:
@@ -74,6 +85,48 @@ class 上下文管理器类:
                 消息列表.append({"role": "user", "content": f"观察: {结果}"})
 
         return 消息列表
+
+    def 遮蔽旧观察(self, 消息列表, 保留最近轮数=5):
+        """Observation Masking：旧tool观察结果替换为单行摘要
+
+        保留最近N轮的完整内容，更早的观察消息内容替换为单行摘要。
+        零LLM调用，零token消耗。
+
+        观察消息识别：
+        - FC模式：role="tool" 的消息
+        - 文本模式：role="user" 且 content以"观察:"开头
+        """
+        if len(消息列表) <= 保留最近轮数 * 2:
+            return 消息列表
+
+        保留起始 = len(消息列表) - 保留最近轮数 * 2
+        遮蔽后 = []
+        for i, 消息 in enumerate(消息列表):
+            if i < 保留起始:
+                role = 消息.get("role", "")
+                content = 消息.get("content", "")
+                是观察 = (role == "tool" or
+                         (role == "user" and content.startswith("观察:")))
+                if 是观察 and len(content) > 200:
+                    消息副本 = dict(消息)
+                    前缀 = content[:60].split("\n")[0] if "\n" in content else content[:60]
+                    消息副本["content"] = f"[已折叠] {前缀}... (共{len(content)}字符)"
+                    遮蔽后.append(消息副本)
+                    continue
+            遮蔽后.append(消息)
+        return 遮蔽后
+
+    def _遮蔽tool消息(self, tool消息):
+        """对单个tool消息应用observation masking，返回副本不修改原始"""
+        内容 = tool消息.get("content", "")
+        if len(内容) <= 100:
+            return tool消息
+        import re
+        操作匹配 = re.search(r'操作\[([^\]]+)\]', 内容)
+        操作名 = 操作匹配.group(1) if 操作匹配 else "未知"
+        遮蔽消息 = dict(tool消息)
+        遮蔽消息["content"] = f"[已折叠] 操作[{操作名}]结果，原{len(内容)}字符"
+        return 遮蔽消息
 
     def 估算_token数(self, 文本: str) -> int:
         """轻量token估算
@@ -113,20 +166,40 @@ class 上下文管理器类:
         """渐进式历史压缩
 
         改进：
-        - 保留最近N轮原文
-        - 更早的按事件摘要
-        - 压缩是可逆的（标记原消息，摘要不好时可回退）
-        - 异步友好（不阻塞，失败返回原历史）
+        1. 先对旧观察做observation masking（零成本，零LLM调用）
+        2. 如果masking后仍然超token预算，再fallback到LLM摘要
+        3. LLM摘要只处理masked后的精简版，token消耗减半
         """
         if len(对话历史) < self.压缩阈值:
             return 对话历史
 
-        # 保留后半段完整内容
+        # 阶段1: Observation Masking — 折叠旧的观察结果（零LLM调用）
         保留数 = self.压缩阈值 // 2
-        压缩部分 = 对话历史[:-保留数]
-        保留部分 = 对话历史[-保留数:]
+        masked历史 = list(对话历史)
+        折叠数 = 0
+        for i in range(len(masked历史) - 保留数):
+            消息 = masked历史[i]
+            内容 = 消息.get("内容", "")
+            角色 = 消息.get("角色", "")
+            是观察 = (角色 == "用户" and 内容.startswith("观察:")) or \
+                     (角色 == "用户" and "操作[" in 内容 and "执行结果:" in 内容)
+            if 是观察 and len(内容) > 200:
+                前缀 = 内容[:60].split("\n")[0] if "\n" in 内容 else 内容[:60]
+                masked历史[i] = {**消息, "内容": f"[已折叠] {前缀}... (共{len(内容)}字符)"}
+                折叠数 += 1
 
-        # 生成压缩摘要
+        if 折叠数 > 0:
+            print(f"  [Masking] 折叠{折叠数}条旧观察 (零LLM调用)")
+
+        # 检查masking后是否足够短
+        masked_token = sum(self.估算_token数(m.get("内容", "")) for m in masked历史)
+        if masked_token <= self.token预算:
+            return masked历史
+
+        # 阶段2: masking后仍超预算，fallback到LLM摘要
+        压缩部分 = masked历史[:-保留数]
+        保留部分 = masked历史[-保留数:]
+
         摘要文本 = ""
         if 模型直连器 and 压缩部分:
             try:
@@ -146,7 +219,6 @@ class 上下文管理器类:
                 print(f"  ⚠️ 压缩历史摘要生成失败: {e}")
                 摘要文本 = f"[{len(压缩部分)}条历史已压缩]"
 
-        # 替换历史（保留摘要标记，可追溯）
         新历史 = []
         if 摘要文本:
             新历史.append({
@@ -156,5 +228,5 @@ class 上下文管理器类:
                 "元数据": {"压缩自": len(压缩部分), "原始可追溯": True}
             })
         新历史.extend(保留部分)
-        print(f"  📦 对话历史已压缩: {len(压缩部分)}条→摘要, 保留{len(保留部分)}条, 当前共{len(新历史)}条")
+        print(f"  [压缩] 对话历史已压缩: {len(压缩部分)}条->摘要, 保留{len(保留部分)}条, 当前共{len(新历史)}条")
         return 新历史

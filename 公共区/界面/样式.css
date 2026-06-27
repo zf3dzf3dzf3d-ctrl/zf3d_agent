@@ -363,6 +363,17 @@ pre:hover .code-copy-btn { opacity:1; }
 .dlg-btn { background:var(--input); color:var(--text); border:1px solid var(--border); padding:6px 16px; border-radius:4px; cursor:pointer; font-size:12px; }
 .dlg-btn.primary { background:var(--blue); color:white; border-color:var(--blue); }
 
+/* AI询问用户弹窗 */
+.ask-item { margin-bottom:16px; }
+.ask-label { font-size:13px; color:var(--text); margin-bottom:6px; font-weight:500; }
+.ask-options { display:flex; flex-direction:column; gap:4px; }
+.ask-option { display:flex; align-items:flex-start; gap:6px; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:13px; }
+.ask-option:hover { background:var(--bg); }
+.ask-option input { margin:2px 0 0 0; }
+.ask-option-desc { font-size:11px; color:var(--text2); margin-left:20px; }
+.ask-input { width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:4px; background:var(--input); color:var(--text); font-size:13px; outline:none; }
+.ask-input:focus { border-color:var(--blue); }
+
 /* 磁盘选择 */
 .drive-list { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
 .drive-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:4px; cursor:pointer; font-size:13px; }

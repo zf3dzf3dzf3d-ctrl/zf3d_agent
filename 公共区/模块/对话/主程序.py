@@ -132,12 +132,13 @@ class 对话模块:
                 import traceback
                 错误堆栈 = traceback.format_exc()
                 错误信息 = f"❌ 系统异常: {type(e).__name__}: {str(e)}"
+                print(f"\n{'='*60}\n❌ 对话异常完整堆栈:\n{错误堆栈}\n{'='*60}")
                 self.对话历史.append({"角色": "助手", "内容": 错误信息,
                                        "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
                 用户消息时间 = self.对话历史[-2].get("时间", "") if len(self.对话历史) >= 2 else ""
                 助手回复时间 = self.对话历史[-1].get("时间", "")
                 self.推理日志.append({
-                    "用户消息": 用户消息[:200], "用户消息时间": 用户消息时间,
+                    "用户消息": 用户消息[:5000], "用户消息时间": 用户消息时间,
                     "助手回复": 错误信息[:200], "助手回复时间": 助手回复时间,
                     "步数": 0, "推理过程": [], "错误": True,
                     "错误类型": type(e).__name__, "错误信息": str(e)[:500],
@@ -159,15 +160,28 @@ class 对话模块:
                 if 反思内容:
                     self.对话历史.append({"角色": "系统", "内容": f"💡 【任务反思】{反思内容}",
                                            "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                # 生成经验卡片并存入SQLite
+                if hasattr(self, '存储引擎') and self.存储引擎:
+                    经验卡片 = self.反思评估器.生成经验卡片(用户消息, 推理结果, self.模型直连器)
+                    if 经验卡片:
+                        try:
+                            self.存储引擎.插入任务经验(经验卡片)
+                        except Exception:
+                            pass
 
             全局事件中心.发布("收到消息", {"角色": "助手", "内容": 推理结果.get("回复", "")})
+
+            # 安全检查：确保推理引擎的助手回复已追加到对话历史
+            if 推理结果.get("回复") and (not self.对话历史 or self.对话历史[-1].get("角色") != "助手"):
+                self.对话历史.append({"角色": "助手", "内容": 推理结果["回复"],
+                                       "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
             # 保存推理日志
             用户消息时间 = self.对话历史[-2].get("时间", "") if len(self.对话历史) >= 2 else ""
             助手回复时间 = self.对话历史[-1].get("时间", "") if self.对话历史 else ""
             self.推理日志.append({
-                "用户消息": 用户消息[:200], "用户消息时间": 用户消息时间,
-                "助手回复": 推理结果.get("回复", "")[:200], "助手回复时间": 助手回复时间,
+                "用户消息": 用户消息[:5000], "用户消息时间": 用户消息时间,
+                "助手回复": 推理结果.get("回复", "")[:5000], "助手回复时间": 助手回复时间,
                 "步数": 推理结果.get("步数", 0),
                 "推理过程": 推理结果.get("完整推理过程", 推理结果.get("推理过程", [])),
                 "llm调用记录": 推理结果.get("llm调用记录", []),
@@ -180,7 +194,7 @@ class 对话模块:
     def _执行对话(self, 用户消息: str) -> dict:
         """核心对话流程：意图分析 → 快捷路径/推理引擎 → 结果"""
         # 1. 意图解析
-        意图 = self.意图解析器.解析(用户消息, self.文件上下文)
+        意图 = self.意图解析器.解析(用户消息, self.文件上下文, self.模型直连器)
 
         # 2. 闲聊直接回复（不进ReAct循环，省token+加速）
         if 意图["类型"] == "闲聊" and not self.当前计划:
@@ -212,7 +226,8 @@ class 对话模块:
                 "系统提示词": self.基础系统提示词,
                 "工作模式": self.工作模式,
                 "模块注册": self.模块注册,
-                "新对话标志": self._新对话标志}
+                "新对话标志": self._新对话标志,
+                "对话ID": self.当前对话ID}
         return self.推理引擎.执行(
             用户消息=用户消息, 意图=意图, 对话历史=self.对话历史,
             上下文管理器=self.上下文管理器, 提示词构建器=self.提示词构建器,
@@ -500,16 +515,37 @@ class 对话模块:
             return True
         return False
 
-    # ============ 多对话管理 ============
+    # ============ 多对话管理（SQLite存储） ============
     def _初始化对话管理(self):
         self.对话存储目录 = self.配置.get("项目根目录", ".")
         self.永久记忆 = []
         self.对话列表 = []
         self.当前对话ID = None
+        # 注入存储引擎
+        from 存储引擎 import 获取存储引擎
+        db路径 = str(Path(self.对话存储目录) / "隐私区" / "我的数据" / "智能体.db")
+        self.存储引擎 = 获取存储引擎(db路径)
+        self._轮次计数 = 0
+        # 从SQLite加载对话索引
         self._加载对话索引()
+        # 如果SQLite没有对话但JSON目录有旧文件，自动迁移
+        if not self.对话列表:
+            对话目录 = Path(self.对话存储目录) / "隐私区" / "对话记录"
+            if 对话目录.exists():
+                json文件 = list(对话目录.glob("*.json"))
+                json文件 = [f for f in json文件 if not f.name.startswith("_") and f.stat().st_size > 100]
+                if json文件:
+                    print(f"  📦 检测到{len(json文件)}个旧JSON对话，开始迁移到SQLite...")
+                    结果 = self.存储引擎.迁移对话记录(str(对话目录))
+                    print(f"  ✅ 迁移完成: {结果}")
+                    self._加载对话索引()
         self._加载永久记忆()
         if not self.对话列表:
             self.新建对话()
+        else:
+            # 自动切换到最近的对话
+            self.当前对话ID = self.对话列表[0]["id"]
+            self.对话历史, self.推理日志 = self._加载对话(self.当前对话ID)
 
     def _对话文件路径(self, 对话ID):
         return Path(self.对话存储目录) / "隐私区" / "对话记录" / f"{对话ID}.json"
@@ -521,21 +557,15 @@ class 对话模块:
         return Path(self.对话存储目录) / "隐私区" / "对话记录" / "_永久记忆.json"
 
     def _加载对话索引(self):
-        索引路径 = self._索引文件路径()
-        if 索引路径.exists():
-            try:
-                with open(索引路径, "r", encoding="utf-8") as f:
-                    self.对话列表 = json.load(f)
-            except:
-                self.对话列表 = []
-        else:
+        """从SQLite加载对话索引"""
+        try:
+            self.对话列表 = self.存储引擎.查询对话索引()
+        except Exception:
             self.对话列表 = []
 
     def _保存对话索引(self):
-        索引路径 = self._索引文件路径()
-        索引路径.parent.mkdir(parents=True, exist_ok=True)
-        with open(索引路径, "w", encoding="utf-8") as f:
-            json.dump(self.对话列表, f, ensure_ascii=False, indent=2)
+        """对话索引已由SQLite自动维护，此方法保留兼容但无需操作"""
+        pass
 
     def _加载永久记忆(self):
         路径 = self._永久记忆路径()
@@ -555,29 +585,72 @@ class 对话模块:
             json.dump(self.永久记忆, f, ensure_ascii=False, indent=2)
 
     def _保存当前对话(self):
-        if not self.当前对话ID:
+        """增量保存：只保存未保存的新消息和新推理日志 → SQLite"""
+        if not self.当前对话ID or not self.存储引擎:
             return
-        文件路径 = self._对话文件路径(self.当前对话ID)
-        文件路径.parent.mkdir(parents=True, exist_ok=True)
-        最后消息时间 = self.对话历史[-1].get("时间", "") if self.对话历史 else ""
-        with open(文件路径, "w", encoding="utf-8") as f:
-            json.dump({
-                "id": self.当前对话ID, "历史": self.对话历史,
-                "推理日志": self.推理日志, "消息总数": len(self.对话历史),
-                "最后消息时间": 最后消息时间,
-                "保存时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }, f, ensure_ascii=False, indent=2)
+        # 保存所有未保存的消息（增量INSERT）
+        已保存 = getattr(self, '_已保存消息数', 0)
+        新消息数 = len(self.对话历史) - 已保存
+        if 新消息数 > 0:
+            for i in range(已保存, len(self.对话历史)):
+                msg = self.对话历史[i]
+                self.存储引擎.插入对话消息(
+                    self.当前对话ID,
+                    msg.get("角色", ""),
+                    msg.get("内容", ""),
+                    msg.get("时间", "")
+                )
+            self._已保存消息数 = len(self.对话历史)
+        # 保存未保存的推理日志（增量INSERT）
+        已保存日志 = getattr(self, '_已保存日志数', 0)
+        新日志数 = len(self.推理日志) - 已保存日志
+        if 新日志数 > 0:
+            for i in range(已保存日志, len(self.推理日志)):
+                self._轮次计数 += 1
+                log = self.推理日志[i]
+                self.存储引擎.插入推理日志(self.当前对话ID, self._轮次计数, {
+                    "用户消息": log.get("用户消息", ""),
+                    "助手回复": log.get("助手回复", ""),
+                    "步数": log.get("步数", 0),
+                    "成功": log.get("成功", True),
+                    "推理过程": log.get("推理过程", []),
+                    "llm调用记录": log.get("llm调用记录", [])
+                })
+            self._已保存日志数 = len(self.推理日志)
+        # 更新对话索引（仅当有新消息时）
+        if 新消息数 > 0 or 新日志数 > 0:
+            self.存储引擎.更新对话索引(
+                self.当前对话ID,
+                消息数=len(self.对话历史),
+                更新时间=datetime.now().isoformat()
+            )
+            # 同步内存中的对话列表（不查SQLite，直接更新）
+            for d in self.对话列表:
+                if d["id"] == self.当前对话ID:
+                    d["消息数"] = len(self.对话历史)
+                    d["更新时间"] = datetime.now().isoformat()
+                    break
 
     def _加载对话(self, 对话ID):
-        文件路径 = self._对话文件路径(对话ID)
-        if 文件路径.exists():
-            try:
-                with open(文件路径, "r", encoding="utf-8") as f:
-                    数据 = json.load(f)
-                return 数据.get("历史", []), 数据.get("推理日志", [])
-            except:
-                return [], []
-        return [], []
+        """从SQLite加载对话历史和推理日志"""
+        if not self.存储引擎:
+            return [], []
+        try:
+            历史 = self.存储引擎.查询对话消息(对话ID)
+            # 过滤掉系统消息（不注入对话上下文）
+            对话历史 = [{"角色": m["角色"], "内容": m["内容"], "时间": m["时间"]}
+                       for m in 历史 if m["角色"] in ("用户", "助手", "系统")]
+            推理日志 = self.存储引擎.查询推理日志(对话ID)
+            # 恢复计数器（标记所有已加载的数据为已保存）
+            self._已保存消息数 = len(对话历史)
+            self._已保存日志数 = len(推理日志)
+            self._轮次计数 = len(推理日志)
+            return 对话历史, 推理日志
+        except Exception:
+            self._已保存消息数 = 0
+            self._已保存日志数 = 0
+            self._轮次计数 = 0
+            return [], []
 
     def 新建对话(self):
         self._取消标志 = True
@@ -591,11 +664,16 @@ class 对话模块:
         对话ID = datetime.now().strftime("%Y%m%d_%H%M%S")
         now = datetime.now().isoformat()
         对话信息 = {"id": 对话ID, "标题": "新对话", "创建时间": now, "更新时间": now}
+        # 写入SQLite对话索引
+        if hasattr(self, '存储引擎') and self.存储引擎:
+            self.存储引擎.插入对话索引(对话ID, "新对话", now, now)
         self.对话列表.insert(0, 对话信息)
-        self._保存对话索引()
         self.当前对话ID = 对话ID
         self.对话历史 = []
         self.推理日志 = []
+        self._轮次计数 = 0
+        self._已保存消息数 = 0
+        self._已保存日志数 = 0
         self._新对话标志 = True
         全局事件中心.发布("话题切换", {"标题": f"对话_{对话ID}"})
         return 对话信息
@@ -617,18 +695,26 @@ class 对话模块:
         self.当前对话ID = 对话ID
         self.对话历史, self.推理日志 = self._加载对话(对话ID)
         目标["更新时间"] = datetime.now().isoformat()
-        self._保存对话索引()
+        if hasattr(self, '存储引擎') and self.存储引擎:
+            self.存储引擎.更新对话索引(对话ID, 更新时间=datetime.now().isoformat())
+        self._加载对话索引()
         全局事件中心.发布("话题切换", {"标题": f"对话_{对话ID}"})
         return {"成功": True}
 
     def 删除对话(self, 对话ID):
         if 对话ID not in [d["id"] for d in self.对话列表]:
             return {"成功": False, "错误": "对话不存在"}
+        # 从SQLite删除所有相关数据
+        if hasattr(self, '存储引擎') and self.存储引擎:
+            self.存储引擎.删除对话(对话ID)
+            self.存储引擎.删除推理日志(对话ID)
+            self.存储引擎.删除对话索引(对话ID)
+            self.存储引擎.删除操作结果(对话ID)
+        # 删除旧JSON文件（如果存在）
         文件路径 = self._对话文件路径(对话ID)
         if 文件路径.exists():
             文件路径.unlink()
         self.对话列表 = [d for d in self.对话列表 if d["id"] != 对话ID]
-        self._保存对话索引()
         if 对话ID == self.当前对话ID:
             if self.对话列表:
                 self.切换对话(self.对话列表[0]["id"])
@@ -641,7 +727,8 @@ class 对话模块:
             if d["id"] == 对话ID:
                 d["标题"] = 新标题
                 d["更新时间"] = datetime.now().isoformat()
-                self._保存对话索引()
+                if hasattr(self, '存储引擎') and self.存储引擎:
+                    self.存储引擎.更新对话索引(对话ID, 标题=新标题, 更新时间=d["更新时间"])
                 return {"成功": True}
         return {"成功": False, "错误": "对话不存在"}
 
@@ -652,7 +739,8 @@ class 对话模块:
                 if 标题:
                     d["标题"] = 标题 + ("..." if len(首条消息) > 20 else "")
                     d["更新时间"] = datetime.now().isoformat()
-                    self._保存对话索引()
+                    if hasattr(self, '存储引擎') and self.存储引擎:
+                        self.存储引擎.更新对话索引(对话ID, 标题=d["标题"], 更新时间=d["更新时间"])
 
     def 添加永久记忆(self, 内容):
         self.永久记忆.append({"内容": 内容, "时间": datetime.now().isoformat()})
@@ -747,7 +835,7 @@ class 对话模块:
             取消检查=lambda: self._取消标志,
             检查点回调=self._保存检查点
         )
-        意图 = self.意图解析器.解析(用户消息, self.文件上下文)
+        意图 = self.意图解析器.解析(用户消息, self.文件上下文, self.模型直连器)
         配置 = {**self.配置, "系统提示词": self.基础系统提示词,
                 "工作模式": self.工作模式, "模块注册": self.模块注册,
                 "新对话标志": False}

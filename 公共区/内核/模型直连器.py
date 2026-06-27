@@ -353,13 +353,7 @@ class 模型直连器类:
                     break
             for tc in 工具调用列表:
                 if tc["名称"]:
-                    try:
-                        参数 = json.loads(tc["参数"]) if tc["参数"] else {}
-                    except json.JSONDecodeError:
-                        # JSON解析失败 — 可能是max_tokens截断导致JSON不完整
-                        参数 = {}
-                        if 流式finish_reason == "length":
-                            参数 = {"__截断错误__": True}
+                    参数 = self._解析工具参数(tc["参数"], 流式finish_reason)
                     工具调用结果.append({"id": tc["id"], "名称": tc["名称"], "参数": 参数})
 
             # Token统计（从最后一个块的usage取）
@@ -704,6 +698,23 @@ class 模型直连器类:
                 文本 = 文本.replace(占位符, 实际值)
         return 文本
 
+    def _解析工具参数(self, 参数字符串: str, finish_reason: str) -> dict:
+        """解析工具调用的arguments字符串，检测截断和空参数错误"""
+        try:
+            参数 = json.loads(参数字符串) if 参数字符串 else {}
+        except (json.JSONDecodeError, TypeError):
+            # JSON解析失败 — max_tokens截断导致JSON不完整
+            参数 = {}
+            if finish_reason == "length":
+                参数 = {"__截断错误__": True}
+            else:
+                参数 = {"__空参数错误__": True}
+            return 参数
+        # JSON解析成功但为空dict — DeepSeek有时返回"{}"（参数被丢弃）
+        if not 参数:
+            参数 = {"__空参数错误__": True}
+        return 参数
+
     def _提取工具调用(self, 响应JSON: dict) -> list:
         """从响应中提取function calling的工具调用列表"""
         try:
@@ -717,13 +728,7 @@ class 模型直连器类:
             for 调用 in 工具调用原始:
                 函数 = 调用.get("function", {})
                 参数字符串 = 函数.get("arguments", "{}")
-                try:
-                    参数 = json.loads(参数字符串)
-                except (json.JSONDecodeError, TypeError):
-                    # JSON解析失败 — 可能是max_tokens截断导致JSON不完整
-                    参数 = {}
-                    if finish_reason == "length":
-                        参数 = {"__截断错误__": True}
+                参数 = self._解析工具参数(参数字符串, finish_reason)
                 结果.append({
                     "id": 调用.get("id", ""),
                     "名称": 函数.get("name", ""),

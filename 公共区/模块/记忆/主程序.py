@@ -25,6 +25,7 @@ class 记忆模块:
         self.事件计数 = 0
         self.摘要计数 = 0
         self._摘要锁 = threading.Lock()  # 摘要生成线程安全锁
+        self.存储引擎 = None  # SQLite存储引擎（用于读取历史对话）
 
     def 初始化(self, 配置: dict):
         """初始化记忆模块"""
@@ -45,11 +46,17 @@ class 记忆模块:
         self.用户画像路径 = 项目根目录 / "隐私区" / "我的记忆" / "用户画像.json"
         self.摘要索引路径 = 项目根目录 / "隐私区" / "我的记忆" / "摘要索引.json"
 
-        # 加载已有数据
-        self.记忆库 = self._读取JSON(self.记忆库路径)
-        self.用户画像 = self._读取JSON(self.用户画像路径)
-        self.摘要索引 = self._读取JSON(self.摘要索引路径)
-        self.索引数据 = self._读取JSON(self.索引数据路径)
+        # 加载已有数据（优先SQLite KV，fallback到JSON文件）
+        if self.存储引擎:
+            self.记忆库 = self.存储引擎.读取KV_JSON("记忆库", {"事件列表": {}, "事件计数": 0})
+            self.用户画像 = self.存储引擎.读取KV_JSON("用户画像", {})
+            self.摘要索引 = self.存储引擎.读取KV_JSON("摘要索引", {"索引": []})
+            self.索引数据 = self.存储引擎.读取KV_JSON("记忆索引数据", {"条目": {}, "标签索引": {}})
+        else:
+            self.记忆库 = self._读取JSON(self.记忆库路径)
+            self.用户画像 = self._读取JSON(self.用户画像路径)
+            self.摘要索引 = self._读取JSON(self.摘要索引路径)
+            self.索引数据 = self._读取JSON(self.索引数据路径)
 
         if "条目" not in self.索引数据:
             self.索引数据["条目"] = {}
@@ -71,6 +78,27 @@ class 记忆模块:
         全局事件中心.订阅("收到消息", self._处理消息)
         全局事件中心.订阅("话题切换", self._处理话题切换)
         全局事件中心.订阅("需生成摘要", self._生成摘要)
+
+        # 注入SQLite存储引擎，用于读取历史对话归纳
+        try:
+            from 存储引擎 import 获取存储引擎
+            db路径 = str(项目根目录 / "隐私区" / "我的数据" / "智能体.db")
+            self.存储引擎 = 获取存储引擎(db路径)
+            # 后台归纳没有摘要的旧对话
+            threading.Thread(target=self._归纳历史对话, daemon=True).start()
+            # 启动后60秒执行经验提炼（不阻塞启动）
+            threading.Timer(60, self._提炼用户模式).start()
+            # 每6小时定期提炼+衰减+合并
+            def _定期维护():
+                while True:
+                    import time as _time
+                    _time.sleep(6 * 3600)
+                    self._提炼用户模式()
+                    self._衰减旧记忆()
+                    self._合并相似摘要()
+            threading.Thread(target=_定期维护, daemon=True).start()
+        except Exception as e:
+            print(f"  ⚠️ 记忆模块存储引擎注入失败: {e}")
 
     def 运行(self, 输入数据: dict) -> dict:
         """执行记忆操作"""
@@ -569,6 +597,326 @@ tags: [{', '.join(标签)}]
         事件 = self.记忆库["事件列表"].get(当前事件编号, {})
         return {"成功": True, "事件编号": 当前事件编号, "事件": 事件}
 
+    # ============ SQLite历史对话归纳 ============
+
+    def _归纳历史对话(self):
+        """扫描SQLite中所有对话，对没有摘要的旧对话生成摘要"""
+        if not self.存储引擎 or not self.模型直连器:
+            return
+        try:
+            对话列表 = self.存储引擎.查询对话索引()
+            if not 对话列表:
+                return
+            # 找出还没在摘要索引中的对话
+            已归纳IDs = set()
+            for 条目 in self.摘要索引.get("索引", []):
+                事件编号 = 条目.get("事件编号", "")
+                if 事件编号.startswith("对话_"):
+                    已归纳IDs.add(事件编号.replace("对话_", ""))
+            需归纳 = [d for d in 对话列表 if d["id"] not in 已归纳IDs and d.get("消息数", 0) >= 2]
+            if not 需归纳:
+                return
+            print(f"  🧠 记忆模块：发现{len(需归纳)}个未归纳的旧对话，开始后台归纳...")
+            已归纳数 = 0
+            for d in 需归纳:
+                try:
+                    self._归纳单个对话(d["id"], d.get("标题", d["id"]))
+                    已归纳数 += 1
+                except Exception:
+                    continue
+            if 已归纳数:
+                print(f"  ✅ 记忆模块：已归纳{已归纳数}个旧对话")
+        except Exception as e:
+            print(f"  ⚠️ 历史对话归纳失败: {e}")
+
+    def _归纳单个对话(self, 对话ID: str, 标题: str):
+        """对单个SQLite对话生成摘要并存入摘要索引"""
+        消息列表 = self.存储引擎.查询对话消息(对话ID)
+        if not 消息列表 or len(消息列表) < 2:
+            return
+        # 只取用户和助手的消息，构建摘要请求
+        对话文本 = "\n".join([
+            f"{m['角色']}: {m['内容'][:200]}"
+            for m in 消息列表[-30:]
+            if m["角色"] in ("用户", "助手")
+        ])
+        if not 对话文本 or len(对话文本) < 50:
+            return
+        摘要提示词 = f"""请对以下对话生成摘要，返回JSON格式：
+{{
+  "标题": "5-15字简短标题",
+  "简介": "30-60字概括对话内容和结果",
+  "核心内容": "一句话概括",
+  "关键决策": ["决策1", "决策2"],
+  "用户意图": "用户想要什么",
+  "关键词": ["词1", "词2"],
+  "项目": "涉及的项目或主题名称（如无具体项目则填'日常对话'）",
+  "权重": 1到5的整数, 1=闲聊简单问答, 2=一般操作, 3=完成具体任务, 4=重要项目, 5=核心项目用户强烈关注
+}}
+
+对话内容：
+{对话文本}"""
+        结果 = self.模型直连器.发送消息(
+            [{"role": "user", "content": 摘要提示词}],
+            "你是摘要专家，输出纯JSON，不要markdown代码块。"
+        )
+        if not 结果.get("成功"):
+            return
+        回复 = 结果.get("回复内容", "")
+        json匹配 = re.search(r'\{[\s\S]*\}', 回复)
+        if json匹配:
+            摘要数据 = json.loads(json匹配.group())
+        else:
+            摘要数据 = {"核心内容": 回复[:200], "关键词": [], "权重": 3}
+        # 规范化权重
+        权重 = 摘要数据.get("权重", 3)
+        try:
+            权重 = max(1, min(5, int(权重)))
+        except (ValueError, TypeError):
+            权重 = 3
+        # 写入摘要索引
+        with self._摘要锁:
+            self.摘要计数 += 1
+            编号 = f"对话_{对话ID}"
+            self.摘要索引.setdefault("索引", []).append({
+                "编号": f"摘要_{self.摘要计数:03d}",
+                "事件编号": 编号,
+                "标题": 摘要数据.get("标题", 标题),
+                "简介": 摘要数据.get("简介", ""),
+                "核心内容": 摘要数据.get("核心内容", ""),
+                "关键词": 摘要数据.get("关键词", []),
+                "用户意图": 摘要数据.get("用户意图", ""),
+                "项目": 摘要数据.get("项目", "日常对话"),
+                "权重": 权重,
+                "来源": "SQLite归纳"
+            })
+            self._保存摘要索引()
+            # 同时存入记忆向量表（供语义搜索）
+            try:
+                self.存储引擎.插入记忆向量(编号, 摘要数据.get("核心内容", ""))
+            except Exception:
+                pass
+
+    def _提炼用户模式(self):
+        """后台提炼用户模式（sleep-time learning）
+
+        扫描最近N个对话摘要+经验卡片，用LLM提炼：
+        - 常用路径/参数
+        - 行为模式（先做什么后做什么）
+        - 反馈纠正（用户纠正过AI什么）
+        - 偏好（输出格式/文件位置等）
+
+        提炼结果写入用户画像的"学习到的偏好"字段
+        """
+        if not self.存储引擎 or not self.模型直连器:
+            return
+        try:
+            # 获取最近20个对话摘要
+            摘要列表 = self.摘要索引.get("索引", [])[-20:]
+            摘要文本 = "\n".join(
+                f"- {s.get('标题', '')}: {s.get('简介', s.get('核心内容', ''))[:80]}"
+                for s in 摘要列表 if s.get("标题") or s.get("核心内容")
+            )[:2000]
+            if len(摘要文本) < 50:
+                return  # 数据太少，不提炼
+
+            # 获取最近10个经验卡片
+            经验列表 = self.存储引擎.查询最近经验(limit=10)
+            经验文本 = "\n".join(
+                f"- [{e.get('任务类型', '?')}] {e.get('任务描述', '')[:60]} "
+                f"有效:{e.get('有效方法', '')[:40]} 建议:{e.get('下次建议', '')[:40]}"
+                for e in 经验列表
+            )[:1500]
+
+            提炼提示 = (
+                f"你是用户行为分析器。从以下对话历史和经验中，提炼用户的可复用模式。\n\n"
+                f"对话摘要（最近20个）：\n{摘要文本}\n\n"
+                f"任务经验（最近10个）：\n{经验文本}\n\n"
+                f"请提炼出以下JSON格式（只输出JSON）：\n"
+                f'{{\n'
+                f'  "常用路径": ["路径1", "路径2"],\n'
+                f'  "常用参数": {{"图片尺寸": "512x512", "模型": "deepseek"}},\n'
+                f'  "行为模式": ["模式1", "模式2"],\n'
+                f'  "反馈纠正": ["纠正1", "纠正2"],\n'
+                f'  "输出偏好": ["偏好1", "偏好2"]\n'
+                f'}}\n'
+            )
+
+            结果 = self.模型直连器.发送消息(
+                [{"role": "user", "content": 提炼提示}],
+                "你是用户行为分析器。只输出JSON，不要解释。"
+            )
+            if 结果.get("成功"):
+                回复 = 结果.get("回复内容", "")
+                json匹配 = re.search(r'\{[\s\S]*\}', 回复)
+                if json匹配:
+                    模式 = json.loads(json匹配.group())
+                    # 写入用户画像
+                    if not isinstance(self.用户画像, dict):
+                        self.用户画像 = {}
+                    self.用户画像["学习到的偏好"] = 模式
+                    self.用户画像.setdefault("交互统计", {})
+                    self.用户画像["交互统计"]["最后提炼时间"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    self._保存用户画像()
+                    print(f"  [提炼] 用户模式已更新: {len(模式)}类偏好")
+        except Exception as e:
+            print(f"  [提炼] 用户模式提炼失败: {e}")
+
+    def _衰减旧记忆(self):
+        """降低长期未访问记忆的权重
+
+        规则：
+        - 30天未访问：权重降1级
+        - 60天未访问：权重降2级
+        - 90天未访问：权重最低为1（不删除，但不再主动召回）
+        """
+        try:
+            摘要列表 = self.摘要索引.get("索引", [])
+            if not 摘要列表:
+                return
+            当前时间 = datetime.now()
+            衰减数 = 0
+            for 条目 in 摘要列表:
+                权重 = 条目.get("权重", 3)
+                if 权重 <= 1:
+                    continue
+                # 检查最后访问时间
+                最后访问 = 条目.get("最后访问", "") or 条目.get("时间", "")
+                if not 最后访问:
+                    continue
+                try:
+                    访问时间 = datetime.fromisoformat(最后访问.replace("Z", ""))
+                except (ValueError, TypeError):
+                    continue
+                天数 = (当前时间 - 访问时间).days
+                if 天数 >= 90:
+                    新权重 = max(1, 权重 - 2)
+                elif 天数 >= 60:
+                    新权重 = max(1, 权重 - 2)
+                elif 天数 >= 30:
+                    新权重 = max(1, 权重 - 1)
+                else:
+                    continue
+                if 新权重 < 权重:
+                    条目["权重"] = 新权重
+                    条目["衰减标记"] = True
+                    衰减数 += 1
+            if 衰减数 > 0:
+                self._保存摘要索引()
+                print(f"  [衰减] {衰减数}条记忆权重已降低")
+        except Exception as e:
+            print(f"  [衰减] 记忆衰减失败: {e}")
+
+    def _合并相似摘要(self):
+        """合并关键词重叠度高的相似摘要，减少冗余
+
+        策略：
+        - 找出关键词重叠度>60%的摘要对
+        - 用LLM合并为一个更精炼的条目
+        - 删除旧的，保留合并后的
+        """
+        if not self.模型直连器:
+            return
+        try:
+            摘要列表 = self.摘要索引.get("索引", [])
+            if len(摘要列表) < 5:
+                return  # 太少不合并
+            合并数 = 0
+            i = 0
+            while i < len(摘要列表) - 1:
+                当前 = 摘要列表[i]
+                下一 = 摘要列表[i + 1]
+                当前词 = set(当前.get("关键词", []))
+                下一词 = set(下一.get("关键词", []))
+                if not 当前词 or not 下一词:
+                    i += 1
+                    continue
+                重叠 = 当前词 & 下一词
+                重叠度 = len(重叠) / max(len(当前词 | 下一词), 1)
+                if 重叠度 > 0.6:
+                    # 用LLM合并
+                    合并提示 = (
+                        f"合并以下两个相似的对话摘要为一个：\n"
+                        f"摘要1: {当前.get('标题', '')} - {当前.get('简介', '')[:100]}\n"
+                        f"摘要2: {下一.get('标题', '')} - {下一.get('简介', '')[:100]}\n\n"
+                        f"输出合并后的摘要（JSON）：\n"
+                        f'{{"标题": "...", "简介": "...", "关键词": ["词1"]}}'
+                    )
+                    结果 = self.模型直连器.发送消息(
+                        [{"role": "user", "content": 合并提示}],
+                        "你是摘要合并器。只输出JSON。"
+                    )
+                    if 结果.get("成功"):
+                        回复 = 结果.get("回复内容", "")
+                        json匹配 = re.search(r'\{[\s\S]*\}', 回复)
+                        if json匹配:
+                            合并 = json.loads(json匹配.group())
+                            当前["标题"] = 合并.get("标题", 当前.get("标题", ""))
+                            当前["简介"] = 合并.get("简介", "")
+                            当前["关键词"] = list(当前词 | 下一词)
+                            摘要列表.pop(i + 1)
+                            合并数 += 1
+                            continue
+                i += 1
+            if 合并数 > 0:
+                self._保存摘要索引()
+                print(f"  [合并] {合并数}条相似记忆已合并")
+        except Exception as e:
+            print(f"  [合并] 相似摘要合并失败: {e}")
+
+    def _查找相关事件(self, 消息: str) -> list:
+        """查找与当前消息相关的历史事件摘要（同时搜索记忆库+SQLite归纳摘要）
+        返回分层结构：项目分组 + 标题/简介/权重/关键词"""
+        相关 = []
+        # 1. 搜索记忆库中的旧事件摘要
+        事件列表 = self.记忆库.get("事件列表", {})
+        for 编号, 事件 in 事件列表.items():
+            摘要 = 事件.get("摘要")
+            if 摘要 and 事件.get("状态") == "已归档":
+                标签 = 事件.get("标签", [])
+                摘要文本 = 摘要.get("核心内容", "") if isinstance(摘要, dict) else str(摘要)
+                if any(词 in 摘要文本 or 词 in 消息 for 词 in 标签 if 词):
+                    相关.append({
+                        "编号": 编号,
+                        "标题": 事件.get("事件标题", ""),
+                        "简介": 摘要文本,
+                        "项目": "旧记忆",
+                        "权重": 3,
+                        "关键词": 标签
+                    })
+        # 2. 搜索SQLite归纳的对话摘要
+        for 条目 in self.摘要索引.get("索引", []):
+            if 条目.get("来源") != "SQLite归纳":
+                continue
+            核心内容 = 条目.get("核心内容", "")
+            关键词列表 = 条目.get("关键词", [])
+            if any(词 in 消息 or 词 in 核心内容 for 词 in 关键词列表 if 词) or 消息[:4] in 核心内容:
+                相关.append({
+                    "编号": 条目.get("事件编号", ""),
+                    "标题": 条目.get("标题", ""),
+                    "简介": 条目.get("简介", 核心内容),
+                    "项目": 条目.get("项目", "日常对话"),
+                    "权重": 条目.get("权重", 3),
+                    "关键词": 关键词列表
+                })
+        # 按权重降序排列
+        相关.sort(key=lambda x: x.get("权重", 3), reverse=True)
+        return 相关[:5]
+
+    def _获取近期摘要(self, 数量: int) -> list:
+        """获取最近N个事件的摘要（同时含记忆库+SQLite归纳）
+        返回带标题/简介/权重/项目的分层结构"""
+        近期 = []
+        索引列表 = self.摘要索引.get("索引", [])
+        for 条目 in reversed(索引列表[-数量:]):
+            近期.append({
+                "标题": 条目.get("标题", ""),
+                "简介": 条目.get("简介", 条目.get("核心内容", "")),
+                "项目": 条目.get("项目", "日常对话"),
+                "权重": 条目.get("权重", 3)
+            })
+        return 近期
+
     def _获取记忆注入(self, 当前消息: str = "", 新对话: bool = False, 轻量: bool = False) -> dict:
         """按优先级获取记忆注入内容（v2：增加自动召回）
         新对话=True时只保留用户画像，跳过旧事件摘要和召回，确保新对话干净
@@ -588,31 +936,6 @@ tags: [{', '.join(标签)}]
             注入["当前事件原始"] = 事件.get("原始对话", [])
 
         return {"成功": True, "注入内容": 注入}
-
-    def _查找相关事件(self, 消息: str) -> list:
-        """查找与当前消息相关的历史事件摘要"""
-        相关 = []
-        事件列表 = self.记忆库.get("事件列表", {})
-        for 编号, 事件 in 事件列表.items():
-            摘要 = 事件.get("摘要")
-            if 摘要 and 事件.get("状态") == "已归档":
-                标签 = 事件.get("标签", [])
-                摘要文本 = 摘要.get("核心内容", "") if isinstance(摘要, dict) else str(摘要)
-                if any(词 in 摘要文本 or 词 in 消息 for 词 in 标签 if 词):
-                    相关.append({
-                        "编号": 编号,
-                        "标题": 事件.get("事件标题", ""),
-                        "摘要": 摘要文本
-                    })
-        return 相关[:3]
-
-    def _获取近期摘要(self, 数量: int) -> list:
-        """获取最近N个事件的摘要"""
-        近期 = []
-        索引列表 = self.摘要索引.get("索引", [])
-        for 条目 in reversed(索引列表[-数量:]):
-            近期.append(条目.get("核心内容", ""))
-        return 近期
 
     def _处理消息(self, 数据: dict):
         """处理收到消息事件"""
@@ -638,25 +961,33 @@ tags: [{', '.join(标签)}]
         return {}
 
     def _保存记忆库(self):
-        if self.记忆库路径:
+        if self.存储引擎:
+            self.存储引擎.写入KV_JSON("记忆库", self.记忆库)
+        elif self.记忆库路径:
             self.记忆库路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.记忆库路径, "w", encoding="utf-8") as f:
                 json.dump(self.记忆库, f, ensure_ascii=False, indent=2)
 
     def _保存用户画像(self):
-        if self.用户画像路径:
+        if self.存储引擎:
+            self.存储引擎.写入KV_JSON("用户画像", self.用户画像)
+        elif self.用户画像路径:
             self.用户画像路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.用户画像路径, "w", encoding="utf-8") as f:
                 json.dump(self.用户画像, f, ensure_ascii=False, indent=2)
 
     def _保存摘要索引(self):
-        if self.摘要索引路径:
+        if self.存储引擎:
+            self.存储引擎.写入KV_JSON("摘要索引", self.摘要索引)
+        elif self.摘要索引路径:
             self.摘要索引路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.摘要索引路径, "w", encoding="utf-8") as f:
                 json.dump(self.摘要索引, f, ensure_ascii=False, indent=2)
 
     def _保存索引数据(self):
-        if self.索引数据路径:
+        if self.存储引擎:
+            self.存储引擎.写入KV_JSON("记忆索引数据", self.索引数据)
+        elif self.索引数据路径:
             self.索引数据路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.索引数据路径, "w", encoding="utf-8") as f:
                 json.dump(self.索引数据, f, ensure_ascii=False, indent=2)

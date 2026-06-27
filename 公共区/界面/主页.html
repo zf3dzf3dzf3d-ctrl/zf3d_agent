@@ -400,5 +400,17 @@
             </div>
         </div>
     </div>
+
+    <!-- AI询问用户弹窗 -->
+    <div class="overlay" id="askUserOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:560px;">
+            <h3>❓ AI需要你的输入</h3>
+            <div id="askUserBody"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                <button class="dlg-btn primary" onclick="submitAskUser()">✅ 提交回答</button>
+                <button class="dlg-btn" onclick="cancelAskUser()">⏭️ 跳过</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
