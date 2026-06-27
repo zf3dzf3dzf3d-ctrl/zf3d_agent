@@ -48,7 +48,7 @@ class 意图解析器类:
                   '怎么样', '如何理解', '什么是', '为什么', '解释一下',
                   '区别', '对比', '建议', '怎么看', '你觉得', '你认为']
 
-    def 解析(self, 用户消息: str, 文件上下文: str = "") -> dict:
+    def 解析(self, 用户消息: str, 文件上下文: str = "", 模型直连器=None) -> dict:
         """分析用户消息，返回意图结果
 
         返回:
@@ -112,11 +112,49 @@ class 意图解析器类:
         else:
             意图类型 = "单步任务"  # 默认走ReAct，确保任务延续消息不被误判
 
-        return {
+        结果 = {
             "类型": 意图类型,
             "批量数": 批量数,
             "操作类型": 操作类型,
             "闲聊置信度": 闲聊置信度,
+        }
+        if 闲聊置信度 < 0.5 and 模型直连器:
+            llm结果 = self.LLM意图分类(用户消息, 模型直连器)
+            if llm结果 is not None:
+                结果 = llm结果
+        return 结果
+
+    def LLM意图分类(self, 用户消息, 模型直连器):
+        import json
+        系统提示词 = "你是意图分类器。只输出JSON，不解释。"
+        用户提示 = '判断用户意图，只回复一个JSON，格式 {"类型": "...", "批量数": 0, "操作类型": null}'
+        消息列表 = [{"role": "user", "content": f"{用户提示}\n用户消息：{用户消息}"}]
+        try:
+            结果 = 模型直连器.发送消息(消息列表, 系统提示词)
+        except Exception:
+            return None
+        if not 结果.get("成功"):
+            return None
+        回复 = 结果.get("回复内容", "").strip()
+        start = 回复.find("{")
+        end = 回复.rfind("}")
+        if start == -1 or end <= start:
+            return None
+        try:
+            数据 = json.loads(回复[start:end + 1])
+        except (json.JSONDecodeError, ValueError):
+            return None
+        if not isinstance(数据, dict) or "类型" not in 数据:
+            return None
+        类型 = 数据.get("类型")
+        批量数 = 数据.get("批量数", 0)
+        if not isinstance(批量数, int):
+            批量数 = 0
+        return {
+            "类型": 类型,
+            "批量数": 批量数,
+            "操作类型": 数据.get("操作类型"),
+            "闲聊置信度": 0.8 if 类型 == "闲聊" else 0.0,
         }
 
     def _提取纯文本(self, 消息: str) -> str:

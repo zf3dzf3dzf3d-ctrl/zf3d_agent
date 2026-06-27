@@ -884,6 +884,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 数据.get("选择", "拒绝")
             )
             self._返回JSON({"成功": True})
+        elif 路径 == "/api/ask-user-response":
+            """用户在前端提交询问回答"""
+            from 操作.询问用户 import 询问用户
+            结果 = 询问用户.提交回答(数据.get("id", ""), 数据.get("回答", {}))
+            self._返回JSON(结果)
+        elif 路径 == "/api/ask-user-pending":
+            """获取待答询问列表（SSE失败时轮询兼容）"""
+            from 操作.询问用户 import 询问用户
+            self._返回JSON({"待答": 询问用户.获取待答()})
         elif 路径 == "/api/shutdown":
             self._返回JSON({"成功": True})
             def _延迟退出():
@@ -1425,11 +1434,16 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     原始推入(类型, 内容)
                     _SSE写入({"类型": "推理流", "记录": [{"类型": 类型, "内容": 内容}]})
                 对话模块._推入推理流 = _SSE推入
+                # 同步patch操作注册中心的进度回调，使操作（如询问用户）也走SSE
+                if self.操作注册中心:
+                    self.操作注册中心.设置进度回调(_SSE推入)
 
                 结果 = 对话模块.运行({"消息": 消息})
 
                 # 恢复原始方法
                 对话模块._推入推理流 = 原始推入
+                if self.操作注册中心:
+                    self.操作注册中心.设置进度回调(原始推入)
 
                 # 发送最终结果
                 _SSE写入({"类型": "完成", "结果": 结果})

@@ -19,7 +19,7 @@ from 操作.高级 import (
 )
 from 操作.诊断 import (
     查询运行错误, 解决运行错误, 清除已解决错误,
-    添加监控规则, 查询监控规则, 删除监控规则
+    添加监控规则, 查询监控规则, 删除监控规则, 搜索操作结果
 )
 from 操作.Word import (
     读取Word, 替换Word文本, 追加Word段落, 插入Word段落, 删除Word段落, 新建Word文档

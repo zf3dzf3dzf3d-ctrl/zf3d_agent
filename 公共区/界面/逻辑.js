@@ -677,6 +677,11 @@ async function sendMessage() {
 
                 if (data.类型 === "推理流") {
                     for (const rec of data.记录) {
+                        // 询问用户：弹出交互式弹窗
+                        if (rec.类型 === "询问用户" && rec.内容?.问题列表) {
+                            showAskUserDialog(rec.内容.id, rec.内容.问题列表);
+                            continue;
+                        }
                         // 流式回复token → 直接追加到消息元素，不进推理面板
                         if (rec.类型 === "流式回复" && rec.内容?.内容) {
                             // 收到首个token时更新思考状态
@@ -734,6 +739,7 @@ async function sendMessage() {
                             // 渲染完整Markdown
                             streamBody.innerHTML = renderMsg(d.回复 || streamText);
                             bindFolderLinks(streamBody);
+                            addCopyButtons(streamEl);
                             // 淡入Markdown
                             requestAnimationFrame(() => {
                                 streamBody.style.opacity = "1";
@@ -1175,7 +1181,53 @@ function addMsg(role, text, time) {
     bindFolderLinks(body);
     el.appendChild(body);
     list.appendChild(el);
+    addCopyButtons(el);
     list.scrollTop = list.scrollHeight;
+}
+
+// 给代码块添加复制按钮（DOM插入后添加，避免innerHTML丢失事件）
+function addCopyButtons(container) {
+    container.querySelectorAll('pre code').forEach(block => {
+        const pre = block.parentElement;
+        if (pre.querySelector('.code-copy-btn')) return; // 已有按钮则跳过
+        pre.style.position = 'relative';
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.textContent = '📋';
+        btn.addEventListener('click', function() {
+            const text = block.textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.textContent = '✅';
+                    setTimeout(() => btn.textContent = '📋', 1000);
+                }).catch(() => {
+                    fallbackCopy(text, btn);
+                });
+            } else {
+                fallbackCopy(text, btn);
+            }
+        });
+        pre.appendChild(btn);
+    });
+}
+
+// 兼容非HTTPS环境的复制降级方案
+function fallbackCopy(text, btn) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+        document.execCommand('copy');
+        btn.textContent = '✅';
+        setTimeout(() => btn.textContent = '📋', 1000);
+    } catch(e) {
+        btn.textContent = '❌';
+        setTimeout(() => btn.textContent = '📋', 1000);
+    }
+    document.body.removeChild(ta);
 }
 
 // 快速流式输出（Claude Code风格：文字快速涌入）
@@ -1190,23 +1242,11 @@ function renderMsg(text) {
             let html = marked.parse(text);
             // 代码高亮
             if (typeof hljs !== 'undefined') {
-                // 给代码块添加复制按钮
+                // 给代码块添加复制按钮（用事件委托，避免innerHTML后onclick丢失）
                 const tmp = document.createElement('div');
                 tmp.innerHTML = html;
                 tmp.querySelectorAll('pre code').forEach(block => {
                     try { hljs.highlightElement(block); } catch(e) {}
-                    // 添加复制按钮
-                    const pre = block.parentElement;
-                    const btn = document.createElement('button');
-                    btn.className = 'code-copy-btn';
-                    btn.textContent = '📋';
-                    btn.onclick = function() {
-                        navigator.clipboard.writeText(block.textContent);
-                        btn.textContent = '✅';
-                        setTimeout(() => btn.textContent = '📋', 1000);
-                    };
-                    pre.style.position = 'relative';
-                    pre.appendChild(btn);
                 });
                 html = tmp.innerHTML;
             }
@@ -3757,6 +3797,137 @@ async function respondPermission(choice) {
     } catch (e) {
         showToast("error", "❌ 授权响应失败", e.message);
     }
+}
+
+// ============ AI询问用户弹窗 ============
+let _askUserId = null;
+
+function showAskUserDialog(id, 问题列表) {
+    _askUserId = id;
+    const body = document.getElementById("askUserBody");
+    body.innerHTML = "";
+
+    问题列表.forEach((q, i) => {
+        const item = document.createElement("div");
+        item.className = "ask-item";
+
+        const label = document.createElement("div");
+        label.className = "ask-label";
+        label.textContent = `${i + 1}. ${q.问题}`;
+        item.appendChild(label);
+
+        const 类型 = q.类型 || "text";
+
+        if (类型 === "choice") {
+            const opts = document.createElement("div");
+            opts.className = "ask-options";
+            const 多选 = q.多选;
+            (q.选项 || []).forEach((opt, j) => {
+                const row = document.createElement("label");
+                row.className = "ask-option";
+                const input = document.createElement("input");
+                input.type = 多选 ? "checkbox" : "radio";
+                input.name = `ask_${i}`;
+                input.value = opt.label;
+                if (多选) input.dataset.askMulti = "1";
+                row.appendChild(input);
+                const txt = document.createElement("span");
+                txt.textContent = opt.label;
+                row.appendChild(txt);
+                if (opt.description) {
+                    const desc = document.createElement("div");
+                    desc.className = "ask-option-desc";
+                    desc.textContent = opt.description;
+                    row.appendChild(desc);
+                }
+                opts.appendChild(row);
+            });
+            item.appendChild(opts);
+        } else if (类型 === "yesno") {
+            const opts = document.createElement("div");
+            opts.className = "ask-options";
+            ["是", "否"].forEach(v => {
+                const row = document.createElement("label");
+                row.className = "ask-option";
+                const input = document.createElement("input");
+                input.type = "radio";
+                input.name = `ask_${i}`;
+                input.value = v === "是" ? "yes" : "no";
+                row.appendChild(input);
+                const txt = document.createElement("span");
+                txt.textContent = v;
+                row.appendChild(txt);
+                opts.appendChild(row);
+            });
+            item.appendChild(opts);
+        } else {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "ask-input";
+            input.name = `ask_${i}`;
+            input.placeholder = q.占位符 || "请输入...";
+            if (q.默认值) input.value = q.默认值;
+            item.appendChild(input);
+        }
+
+        body.appendChild(item);
+    });
+
+    document.getElementById("askUserOverlay").style.display = "flex";
+}
+
+async function submitAskUser() {
+    const overlay = document.getElementById("askUserOverlay");
+    const body = document.getElementById("askUserBody");
+    const items = body.querySelectorAll(".ask-item");
+    const 回答 = {};
+
+    items.forEach((item, i) => {
+        const idx = i + 1;
+        const radios = item.querySelectorAll(`input[name="ask_${i}"]`);
+        const checked = Array.from(radios).filter(r => r.checked);
+
+        if (checked.length > 0) {
+            if (checked[0].dataset.askMulti) {
+                回答[`问题${idx}`] = checked.map(c => c.value).join(", ");
+            } else {
+                回答[`问题${idx}`] = checked[0].value;
+            }
+        } else {
+            // text类型
+            const textInput = item.querySelector("input[type='text']");
+            回答[`问题${idx}`] = textInput ? textInput.value : "";
+        }
+    });
+
+    overlay.style.display = "none";
+    const id = _askUserId;
+    _askUserId = null;
+
+    try {
+        await fetch("/api/ask-user-response", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, 回答 })
+        });
+    } catch (e) {
+        showToast("error", "❌ 提交回答失败", e.message);
+    }
+}
+
+async function cancelAskUser() {
+    const overlay = document.getElementById("askUserOverlay");
+    overlay.style.display = "none";
+    const id = _askUserId;
+    _askUserId = null;
+
+    try {
+        await fetch("/api/ask-user-response", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, 回答: {} })
+        });
+    } catch (e) {}
 }
 
 // ============ 股票模式 ============

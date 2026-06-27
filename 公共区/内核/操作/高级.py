@@ -174,11 +174,35 @@ class 子代理(操作基类):
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(_运行子代理)
                 结果 = future.result(timeout=超时)
+            # 结果过长时自动摘要，避免污染主对话上下文
+            if len(结果) > 2000:
+                摘要 = self._摘要子代理结果(结果, 任务描述)
+                return 操作结果.成功(f"🤖 子代理({类型})结果摘要:\n{摘要}\n\n(完整结果共{len(结果)}字符已省略)")
             return 操作结果.成功(f"🤖 子代理({类型})结果:\n{结果}")
         except concurrent.futures.TimeoutError:
             return 操作结果.失败(f"子代理超时({超时}秒)")
         except Exception as e:
             return 操作结果.失败(f"子代理执行异常: {e}")
+
+    def _摘要子代理结果(self, 结果, 任务描述):
+        """用LLM摘要子代理结果，保留关键信息"""
+        if not self.模型直连器:
+            return 结果[:500] + "...(截断)"
+        摘要提示 = (
+            f"任务: {任务描述[:100]}\n"
+            f"子代理执行结果:\n{结果[:3000]}\n\n"
+            f"请用200字以内摘要关键发现和结论，保留重要信息。"
+        )
+        try:
+            摘要结果 = self.模型直连器.发送消息(
+                [{"role": "user", "content": 摘要提示}],
+                "你是结果摘要助手。简洁、保留关键信息。"
+            )
+            if 摘要结果.get("成功"):
+                return 摘要结果.get("回复内容", "")
+        except Exception:
+            pass
+        return 结果[:500] + "...(截断)"
 
     def _子代理ReAct循环(self, 任务描述, 系统提示, 注册中心, 类型, 允许操作集):
         """子代理的mini ReAct循环"""

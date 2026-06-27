@@ -20,7 +20,7 @@ from 操作基类 import (
     Pipeline, Barrier, LoopUntilDry,
     查Bug, 编程循环,
     查询运行错误, 解决运行错误, 清除已解决错误,
-    添加监控规则, 查询监控规则, 删除监控规则,
+    添加监控规则, 查询监控规则, 删除监控规则, 搜索操作结果,
     读取Word, 替换Word文本, 追加Word段落, 插入Word段落, 删除Word段落, 新建Word文档,
     替换Excel文本,
     下载网页图片,
@@ -44,6 +44,15 @@ from 操作.剧本操作 import (
 )
 from 操作.导出与配置操作 import (
     导出对话, 创建工具,
+)
+from 操作.询问用户 import (
+    询问用户,
+)
+from 操作.记忆操作 import (
+    保存记忆, 搜索记忆, 遗忘记忆,
+)
+from 操作.账本操作 import (
+    查看任务账本, 添加任务 as 账本添加任务, 完成任务 as 账本完成任务,
 )
 from 操作.浏览器操作 import (
     打开网页操作, 读取页面内容操作, 读取页面结构操作,
@@ -95,7 +104,8 @@ class 操作注册中心类:
             "查Bug": "bug_check", "编程循环": "code_loop",
             "查询运行错误": "query_errors", "解决运行错误": "resolve_error",
             "清除已解决错误": "clear_resolved", "添加监控规则": "add_monitor_rule",
-            "查询监控规则": "list_monitor_rules", "删除监控规则": "remove_monitor_rule",
+            "查询监控规则": "list_monitor_rules",             "删除监控规则": "remove_monitor_rule",
+            "搜索操作结果": "search_op_results",
             "读取Word": "read_word", "替换Word文本": "replace_word_text",
             "追加Word段落": "append_word_para", "插入Word段落": "insert_word_para",
             "删除Word段落": "delete_word_para", "新建Word文档": "create_word_doc",
@@ -129,6 +139,7 @@ class 操作注册中心类:
             "删除剧本": "delete_script",
             "导出对话": "export_chat",
             "创建工具": "create_tool",
+            "询问用户": "ask_user",
                     # 浏览器操作
                     "打开网页": "open_webpage",
                     "读取页面内容": "read_page_content",
@@ -222,6 +233,7 @@ class 操作注册中心类:
             "变量": "variables",
             "对话ID": "chat_id",
             "包含推理": "include_reasoning",
+            "问题列表": "question_list",
         }
         self._参数名反查 = {v: k for k, v in self._参数名映射.items()}
 
@@ -300,7 +312,7 @@ class 操作注册中心类:
             Pipeline(), Barrier(), LoopUntilDry(),
             查Bug(), 编程循环(),
             查询运行错误(), 解决运行错误(), 清除已解决错误(),
-            添加监控规则(), 查询监控规则(), 删除监控规则(),
+            添加监控规则(), 查询监控规则(), 删除监控规则(), 搜索操作结果(),
             读取Word(), 替换Word文本(), 追加Word段落(), 插入Word段落(), 删除Word段落(), 新建Word文档(),
             替换Excel文本(),
             下载网页图片(),
@@ -310,6 +322,8 @@ class 操作注册中心类:
             开始录制(), 停止录制(), 回放剧本(), 列出剧本(), 删除剧本(),
             导出对话(), 创建工具(),
             列出回收站(), 恢复文件(), 清空回收站(),
+            保存记忆(), 搜索记忆(), 遗忘记忆(),
+            查看任务账本(), 账本添加任务(), 账本完成任务(),
             # 浏览器操作
             打开网页操作(), 读取页面内容操作(), 读取页面结构操作(),
             读取页面元素操作(), 浏览器截图操作(), 搜索页面内容操作(),
@@ -317,6 +331,7 @@ class 操作注册中心类:
             返回上一页操作(), 切换标签页操作(),
             保存浏览器会话操作(), 加载浏览器会话操作(),
             分析网页操作(),
+            询问用户(),
         ]
         for 操作 in 内置操作列表:
             self.注册(操作)
@@ -505,7 +520,7 @@ class 操作注册中心类:
     def 获取工具定义(self) -> list:
         """生成OpenAI function calling格式的工具定义（函数名和参数名用英文，API要求[a-zA-Z0-9_-]）"""
         类型映射 = {
-            "字符串": "string", "整数": "integer", "数字": "number", "布尔": "boolean"
+            "字符串": "string", "整数": "integer", "数字": "number", "布尔": "boolean", "列表": "array"
         }
         工具列表 = []
         for 名称, 操作 in self._操作表.items():
