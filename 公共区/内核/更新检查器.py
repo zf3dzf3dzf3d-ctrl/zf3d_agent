@@ -223,7 +223,7 @@ class 更新检查器类:
             名字 = 项目.name
             if 名字 in 排除模式:
                 continue
-            if 任何(名字.endswith(后缀) for 后缀 in 排除模式):
+            if any(名字.endswith(后缀) for 后缀 in 排除模式):
                 continue
             目标项目 = 目标目录 / 名字
             if 项目.is_dir():
