@@ -22,7 +22,10 @@ from pathlib import Path
 排除后缀 = [".log", ".db", ".db-shm", ".db-wal", ".pyc", ".pyo", ".zip"]
 
 # 打包时排除的文件名前缀（临时测试文件）
-排除文件名前缀 = ["_test", "_parse", "_read", "_查看"]
+排除文件名前缀 = ["_test", "_parse", "_read", "_查看", "测试key"]
+
+# 隐私扫描白名单（第三方库等误报）
+隐私扫描白名单 = ["highlight.min.js", "marked.min.js"]
 
 def 打包发布():
     项目根目录 = Path(__file__).parent
@@ -122,6 +125,9 @@ def 扫描隐私泄露(文件: Path) -> list:
     """扫描单个文件是否包含隐私内容"""
     泄露 = []
     if 文件.suffix not in [".py", ".json", ".js", ".html", ".css", ".md", ".bat", ".sh"]:
+        return 泄露
+    # 第三方库白名单
+    if 文件.name in 隐私扫描白名单:
         return 泄露
     敏感模式 = [
         (r'sk-[a-zA-Z0-9]{20,}', "API Key (sk-开头)"),
