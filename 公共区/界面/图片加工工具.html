@@ -437,29 +437,36 @@ async function doInpaint() {
 }
 
 // ═══════════════════════════════════════
-//  亮度/对比度
+//  亮度/对比度 (用CSS filter, GPU加速, 不卡)
 // ═══════════════════════════════════════
 let adjustBaseData = null;
+
 function previewAdjust() {
-  if (!originalImageData && !adjustBaseData) return;
-  if (!adjustBaseData) adjustBaseData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const b = parseInt(document.getElementById('brightness').value);
   const c = parseInt(document.getElementById('contrast').value);
-  const alpha = 1.0 + c / 100.0;
-  const beta = parseFloat(b);
-  const src = adjustBaseData.data;
-  const dst = ctx.createImageData(adjustBaseData.width, adjustBaseData.height);
-  for (let i = 0; i < src.length; i += 4) {
-    dst[i] = Math.max(0, Math.min(255, src[i] * alpha + beta));
-    dst[i+1] = Math.max(0, Math.min(255, src[i+1] * alpha + beta));
-    dst[i+2] = Math.max(0, Math.min(255, src[i+2] * alpha + beta));
-    dst[i+3] = src[i+3];
-  }
-  ctx.putImageData(dst, 0, 0);
+  // brightness: 1.0 = 原始, 范围 0~2; contrast: 1.0 = 原始, 范围 0~2
+  const brightnessVal = 1.0 + b / 100.0;
+  const contrastVal = 1.0 + c / 100.0;
+  canvas.style.filter = `brightness(${brightnessVal}) contrast(${contrastVal})`;
 }
 
 function applyAdjust() {
-  adjustBaseData = null;
+  const b = parseInt(document.getElementById('brightness').value);
+  const c = parseInt(document.getElementById('contrast').value);
+  if (b === 0 && c === 0) { canvas.style.filter = 'none'; return; }
+  // 把filter烘焙到canvas像素
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width;
+  tmp.height = canvas.height;
+  const tctx = tmp.getContext('2d');
+  const brightnessVal = 1.0 + b / 100.0;
+  const contrastVal = 1.0 + c / 100.0;
+  tctx.filter = `brightness(${brightnessVal}) contrast(${contrastVal})`;
+  tctx.drawImage(canvas, 0, 0);
+  tctx.filter = 'none';
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(tmp, 0, 0);
+  canvas.style.filter = 'none';
   pushHistory();
   document.getElementById('brightness').value = 0;
   document.getElementById('contrast').value = 0;
