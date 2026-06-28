@@ -93,13 +93,20 @@ class 定时任务调度器:
         while self.运行中:
             try:
                 now = datetime.now()
-                for 任务 in self.任务列表:
-                    if not 任务.get("启用", True):
-                        continue
-                    if self._应触发(任务, now):
-                        self._触发任务(任务)
-            except Exception:
-                pass
+                for 任务 in list(self.任务列表):
+                    try:
+                        if not 任务.get("启用", True):
+                            continue
+                        if self._应触发(任务, now):
+                            self._触发任务(任务)
+                    except Exception as e:
+                        print(f"⚠️ 定时任务执行异常: {任务.get('名称','?')} - {e}")
+                        if hasattr(self, '运行诊断器') and self.运行诊断器:
+                            self.运行诊断器.记录错误("定时任务._调度循环", e)
+            except Exception as e:
+                print(f"⚠️ 调度器异常: {e}")
+                if hasattr(self, '运行诊断器') and self.运行诊断器:
+                    self.运行诊断器.记录错误("定时任务._调度循环", e)
             time.sleep(1)
 
     def _应触发(self, 任务: dict, now: datetime) -> bool:
