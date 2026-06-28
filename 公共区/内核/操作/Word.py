@@ -78,7 +78,16 @@ class 替换Word文本(操作基类):
                                     if not 全部:
                                         return True
                             if not done:
-                                paras[i].text = paras[i].text.replace(旧, 新文本)
+                                # 跨run匹配：保留第一个run的格式，把替换结果写入第一个run，清空其余run
+                                runs = paras[i].runs
+                                if runs:
+                                    full_text = paras[i].text
+                                    new_text = full_text.replace(旧, 新文本)
+                                    runs[0].text = new_text
+                                    for r in runs[1:]:
+                                        r.text = ""
+                                else:
+                                    paras[i].text = paras[i].text.replace(旧, 新文本)
                                 替换数 += 1
                                 if not 全部:
                                     return True

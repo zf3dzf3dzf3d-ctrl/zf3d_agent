@@ -30,7 +30,16 @@ class 替换Excel文本(操作基类):
                 for row in ws.iter_rows():
                     for cell in row:
                         if cell.value is not None and 旧文本 in str(cell.value):
-                            cell.value = str(cell.value).replace(旧文本, 新文本)
+                            原始值 = cell.value
+                            新值 = str(原始值).replace(旧文本, 新文本)
+                            # 尝试保留原始数据类型
+                            if isinstance(原始值, (int, float)) and not isinstance(原始值, bool):
+                                try:
+                                    cell.value = type(原始值)(新值)
+                                except (ValueError, TypeError):
+                                    cell.value = 新值
+                            else:
+                                cell.value = 新值
                             替换数 += 1
                             if not 全部:
                                 wb.save(路径)

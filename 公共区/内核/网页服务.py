@@ -228,6 +228,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             if 路径 == "/" or 路径 == "/index.html":
                 self._返回文件(self.界面目录 / "主页.html", "text/html", 查询串)
+            elif ".." in 路径:
+                # 防止路径穿越攻击
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write("forbidden".encode("utf-8"))
             elif 路径.endswith(".css"):
                 self._返回文件(self.界面目录 / 路径.lstrip("/"), "text/css", 查询串)
             elif 路径.endswith(".js"):
@@ -1101,6 +1106,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"错误": "文本为空"})
                 return
             文本 = 文本[:500]
+            网页请求处理器._tts停止标志 = True  # 先停止之前的播放
+            import time as _time; _time.sleep(0.1)  # 等待旧线程退出
             网页请求处理器._tts停止标志 = False
             网页请求处理器._tts_speaker = None
             网页请求处理器._tts_process = None

@@ -669,6 +669,14 @@ class 模型直连器类:
         if not 模型直连器类._LLM日志路径:
             return
         try:
+            # 深拷贝原始请求并掩码敏感信息
+            原始请求 = 结果.get("原始请求")
+            if 原始请求 and isinstance(原始请求, dict):
+                原始请求 = json.loads(json.dumps(原始请求))  # 深拷贝
+                请求头 = 原始请求.get("headers", {})
+                for 键 in list(请求头.keys()):
+                    if "authorization" in 键.lower() or "key" in 键.lower() or "token" in 键.lower():
+                        请求头[键] = "***掩码***"
             日志条目 = {
                 "时间": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "模型": self.当前模型名,
@@ -677,7 +685,7 @@ class 模型直连器类:
                 "错误": 结果.get("错误", "") if not 结果.get("成功") else "",
                 "系统提示词长度": len(系统提示词) if 系统提示词 else 0,
                 "消息数量": len(消息列表) if 消息列表 else 0,
-                "原始请求": 结果.get("原始请求"),
+                "原始请求": 原始请求,
                 "原始响应": 结果.get("原始响应"),
                 "回复内容": 结果.get("回复内容", "")[:2000] if 结果.get("成功") else "",
                 "工具调用": 结果.get("工具调用", []) if 结果.get("成功") else []
