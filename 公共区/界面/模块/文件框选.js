@@ -196,6 +196,11 @@ function onSelectionKeyDown(e) {
             clearFileSelection();
         }
     }
+    // Delete键删除选中项
+    if (e.key === "Delete" && selectedItems.size > 0) {
+        e.preventDefault();
+        batchDeleteSelected();
+    }
 }
 
 function onDragStart(e) {
