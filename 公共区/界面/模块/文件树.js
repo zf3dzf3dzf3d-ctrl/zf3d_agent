@@ -3,6 +3,9 @@
  * 从 逻辑.js 拆分
  */
 
+// 安全转义HTML，防止文件名含特殊字符导致XSS
+function _esc(s) { if(!s) return ''; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
 // ============ 文件树 ============
 async function openFolderDialog() {
     document.getElementById("openFolderOverlay").style.display = "flex";
@@ -27,7 +30,7 @@ async function openFolderDialog() {
             const icon = drv.图标 || "💾";
             const label = drv.标签 || drv.盘符;
             // 磁盘显示空间信息
-            let text = `${icon} ${label}`;
+            let text = `${icon} ${_esc(label)}`;
             if (drv.类型 === "磁盘" && drv.总大小GB) {
                 text += ` (${drv.可用GB}GB可用/${drv.总大小GB}GB)`;
             }
@@ -162,7 +165,7 @@ async function openMyComputer() {
                 const icon = drv.图标 || "📁";
                 const ti = document.createElement("div");
                 ti.className = "ti";
-                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${label}</span>`;
+                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>`;
                 ti.addEventListener("click", e => { e.stopPropagation(); openFolder(drv.路径); showGallery(drv.路径); });
                 mcKids.appendChild(ti);
             }
@@ -180,7 +183,7 @@ async function openMyComputer() {
                 const ti = document.createElement("div");
                 ti.className = "ti";
                 const spaceHtml = spaceInfo ? `<span class="ti-space">${spaceInfo}</span>` : "";
-                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${label}</span>${spaceHtml}`;
+                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>${spaceHtml}`;
                 ti.addEventListener("click", e => { e.stopPropagation(); openFolder(drv.路径); showGallery(drv.路径); });
                 mcKids.appendChild(ti);
             }
@@ -197,7 +200,7 @@ async function openMyComputer() {
                 const item = document.createElement("div");
                 item.className = "gallery-item";
                 item.title = `打开 ${drv.路径}`;
-                item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${label}</div>`;
+                item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${_esc(label)}</div>`;
                 item.addEventListener("click", () => { openFolder(drv.路径); showGallery(drv.路径); });
                 grid.appendChild(item);
             }
@@ -216,7 +219,7 @@ async function openMyComputer() {
                 item.className = "gallery-item";
                 item.title = `打开 ${drv.路径}`;
                 const spaceLine = spaceInfo ? `<div class="gallery-name" style="font-size:10px;color:var(--text3);">${spaceInfo}</div>` : "";
-                item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${label}</div>${spaceLine}`;
+                item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${_esc(label)}</div>${spaceLine}`;
                 item.addEventListener("click", () => { openFolder(drv.路径); showGallery(drv.路径); });
                 grid.appendChild(item);
             }
@@ -239,7 +242,7 @@ function buildTreeNode(node, path) {
         item.dataset.path = fullPath;
         item.dataset.name = node.名称;
         item.dataset.type = "目录";
-        item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${node.名称}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
+        item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${_esc(node.名称)}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
         el.appendChild(item);
         setupDropTarget(item, fullPath);
         setupItemDraggable(item);
@@ -287,7 +290,7 @@ function buildTreeNode(node, path) {
         item.dataset.path = fullPath;
         item.dataset.name = node.名称;
         item.dataset.type = "文件";
-        item.innerHTML = `<span class="arr"> </span><span class="ico">${fileIcon(node.后缀 || "")}</span><span class="nm">${node.名称}</span><button class="del-btn" title="删除此文件">🗑️</button>`;
+        item.innerHTML = `<span class="arr"> </span><span class="ico">${fileIcon(node.后缀 || "")}</span><span class="nm">${_esc(node.名称)}</span><button class="del-btn" title="删除此文件">🗑️</button>`;
         item.addEventListener("click", e => {
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, false); return; }
             e.stopPropagation();
@@ -297,7 +300,7 @@ function buildTreeNode(node, path) {
             if (isDocument(node.后缀 || "")) { showDocument(fullPath, node.名称); return; }
             const ext = (node.后缀 || "").toLowerCase();
             const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext);
-            if (!可编辑) { showToast("info", "🔒 不支持的格式", `「${node.名称}」无法在此应用中打开`); return; }
+            if (!可编辑) { showToast("info", "🔒 不支持的格式", `「${_esc(node.名称)}」无法在此应用中打开`); return; }
             hideMediaView();
             openFileInEditor(path, node.名称);
         });
@@ -580,7 +583,7 @@ async function showFolderPicker(title, callback) {
             btn.className = "drive-btn";
             const icon = drv.图标 || "💾";
             const label = drv.标签 || drv.盘符;
-            let text = `${icon} ${label}`;
+            let text = `${icon} ${_esc(label)}`;
             if (drv.类型 === "磁盘" && drv.总大小GB) {
                 text += ` (${drv.可用GB}GB可用/${drv.总大小GB}GB)`;
             }
@@ -730,8 +733,8 @@ function renderGalleryGrid() {
             item.dataset.path = fullPath;
             item.dataset.name = node.名称;
             item.dataset.type = "目录";
-            item.title = `进入文件夹: ${node.名称}`;
-            item.innerHTML = `<div class="gallery-thumb">📁</div><div class="gallery-name">${node.名称}</div>`;
+            item.title = `进入文件夹: ${_esc(node.名称)}`;
+            item.innerHTML = `<div class="gallery-thumb">📁</div><div class="gallery-name">${_esc(node.名称)}</div>`;
             item.addEventListener("click", () => { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); });
             setupDropTarget(item, fullPath);
             setupItemDraggable(item);
@@ -746,22 +749,22 @@ function renderGalleryGrid() {
             item.dataset.name = node.名称;
             item.dataset.type = "文件";
             if (isImage(ext)) {
-                item.title = `查看图片: ${node.名称}`;
-                item.innerHTML = `<div class="gallery-thumb"><img src="/api/image?path=${encodeURIComponent(fullPath)}" loading="lazy" /></div><div class="gallery-name">${node.名称}</div>`;
+                item.title = `查看图片: ${_esc(node.名称)}`;
+                item.innerHTML = `<div class="gallery-thumb"><img src="/api/image?path=${encodeURIComponent(fullPath)}" loading="lazy" /></div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => {
                     const idx = galleryImages.findIndex(g => g.路径 === fullPath);
                     showImage(fullPath, node.名称, idx);
                 });
             } else if (isAudio(ext)) {
-                item.title = `播放音频: ${node.名称}`;
-                item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">🎵</div><div class="gallery-name">${node.名称}</div>`;
+                item.title = `播放音频: ${_esc(node.名称)}`;
+                item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">🎵</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => {
                     const idx = audioPlaylist.findIndex(a => a.路径 === fullPath);
                     showAudio(fullPath, node.名称, idx);
                 });
             } else if (isVideo(ext)) {
-                item.title = `播放视频: ${node.名称}`;
-                item.innerHTML = `<div class="gallery-thumb"><video src="/api/video?path=${encodeURIComponent(fullPath)}" preload="metadata" muted playsinline></video><div class="gallery-play-overlay">▶</div></div><div class="gallery-name">${node.名称}</div>`;
+                item.title = `播放视频: ${_esc(node.名称)}`;
+                item.innerHTML = `<div class="gallery-thumb"><video src="/api/video?path=${encodeURIComponent(fullPath)}" preload="metadata" muted playsinline></video><div class="gallery-play-overlay">▶</div></div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 const vEl = item.querySelector('video');
                 if (vEl) {
                     vEl.addEventListener('loadedmetadata', () => {
@@ -775,19 +778,19 @@ function renderGalleryGrid() {
                 }
                 item.addEventListener("click", () => { showVideo(fullPath, node.名称); });
             } else if (isDocument(ext)) {
-                item.title = `预览文档: ${node.名称}`;
+                item.title = `预览文档: ${_esc(node.名称)}`;
                 const docIcon = ext === ".pdf" ? "📕" : (ext === ".xlsx" || ext === ".xls" || ext === ".csv" ? "📊" : "📄");
-                item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${docIcon}</div><div class="gallery-name">${node.名称}</div>`;
+                item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${docIcon}</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => { showDocument(fullPath, node.名称); });
             } else {
                 const icon = fileIcon(ext);
                 const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext.toLowerCase());
                 if (可编辑) {
-                    item.title = `在编辑器中打开: ${node.名称}`;
-                    item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${icon}</div><div class="gallery-name">${node.名称}</div>`;
+                    item.title = `在编辑器中打开: ${_esc(node.名称)}`;
+                    item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${icon}</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                     item.addEventListener("click", () => { hideMediaView(); openFileInEditor(galleryPath, node.名称); });
                 } else {
-                    item.innerHTML = `<div class="gallery-thumb gallery-thumb-locked">🔒</div><div class="gallery-name">${node.名称}</div>`;
+                    item.innerHTML = `<div class="gallery-thumb gallery-thumb-locked">🔒</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                     item.className = "gallery-item gallery-item-locked";
                     if (selectedItems.has(fullPath)) item.classList.add("selected");
                     item.title = "此文件格式不支持打开";
@@ -850,7 +853,7 @@ function renderGalleryList() {
         row.dataset.name = node.名称;
         row.dataset.type = node.类型;
         const checkIcon = isSelected ? "☑" : "☐";
-        row.innerHTML = `<span class="glr-check">${checkIcon}</span><span class="glr-icon">${icon}</span><span class="glr-name">${node.名称}</span><span class="glr-size">${isDir ? "-" : formatSize(node.大小)}</span><span class="glr-type">${isDir ? "文件夹" : (node.后缀 || "")}</span><span class="glr-date">${node.创建时间 || "-"}</span>`;
+        row.innerHTML = `<span class="glr-check">${checkIcon}</span><span class="glr-icon">${icon}</span><span class="glr-name">${_esc(node.名称)}</span><span class="glr-size">${isDir ? "-" : formatSize(node.大小)}</span><span class="glr-type">${isDir ? "文件夹" : (node.后缀 || "")}</span><span class="glr-date">${node.创建时间 || "-"}</span>`;
         row.addEventListener("click", () => {
             if (isDir) { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); return; }
             const ext = node.后缀 || "";
@@ -860,7 +863,7 @@ function renderGalleryList() {
             if (isDocument(ext)) { showDocument(fullPath, node.名称); return; }
             const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext.toLowerCase());
             if (可编辑) { hideMediaView(); openFileInEditor(galleryPath, node.名称); }
-            else { showToast("info", "🔒 不支持的格式", `「${node.名称}」无法在此应用中打开`); }
+            else { showToast("info", "🔒 不支持的格式", `「${_esc(node.名称)}」无法在此应用中打开`); }
         });
         setupItemDraggable(row);
         if (isDir) setupDropTarget(row, fullPath);
