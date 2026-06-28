@@ -16,24 +16,27 @@ body{background:#1a1a2e;color:#e0e0e0;font-family:system-ui,sans-serif;overflow:
 .toolbar input[type=number]{width:60px;background:#0a0a1a;color:#e0e0e0;border:1px solid #333;border-radius:3px;padding:3px 6px;font-size:12px}
 .toolbar select{background:#0a0a1a;color:#e0e0e0;border:1px solid #333;border-radius:3px;padding:3px 6px;font-size:12px}
 .toolbar label{font-size:11px;color:#888;white-space:nowrap}
-#canvasWrap{flex:1;position:relative;overflow:auto;display:flex;align-items:center;justify-content:center;background:#111}
-#canvasBg{position:absolute;inset:0;background-image:linear-gradient(45deg,#1a1a2e 25%,transparent 25%),linear-gradient(-45deg,#1a1a2e 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1a1a2e 75%),linear-gradient(-45deg,transparent 75%,#1a1a2e 75%);background-size:20px 20px;background-color:#0d0d1a;opacity:0.5}
-#mainCanvas{position:relative;z-index:1;cursor:crosshair;image-rendering:pixelated}
-#brushCursor{position:absolute;border:2px solid #f44;border-radius:50%;pointer-events:none;z-index:2;display:none;box-shadow:0 0 0 1px #fff}
-#maskCanvas{position:absolute;z-index:1;pointer-events:none;opacity:0.5}
+#viewport{flex:1;position:relative;overflow:hidden;background:#0d0d1a}
+#canvasBg{position:absolute;inset:0;background-image:linear-gradient(45deg,#1a1a2e 25%,transparent 25%),linear-gradient(-45deg,#1a1a2e 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1a1a2e 75%),linear-gradient(-45deg,transparent 75%,#1a1a2e 75%);background-size:20px 20px;opacity:0.3}
+#mainCanvas{position:absolute;image-rendering:pixelated;transform-origin:0 0}
+#maskCanvas{position:absolute;pointer-events:none;opacity:0.5;transform-origin:0 0}
+#overlayCanvas{position:absolute;pointer-events:none;transform-origin:0 0}
+#brushCursor{position:absolute;border:2px solid #f44;border-radius:50%;pointer-events:none;z-index:10;display:none;box-shadow:0 0 0 1px #fff}
 .hint{padding:4px 12px;font-size:11px;color:#666;background:#16213e;border-bottom:1px solid #0f3460}
+#zoomPill{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#aaa;padding:2px 8px;border-radius:3px;font-size:11px;z-index:20;pointer-events:none}
 </style>
 </head>
 <body>
 
 <div class="toolbar">
   <button onclick="loadImage()" title="上传图片">📁 打开</button>
-  <button onclick="resetImage()" title="重置为原图" id="btnReset">↩️ 重置</button>
+  <button onclick="resetImage()" title="重置为原图">↩️ 重置</button>
   <button onclick="downloadResult()" title="下载结果">⬇️ 下载</button>
   <div class="sep"></div>
 
-  <button onclick="setMode('inpaint')" class="active" id="mode-inpaint" title="涂抹要去除的区域">🧹 涂抹去水印</button>
-  <button onclick="setMode('none')" id="mode-none" title="普通查看">✋ 平移</button>
+  <button onclick="setMode('inpaint')" class="active" id="mode-inpaint" title="涂抹要去除的区域">🧹 涂抹</button>
+  <button onclick="setMode('rect')" id="mode-rect" title="矩形选取要去除的区域">▭ 框选</button>
+  <button onclick="setMode('none')" id="mode-none" title="平移视图">✋ 平移</button>
   <div class="sep"></div>
 
   <label>笔刷</label>
@@ -65,33 +68,56 @@ body{background:#1a1a2e;color:#e0e0e0;font-family:system-ui,sans-serif;overflow:
   <button onclick="doRotate()">🔄 旋转</button>
   <div class="sep"></div>
 
-  <button onclick="undo()" title="撤销">↩️ 撤销</button>
-  <button onclick="redo()" title="重做">↪️ 重做</button>
+  <button onclick="undo()" title="撤销 Ctrl+Z">↩️ 撤销</button>
+  <button onclick="redo()" title="重做 Ctrl+Y">↪️ 重做</button>
+  <button onclick="fitCanvas()" title="适应窗口">📐 适应</button>
+  <button onclick="setActual()" title="100%实际大小">1:1</button>
 </div>
 
-<div class="hint" id="hintInfo">点击 📁 打开 上传图片</div>
-<div id="canvasWrap">
+<div class="hint" id="hintInfo">点击 📁 打开 上传图片 · 滚轮缩放 · 中键/右键拖拽平移</div>
+<div id="viewport">
   <div id="canvasBg"></div>
   <canvas id="mainCanvas"></canvas>
   <canvas id="maskCanvas"></canvas>
+  <canvas id="overlayCanvas"></canvas>
   <div id="brushCursor"></div>
+  <div id="zoomPill">100%</div>
 </div>
 
 <script>
+// ═══════════════════════════════════════
+//  状态
+// ═══════════════════════════════════════
 let mode = 'inpaint';
 let isDrawing = false;
+let isPanning = false;
 let hasMask = false;
 let lastX = 0, lastY = 0;
+let panStartX = 0, panStartY = 0;
+let scale = 1, offsetX = 0, offsetY = 0;
+
 let canvas = document.getElementById('mainCanvas');
 let ctx = canvas.getContext('2d');
 let maskCanvas = document.getElementById('maskCanvas');
 let maskCtx = maskCanvas.getContext('2d');
+let overlayCanvas = document.getElementById('overlayCanvas');
+let overlayCtx = overlayCanvas.getContext('2d');
 let brushCursor = document.getElementById('brushCursor');
+let viewport = document.getElementById('viewport');
+
 let originalImageData = null;
 let history = [];
 let historyIdx = -1;
 let imgPath = null;
 
+// 矩形框选
+let rectDrawing = false;
+let rectStart = null;
+let rectEnd = null;
+
+// ═══════════════════════════════════════
+//  加载图片
+// ═══════════════════════════════════════
 function loadImage() {
   const input = document.createElement('input');
   input.type = 'file';
@@ -118,65 +144,216 @@ function setImage(img, name) {
   maskCanvas.width = img.width;
   maskCanvas.height = img.height;
   maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  overlayCanvas.width = img.width;
+  overlayCanvas.height = img.height;
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   hasMask = false;
   history = [];
   historyIdx = -1;
   pushHistory();
   fitCanvas();
-  document.getElementById('hintInfo').textContent = `${name}  ${img.width}×${img.height}`;
+  document.getElementById('hintInfo').textContent = `${name}  ${img.width}×${img.height} · 滚轮缩放 · 中键/右键拖拽平移`;
 }
 
 function resetImage() {
   if (!originalImageData) return;
   ctx.putImageData(originalImageData, 0, 0);
   maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   hasMask = false;
   pushHistory();
-  document.getElementById('hintInfo').textContent += ' | 已重置';
+  document.getElementById('hintInfo').textContent = '已重置为原图';
 }
 
 function setMode(m) {
   mode = m;
   document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
-  document.getElementById('mode-' + m).classList.add('active');
-  canvas.style.cursor = m === 'inpaint' ? 'crosshair' : (m === 'none' ? 'grab' : 'crosshair');
+  const btn = document.getElementById('mode-' + m);
+  if (btn) btn.classList.add('active');
+  canvas.style.cursor = m === 'none' ? 'grab' : 'crosshair';
+  // 切换模式时清除矩形选区
+  if (m !== 'rect') {
+    rectStart = null; rectEnd = null;
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  }
 }
 
-// ── 涂抹遮罩 ──
-function getMousePos(e) {
-  const rect = canvas.getBoundingClientRect();
-  const sx = canvas.width / rect.width;
-  const sy = canvas.height / rect.height;
-  return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+// ═══════════════════════════════════════
+//  视图变换 (缩放/平移)
+// ═══════════════════════════════════════
+function applyTransform() {
+  const t = `translate(${offsetX}px,${offsetY}px) scale(${scale})`;
+  canvas.style.transform = t;
+  maskCanvas.style.transform = t;
+  overlayCanvas.style.transform = t;
+  document.getElementById('zoomPill').textContent = Math.round(scale * 100) + '%';
+  updateBrushCursorSize();
 }
 
-canvas.addEventListener('mousedown', e => {
-  if (mode !== 'inpaint') return;
-  isDrawing = true;
-  const p = getMousePos(e);
-  lastX = p.x; lastY = p.y;
-  drawMask(p.x, p.y);
+function fitCanvas() {
+  if (!canvas.width) return;
+  const vw = viewport.clientWidth - 40;
+  const vh = viewport.clientHeight - 40;
+  scale = Math.min(vw / canvas.width, vh / canvas.height, 1);
+  offsetX = (viewport.clientWidth - canvas.width * scale) / 2;
+  offsetY = (viewport.clientHeight - canvas.height * scale) / 2;
+  applyTransform();
+}
+
+function setActual() {
+  scale = 1;
+  offsetX = (viewport.clientWidth - canvas.width) / 2;
+  offsetY = (viewport.clientHeight - canvas.height) / 2;
+  applyTransform();
+}
+
+// 屏幕坐标 → 画布坐标
+function screenToCanvas(e) {
+  const rect = viewport.getBoundingClientRect();
+  const sx = (e.clientX - rect.left - offsetX) / scale;
+  const sy = (e.clientY - rect.top - offsetY) / scale;
+  return { x: sx, y: sy };
+}
+
+// ═══════════════════════════════════════
+//  滚轮缩放
+// ═══════════════════════════════════════
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = viewport.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newScale = Math.max(0.05, Math.min(40, scale * delta));
+  // 缩放以鼠标为中心
+  offsetX = mx - (mx - offsetX) * (newScale / scale);
+  offsetY = my - (my - offsetY) * (newScale / scale);
+  scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+// ═══════════════════════════════════════
+//  鼠标交互
+// ═══════════════════════════════════════
+viewport.addEventListener('mousedown', e => {
+  const p = screenToCanvas(e);
+
+  // 中键或右键 = 平移
+  if (e.button === 1 || e.button === 2) {
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    viewport.style.cursor = 'grabbing';
+    e.preventDefault();
+    return;
+  }
+
+  // 平移模式
+  if (mode === 'none' && e.button === 0) {
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    viewport.style.cursor = 'grabbing';
+    return;
+  }
+
+  // 涂抹模式
+  if (mode === 'inpaint' && e.button === 0) {
+    isDrawing = true;
+    lastX = p.x; lastY = p.y;
+    drawMask(p.x, p.y);
+    return;
+  }
+
+  // 矩形框选模式
+  if (mode === 'rect' && e.button === 0) {
+    rectDrawing = true;
+    rectStart = { x: p.x, y: p.y };
+    rectEnd = { x: p.x, y: p.y };
+    return;
+  }
 });
 
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const cx = e.clientX - rect.left;
-  const cy = e.clientY - rect.top;
-  const size = parseInt(document.getElementById('brushSize').value);
-  brushCursor.style.display = 'block';
-  brushCursor.style.left = (cx - size/2) + 'px';
-  brushCursor.style.top = (cy - size/2) + 'px';
+viewport.addEventListener('mousemove', e => {
+  // 更新笔刷光标
+  if (mode === 'inpaint') {
+    const rect = viewport.getBoundingClientRect();
+    const size = parseInt(document.getElementById('brushSize').value) * scale;
+    brushCursor.style.display = 'block';
+    brushCursor.style.left = (e.clientX - rect.left - size/2) + 'px';
+    brushCursor.style.top = (e.clientY - rect.top - size/2) + 'px';
+    brushCursor.style.width = size + 'px';
+    brushCursor.style.height = size + 'px';
+  } else {
+    brushCursor.style.display = 'none';
+  }
+
+  // 平移
+  if (isPanning) {
+    offsetX += e.clientX - panStartX;
+    offsetY += e.clientY - panStartY;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    applyTransform();
+    return;
+  }
+
+  // 涂抹
+  if (isDrawing && mode === 'inpaint') {
+    const p = screenToCanvas(e);
+    drawLine(lastX, lastY, p.x, p.y);
+    lastX = p.x; lastY = p.y;
+    return;
+  }
+
+  // 矩形框选
+  if (rectDrawing && mode === 'rect') {
+    const p = screenToCanvas(e);
+    rectEnd = { x: p.x, y: p.y };
+    drawRectOverlay();
+    return;
+  }
+});
+
+viewport.addEventListener('mouseleave', () => { brushCursor.style.display = 'none'; });
+window.addEventListener('mouseup', e => {
+  if (isPanning) {
+    isPanning = false;
+    viewport.style.cursor = mode === 'none' ? 'grab' : 'crosshair';
+  }
+  if (isDrawing) {
+    isDrawing = false;
+  }
+  if (rectDrawing) {
+    rectDrawing = false;
+    // 矩形框选完成后，填充遮罩
+    if (rectStart && rectEnd) {
+      const x = Math.min(rectStart.x, rectEnd.x);
+      const y = Math.min(rectStart.y, rectEnd.y);
+      const w = Math.abs(rectEnd.x - rectStart.x);
+      const h = Math.abs(rectEnd.y - rectStart.y);
+      if (w > 2 && h > 2) {
+        maskCtx.fillStyle = '#fff';
+        maskCtx.fillRect(x, y, w, h);
+        hasMask = true;
+      }
+    }
+    drawRectOverlay();
+  }
+});
+
+viewport.addEventListener('contextmenu', e => e.preventDefault());
+
+function updateBrushCursorSize() {
+  if (mode !== 'inpaint') return;
+  const size = parseInt(document.getElementById('brushSize').value) * scale;
   brushCursor.style.width = size + 'px';
   brushCursor.style.height = size + 'px';
-  if (!isDrawing || mode !== 'inpaint') return;
-  const p = getMousePos(e);
-  drawLine(lastX, lastY, p.x, p.y);
-  lastX = p.x; lastY = p.y;
-});
+}
 
-canvas.addEventListener('mouseleave', () => { brushCursor.style.display = 'none'; isDrawing = false; });
-window.addEventListener('mouseup', () => { isDrawing = false; });
-
+// ═══════════════════════════════════════
+//  遮罩绘制
+// ═══════════════════════════════════════
 function drawMask(x, y) {
   const size = parseInt(document.getElementById('brushSize').value);
   maskCtx.fillStyle = '#fff';
@@ -198,14 +375,32 @@ function drawLine(x1, y1, x2, y2) {
   hasMask = true;
 }
 
-// ── 去水印 API调用 ──
+function drawRectOverlay() {
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  if (rectStart && rectEnd) {
+    const x = Math.min(rectStart.x, rectEnd.x);
+    const y = Math.min(rectStart.y, rectEnd.y);
+    const w = Math.abs(rectEnd.x - rectStart.x);
+    const h = Math.abs(rectEnd.y - rectStart.y);
+    // 半透明蓝色填充
+    overlayCtx.fillStyle = 'rgba(0,122,204,0.3)';
+    overlayCtx.fillRect(x, y, w, h);
+    // 蓝色边框
+    overlayCtx.strokeStyle = '#0078d4';
+    overlayCtx.lineWidth = 2 / scale;
+    overlayCtx.strokeRect(x, y, w, h);
+  }
+}
+
+// ═══════════════════════════════════════
+//  去水印 API调用
+// ═══════════════════════════════════════
 async function doInpaint() {
   if (!originalImageData) { alert('请先打开图片'); return; }
-  if (!hasMask) { alert('请先涂抹要去除的区域'); return; }
+  if (!hasMask) { alert('请先涂抹或框选要去除的区域'); return; }
   const alg = document.getElementById('inpaintAlg').value;
   const radius = parseInt(document.getElementById('inpaintRadius').value) || 3;
 
-  // 用合并canvas生成PNG（图片+遮罩一起发）
   const mainBlob = await new Promise(r => canvas.toBlob(r, 'image/png'));
   const maskBlob = await new Promise(r => maskCanvas.toBlob(r, 'image/png'));
   const formData = new FormData();
@@ -224,7 +419,9 @@ async function doInpaint() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         hasMask = false;
+        rectStart = null; rectEnd = null;
         pushHistory();
         document.getElementById('hintInfo').textContent = `✅ 去水印完成 (${alg}, 半径${radius})`;
       };
@@ -239,7 +436,9 @@ async function doInpaint() {
   }
 }
 
-// ── 亮度/对比度 预览 ──
+// ═══════════════════════════════════════
+//  亮度/对比度
+// ═══════════════════════════════════════
 let adjustBaseData = null;
 function previewAdjust() {
   if (!originalImageData && !adjustBaseData) return;
@@ -269,7 +468,9 @@ function applyAdjust() {
   document.getElementById('hintInfo').textContent = '✅ 亮度对比度已应用';
 }
 
-// ── 灰度 ──
+// ═══════════════════════════════════════
+//  灰度/模糊/旋转
+// ═══════════════════════════════════════
 function doGray() {
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = data.data;
@@ -282,7 +483,6 @@ function doGray() {
   document.getElementById('hintInfo').textContent = '✅ 灰度化完成';
 }
 
-// ── 模糊 ──
 function doBlur() {
   const tmp = document.createElement('canvas');
   tmp.width = canvas.width;
@@ -295,7 +495,6 @@ function doBlur() {
   document.getElementById('hintInfo').textContent = '✅ 模糊完成';
 }
 
-// ── 旋转 ──
 function doRotate() {
   const angle = parseFloat(document.getElementById('rotateAngle').value) || 90;
   const rad = -angle * Math.PI / 180;
@@ -309,6 +508,7 @@ function doRotate() {
   tmp.getContext('2d').drawImage(canvas, 0, 0);
   canvas.width = nw; canvas.height = nh;
   maskCanvas.width = nw; maskCanvas.height = nh;
+  overlayCanvas.width = nw; overlayCanvas.height = nh;
   ctx.translate(nw/2, nh/2);
   ctx.rotate(rad);
   ctx.drawImage(tmp, -w/2, -h/2);
@@ -318,7 +518,9 @@ function doRotate() {
   document.getElementById('hintInfo').textContent = `✅ 旋转${angle}°完成 (${nw}×${nh})`;
 }
 
-// ── 撤销/重做 ──
+// ═══════════════════════════════════════
+//  撤销/重做
+// ═══════════════════════════════════════
 function pushHistory() {
   history = history.slice(0, historyIdx + 1);
   history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -340,7 +542,9 @@ function redo() {
   document.getElementById('hintInfo').textContent = '↪️ 已重做';
 }
 
-// ── 下载 ──
+// ═══════════════════════════════════════
+//  下载
+// ═══════════════════════════════════════
 function downloadResult() {
   canvas.toBlob(blob => {
     const a = document.createElement('a');
@@ -350,17 +554,9 @@ function downloadResult() {
   }, 'image/png');
 }
 
-// ── 适应窗口 ──
-function fitCanvas() {
-  const wrap = document.getElementById('canvasWrap');
-  const scale = Math.min(1, (wrap.clientWidth - 40) / canvas.width, (wrap.clientHeight - 40) / canvas.height);
-  canvas.style.width = (canvas.width * scale) + 'px';
-  canvas.style.height = (canvas.height * scale) + 'px';
-  maskCanvas.style.width = canvas.style.width;
-  maskCanvas.style.height = canvas.style.height;
-}
-
-// ── 键盘快捷键 ──
+// ═══════════════════════════════════════
+//  键盘快捷键
+// ═══════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey) {
     if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); }
@@ -368,7 +564,9 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── URL参数加载 ──
+// ═══════════════════════════════════════
+//  URL参数加载图片
+// ═══════════════════════════════════════
 (function() {
   const params = new URLSearchParams(location.search);
   imgPath = params.get('path');
