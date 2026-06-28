@@ -202,9 +202,9 @@ function onDragStart(e) {
     if (e.button !== 0) return;
     const treeMode = isTreeMode(e);
     if (!treeMode && !isGalleryMode()) return;
-    // Shift+拖拽 = 原生拖拽(移动/复制)；非Shift = 框选（包括在文件项上）
+    // 已选中的项上拖拽 = 原生拖拽(移动)；未选中的项或空白 = 框选
     const fileItem = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
-    if (fileItem && fileItem.dataset.path && e.shiftKey) return;
+    if (fileItem && fileItem.dataset.path && selectedItems.has(fileItem.dataset.path)) return;
     e.preventDefault(); // 屏蔽浏览器原生拖拽行为
     // Ctrl=加选模式, Alt=减选模式, 无修饰=普通框选(替换)
     const mode = e.altKey ? "remove" : "add";
