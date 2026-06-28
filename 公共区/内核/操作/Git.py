@@ -69,6 +69,20 @@ class Git回滚(操作基类):
         路径 = 参数.get("路径", "")
         工作目录 = str(self.文件管理器.项目根目录) if self.文件管理器 else "."
         try:
+            # 回滚前检查是否有未提交的工作，提醒用户
+            状态检查 = subprocess.run("git status --porcelain", shell=True, capture_output=True,
+                                       text=True, timeout=10, cwd=工作目录, encoding='utf-8', errors='replace')
+            未提交文件 = 状态检查.stdout.strip() if 状态检查.returncode == 0 else ""
+            if 未提交文件:
+                文件列表 = [l.strip() for l in 未提交文件.split('\n') if l.strip()]
+                if len(文件列表) <= 5:
+                    提示 = "以下未提交的修改将被丢弃且不可恢复：\n" + "\n".join(文件列表)
+                else:
+                    提示 = f"共 {len(文件列表)} 个文件有未提交的修改，将被丢弃且不可恢复"
+                # AI调用时无法交互确认，记录到审计日志后继续执行
+                if self.文件管理器:
+                    self.文件管理器._记录审计("Git回滚", "警告", 提示)
+
             if 路径:
                 文件路径 = self.文件管理器._解析路径(路径) if self.文件管理器 else Path(路径)
                 相对路径 = os.path.relpath(文件路径, 工作目录)
@@ -76,13 +90,13 @@ class Git回滚(操作基类):
                 结果 = subprocess.run(命令, shell=True, capture_output=True, text=True,
                                    timeout=10, cwd=工作目录, encoding='utf-8', errors='replace')
                 if 结果.returncode == 0:
-                    return 操作结果.成功(f"✅ 已回滚: {路径}")
+                    return 操作结果.成功(f"✅ 已回滚: {路径}" + (f"\n⚠️ {提示}" if 未提交文件 else ""))
                 return 操作结果.失败(f"回滚失败: {结果.stderr.strip()}")
             else:
                 结果 = subprocess.run("git checkout -- .", shell=True, capture_output=True, text=True,
                                    timeout=10, cwd=工作目录, encoding='utf-8', errors='replace')
                 if 结果.returncode == 0:
-                    return 操作结果.成功("✅ 已回滚所有变更")
+                    return 操作结果.成功("✅ 已回滚所有变更" + (f"\n⚠️ {提示}" if 未提交文件 else ""))
                 return 操作结果.失败(f"回滚失败: {结果.stderr.strip()}")
         except Exception as e:
             return 操作结果.失败(f"Git回滚失败: {e}")
