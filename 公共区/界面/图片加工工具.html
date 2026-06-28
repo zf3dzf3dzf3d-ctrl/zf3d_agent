@@ -6,852 +6,124 @@
 <title>🎨 图片加工</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--border:#1a4a7a;--accent:#533483;--text:#e0e0e0;--text2:#888;--blue:#0078d4;--green:#4caf50;--red:#f44336}
-body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
-/* 顶栏 */
-.topbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;z-index:20}
-.topbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap}
+:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--border:#1a4a7a;--accent:#533483;--text:#e0e0e0;--text2:#888;--blue:#0078d4;--red:#f44336;--orange:#ff9800}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;user-select:none}
+.topbar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;z-index:20}
+.topbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:3px;cursor:pointer;font-size:11px;white-space:nowrap}
 .topbar button:hover{background:#1a4a7a}
-.topbar button.active{background:var(--accent);border-color:#7b5ea7}
-.topbar .sep{width:1px;height:20px;background:#333;margin:0 3px}
+.topbar .sep{width:1px;height:18px;background:#333;margin:0 2px}
 .topbar label{font-size:10px;color:var(--text2)}
-.topbar input[type=range]{width:70px;height:4px}
-.topbar input[type=number]{width:50px;background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px 4px;font-size:11px}
-.topbar select{background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px 4px;font-size:11px}
-.topbar input[type=color]{width:28px;height:22px;border:1px solid #333;border-radius:3px;background:none;cursor:pointer}
-/* 主区域 */
+.topbar input[type=color]{width:28px;height:22px;border:1px solid #333;border-radius:3px;background:none;cursor:pointer;padding:0}
+.topbar input[type=range]{width:60px;height:4px}
+.topbar input[type=number]{width:40px;background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px;font-size:11px}
+.topbar select{background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px;font-size:11px}
 .main{flex:1;display:flex;overflow:hidden}
-/* 左侧工具栏 */
-.leftbar{width:44px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px;padding:4px 0;align-items:center}
-.leftbar button{width:36px;height:36px;border:none;background:none;color:var(--text2);font-size:16px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.leftbar{width:40px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1px;padding:4px 0;align-items:center;overflow-y:auto}
+.leftbar button{width:34px;height:34px;border:none;background:none;color:var(--text2);font-size:15px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative}
 .leftbar button:hover{background:var(--bg3);color:var(--text)}
 .leftbar button.active{background:var(--accent);color:#fff}
-.leftbar .sep{width:28px;height:1px;background:#333;margin:4px 0}
-/* 画布区域 */
+.leftbar .sep{width:26px;height:1px;background:#333;margin:3px 0}
+.leftbar .tip{position:absolute;left:42px;background:#000;padding:2px 6px;border-radius:3px;font-size:10px;white-space:nowrap;display:none;z-index:100;border:1px solid #333}
+.leftbar button:hover .tip{display:block}
 .canvas-area{flex:1;position:relative;overflow:hidden;background:#0d0d1a}
 #canvasBg{position:absolute;inset:0;background-image:linear-gradient(45deg,#151530 25%,transparent 25%),linear-gradient(-45deg,#151530 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#151530 75%),linear-gradient(-45deg,transparent 75%,#151530 75%);background-size:20px 20px}
-#mainCanvas{position:absolute;image-rendering:auto;transform-origin:0 0}
+#mainCanvas{position:absolute;transform-origin:0 0}
 #overlayCanvas{position:absolute;pointer-events:none;transform-origin:0 0}
-#zoomPill{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.7);color:#aaa;padding:2px 8px;border-radius:3px;font-size:11px;z-index:10;pointer-events:none}
-/* 右侧面板 */
-.rightbar{width:240px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
-.rightbar .section{border-bottom:1px solid var(--border);padding:8px}
-.rightbar .section h3{font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase}
-.rightbar .row{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap}
-.rightbar label{font-size:10px;color:var(--text2);min-width:50px}
-.rightbar input[type=range]{flex:1;min-width:60px;height:4px}
-.rightbar input[type=number]{width:50px;background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px 4px;font-size:11px}
-.rightbar .val{font-size:10px;color:var(--text);min-width:24px;text-align:right}
-.rightbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:3px;cursor:pointer;font-size:11px}
+#zoomPill{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);color:#aaa;padding:2px 8px;border-radius:3px;font-size:10px;z-index:10;pointer-events:none}
+.rightbar{width:220px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rightbar .section{border-bottom:1px solid var(--border);padding:6px 8px}
+.rightbar .section h3{font-size:10px;color:var(--text2);margin-bottom:4px;text-transform:uppercase}
+.rightbar .row{display:flex;align-items:center;gap:4px;margin-bottom:3px;flex-wrap:wrap}
+.rightbar label{font-size:9px;color:var(--text2);min-width:40px}
+.rightbar input[type=range]{flex:1;min-width:40px;height:3px}
+.rightbar input[type=number]{width:40px;background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:2px;padding:1px 3px;font-size:10px}
+.rightbar select{background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:2px;padding:1px 3px;font-size:10px}
+.rightbar .val{font-size:9px;color:var(--text);min-width:20px;text-align:right}
+.rightbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:2px;cursor:pointer;font-size:10px}
 .rightbar button:hover{background:#1a4a7a}
-.rightbar button.primary{background:var(--accent);border-color:#7b5ea7}
-/* 图层列表 */
-.layer-item{display:flex;align-items:center;gap:4px;padding:4px;border-radius:3px;cursor:pointer;font-size:11px}
+.rightbar button.primary{background:var(--accent)}
+.rightbar .scroll{overflow-y:auto;flex:1}
+.layer-item{display:flex;align-items:center;gap:3px;padding:3px;border-radius:3px;cursor:pointer;font-size:10px}
 .layer-item:hover{background:var(--bg3)}
 .layer-item.active{background:var(--accent)}
-.layer-item canvas{width:32px;height:32px;border:1px solid #333;border-radius:2px;flex-shrink:0}
+.layer-item canvas{width:28px;height:28px;border:1px solid #333;border-radius:2px;flex-shrink:0;background:#222}
 .layer-item .ln{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.layer-item input[type=checkbox]{margin:0}
-/* 底栏 */
-.statusbar{padding:3px 10px;font-size:10px;color:var(--text2);background:var(--bg2);border-top:1px solid var(--border)}
+.layer-item .vis{cursor:pointer;font-size:14px;width:20px;text-align:center}
+.statusbar{padding:2px 8px;font-size:10px;color:var(--text2);background:var(--bg2);border-top:1px solid var(--border)}
+.text-input{position:absolute;z-index:50;background:rgba(0,0,0,0.8);border:1px solid var(--blue);color:#fff;outline:none;font-size:14px;padding:2px 4px;display:none}
 </style>
 </head>
 <body>
-
-<!-- 顶栏 -->
 <div class="topbar">
-  <button onclick="loadImage()" title="打开图片">📁</button>
-  <button onclick="resetAll()" title="重置">↩️重置</button>
-  <button onclick="saveImage()" title="保存/下载" style="background:var(--accent)">💾 保存</button>
+  <button onclick="loadImage()">📁打开</button>
+  <button onclick="resetAll()">↩️重置</button>
+  <button onclick="saveImage()" style="background:var(--accent)">💾保存</button>
   <div class="sep"></div>
-  <button onclick="undo()" title="撤销 Ctrl+Z">↩️</button>
-  <button onclick="redo()" title="重做 Ctrl+Y">↪️</button>
+  <button onclick="undo()">↩️</button><button onclick="redo()">↪️</button>
   <div class="sep"></div>
-  <label>笔刷</label>
-  <input type="range" id="brushSize" min="1" max="200" value="20" oninput="document.getElementById('brushVal').textContent=this.value">
-  <span class="val" id="brushVal">20</span>
-  <input type="color" id="brushColor" value="#ff0000" title="笔刷颜色">
-  <label>不透明度</label>
-  <input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('opacityVal').textContent=this.value+'%'">
-  <span class="val" id="opacityVal">100%</span>
+  <label>色</label><input type="color" id="fgColor" value="#ff0000">
+  <label>大小</label><input type="range" id="brushSize" min="1" max="300" value="20" oninput="document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal">20</span>
+  <label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span>
+  <label>透明</label><input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal">100%</span>
   <div class="sep"></div>
-  <label>去水印算法</label>
-  <select id="inpaintAlg"><option value="TELEA">TELEA(快速)</option><option value="NS">NS(精细)</option></select>
-  <label>半径</label>
-  <input type="number" id="inpaintRadius" value="3" min="1" max="20">
-  <button onclick="doInpaint()">✨去除</button>
+  <button onclick="doInpaint()">✨去水印</button>
+  <select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select>
   <div class="sep"></div>
-  <button onclick="fitCanvas()" title="适应窗口">📐适应</button>
-  <button onclick="setActual()" title="100%">1:1</button>
+  <button onclick="fitCanvas()">📐适应</button><button onclick="setActual()">1:1</button>
 </div>
-
-<!-- 主区域 -->
 <div class="main">
-  <!-- 左侧工具栏 -->
-  <div class="leftbar">
-    <button onclick="setTool('move')" class="active" id="tool-move" title="移动/平移 (V)">✋</button>
-    <button onclick="setTool('brush')" id="tool-brush" title="笔刷绘画 (B)">🖌️</button>
-    <button onclick="setTool('eraser')" id="tool-eraser" title="橡皮擦 (E)">🧽</button>
-    <div class="sep"></div>
-    <button onclick="setTool('inpaint')" id="tool-inpaint" title="涂抹去水印 (W)">🧹</button>
-    <button onclick="setTool('rect')" id="tool-rect" title="矩形选区 (R)">▭</button>
-    <button onclick="setTool('crop')" id="tool-crop" title="裁剪 (C)">✂️</button>
-  </div>
-
-  <!-- 画布 -->
+  <div class="leftbar" id="leftbar"></div>
   <div class="canvas-area" id="viewport">
     <div id="canvasBg"></div>
     <canvas id="mainCanvas"></canvas>
     <canvas id="overlayCanvas"></canvas>
+    <input type="text" class="text-input" id="textInput" onkeydown="if(event.key==='Enter')commitText()" onblur="commitText()">
     <div id="zoomPill">100%</div>
   </div>
-
-  <!-- 右侧面板 -->
   <div class="rightbar">
-    <!-- 调整 -->
     <div class="section">
-      <h3>📊 调整</h3>
-      <div class="row"><label>亮度</label><input type="range" id="brightness" min="-100" max="100" value="0" oninput="document.getElementById('brightVal').textContent=this.value;previewAdjust()"><span class="val" id="brightVal">0</span></div>
-      <div class="row"><label>对比度</label><input type="range" id="contrast" min="-100" max="100" value="0" oninput="document.getElementById('contrastVal').textContent=this.value;previewAdjust()"><span class="val" id="contrastVal">0</span></div>
-      <div class="row"><label>色相</label><input type="range" id="hue" min="-180" max="180" value="0" oninput="document.getElementById('hueVal').textContent=this.value;previewAdjust()"><span class="val" id="hueVal">0</span></div>
-      <div class="row"><label>饱和度</label><input type="range" id="saturate" min="-100" max="100" value="0" oninput="document.getElementById('satVal').textContent=this.value;previewAdjust()"><span class="val" id="satVal">0</span></div>
-      <div class="row"><button onclick="applyAdjust()" class="primary" style="flex:1">✅ 应用调整</button><button onclick="resetAdjust()">重置</button></div>
+      <h3>📊 调整 <span id="adjustScope" style="color:var(--orange);font-size:9px">（全图）</span></h3>
+      <div class="row"><label>亮度</label><input type="range" id="brightness" min="-100" max="100" value="0" oninput="document.getElementById('brVal').textContent=this.value;previewAdjust()"><span class="val" id="brVal">0</span></div>
+      <div class="row"><label>对比度</label><input type="range" id="contrast" min="-100" max="100" value="0" oninput="document.getElementById('ctVal').textContent=this.value;previewAdjust()"><span class="val" id="ctVal">0</span></div>
+      <div class="row"><label>色相</label><input type="range" id="hue" min="-180" max="180" value="0" oninput="document.getElementById('huVal').textContent=this.value;previewAdjust()"><span class="val" id="huVal">0</span></div>
+      <div class="row"><label>饱和度</label><input type="range" id="saturate" min="-100" max="100" value="0" oninput="document.getElementById('saVal').textContent=this.value;previewAdjust()"><span class="val" id="saVal">0</span></div>
+      <div class="row"><button onclick="applyAdjust()" class="primary" style="flex:1">✅应用</button><button onclick="resetAdjust()">重置</button></div>
     </div>
-    <!-- 色阶 -->
     <div class="section">
       <h3>📈 色阶</h3>
       <div class="row"><label>黑场</label><input type="range" id="levelBlack" min="0" max="254" value="0" oninput="document.getElementById('lbVal').textContent=this.value;previewLevels()"><span class="val" id="lbVal">0</span></div>
       <div class="row"><label>灰点</label><input type="range" id="levelMid" min="1" max="254" value="128" oninput="document.getElementById('lmVal').textContent=this.value;previewLevels()"><span class="val" id="lmVal">128</span></div>
       <div class="row"><label>白场</label><input type="range" id="levelWhite" min="1" max="255" value="255" oninput="document.getElementById('lwVal').textContent=this.value;previewLevels()"><span class="val" id="lwVal">255</span></div>
-      <div class="row"><button onclick="applyLevels()" class="primary" style="flex:1">✅ 应用色阶</button><button onclick="resetLevels()">重置</button></div>
+      <div class="row"><button onclick="applyLevels()" class="primary" style="flex:1">✅应用</button><button onclick="resetLevels()">重置</button></div>
     </div>
-    <!-- 快速操作 -->
-    <div class="section">
-      <h3>⚡ 快速操作</h3>
-      <div class="row"><button onclick="doGray()" style="flex:1">⚫ 灰度</button><button onclick="doBlur()" style="flex:1">🌫️ 模糊</button></div>
-      <div class="row"><label>旋转</label><input type="number" id="rotateAngle" value="90" style="width:40px"><button onclick="doRotate()">🔄</button></div>
-    </div>
-    <!-- 图像大小 -->
     <div class="section">
       <h3>📐 图像大小</h3>
-      <div class="row"><label>宽</label><input type="number" id="resizeW" value="0" oninput="onResizeW()"><span>px</span></div>
-      <div class="row"><label>高</label><input type="number" id="resizeH" value="0" oninput="onResizeH()"><span>px</span></div>
-      <div class="row"><label>🔗</label><input type="checkbox" id="linkAspect" checked onchange="onLinkChange()"><span>锁定比例</span></div>
-      <div class="row"><button onclick="applyResize()" class="primary" style="flex:1">应用</button></div>
+      <div class="row"><label>宽</label><input type="number" id="resizeW" value="0" oninput="onResizeW()"><span style="font-size:9px">px</span></div>
+      <div class="row"><label>高</label><input type="number" id="resizeH" value="0" oninput="onResizeH()"><span style="font-size:9px">px</span></div>
+      <div class="row"><label>🔗</label><input type="checkbox" id="linkAspect" checked><span style="font-size:9px">锁定比例</span><button onclick="applyResize()" class="primary" style="margin-left:auto">应用</button></div>
     </div>
-    <!-- 图层 -->
-    <div class="section" style="flex:1">
+    <div class="section">
+      <h3>⚡ 快速</h3>
+      <div class="row"><button onclick="doGray()" style="flex:1">⚫灰度</button><button onclick="doBlur()" style="flex:1">🌫模糊</button></div>
+    </div>
+    <div class="section" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <h3>🗂️ 图层</h3>
-      <div class="row"><button onclick="addLayer()" style="flex:1">➕ 新建图层</button><button onclick="deleteLayer()">🗑️</button></div>
-      <div id="layerList"></div>
+      <div class="row" style="margin-bottom:4px">
+        <select id="blendMode" onchange="onBlendChange()" style="flex:1">
+          <option value="source-over">正常</option><option value="multiply">正片叠底</option><option value="screen">滤色</option>
+          <option value="overlay">叠加</option><option value="darken">变暗</option><option value="lighten">变亮</option>
+          <option value="color-dodge">颜色减淡</option><option value="color-burn">颜色加深</option><option value="hard-light">强光</option>
+          <option value="soft-light">柔光</option><option value="difference">差值</option><option value="exclusion">排除</option>
+          <option value="hue">色相</option><option value="saturation">饱和度</option><option value="color">颜色</option><option value="luminosity">明度</option>
+        </select>
+        <label>透明</label><input type="range" id="layerOpacity" min="0" max="100" value="100" oninput="onLayerOpacity()" style="width:50px"><span class="val" id="loVal">100</span>
+      </div>
+      <div class="row"><button onclick="addLayer()" style="flex:1">➕新建</button><button onclick="duplicateLayer()">📋复制</button><button onclick="deleteLayer()">🗑️</button></div>
+      <div id="layerList" class="scroll" style="margin-top:4px"></div>
     </div>
   </div>
 </div>
-
-<div class="statusbar" id="statusbar">就绪 · 滚轮缩放 · 中键/右键平移</div>
-
-<script>
-// ═══════════════════════════════════════
-//  状态
-// ═══════════════════════════════════════
-let tool = 'move';
-let scale = 1, offsetX = 0, offsetY = 0;
-let isDrawing = false, isPanning = false;
-let lastX = 0, lastY = 0;
-let panStartX = 0, panStartY = 0;
-let imgPath = null;
-
-let canvas = document.getElementById('mainCanvas');
-let ctx = canvas.getContext('2d');
-let overlayCanvas = document.getElementById('overlayCanvas');
-let overlayCtx = overlayCanvas.getContext('2d');
-let viewport = document.getElementById('viewport');
-
-// 图层系统
-let layers = [];        // [{name, canvas, ctx, visible, opacity, imageData}]
-let activeLayerIdx = 0;
-let imgW = 0, imgH = 0;
-
-// 撤销/重做
-let history = [];
-let historyIdx = -1;
-
-// 选区
-let selRect = null;      // {x0,y0,x1,y1}
-let rectDrawing = false;
-let cropMode = false;
-
-// 去水印遮罩
-let maskCanvas = document.createElement('canvas');
-let maskCtx = maskCanvas.getContext('2d');
-
-// ═══════════════════════════════════════
-//  图层管理
-// ═══════════════════════════════════════
-function createLayer(name, w, h) {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const cx = c.getContext('2d');
-  return { name: name || '图层' + (layers.length+1), canvas: c, ctx: cx, visible: true, opacity: 1.0, imageData: null };
-}
-
-function getActiveLayer() { return layers[activeLayerIdx]; }
-
-function compositeLayers() {
-  if (!imgW) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const layer of layers) {
-    if (!layer.visible) continue;
-    ctx.globalAlpha = layer.opacity;
-    ctx.drawImage(layer.canvas, 0, 0);
-  }
-  ctx.globalAlpha = 1;
-  // 同步遮罩canvas尺寸
-  if (maskCanvas.width !== imgW) { maskCanvas.width = imgW; maskCanvas.height = imgH; }
-}
-
-function renderLayerList() {
-  const list = document.getElementById('layerList');
-  list.innerHTML = '';
-  // 从上到下显示（数组末尾=顶层）
-  for (let i = layers.length - 1; i >= 0; i--) {
-    const layer = layers[i];
-    const div = document.createElement('div');
-    div.className = 'layer-item' + (i === activeLayerIdx ? ' active' : '');
-    const thumb = document.createElement('canvas');
-    thumb.width = 32; thumb.height = 32;
-    const tctx = thumb.getContext('2d');
-    tctx.fillStyle = '#222'; tctx.fillRect(0,0,32,32);
-    tctx.drawImage(layer.canvas, 0, 0, 32, 32);
-    div.appendChild(thumb);
-    const name = document.createElement('span');
-    name.className = 'ln';
-    name.textContent = layer.name;
-    div.appendChild(name);
-    const vis = document.createElement('input');
-    vis.type = 'checkbox';
-    vis.checked = layer.visible;
-    vis.onchange = () => { layer.visible = vis.checked; compositeLayers(); };
-    vis.onclick = e => e.stopPropagation();
-    div.appendChild(vis);
-    div.onclick = () => { activeLayerIdx = i; renderLayerList(); };
-    list.appendChild(div);
-  }
-}
-
-function addLayer() {
-  if (!imgW) return;
-  layers.push(createLayer(null, imgW, imgH));
-  activeLayerIdx = layers.length - 1;
-  renderLayerList();
-}
-
-function deleteLayer() {
-  if (layers.length <= 1) return;
-  layers.splice(activeLayerIdx, 1);
-  if (activeLayerIdx >= layers.length) activeLayerIdx = layers.length - 1;
-  compositeLayers();
-  renderLayerList();
-}
-
-// ═══════════════════════════════════════
-//  加载图片
-// ═══════════════════════════════════════
-function loadImage() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*';
-  input.onchange = e => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => { const img = new Image(); img.onload = () => setImage(img, file.name); img.src = ev.target.result; };
-    reader.readAsDataURL(file);
-  };
-  input.click();
-}
-
-function setImage(img, name) {
-  imgW = img.width; imgH = img.height;
-  canvas.width = imgW; canvas.height = imgH;
-  overlayCanvas.width = imgW; overlayCanvas.height = imgH;
-  maskCanvas.width = imgW; maskCanvas.height = imgH;
-  maskCtx.clearRect(0, 0, imgW, imgH);
-  // 图层1=背景图层（原图）
-  layers = [createLayer('背景', imgW, imgH)];
-  layers[0].ctx.drawImage(img, 0, 0);
-  activeLayerIdx = 0;
-  compositeLayers();
-  history = []; historyIdx = -1; pushHistory();
-  fitCanvas();
-  renderLayerList();
-  // 初始化大小输入
-  document.getElementById('resizeW').value = imgW;
-  document.getElementById('resizeH').value = imgH;
-  document.getElementById('statusbar').textContent = `${name} ${imgW}×${imgH}`;
-}
-
-function resetAll() {
-  if (!layers.length) return;
-  layers = [layers[0]];
-  layers[0].ctx.clearRect(0, 0, imgW, imgH);
-  // 重新绘制原图
-  const off = document.createElement('canvas');
-  off.width = imgW; off.height = imgH;
-  // 从历史第0条恢复
-  if (history.length > 0) {
-    const img0 = new Image();
-    img0.onload = () => { layers[0].ctx.drawImage(img0, 0, 0); compositeLayers(); };
-    img0.src = history[0];
-  }
-  activeLayerIdx = 0;
-  maskCtx.clearRect(0, 0, imgW, imgH);
-  compositeLayers();
-  renderLayerList();
-}
-
-// ═══════════════════════════════════════
-//  工具切换
-// ═══════════════════════════════════════
-function setTool(t) {
-  tool = t;
-  document.querySelectorAll('.leftbar button').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById('tool-' + t);
-  if (btn) btn.classList.add('active');
-  canvas.style.cursor = t === 'move' ? 'grab' : 'crosshair';
-  if (t === 'crop') { cropMode = true; document.getElementById('statusbar').textContent = '裁剪模式：拖拽选择区域，松开后双击或点保存裁剪'; }
-  else { cropMode = false; selRect = null; drawOverlay(); }
-}
-
-// ═══════════════════════════════════════
-//  视图变换
-// ═══════════════════════════════════════
-function applyTransform() {
-  const t = `translate(${offsetX}px,${offsetY}px) scale(${scale})`;
-  canvas.style.transform = t;
-  overlayCanvas.style.transform = t;
-  document.getElementById('zoomPill').textContent = Math.round(scale * 100) + '%';
-}
-
-function fitCanvas() {
-  if (!imgW) return;
-  const vw = viewport.clientWidth - 20, vh = viewport.clientHeight - 20;
-  scale = Math.min(vw / imgW, vh / imgH, 1);
-  offsetX = (viewport.clientWidth - imgW * scale) / 2;
-  offsetY = (viewport.clientHeight - imgH * scale) / 2;
-  applyTransform();
-}
-
-function setActual() { scale = 1; offsetX = (viewport.clientWidth - imgW) / 2; offsetY = (viewport.clientHeight - imgH) / 2; applyTransform(); }
-
-function screenToCanvas(e) {
-  const rect = viewport.getBoundingClientRect();
-  return { x: (e.clientX - rect.left - offsetX) / scale, y: (e.clientY - rect.top - offsetY) / scale };
-}
-
-// ═══════════════════════════════════════
-//  鼠标交互
-// ═══════════════════════════════════════
-viewport.addEventListener('wheel', e => {
-  e.preventDefault();
-  const rect = viewport.getBoundingClientRect();
-  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  const ns = Math.max(0.05, Math.min(40, scale * (e.deltaY > 0 ? 0.9 : 1.1)));
-  offsetX = mx - (mx - offsetX) * (ns / scale);
-  offsetY = my - (my - offsetY) * (ns / scale);
-  scale = ns; applyTransform();
-}, { passive: false });
-
-viewport.addEventListener('mousedown', e => {
-  if (!imgW) return;
-  const p = screenToCanvas(e);
-
-  if (e.button === 1 || e.button === 2 || (tool === 'move' && e.button === 0)) {
-    isPanning = true; panStartX = e.clientX; panStartY = e.clientY;
-    viewport.style.cursor = 'grabbing'; e.preventDefault(); return;
-  }
-  if (e.button !== 0) return;
-
-  if (tool === 'brush' || tool === 'eraser') {
-    isDrawing = true; lastX = p.x; lastY = p.y;
-    drawBrush(p.x, p.y);
-  } else if (tool === 'inpaint') {
-    isDrawing = true; lastX = p.x; lastY = p.y;
-    drawInpaintMask(p.x, p.y);
-  } else if (tool === 'rect' || tool === 'crop') {
-    rectDrawing = true;
-    selRect = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
-  }
-});
-
-viewport.addEventListener('mousemove', e => {
-  if (!imgW) return;
-  const p = screenToCanvas(e);
-
-  if (isPanning) {
-    offsetX += e.clientX - panStartX; offsetY += e.clientY - panStartY;
-    panStartX = e.clientX; panStartY = e.clientY; applyTransform(); return;
-  }
-  if (isDrawing) {
-    if (tool === 'brush' || tool === 'eraser') { drawLine(lastX, lastY, p.x, p.y); lastX = p.x; lastY = p.y; }
-    else if (tool === 'inpaint') { drawInpaintLine(lastX, lastY, p.x, p.y); lastX = p.x; lastY = p.y; }
-  }
-  if (rectDrawing) { selRect.x1 = p.x; selRect.y1 = p.y; drawOverlay(); }
-});
-
-viewport.addEventListener('mouseleave', () => { isDrawing = false; });
-window.addEventListener('mouseup', e => {
-  if (isPanning) { isPanning = false; viewport.style.cursor = tool === 'move' ? 'grab' : 'crosshair'; }
-  if (isDrawing) { isDrawing = false; pushHistory(); }
-  if (rectDrawing) {
-    rectDrawing = false;
-    if (selRect) {
-      const w = Math.abs(selRect.x1 - selRect.x0), h = Math.abs(selRect.y1 - selRect.y0);
-      if (w < 3 && h < 3) { selRect = null; drawOverlay(); }
-      else if (tool === 'crop') { doCrop(); }
-    }
-  }
-});
-viewport.addEventListener('contextmenu', e => e.preventDefault());
-
-// ═══════════════════════════════════════
-//  笔刷绘画
-// ═══════════════════════════════════════
-function drawBrush(x, y) {
-  const layer = getActiveLayer(); if (!layer) return;
-  const size = parseInt(document.getElementById('brushSize').value);
-  const color = document.getElementById('brushColor').value;
-  const opacity = parseInt(document.getElementById('brushOpacity').value) / 100;
-  const cx = layer.ctx;
-  cx.globalAlpha = opacity;
-  cx.fillStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-  if (tool === 'eraser') cx.globalCompositeOperation = 'destination-out';
-  else cx.globalCompositeOperation = 'source-over';
-  cx.beginPath(); cx.arc(x, y, size/2, 0, Math.PI*2); cx.fill();
-  cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
-  compositeLayers();
-}
-
-function drawLine(x1, y1, x2, y2) {
-  const layer = getActiveLayer(); if (!layer) return;
-  const size = parseInt(document.getElementById('brushSize').value);
-  const color = document.getElementById('brushColor').value;
-  const opacity = parseInt(document.getElementById('brushOpacity').value) / 100;
-  const cx = layer.ctx;
-  cx.globalAlpha = opacity;
-  cx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-  cx.lineWidth = size; cx.lineCap = 'round'; cx.lineJoin = 'round';
-  if (tool === 'eraser') cx.globalCompositeOperation = 'destination-out';
-  else cx.globalCompositeOperation = 'source-over';
-  cx.beginPath(); cx.moveTo(x1, y1); cx.lineTo(x2, y2); cx.stroke();
-  cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
-  compositeLayers();
-}
-
-// ═══════════════════════════════════════
-//  去水印遮罩涂抹
-// ═══════════════════════════════════════
-function drawInpaintMask(x, y) {
-  const size = parseInt(document.getElementById('brushSize').value);
-  maskCtx.fillStyle = '#fff';
-  maskCtx.beginPath(); maskCtx.arc(x, y, size/2, 0, Math.PI*2); maskCtx.fill();
-  drawOverlay();
-}
-
-function drawInpaintLine(x1, y1, x2, y2) {
-  const size = parseInt(document.getElementById('brushSize').value);
-  maskCtx.strokeStyle = '#fff'; maskCtx.lineWidth = size; maskCtx.lineCap = 'round';
-  maskCtx.beginPath(); maskCtx.moveTo(x1, y1); maskCtx.lineTo(x2, y2); maskCtx.stroke();
-  drawOverlay();
-}
-
-// ═══════════════════════════════════════
-//  去水印API
-// ═══════════════════════════════════════
-async function doInpaint() {
-  if (!imgW) { alert('请先打开图片'); return; }
-  // 检查mask是否有内容
-  const maskData = maskCtx.getImageData(0, 0, imgW, imgH);
-  let hasMask = false;
-  for (let i = 3; i < maskData.data.length; i += 4) { if (maskData.data[i] > 0) { hasMask = true; break; } }
-  if (!hasMask) { alert('请先用🧹工具涂抹要去除的区域'); return; }
-
-  const alg = document.getElementById('inpaintAlg').value;
-  const radius = parseInt(document.getElementById('inpaintRadius').value) || 3;
-
-  // 合并所有图层为一张图发给后端
-  const merged = document.createElement('canvas');
-  merged.width = imgW; merged.height = imgH;
-  const mctx = merged.getContext('2d');
-  for (const layer of layers) { if (layer.visible) { mctx.globalAlpha = layer.opacity; mctx.drawImage(layer.canvas, 0, 0); } }
-  mctx.globalAlpha = 1;
-
-  const mainBlob = await new Promise(r => merged.toBlob(r, 'image/png'));
-  const maskBlob = await new Promise(r => maskCanvas.toBlob(r, 'image/png'));
-  const formData = new FormData();
-  formData.append('image', mainBlob, 'image.png');
-  formData.append('mask', maskBlob, 'mask.png');
-  formData.append('algorithm', alg);
-  formData.append('radius', radius);
-
-  document.getElementById('statusbar').textContent = '⏳ 正在处理...';
-  try {
-    const res = await fetch('/api/image-inpaint', { method: 'POST', body: formData });
-    const d = await res.json();
-    if (d.成功) {
-      const img = new Image();
-      img.onload = () => {
-        // 写入当前活动图层
-        const layer = getActiveLayer();
-        layer.ctx.clearRect(0, 0, imgW, imgH);
-        layer.ctx.drawImage(img, 0, 0);
-        maskCtx.clearRect(0, 0, imgW, imgH);
-        compositeLayers();
-        pushHistory();
-        document.getElementById('statusbar').textContent = `✅ 去水印完成 (${alg}, 半径${radius})`;
-      };
-      img.src = 'data:image/png;base64,' + d.图片;
-    } else { alert('失败: ' + d.错误); document.getElementById('statusbar').textContent = '❌ ' + d.错误; }
-  } catch (e) { alert('请求失败: ' + e.message); document.getElementById('statusbar').textContent = '❌ ' + e.message; }
-}
-
-// ═══════════════════════════════════════
-//  调整 (亮度/对比度/色相/饱和度)
-// ═══════════════════════════════════════
-function buildFilterStr() {
-  const b = parseInt(document.getElementById('brightness').value);
-  const c = parseInt(document.getElementById('contrast').value);
-  const h = parseInt(document.getElementById('hue').value);
-  const s = parseInt(document.getElementById('saturate').value);
-  const parts = [];
-  if (b) parts.push(`brightness(${1+b/100})`);
-  if (c) parts.push(`contrast(${1+c/100})`);
-  if (h) parts.push(`hue-rotate(${h}deg)`);
-  if (s) parts.push(`saturate(${1+s/100})`);
-  return parts.length ? parts.join(' ') : 'none';
-}
-
-function previewAdjust() { canvas.style.filter = buildFilterStr(); }
-
-function applyAdjust() {
-  const filterStr = buildFilterStr();
-  if (filterStr === 'none') return;
-  // 烘焙filter到像素，只作用于选区或全图
-  const tmp = document.createElement('canvas');
-  tmp.width = imgW; tmp.height = imgH;
-  const tctx = tmp.getContext('2d');
-  // 合并当前所有可见图层
-  for (const layer of layers) { if (layer.visible) { tctx.globalAlpha = layer.opacity; tctx.drawImage(layer.canvas, 0, 0); } }
-  tctx.globalAlpha = 1;
-  tctx.filter = filterStr;
-  tctx.drawImage(tmp, 0, 0);
-  tctx.filter = 'none';
-  // 写入活动图层
-  const layer = getActiveLayer();
-  layer.ctx.clearRect(0, 0, imgW, imgH);
-  layer.ctx.drawImage(tmp, 0, 0);
-  canvas.style.filter = 'none';
-  compositeLayers();
-  pushHistory();
-  resetAdjust();
-  document.getElementById('statusbar').textContent = '✅ 调整已应用';
-}
-
-function resetAdjust() {
-  ['brightness','contrast','hue','saturate'].forEach(id => { document.getElementById(id).value = 0; });
-  ['brightVal','contrastVal','hueVal','satVal'].forEach(id => { document.getElementById(id).textContent = '0'; });
-  canvas.style.filter = 'none';
-}
-
-// ═══════════════════════════════════════
-//  色阶
-// ═══════════════════════════════════════
-function previewLevels() {
-  const black = parseInt(document.getElementById('levelBlack').value);
-  const mid = parseInt(document.getElementById('levelMid').value);
-  const white = parseInt(document.getElementById('levelWhite').value);
-  if (white <= black) return;
-  // 用CSS filter近似（不够精确但实时预览）
-  const contrastVal = 255 / (white - black);
-  const brightnessVal = -black / 255 * 100;
-  canvas.style.filter = `contrast(${contrastVal}) brightness(${1+brightnessVal/100})`;
-}
-
-function applyLevels() {
-  const black = parseInt(document.getElementById('levelBlack').value);
-  const mid = parseInt(document.getElementById('levelMid').value);
-  const white = parseInt(document.getElementById('levelWhite').value);
-  if (white <= black) { alert('白场必须大于黑场'); return; }
-
-  const tmp = document.createElement('canvas');
-  tmp.width = imgW; tmp.height = imgH;
-  const tctx = tmp.getContext('2d');
-  for (const layer of layers) { if (layer.visible) { tctx.globalAlpha = layer.opacity; tctx.drawImage(layer.canvas, 0, 0); } }
-  tctx.globalAlpha = 1;
-
-  const imageData = tctx.getImageData(0, 0, imgW, imgH);
-  const d = imageData.data;
-  const range = white - black;
-  const midFactor = (mid - black) / range; // 0~1
-  for (let i = 0; i < d.length; i += 4) {
-    for (let ch = 0; ch < 3; ch++) {
-      let v = d[i + ch];
-      v = (v - black) / range * 255;
-      v = Math.max(0, Math.min(255, v));
-      // gamma校正（mid点）
-      v = 255 * Math.pow(v / 255, 1 / (midFactor * 2 || 1));
-      d[i + ch] = Math.max(0, Math.min(255, v));
-    }
-  }
-  tctx.putImageData(imageData, 0, 0);
-  const layer = getActiveLayer();
-  layer.ctx.clearRect(0, 0, imgW, imgH);
-  layer.ctx.drawImage(tmp, 0, 0);
-  canvas.style.filter = 'none';
-  compositeLayers();
-  pushHistory();
-  resetLevels();
-  document.getElementById('statusbar').textContent = '✅ 色阶已应用';
-}
-
-function resetLevels() {
-  document.getElementById('levelBlack').value = 0;
-  document.getElementById('levelMid').value = 128;
-  document.getElementById('levelWhite').value = 255;
-  document.getElementById('lbVal').textContent = '0';
-  document.getElementById('lmVal').textContent = '128';
-  document.getElementById('lwVal').textContent = '255';
-  canvas.style.filter = 'none';
-}
-
-// ═══════════════════════════════════════
-//  灰度/模糊/旋转
-// ═══════════════════════════════════════
-function doGray() {
-  const layer = getActiveLayer(); if (!layer) return;
-  const data = layer.ctx.getImageData(0, 0, imgW, imgH);
-  const d = data.data;
-  for (let i = 0; i < d.length; i += 4) { const g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114; d[i]=d[i+1]=d[i+2]=g; }
-  layer.ctx.putImageData(data, 0, 0);
-  compositeLayers(); pushHistory();
-}
-
-function doBlur() {
-  const tmp = document.createElement('canvas');
-  tmp.width = imgW; tmp.height = imgH;
-  const tctx = tmp.getContext('2d');
-  for (const layer of layers) { if (layer.visible) { tctx.globalAlpha = layer.opacity; tctx.drawImage(layer.canvas, 0, 0); } }
-  const layer = getActiveLayer();
-  layer.ctx.clearRect(0, 0, imgW, imgH);
-  layer.ctx.filter = 'blur(5px)';
-  layer.ctx.drawImage(tmp, 0, 0);
-  layer.ctx.filter = 'none';
-  compositeLayers(); pushHistory();
-}
-
-function doRotate() {
-  const angle = parseFloat(document.getElementById('rotateAngle').value) || 90;
-  const rad = -angle * Math.PI / 180;
-  const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
-  const nw = Math.round(imgW * cos + imgH * sin), nh = Math.round(imgW * sin + imgH * cos);
-  const tmp = document.createElement('canvas');
-  tmp.width = imgW; tmp.height = imgH;
-  for (const layer of layers) { if (layer.visible) { tmp.getContext('2d').globalAlpha = layer.opacity; tmp.getContext('2d').drawImage(layer.canvas, 0, 0); } }
-  // 调整所有图层
-  for (const layer of layers) {
-    const nc = document.createElement('canvas'); nc.width = nw; nc.height = nh;
-    const nctx = nc.getContext('2d');
-    nctx.translate(nw/2, nh/2); nctx.rotate(rad); nctx.drawImage(tmp, -imgW/2, -imgH/2);
-    layer.canvas = nc; layer.ctx = nctx;
-  }
-  imgW = nw; imgH = nh;
-  canvas.width = nw; canvas.height = nh;
-  overlayCanvas.width = nw; overlayCanvas.height = nh;
-  maskCanvas.width = nw; maskCanvas.height = nh;
-  compositeLayers(); pushHistory(); fitCanvas(); renderLayerList();
-  document.getElementById('resizeW').value = nw; document.getElementById('resizeH').value = nh;
-}
-
-// ═══════════════════════════════════════
-//  图像大小（带链接宽高比）
-// ═══════════════════════════════════════
-let origW = 0, origH = 0, aspectRatio = 1;
-
-function onResizeW() {
-  if (document.getElementById('linkAspect').checked) {
-    const w = parseInt(document.getElementById('resizeW').value) || 0;
-    document.getElementById('resizeH').value = Math.round(w / aspectRatio);
-  }
-}
-function onResizeH() {
-  if (document.getElementById('linkAspect').checked) {
-    const h = parseInt(document.getElementById('resizeH').value) || 0;
-    document.getElementById('resizeW').value = Math.round(h * aspectRatio);
-  }
-}
-function onLinkChange() { /* 不需要额外操作 */ }
-
-function applyResize() {
-  const nw = parseInt(document.getElementById('resizeW').value);
-  const nh = parseInt(document.getElementById('resizeH').value);
-  if (!nw || !nh || nw < 1 || nh < 1) { alert('请输入有效的宽高'); return; }
-  if (nw === imgW && nh === imgH) return;
-  // 缩放所有图层
-  for (const layer of layers) {
-    const nc = document.createElement('canvas'); nc.width = nw; nc.height = nh;
-    const nctx = nc.getContext('2d');
-    nctx.imageSmoothingEnabled = true; nctx.imageSmoothingQuality = 'high';
-    nctx.drawImage(layer.canvas, 0, 0, nw, nh);
-    layer.canvas = nc; layer.ctx = nctx;
-  }
-  imgW = nw; imgH = nh;
-  canvas.width = nw; canvas.height = nh;
-  overlayCanvas.width = nw; overlayCanvas.height = nh;
-  maskCanvas.width = nw; maskCanvas.height = nh;
-  aspectRatio = nw / nh;
-  compositeLayers(); pushHistory(); fitCanvas(); renderLayerList();
-  document.getElementById('statusbar').textContent = `✅ 已缩放到 ${nw}×${nh}`;
-}
-
-// ═══════════════════════════════════════
-//  裁剪
-// ═══════════════════════════════════════
-function doCrop() {
-  if (!selRect) return;
-  const x0 = Math.max(0, Math.floor(Math.min(selRect.x0, selRect.x1)));
-  const y0 = Math.max(0, Math.floor(Math.min(selRect.y0, selRect.y1)));
-  const x1 = Math.min(imgW, Math.ceil(Math.max(selRect.x0, selRect.x1)));
-  const y1 = Math.min(imgH, Math.ceil(Math.max(selRect.y0, selRect.y1)));
-  const cw = x1 - x0, ch = y1 - y0;
-  if (cw < 1 || ch < 1) { selRect = null; drawOverlay(); return; }
-
-  for (const layer of layers) {
-    const nc = document.createElement('canvas'); nc.width = cw; nc.height = ch;
-    nc.getContext('2d').drawImage(layer.canvas, x0, y0, cw, ch, 0, 0, cw, ch);
-    layer.canvas = nc; layer.ctx = nc.getContext('2d');
-  }
-  imgW = cw; imgH = ch;
-  canvas.width = cw; canvas.height = ch;
-  overlayCanvas.width = cw; overlayCanvas.height = ch;
-  maskCanvas.width = cw; maskCanvas.height = ch;
-  selRect = null; cropMode = false;
-  compositeLayers(); pushHistory(); fitCanvas(); renderLayerList();
-  document.getElementById('resizeW').value = cw; document.getElementById('resizeH').value = ch;
-  aspectRatio = cw / ch;
-  document.getElementById('statusbar').textContent = `✅ 已裁剪 ${cw}×${ch}`;
-}
-
-// ═══════════════════════════════════════
-//  叠加层绘制（选区/遮罩预览）
-// ═══════════════════════════════════════
-function drawOverlay() {
-  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  // 遮罩预览（红色半透明）
-  const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-  const hasMask = maskData.data.some((v, i) => i % 4 === 3 && v > 0);
-  if (hasMask) {
-    overlayCtx.globalAlpha = 0.4;
-    overlayCtx.drawImage(maskCanvas, 0, 0);
-    overlayCtx.globalAlpha = 1;
-  }
-  // 选区
-  if (selRect) {
-    const x0 = Math.min(selRect.x0, selRect.x1), y0 = Math.min(selRect.y0, selRect.y1);
-    const w = Math.abs(selRect.x1 - selRect.x0), h = Math.abs(selRect.y1 - selRect.y0);
-    overlayCtx.strokeStyle = '#0078d4';
-    overlayCtx.lineWidth = 2 / scale;
-    overlayCtx.setLineDash([6/scale, 4/scale]);
-    overlayCtx.strokeRect(x0, y0, w, h);
-    overlayCtx.setLineDash([]);
-  }
-}
-
-// ═══════════════════════════════════════
-//  撤销/重做
-// ═══════════════════════════════════════
-function pushHistory() {
-  history = history.slice(0, historyIdx + 1);
-  // 保存所有图层的合并快照
-  const merged = document.createElement('canvas');
-  merged.width = imgW; merged.height = imgH;
-  const mctx = merged.getContext('2d');
-  for (const layer of layers) { if (layer.visible) { mctx.globalAlpha = layer.opacity; mctx.drawImage(layer.canvas, 0, 0); } }
-  history.push(merged.toDataURL());
-  if (history.length > 20) history.shift(); else historyIdx++;
-}
-
-function undo() {
-  if (historyIdx <= 0) return;
-  historyIdx--;
-  restoreFromHistory();
-}
-
-function redo() {
-  if (historyIdx >= history.length - 1) return;
-  historyIdx++;
-  restoreFromHistory();
-}
-
-function restoreFromHistory() {
-  const img = new Image();
-  img.onload = () => {
-    if (layers.length > 0) {
-      layers[0].ctx.clearRect(0, 0, imgW, imgH);
-      layers[0].ctx.drawImage(img, 0, 0);
-      // 清除其他图层
-      for (let i = 1; i < layers.length; i++) layers[i].ctx.clearRect(0, 0, imgW, imgH);
-      compositeLayers();
-    }
-  };
-  img.src = history[historyIdx];
-}
-
-// ═══════════════════════════════════════
-//  保存/下载
-// ═══════════════════════════════════════
-function saveImage() {
-  if (!imgW) { alert('请先打开图片'); return; }
-  // 合并所有可见图层
-  const merged = document.createElement('canvas');
-  merged.width = imgW; merged.height = imgH;
-  const mctx = merged.getContext('2d');
-  for (const layer of layers) { if (layer.visible) { mctx.globalAlpha = layer.opacity; mctx.drawImage(layer.canvas, 0, 0); } }
-  merged.toBlob(blob => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    const baseName = imgPath ? imgPath.replace(/[\\/]/g,'/').split('/').pop().replace(/\.[^.]+$/,'') : 'image';
-    a.download = baseName + '_edited.png';
-    a.click();
-    document.getElementById('statusbar').textContent = '💾 已保存 ' + a.download;
-  }, 'image/png');
-}
-
-// ═══════════════════════════════════════
-//  键盘
-// ═══════════════════════════════════════
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'z') { e.preventDefault(); undo(); }
-    if (e.key === 'y') { e.preventDefault(); redo(); }
-    if (e.key === 's') { e.preventDefault(); saveImage(); }
-  }
-  // 工具快捷键
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  const map = {v:'move', b:'brush', e:'eraser', w:'inpaint', r:'rect', c:'crop'};
-  if (map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
-});
-
-// ═══════════════════════════════════════
-//  URL参数加载
-// ═══════════════════════════════════════
-(function() {
-  const params = new URLSearchParams(location.search);
-  imgPath = params.get('path');
-  if (!imgPath) return;
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => { setImage(img, imgPath.replace(/[\\/]/g,'/').split('/').pop()); origW = img.width; origH = img.height; aspectRatio = img.width / img.height; };
-  img.onerror = () => { document.getElementById('statusbar').textContent = '图片加载失败，请手动打开'; };
-  img.src = '/api/image?path=' + encodeURIComponent(imgPath);
-})();
-</script>
+<div class="statusbar" id="statusbar">就绪</div>
+<script src="图片加工工具.js"></script>
 </body>
 </html>
