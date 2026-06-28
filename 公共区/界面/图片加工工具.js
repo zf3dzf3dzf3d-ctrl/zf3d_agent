@@ -91,9 +91,10 @@ function setImage(img,name){
   overlayCanvas.width=imgW;overlayCanvas.height=imgH;maskCanvas.width=imgW;maskCanvas.height=imgH;
   maskCtx.clearRect(0,0,imgW,imgH);
   layers=[createLayer('背景',imgW,imgH)];layers[0].ctx.drawImage(img,0,0);activeLayerIdx=0;
-  compositeLayers();history=[];historyIdx=-1;pushHistory();fitCanvas();renderLayerList();syncLayerControls();
+  compositeLayers();history=[];historyIdx=-1;pushHistory();renderLayerList();syncLayerControls();
+  requestAnimationFrame(()=>fitCanvas());
   document.getElementById('resizeW').value=imgW;document.getElementById('resizeH').value=imgH;
-  document.getElementById('statusbar').textContent=name+' '+imgW+'×imgH;
+  document.getElementById('statusbar').textContent=name+' '+imgW+'×'+imgH;
 }
 
 function resetAll(){
