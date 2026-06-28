@@ -310,6 +310,7 @@ async function deleteItem(path, name, isDir) {
             const idx = openFiles.findIndex(f => f.path === path);
             if (idx >= 0) closeTab(idx);
             refreshTree();
+            if (galleryPath) showGallery(galleryPath);
         } else {
             alert("删除失败: " + (d.错误 || "未知错误"));
         }
@@ -518,7 +519,7 @@ async function moveItemTo(path, name) {
     try {
         const res = await fetch("/api/file-move", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 源路径: path, 目标目录: target }) });
         const d = await res.json();
-        if (d.成功) { showToast("success", "✅ 移动成功", `${name} → ${target}`); refreshTree(); }
+        if (d.成功) { showToast("success", "✅ 移动成功", `${name} → ${target}`); refreshTree(); if (galleryPath) showGallery(galleryPath); }
         else { showToast("error", "❌ 移动失败", d.错误 || "未知错误"); }
     } catch (e) { showToast("error", "❌ 移动失败", e.message); }
 }
@@ -529,7 +530,7 @@ async function copyItemTo(path, name) {
     try {
         const res = await fetch("/api/file-copy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 源路径: path, 目标目录: target }) });
         const d = await res.json();
-        if (d.成功) { showToast("success", "✅ 复制成功", `${name} → ${target}`); refreshTree(); }
+        if (d.成功) { showToast("success", "✅ 复制成功", `${name} → ${target}`); refreshTree(); if (galleryPath) showGallery(galleryPath); }
         else { showToast("error", "❌ 复制失败", d.错误 || "未知错误"); }
     } catch (e) { showToast("error", "❌ 复制失败", e.message); }
 }
@@ -562,13 +563,16 @@ function getDragPaths(item) {
 
 function setupItemDraggable(item) {
     item.draggable = true;
+    // 内部img/video元素会拦截drag，必须禁用
+    item.querySelectorAll("img, video").forEach(el => { el.draggable = false; });
     item.addEventListener("dragstart", e => {
         const paths = getDragPaths(item);
         e.dataTransfer.setData("text/plain", JSON.stringify({ paths, shift: e.shiftKey }));
-        e.dataTransfer.effectAllowed = e.shiftKey ? "copy" : "move";
-        showDragHint(e.shiftKey ? "📋 复制到此处" : "📦 移动到此处");
+        e.dataTransfer.effectAllowed = "copyMove";
+        justDragged = true;
+        showDragHint(e.shiftKey ? "📋 Shift拖拽=复制" : "📦 拖拽=移动");
     });
-    item.addEventListener("dragend", () => { hideDragHint(); });
+    item.addEventListener("dragend", () => { hideDragHint(); setTimeout(() => { justDragged = false; }, 50); });
 }
 
 function setupDropTarget(el, targetPath) {
@@ -607,6 +611,7 @@ async function performMoveOrCopy(paths, targetDir, isCopy) {
     if (fail === 0) showToast("success", `✅ ${op}完成`, `${ok}项 → ${targetDir}`);
     else showToast("error", `⚠️ ${op}完成(部分失败)`, `成功${ok} 失败${fail}`);
     refreshTree();
+    if (galleryPath) showGallery(galleryPath);
 }
 
 function renderGalleryGrid() {
