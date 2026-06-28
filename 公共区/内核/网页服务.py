@@ -250,12 +250,19 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             路径 = unquote(解析结果.path)
             if 路径.startswith("/api/"):
                 内容长度 = int(self.headers.get("Content-Length", 0))
-                请求体 = self.rfile.read(内容长度).decode("utf-8") if 内容长度 > 0 else "{}"
-                try:
-                    请求数据 = json.loads(请求体)
-                except json.JSONDecodeError:
-                    请求数据 = {}
-                self._处理API_POST(路径, 请求数据)
+                原始体 = self.rfile.read(内容长度) if 内容长度 > 0 else b"{}"
+                ctype = self.headers.get("Content-Type", "")
+                if "multipart/form-data" in ctype:
+                    # multipart请求不解析JSON，保留原始字节供handler读取
+                    self._multipart_body = 原始体
+                    self._处理API_POST(路径, {})
+                else:
+                    请求体 = 原始体.decode("utf-8") if 原始体 else "{}"
+                    try:
+                        请求数据 = json.loads(请求体)
+                    except json.JSONDecodeError:
+                        请求数据 = {}
+                    self._处理API_POST(路径, 请求数据)
             else:
                 self._返回JSON({"错误": "未知路径"}, 404)
         except Exception as e:
@@ -899,7 +906,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
                 # 解析multipart
                 boundary = ctype.split("boundary=")[1].encode()
-                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                body = getattr(self, '_multipart_body', b'')
                 parts = body.split(b"--" + boundary)
 
                 image_data = None
