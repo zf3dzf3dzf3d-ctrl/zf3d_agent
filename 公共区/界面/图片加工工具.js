@@ -35,33 +35,47 @@ function duplicateLayer(){if(!imgW)return;const l=getActiveLayer();const nl=crea
 function deleteLayer(){if(layers.length<=1)return;layers.splice(activeLayerIdx,1);if(activeLayerIdx>=layers.length)activeLayerIdx=layers.length-1;compositeLayers();renderLayerList();syncLayerControls();}
 
 // ── 选区/工具状态 ──
-let selRect=null, rectDrawing=false;
+let selRect=null, rectDrawing=false; // 矩形/椭圆选区
+let selEllipse=false; // true=椭圆模式
+let lassoPath=[]; // 套索路径点 [{x,y}]
+let lassoDrawing=false;
+let wandMask=null; // 魔棒选区mask (ImageData)
 let moveStartX=0, moveStartY=0;
 let stampSrc=null, stampSrcX=0, stampSrcY=0;
 let gradStart=null, gradDrawing=false;
 let textPos=null;
 let isPicking=false; // 吸管模式
+let fgColor='#ff0000', bgColor='#000000'; // 前景色/背景色
 
 // ── 工具栏 ──
 const TOOLS=[
-  {id:'rect',icon:'▭',name:'框选',key:'m',tip:'框选区域→双击取消→右侧局部调节'},
-  {id:'move',icon:'✋',name:'移动',key:'v',tip:'移动当前图层，有选区时移动选区内容'},
+  {id:'move',icon:'✋',name:'移动',key:'v',tip:'移动当前图层'},
+  {id:'rect',icon:'▭',name:'矩形选区',key:'m',tip:'框选区域→双击取消→右侧局部调节'},
+  {id:'ellipse',icon:'◯',name:'椭圆选区',key:'m',tip:'拖拽画椭圆选区'},
+  {id:'lasso',icon:'✏',name:'套索',key:'l',tip:'自由手绘选区'},
+  {id:'wand',icon:'🔮',name:'魔棒',key:'w',tip:'点击选择相似颜色区域'},
   {id:'crop',icon:'✂',name:'裁剪',key:'c',tip:'框选后自动裁剪'},
   {sep:1},
   {id:'brush',icon:'🖌',name:'画笔',key:'b',tip:'软笔刷 Alt=吸管 Ctrl+左键=调大小透明度'},
   {id:'pencil',icon:'✏',name:'铅笔',key:'n',tip:'方块硬边画笔'},
   {id:'eraser',icon:'🧽',name:'橡皮',key:'e',tip:'擦除当前层'},
+  {id:'magicEraser',icon:'✨',name:'魔术橡皮',key:'e',tip:'点击擦除相似颜色区域'},
   {sep:1},
-  {id:'stamp',icon:'🔖',name:'图章',key:'s',tip:'Alt+左键设源→左键复制绘制'},
+  {id:'stamp',icon:'🔖',name:'图章',key:'s',tip:'Ctrl+左键设源→左键复制绘制'},
   {id:'eyedropper',icon:'💧',name:'吸管',key:'i',tip:'拾取颜色'},
   {sep:1},
   {id:'gradient',icon:'🌈',name:'渐变',key:'g',tip:'选颜色拉直线渐变填充'},
+  {id:'fill',icon:'🪣',name:'填充',key:'f',tip:'用前景色填充选区或全图'},
   {id:'text',icon:'📝',name:'文字',key:'t',tip:'点击输入文字'},
   {sep:1},
   {id:'blur',icon:'💨',name:'模糊',key:'r',tip:'模糊笔刷'},
-  {id:'dodge',icon:'🔆',name:'加深减淡',key:'d',tip:'左键加深 Alt+左键减淡'},
+  {id:'sharpen',icon:'🔪',name:'锐化',key:'r',tip:'锐化笔刷'},
+  {id:'dodge',icon:'🔆',name:'加深',key:'o',tip:'左键加深 Alt+左键减淡'},
+  {id:'sponge',icon:'🧽',name:'海绵',key:'o',tip:'加色/去色 (饱和度)'},
   {sep:1},
   {id:'inpaint',icon:'🧹',name:'去水印',key:'w',tip:'涂抹区域→点✨去除'},
+  {id:'hand',icon:'🤚',name:'抓手',key:'h',tip:'拖拽平移视图'},
+  {sep:1},
 ];
 
 function initToolbar(){
@@ -74,35 +88,41 @@ function initToolbar(){
 }
 
 // ── 顶栏参数面板跟随工具变化 ──
-const BRUSH_TOOLS=['brush','eraser','stamp','blur','dodge','inpaint'];
+const BRUSH_TOOLS=['brush','eraser','stamp','blur','sharpen','dodge','sponge','inpaint'];
+const SELECTION_TOOLS=['rect','ellipse','lasso','wand','crop'];
 function updateToolPanel(){
-  const tb=document.getElementById('topbarTools');
   const isBrush=BRUSH_TOOLS.includes(tool);
   const isPencil=tool==='pencil';
   const showBrush=(isBrush||isPencil);
-  // 笔刷大小/透明度/颜色 对所有笔刷类显示
   document.getElementById('grpBrush').style.display=showBrush?'flex':'none';
-  // 硬度：铅笔不显示，其他笔刷显示
   document.getElementById('grpHardness').style.display=(isBrush&&!isPencil)?'flex':'none';
-  // 颜色：橡皮/模糊/加深减淡/去水印不需要颜色
-  const noColor=['eraser','blur','dodge','inpaint'];
+  const noColor=['eraser','magicEraser','blur','sharpen','dodge','sponge','inpaint','eyedropper','hand'];
   document.getElementById('grpColor').style.display=noColor.includes(tool)?'none':'flex';
-  // 加深减淡强度
-  document.getElementById('grpDodge').style.display=tool==='dodge'?'flex':'none';
-  // 模糊强度
-  document.getElementById('grpBlur').style.display=tool==='blur'?'flex':'none';
-  // 去水印
+  document.getElementById('grpDodge').style.display=(tool==='dodge'||tool==='sponge')?'flex':'none';
+  document.getElementById('grpBlur').style.display=(tool==='blur'||tool==='sharpen')?'flex':'none';
   document.getElementById('grpInpaint').style.display=tool==='inpaint'?'flex':'none';
+  // 魔棒容差
+  document.getElementById('grpWand').style.display=tool==='wand'?'flex':'none';
+  // 魔术橡皮容差
+  document.getElementById('grpMagicEraser').style.display=tool==='magicEraser'?'flex':'none';
+  // 填充
+  document.getElementById('grpFill').style.display=tool==='fill'?'flex':'none';
+  // 选区操作
+  const hasSel=selRect||lassoPath||wandMask;
+  document.getElementById('btnDeselect').style.display=hasSel?'inline-block':'none';
+  document.getElementById('btnInverse').style.display=hasSel?'inline-block':'none';
 }
 
 function setTool(t){
   tool=t;document.querySelectorAll('.leftbar button').forEach(b=>b.classList.remove('active'));
   const btn=document.getElementById('tool-'+t);if(btn)btn.classList.add('active');
-  canvas.style.cursor=t==='move'?'grab':'crosshair';
-  if(t!=='rect'&&t!=='crop'){selRect=null;drawOverlay();}
-  if(t!=='inpaint'){maskCtx.clearRect(0,0,imgW||1,imgH||1);drawOverlay();}
-  document.getElementById('adjustScope').textContent=selRect?'（选区）':'（全图）';
-  updateToolPanel();
+  canvas.style.cursor=t==='move'?'grab':(t==='hand'?'grab':'crosshair');
+  selEllipse=(t==='ellipse');
+  if(!SELECTION_TOOLS.includes(t)){selRect=null;lassoPath=[];wandMask=null;}
+  if(t!=='inpaint'){maskCtx.clearRect(0,0,imgW||1,imgH||1);}
+  if(t!=='lasso'){lassoPath=[];lassoDrawing=false;}
+  document.getElementById('adjustScope').textContent=(selRect||lassoPath.length||wandMask)?'（选区）':'（全图）';
+  updateToolPanel();drawOverlay();
 }
 
 // ── 图片加载 ──
@@ -161,8 +181,19 @@ viewport.addEventListener('mousedown',e=>{
   // 文字工具
   if(tool==='text'){const ti=document.getElementById('textInput');const r=viewport.getBoundingClientRect();ti.style.left=(e.clientX-r.left)+'px';ti.style.top=(e.clientY-r.top)+'px';ti.style.display='block';ti.value='';ti.focus();textPos=p;return;}
 
-  // 框选/裁剪
-  if(tool==='rect'||tool==='crop'){rectDrawing=true;selRect={x0:p.x,y0:p.y,x1:p.x,y1:p.y};return;}
+  // 套索工具
+  if(tool==='lasso'&&e.button===0){lassoDrawing=true;lassoPath=[{x:p.x,y:p.y}];return;}
+  // 魔棒工具
+  if(tool==='wand'&&e.button===0){doWand(p.x,p.y);return;}
+  // 魔术橡皮
+  if(tool==='magicEraser'&&e.button===0){doMagicEraser(p.x,p.y);return;}
+  // 填充工具
+  if(tool==='fill'&&e.button===0){doFill(p.x,p.y);return;}
+  // 抓手工具
+  if(tool==='hand'&&e.button===0){isPanning=true;panSX=e.clientX;panSY=e.clientY;viewport.style.cursor='grabbing';return;}
+
+  // 框选/椭圆选区/裁剪
+  if(tool==='rect'||tool==='ellipse'||tool==='crop'){rectDrawing=true;selRect={x0:p.x,y0:p.y,x1:p.x,y1:p.y};return;}
 
   // 移动工具=移动当前图层
   if(tool==='move'){const l=getActiveLayer();if(!l)return;moveStartX=p.x;moveStartY=p.y;isDrawing=true;return;}
@@ -193,10 +224,12 @@ viewport.addEventListener('mousemove',e=>{
     if(tool==='brush'||tool==='pencil'||tool==='eraser'){drawBrushLine(lastX,lastY,p.x,p.y);lastX=p.x;lastY=p.y;return;}
     if(tool==='stamp'&&stampSrc){stampCopy(p.x,p.y);lastX=p.x;lastY=p.y;return;}
     if(tool==='blur'){blurAt(p.x,p.y);lastX=p.x;lastY=p.y;return;}
-    if(tool==='dodge'){dodgeBurnAt(p.x,p.y,!e.altKey);lastX=p.x;lastY=p.y;return;}
+    if(tool==='sharpen'){sharpenAt(p.x,p.y);lastX=p.x;lastY=p.y;return;}
+    if(tool==='dodge'||tool==='sponge'){dodgeBurnAt(p.x,p.y,!e.altKey);lastX=p.x;lastY=p.y;return;}
     if(tool==='inpaint'){drawInpaintLine(lastX,lastY,p.x,p.y);lastX=p.x;lastY=p.y;return;}
   }
   if(rectDrawing){selRect.x1=p.x;selRect.y1=p.y;drawOverlay();return;}
+  if(lassoDrawing){lassoPath.push({x:p.x,y:p.y});drawOverlay();return;}
   if(gradDrawing){drawOverlay();ovCtx.strokeStyle='#0078d4';ovCtx.lineWidth=2/scale;ovCtx.beginPath();ovCtx.moveTo(gradStart.x,gradStart.y);ovCtx.lineTo(p.x,p.y);ovCtx.stroke();return;}
 });
 
@@ -212,14 +245,15 @@ window.addEventListener('mouseup',e=>{
   if(rectDrawing){
     rectDrawing=false;
     if(selRect){const w=Math.abs(selRect.x1-selRect.x0),h=Math.abs(selRect.y1-selRect.y0);if(w<3&&h<3){selRect=null;}else if(tool==='crop'){doCrop();}}
-    document.getElementById('adjustScope').textContent=selRect?'（选区）':'（全图）';
-    drawOverlay();
+    document.getElementById('adjustScope').textContent=(selRect||lassoPath.length||wandMask)?'（选区）':'（全图）';
+    updateToolPanel();drawOverlay();
   }
+  if(lassoDrawing){lassoDrawing=false;if(lassoPath.length<3){lassoPath=[];}document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();drawOverlay();}
   if(gradDrawing){gradDrawing=false;doGradient(screenToCanvas(e));pushHistory();}
 });
 viewport.addEventListener('contextmenu',e=>e.preventDefault());
 viewport.addEventListener('dblclick',e=>{
-  if(tool==='rect'&&selRect){selRect=null;document.getElementById('adjustScope').textContent='（全图）';drawOverlay();document.getElementById('statusbar').textContent='选区已取消';}
+  if(SELECTION_TOOLS.includes(tool)&&(selRect||lassoPath.length||wandMask)){deselectAll();document.getElementById('statusbar').textContent='选区已取消';}
 });
 
 // ── 吸管 ──
@@ -306,17 +340,116 @@ function blurAt(x,y){
   l.ctx.globalAlpha=opacity;l.ctx.drawImage(tc,x0,y0);l.ctx.globalAlpha=1;compositeLayers();
 }
 
-// ── 加深减淡 ──
+// ── 加深减淡/海绵 ──
 function dodgeBurnAt(x,y,isDarken){
   const l=getActiveLayer();if(!l)return;const size=parseInt(document.getElementById('brushSize').value);const opacity=parseInt(document.getElementById('brushOpacity').value)/100;
   const strength=parseInt(document.getElementById('dodgeStrength').value)/100||0.2;
   const x0=Math.max(0,Math.floor(x-size/2)),y0=Math.max(0,Math.floor(y-size/2));
   const w=Math.min(size,imgW-x0),h=Math.min(size,imgH-y0);if(w<=0||h<=0)return;
   const id=l.ctx.getImageData(x0,y0,w,h);const d=id.data;
-  const factor=isDarken?(1-strength):(1+strength);
-  for(let i=0;i<d.length;i+=4){d[i]=Math.max(0,Math.min(255,d[i]*factor));d[i+1]=Math.max(0,Math.min(255,d[i+1]*factor));d[i+2]=Math.max(0,Math.min(255,d[i+2]*factor));}
+  if(tool==='sponge'){
+    // 海绵：加色(isDarken=true)或去色
+    const satStrength=strength;
+    for(let i=0;i<d.length;i+=4){
+      const gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+      if(isDarken){d[i]=d[i]+(d[i]-gray)*satStrength;d[i+1]=d[i+1]+(d[i+1]-gray)*satStrength;d[i+2]=d[i+2]+(d[i+2]-gray)*satStrength;}
+      else{d[i]=d[i]-(d[i]-gray)*satStrength;d[i+1]=d[i+1]-(d[i+1]-gray)*satStrength;d[i+2]=d[i+2]-(d[i+2]-gray)*satStrength;}
+      d[i]=Math.max(0,Math.min(255,d[i]));d[i+1]=Math.max(0,Math.min(255,d[i+1]));d[i+2]=Math.max(0,Math.min(255,d[i+2]));
+    }
+  }else{
+    const factor=isDarken?(1-strength):(1+strength);
+    for(let i=0;i<d.length;i+=4){d[i]=Math.max(0,Math.min(255,d[i]*factor));d[i+1]=Math.max(0,Math.min(255,d[i+1]*factor));d[i+2]=Math.max(0,Math.min(255,d[i+2]*factor));}
+  }
   const tc=document.createElement('canvas');tc.width=w;tc.height=h;tc.getContext('2d').putImageData(id,0,0);
   l.ctx.globalAlpha=opacity;l.ctx.drawImage(tc,x0,y0);l.ctx.globalAlpha=1;compositeLayers();
+}
+
+// ── 锐化 ──
+function sharpenAt(x,y){
+  const l=getActiveLayer();if(!l)return;const size=parseInt(document.getElementById('brushSize').value);const opacity=parseInt(document.getElementById('brushOpacity').value)/100;
+  const x0=Math.max(0,Math.floor(x-size/2)),y0=Math.max(0,Math.floor(y-size/2));
+  const w=Math.min(size,imgW-x0),h=Math.min(size,imgH-y0);if(w<=2||h<=2)return;
+  const id=l.ctx.getImageData(x0,y0,w,h);const d=id.data;const src=new Uint8ClampedArray(d);
+  const strength=parseInt(document.getElementById('blurStrength').value)/10||0.3;
+  for(let y2=1;y2<h-1;y2++){for(let x2=1;x2<w-1;x2++){
+    const i=(y2*w+x2)*4;
+    for(let c=0;c<3;c++){
+      const center=src[i+c];const up=src[i-w*4+c];const down=src[i+w*4+c];const left=src[i-4+c];const right=src[i+4+c];
+      d[i+c]=Math.max(0,Math.min(255,center+(center-(up+down+left+right)/4)*strength));
+    }
+  }}
+  const tc=document.createElement('canvas');tc.width=w;tc.height=h;tc.getContext('2d').putImageData(id,0,0);
+  l.ctx.globalAlpha=opacity;l.ctx.drawImage(tc,x0,y0);l.ctx.globalAlpha=1;compositeLayers();
+}
+
+// ── 魔棒选区 ──
+function doWand(x,y){
+  const tmp=document.createElement('canvas');tmp.width=imgW;tmp.height=imgH;const tctx=tmp.getContext('2d');
+  for(const l of layers){if(l.visible){tctx.globalAlpha=l.opacity;tctx.globalCompositeOperation=l.blend;tctx.drawImage(l.canvas,l.offsetX,l.offsetY);}}tctx.globalAlpha=1;tctx.globalCompositeOperation='source-over';
+  const id=tctx.getImageData(0,0,imgW,imgH);const d=id.data;
+  const xi=Math.max(0,Math.min(imgW-1,Math.floor(x))),yi=Math.max(0,Math.min(imgH-1,Math.floor(y)));
+  const idx=(yi*imgW+xi)*4;
+  const tr=d[idx],tg=d[idx+1],tb=d[idx+2];
+  const tol=parseInt(document.getElementById('wandTolerance').value)||30;
+  // BFS flood fill
+  const visited=new Uint8Array(imgW*imgH);
+  const queue=[[xi,yi]];visited[yi*imgW+xi]=1;
+  const mask=new Uint8ClampedArray(imgW*imgH*4);
+  while(queue.length){
+    const [cx,cy]=queue.shift();const ci=(cy*imgW+cx)*4;
+    const dr=d[ci]-tr,dg=d[ci+1]-tg,db=d[ci+2]-tb;
+    const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+    if(dist>tol)continue;
+    mask[ci]=255;mask[ci+3]=255;
+    [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]].forEach(([nx,ny])=>{
+      if(nx>=0&&nx<imgW&&ny>=0&&ny<imgH&&!visited[ny*imgW+nx]){visited[ny*imgW+nx]=1;queue.push([nx,ny]);}
+    });
+  }
+  wandMask=new ImageData(imgW,imgH);wandMask.data.set(mask);
+  document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();drawOverlay();
+}
+
+// ── 魔术橡皮 ──
+function doMagicEraser(x,y){
+  const l=getActiveLayer();if(!l)return;
+  const id=l.ctx.getImageData(0,0,imgW,imgH);const d=id.data;
+  const xi=Math.max(0,Math.min(imgW-1,Math.floor(x))),yi=Math.max(0,Math.min(imgH-1,Math.floor(y)));
+  const idx=(yi*imgW+xi)*4;
+  const tr=d[idx],tg=d[idx+1],tb=d[idx+2];
+  const tol=parseInt(document.getElementById('magicEraserTol').value)||30;
+  const visited=new Uint8Array(imgW*imgH);
+  const queue=[[xi,yi]];visited[yi*imgW+xi]=1;
+  while(queue.length){
+    const [cx,cy]=queue.shift();const ci=(cy*imgW+cx)*4;
+    const dr=d[ci]-tr,dg=d[ci+1]-tg,db=d[ci+2]-tb;
+    const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+    if(dist>tol)continue;
+    d[ci+3]=0;
+    [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]].forEach(([nx,ny])=>{
+      if(nx>=0&&nx<imgW&&ny>=0&&ny<imgH&&!visited[ny*imgW+nx]){visited[ny*imgW+nx]=1;queue.push([nx,ny]);}
+    });
+  }
+  l.ctx.putImageData(id,0,0);compositeLayers();pushHistory();
+}
+
+// ── 填充工具 ──
+function doFill(x,y){
+  const l=getActiveLayer();if(!l)return;
+  const color=document.getElementById('fgColor').value;
+  const opacity=parseInt(document.getElementById('brushOpacity').value)/100;
+  const r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+  l.ctx.globalAlpha=opacity;l.ctx.fillStyle=`rgb(${r},${g},${b})`;
+  if(selRect){
+    l.ctx.save();l.ctx.beginPath();
+    if(selEllipse){l.ctx.ellipse((selRect.x0+selRect.x1)/2,(selRect.y0+selRect.y1)/2,Math.abs(selRect.x1-selRect.x0)/2,Math.abs(selRect.y1-selRect.y0)/2,0,0,Math.PI*2);}
+    else{l.ctx.rect(Math.min(selRect.x0,selRect.x1),Math.min(selRect.y0,selRect.y1),Math.abs(selRect.x1-selRect.x0),Math.abs(selRect.y1-selRect.y0));}
+    l.ctx.clip();
+  }
+  if(lassoPath.length>3){l.ctx.save();l.ctx.beginPath();l.ctx.moveTo(lassoPath[0].x,lassoPath[0].y);for(let i=1;i<lassoPath.length;i++)l.ctx.lineTo(lassoPath[i].x,lassoPath[i].y);l.ctx.closePath();l.ctx.clip();}
+  if(wandMask){l.ctx.save();const mc=document.createElement('canvas');mc.width=imgW;mc.height=imgH;const mctx=mc.getContext('2d');mctx.putImageData(wandMask,0,0);l.ctx.globalCompositeOperation='destination-in';l.ctx.drawImage(mc,0,0);l.ctx.globalCompositeOperation='source-over';}
+  l.ctx.fillRect(0,0,imgW,imgH);
+  if(selRect||lassoPath.length>3||wandMask)l.ctx.restore();
+  l.ctx.globalAlpha=1;compositeLayers();pushHistory();
 }
 
 // ── 渐变 ──
@@ -424,12 +557,34 @@ function drawOverlay(){
   const md=maskCtx.getImageData(0,0,maskCanvas.width,maskCanvas.height);
   let hasMask=false;for(let i=3;i<md.data.length;i+=4){if(md.data[i]>0){hasMask=true;break;}}
   if(hasMask){ovCtx.globalAlpha=0.35;ovCtx.drawImage(maskCanvas,0,0);ovCtx.globalAlpha=1;}
+  // 魔棒选区预览
+  if(wandMask){ovCtx.globalAlpha=0.3;const mc=document.createElement('canvas');mc.width=imgW;mc.height=imgH;mc.getContext('2d').putImageData(wandMask,0,0);ovCtx.drawImage(mc,0,0);ovCtx.globalAlpha=1;}
+  // 套索路径
+  if(lassoPath.length>0){
+    ovCtx.strokeStyle='#0078d4';ovCtx.lineWidth=1/scale;ovCtx.setLineDash([4/scale,4/scale]);
+    ovCtx.beginPath();ovCtx.moveTo(lassoPath[0].x,lassoPath[0].y);
+    for(let i=1;i<lassoPath.length;i++)ovCtx.lineTo(lassoPath[i].x,lassoPath[i].y);
+    if(!lassoDrawing)ovCtx.closePath();
+    ovCtx.stroke();ovCtx.setLineDash([]);
+  }
+  // 矩形/椭圆选区
   if(selRect){
     const x0=Math.min(selRect.x0,selRect.x1),y0=Math.min(selRect.y0,selRect.y1),w=Math.abs(selRect.x1-selRect.x0),h=Math.abs(selRect.y1-selRect.y0);
-    ovCtx.strokeStyle='#0078d4';ovCtx.lineWidth=1/scale;ovCtx.setLineDash([4/scale,4/scale]);ovCtx.strokeRect(x0,y0,w,h);ovCtx.setLineDash([]);
+    ovCtx.strokeStyle='#0078d4';ovCtx.lineWidth=1/scale;ovCtx.setLineDash([4/scale,4/scale]);
+    if(selEllipse){ovCtx.beginPath();ovCtx.ellipse(x0+w/2,y0+h/2,w/2,h/2,0,0,Math.PI*2);ovCtx.stroke();}
+    else{ovCtx.strokeRect(x0,y0,w,h);}
+    ovCtx.setLineDash([]);
     ovCtx.fillStyle='rgba(0,0,0,0.3)';
-    ovCtx.fillRect(0,0,imgW,y0);ovCtx.fillRect(0,y0,x0,h);ovCtx.fillRect(x0+w,y0,imgW-x0-w,h);ovCtx.fillRect(0,y0+h,imgW,imgH-y0-h);
-    ovCtx.strokeStyle='#fff';ovCtx.lineWidth=1/scale;ovCtx.setLineDash([4/scale,4/scale]);ovCtx.strokeRect(x0,y0,w,h);ovCtx.setLineDash([]);
+    if(selEllipse){
+      ovCtx.fillRect(0,0,imgW,imgH);
+      ovCtx.globalCompositeOperation='destination-out';ovCtx.beginPath();ovCtx.ellipse(x0+w/2,y0+h/2,w/2,h/2,0,0,Math.PI*2);ovCtx.fill();ovCtx.globalCompositeOperation='source-over';
+    }else{
+      ovCtx.fillRect(0,0,imgW,y0);ovCtx.fillRect(0,y0,x0,h);ovCtx.fillRect(x0+w,y0,imgW-x0-w,h);ovCtx.fillRect(0,y0+h,imgW,imgH-y0-h);
+    }
+    ovCtx.strokeStyle='#fff';ovCtx.lineWidth=1/scale;ovCtx.setLineDash([4/scale,4/scale]);
+    if(selEllipse){ovCtx.beginPath();ovCtx.ellipse(x0+w/2,y0+h/2,w/2,h/2,0,0,Math.PI*2);ovCtx.stroke();}
+    else{ovCtx.strokeRect(x0,y0,w,h);}
+    ovCtx.setLineDash([]);
   }
   if(stampSrc&&tool==='stamp'){ovCtx.strokeStyle='#0f0';ovCtx.lineWidth=2/scale;const s=parseInt(document.getElementById('brushSize').value);ovCtx.strokeRect(stampSrcX-s/2,stampSrcY-s/2,s,s);}
 }
@@ -446,10 +601,28 @@ function saveImage(){if(!imgW){alert('请先打开图片');return;}const m=docum
 // ── 键盘 ──
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
-  if(e.ctrlKey||e.metaKey){if(e.key==='z'){e.preventDefault();undo();}if(e.key==='y'){e.preventDefault();redo();}if(e.key==='s'){e.preventDefault();saveImage();}return;}
-  const map={m:'rect',v:'move',c:'crop',b:'brush',n:'pencil',e:'eraser',s:'stamp',i:'eyedropper',g:'gradient',t:'text',r:'blur',d:'dodge',w:'inpaint'};
+  if(e.ctrlKey||e.metaKey){if(e.key==='z'){e.preventDefault();undo();}if(e.key==='y'){e.preventDefault();redo();}if(e.key==='s'){e.preventDefault();saveImage();}if(e.key==='d'){e.preventDefault();deselectAll();}if(e.key==='i'){e.preventDefault();inverseSelection();}return;}
+  // 前景/背景色
+  if(e.key==='x'||e.key==='X'){const fg=document.getElementById('fgColor');const tmp=fg.value;fg.value=bgColor;bgColor=tmp;return;}
+  if(e.key==='d'||e.key==='D'){document.getElementById('fgColor').value='#000000';bgColor='#ffffff';return;}
+  // 笔刷大小 [ ]
+  if(e.key==='['){const s=document.getElementById('brushSize');s.value=Math.max(1,parseInt(s.value)-5);document.getElementById('bsVal').textContent=s.value;return;}
+  if(e.key===']'){const s=document.getElementById('brushSize');s.value=Math.min(300,parseInt(s.value)+5);document.getElementById('bsVal').textContent=s.value;return;}
+  // 工具快捷键
+  const map={m:'rect',v:'move',c:'crop',b:'brush',n:'pencil',e:'eraser',s:'stamp',i:'eyedropper',g:'gradient',t:'text',r:'blur',o:'dodge',w:'inpaint',h:'hand',l:'lasso',f:'fill'};
   if(map[e.key.toLowerCase()])setTool(map[e.key.toLowerCase()]);
 });
+
+// ── 选区操作 ──
+function deselectAll(){selRect=null;lassoPath=[];wandMask=null;document.getElementById('adjustScope').textContent='（全图）';updateToolPanel();drawOverlay();}
+function inverseSelection(){
+  // 反选：把选区外的变成选区内
+  if(wandMask){
+    const d=wandMask.data;for(let i=0;i<d.length;i+=4){if(d[i]>0){d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=0;}else{d[i]=255;d[i+1]=255;d[i+2]=255;d[i+3]=255;}}
+    drawOverlay();
+  }
+  // 对于矩形/套索，反选较复杂，暂用魔棒mask实现
+}
 
 // ── 初始化 ──
 initToolbar();updateToolPanel();
