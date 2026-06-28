@@ -885,6 +885,80 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"  ❌ 图片保存失败: {e}")
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/image-inpaint":
+            """图片加工 - OpenCV去水印/去杂物 (multipart/form-data: image, mask, algorithm, radius)"""
+            try:
+                import cv2
+                import base64
+                import numpy as np
+
+                ctype = self.headers.get("Content-Type", "")
+                if "multipart/form-data" not in ctype:
+                    self._返回JSON({"成功": False, "错误": "需要multipart/form-data"})
+                    return
+
+                # 解析multipart
+                boundary = ctype.split("boundary=")[1].encode()
+                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                parts = body.split(b"--" + boundary)
+
+                image_data = None
+                mask_data = None
+                algorithm = "TELEA"
+                radius = 3
+
+                for part in parts:
+                    if b"Content-Disposition" not in part:
+                        continue
+                    header_end = part.find(b"\r\n\r\n")
+                    if header_end < 0:
+                        continue
+                    header = part[:header_end].decode("utf-8", errors="replace")
+                    content = part[header_end+4:]
+                    if content.endswith(b"\r\n"):
+                        content = content[:-2]
+
+                    if 'name="image"' in header:
+                        image_data = content
+                    elif 'name="mask"' in header:
+                        mask_data = content
+                    elif 'name="algorithm"' in header:
+                        algorithm = content.decode("utf-8", errors="replace")
+                    elif 'name="radius"' in header:
+                        radius = int(content.decode("utf-8", errors="replace"))
+
+                if not image_data or not mask_data:
+                    self._返回JSON({"成功": False, "错误": "缺少图片或遮罩"})
+                    return
+
+                # 解码图片和遮罩
+                img_arr = np.frombuffer(image_data, np.uint8)
+                img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+                mask_arr = np.frombuffer(mask_data, np.uint8)
+                mask = cv2.imdecode(mask_arr, cv2.IMREAD_GRAYSCALE)
+
+                if img is None or mask is None:
+                    self._返回JSON({"成功": False, "错误": "无法解码图片"})
+                    return
+
+                # 尺寸对齐
+                if img.shape[:2] != mask.shape[:2]:
+                    mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+
+                # 二值化遮罩
+                _, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
+
+                alg = cv2.INPAINT_NS if algorithm == "NS" else cv2.INPAINT_TELEA
+                result = cv2.inpaint(img, mask, radius, alg)
+
+                # 编码返回
+                _, buf = cv2.imencode(".png", result)
+                b64 = base64.b64encode(buf).decode("utf-8")
+                self._返回JSON({"成功": True, "图片": b64})
+            except ImportError:
+                self._返回JSON({"成功": False, "错误": "opencv-python未安装"})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/permission":
             self.文件管理器.用户确认权限(
                 数据.get("路径", ""),

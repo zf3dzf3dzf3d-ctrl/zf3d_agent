@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖼️ 图片加工</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#1a1a2e;color:#e0e0e0;font-family:system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+.toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#16213e;border-bottom:1px solid #0f3460;flex-wrap:wrap}
+.toolbar button{background:#0f3460;border:1px solid #1a4a7a;color:#e0e0e0;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px;white-space:nowrap}
+.toolbar button:hover{background:#1a4a7a}
+.toolbar button.active{background:#533483;border-color:#7b5ea7}
+.toolbar .sep{width:1px;height:24px;background:#333;margin:0 4px}
+.toolbar input[type=range]{width:80px}
+.toolbar input[type=number]{width:60px;background:#0a0a1a;color:#e0e0e0;border:1px solid #333;border-radius:3px;padding:3px 6px;font-size:12px}
+.toolbar select{background:#0a0a1a;color:#e0e0e0;border:1px solid #333;border-radius:3px;padding:3px 6px;font-size:12px}
+.toolbar label{font-size:11px;color:#888;white-space:nowrap}
+#canvasWrap{flex:1;position:relative;overflow:auto;display:flex;align-items:center;justify-content:center;background:#111}
+#canvasBg{position:absolute;inset:0;background-image:linear-gradient(45deg,#1a1a2e 25%,transparent 25%),linear-gradient(-45deg,#1a1a2e 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1a1a2e 75%),linear-gradient(-45deg,transparent 75%,#1a1a2e 75%);background-size:20px 20px;background-color:#0d0d1a;opacity:0.5}
+#mainCanvas{position:relative;z-index:1;cursor:crosshair;image-rendering:pixelated}
+#brushCursor{position:absolute;border:2px solid #f44;border-radius:50%;pointer-events:none;z-index:2;display:none;box-shadow:0 0 0 1px #fff}
+#maskCanvas{position:absolute;z-index:1;pointer-events:none;opacity:0.5}
+.hint{padding:4px 12px;font-size:11px;color:#666;background:#16213e;border-bottom:1px solid #0f3460}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button onclick="loadImage()" title="上传图片">📁 打开</button>
+  <button onclick="resetImage()" title="重置为原图" id="btnReset">↩️ 重置</button>
+  <button onclick="downloadResult()" title="下载结果">⬇️ 下载</button>
+  <div class="sep"></div>
+
+  <button onclick="setMode('inpaint')" class="active" id="mode-inpaint" title="涂抹要去除的区域">🧹 涂抹去水印</button>
+  <button onclick="setMode('none')" id="mode-none" title="普通查看">✋ 平移</button>
+  <div class="sep"></div>
+
+  <label>笔刷</label>
+  <input type="range" id="brushSize" min="5" max="100" value="30" oninput="document.getElementById('brushVal').textContent=this.value">
+  <span id="brushVal" style="font-size:11px;width:24px">30</span>
+  <label>算法</label>
+  <select id="inpaintAlg">
+    <option value="TELEA">TELEA(快速)</option>
+    <option value="NS">NS(精细)</option>
+  </select>
+  <label>半径</label>
+  <input type="number" id="inpaintRadius" value="3" min="1" max="20" style="width:40px">
+  <button onclick="doInpaint()" title="执行去水印/去杂物">✨ 去除</button>
+  <div class="sep"></div>
+
+  <label>亮度</label>
+  <input type="range" id="brightness" min="-100" max="100" value="0" oninput="document.getElementById('brightVal').textContent=this.value;previewAdjust()">
+  <span id="brightVal" style="font-size:11px;width:24px">0</span>
+  <label>对比度</label>
+  <input type="range" id="contrast" min="-100" max="100" value="0" oninput="document.getElementById('contrastVal').textContent=this.value;previewAdjust()">
+  <span id="contrastVal" style="font-size:11px;width:24px">0</span>
+  <button onclick="applyAdjust()" title="应用亮度对比度">应用</button>
+  <div class="sep"></div>
+
+  <button onclick="doGray()">⚫ 灰度</button>
+  <button onclick="doBlur()">🌫️ 模糊</button>
+  <label>旋转</label>
+  <input type="number" id="rotateAngle" value="90" style="width:40px">
+  <button onclick="doRotate()">🔄 旋转</button>
+  <div class="sep"></div>
+
+  <button onclick="undo()" title="撤销">↩️ 撤销</button>
+  <button onclick="redo()" title="重做">↪️ 重做</button>
+</div>
+
+<div class="hint" id="hintInfo">点击 📁 打开 上传图片</div>
+<div id="canvasWrap">
+  <div id="canvasBg"></div>
+  <canvas id="mainCanvas"></canvas>
+  <canvas id="maskCanvas"></canvas>
+  <div id="brushCursor"></div>
+</div>
+
+<script>
+let mode = 'inpaint';
+let isDrawing = false;
+let hasMask = false;
+let lastX = 0, lastY = 0;
+let canvas = document.getElementById('mainCanvas');
+let ctx = canvas.getContext('2d');
+let maskCanvas = document.getElementById('maskCanvas');
+let maskCtx = maskCanvas.getContext('2d');
+let brushCursor = document.getElementById('brushCursor');
+let originalImageData = null;
+let history = [];
+let historyIdx = -1;
+let imgPath = null;
+
+function loadImage() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => setImage(img, file.name);
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function setImage(img, name) {
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+  originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  maskCanvas.width = img.width;
+  maskCanvas.height = img.height;
+  maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  hasMask = false;
+  history = [];
+  historyIdx = -1;
+  pushHistory();
+  fitCanvas();
+  document.getElementById('hintInfo').textContent = `${name}  ${img.width}×${img.height}`;
+}
+
+function resetImage() {
+  if (!originalImageData) return;
+  ctx.putImageData(originalImageData, 0, 0);
+  maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+  hasMask = false;
+  pushHistory();
+  document.getElementById('hintInfo').textContent += ' | 已重置';
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode-' + m).classList.add('active');
+  canvas.style.cursor = m === 'inpaint' ? 'crosshair' : (m === 'none' ? 'grab' : 'crosshair');
+}
+
+// ── 涂抹遮罩 ──
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const sy = canvas.height / rect.height;
+  return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (mode !== 'inpaint') return;
+  isDrawing = true;
+  const p = getMousePos(e);
+  lastX = p.x; lastY = p.y;
+  drawMask(p.x, p.y);
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const size = parseInt(document.getElementById('brushSize').value);
+  brushCursor.style.display = 'block';
+  brushCursor.style.left = (cx - size/2) + 'px';
+  brushCursor.style.top = (cy - size/2) + 'px';
+  brushCursor.style.width = size + 'px';
+  brushCursor.style.height = size + 'px';
+  if (!isDrawing || mode !== 'inpaint') return;
+  const p = getMousePos(e);
+  drawLine(lastX, lastY, p.x, p.y);
+  lastX = p.x; lastY = p.y;
+});
+
+canvas.addEventListener('mouseleave', () => { brushCursor.style.display = 'none'; isDrawing = false; });
+window.addEventListener('mouseup', () => { isDrawing = false; });
+
+function drawMask(x, y) {
+  const size = parseInt(document.getElementById('brushSize').value);
+  maskCtx.fillStyle = '#fff';
+  maskCtx.beginPath();
+  maskCtx.arc(x, y, size/2, 0, Math.PI*2);
+  maskCtx.fill();
+  hasMask = true;
+}
+
+function drawLine(x1, y1, x2, y2) {
+  const size = parseInt(document.getElementById('brushSize').value);
+  maskCtx.strokeStyle = '#fff';
+  maskCtx.lineWidth = size;
+  maskCtx.lineCap = 'round';
+  maskCtx.beginPath();
+  maskCtx.moveTo(x1, y1);
+  maskCtx.lineTo(x2, y2);
+  maskCtx.stroke();
+  hasMask = true;
+}
+
+// ── 去水印 API调用 ──
+async function doInpaint() {
+  if (!originalImageData) { alert('请先打开图片'); return; }
+  if (!hasMask) { alert('请先涂抹要去除的区域'); return; }
+  const alg = document.getElementById('inpaintAlg').value;
+  const radius = parseInt(document.getElementById('inpaintRadius').value) || 3;
+
+  // 用合并canvas生成PNG（图片+遮罩一起发）
+  const mainBlob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  const maskBlob = await new Promise(r => maskCanvas.toBlob(r, 'image/png'));
+  const formData = new FormData();
+  formData.append('image', mainBlob, 'image.png');
+  formData.append('mask', maskBlob, 'mask.png');
+  formData.append('algorithm', alg);
+  formData.append('radius', radius);
+
+  document.getElementById('hintInfo').textContent = '⏳ 正在处理...';
+  try {
+    const res = await fetch('/api/image-inpaint', { method: 'POST', body: formData });
+    const d = await res.json();
+    if (d.成功) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+        hasMask = false;
+        pushHistory();
+        document.getElementById('hintInfo').textContent = `✅ 去水印完成 (${alg}, 半径${radius})`;
+      };
+      img.src = 'data:image/png;base64,' + d.图片;
+    } else {
+      alert('失败: ' + d.错误);
+      document.getElementById('hintInfo').textContent = '❌ ' + d.错误;
+    }
+  } catch (e) {
+    alert('请求失败: ' + e.message);
+    document.getElementById('hintInfo').textContent = '❌ ' + e.message;
+  }
+}
+
+// ── 亮度/对比度 预览 ──
+let adjustBaseData = null;
+function previewAdjust() {
+  if (!originalImageData && !adjustBaseData) return;
+  if (!adjustBaseData) adjustBaseData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const b = parseInt(document.getElementById('brightness').value);
+  const c = parseInt(document.getElementById('contrast').value);
+  const alpha = 1.0 + c / 100.0;
+  const beta = parseFloat(b);
+  const src = adjustBaseData.data;
+  const dst = ctx.createImageData(adjustBaseData.width, adjustBaseData.height);
+  for (let i = 0; i < src.length; i += 4) {
+    dst[i] = Math.max(0, Math.min(255, src[i] * alpha + beta));
+    dst[i+1] = Math.max(0, Math.min(255, src[i+1] * alpha + beta));
+    dst[i+2] = Math.max(0, Math.min(255, src[i+2] * alpha + beta));
+    dst[i+3] = src[i+3];
+  }
+  ctx.putImageData(dst, 0, 0);
+}
+
+function applyAdjust() {
+  adjustBaseData = null;
+  pushHistory();
+  document.getElementById('brightness').value = 0;
+  document.getElementById('contrast').value = 0;
+  document.getElementById('brightVal').textContent = '0';
+  document.getElementById('contrastVal').textContent = '0';
+  document.getElementById('hintInfo').textContent = '✅ 亮度对比度已应用';
+}
+
+// ── 灰度 ──
+function doGray() {
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = data.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+    d[i] = d[i+1] = d[i+2] = g;
+  }
+  ctx.putImageData(data, 0, 0);
+  pushHistory();
+  document.getElementById('hintInfo').textContent = '✅ 灰度化完成';
+}
+
+// ── 模糊 ──
+function doBlur() {
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width;
+  tmp.height = canvas.height;
+  tmp.getContext('2d').drawImage(canvas, 0, 0);
+  ctx.filter = 'blur(5px)';
+  ctx.drawImage(tmp, 0, 0);
+  ctx.filter = 'none';
+  pushHistory();
+  document.getElementById('hintInfo').textContent = '✅ 模糊完成';
+}
+
+// ── 旋转 ──
+function doRotate() {
+  const angle = parseFloat(document.getElementById('rotateAngle').value) || 90;
+  const rad = -angle * Math.PI / 180;
+  const cos = Math.abs(Math.cos(rad));
+  const sin = Math.abs(Math.sin(rad));
+  const w = canvas.width, h = canvas.height;
+  const nw = Math.round(w * cos + h * sin);
+  const nh = Math.round(w * sin + h * cos);
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  tmp.getContext('2d').drawImage(canvas, 0, 0);
+  canvas.width = nw; canvas.height = nh;
+  maskCanvas.width = nw; maskCanvas.height = nh;
+  ctx.translate(nw/2, nh/2);
+  ctx.rotate(rad);
+  ctx.drawImage(tmp, -w/2, -h/2);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  pushHistory();
+  fitCanvas();
+  document.getElementById('hintInfo').textContent = `✅ 旋转${angle}°完成 (${nw}×${nh})`;
+}
+
+// ── 撤销/重做 ──
+function pushHistory() {
+  history = history.slice(0, historyIdx + 1);
+  history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  if (history.length > 20) history.shift();
+  else historyIdx++;
+}
+
+function undo() {
+  if (historyIdx <= 0) return;
+  historyIdx--;
+  ctx.putImageData(history[historyIdx], 0, 0);
+  document.getElementById('hintInfo').textContent = '↩️ 已撤销';
+}
+
+function redo() {
+  if (historyIdx >= history.length - 1) return;
+  historyIdx++;
+  ctx.putImageData(history[historyIdx], 0, 0);
+  document.getElementById('hintInfo').textContent = '↪️ 已重做';
+}
+
+// ── 下载 ──
+function downloadResult() {
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'edited_' + Date.now() + '.png';
+    a.click();
+  }, 'image/png');
+}
+
+// ── 适应窗口 ──
+function fitCanvas() {
+  const wrap = document.getElementById('canvasWrap');
+  const scale = Math.min(1, (wrap.clientWidth - 40) / canvas.width, (wrap.clientHeight - 40) / canvas.height);
+  canvas.style.width = (canvas.width * scale) + 'px';
+  canvas.style.height = (canvas.height * scale) + 'px';
+  maskCanvas.style.width = canvas.style.width;
+  maskCanvas.style.height = canvas.style.height;
+}
+
+// ── 键盘快捷键 ──
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); }
+    if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); }
+  }
+});
+
+// ── URL参数加载 ──
+(function() {
+  const params = new URLSearchParams(location.search);
+  imgPath = params.get('path');
+  if (!imgPath) return;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => setImage(img, imgPath.replace(/[\\/]/g,'/').split('/').pop());
+  img.onerror = () => { document.getElementById('hintInfo').textContent = '图片加载失败，请手动打开'; };
+  img.src = '/api/image?path=' + encodeURIComponent(imgPath);
+})();
+</script>
+</body>
+</html>
