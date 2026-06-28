@@ -224,17 +224,18 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         try:
             解析结果 = urlparse(self.path)
             路径 = unquote(解析结果.path)
+            查询串 = 解析结果.query or ""
 
             if 路径 == "/" or 路径 == "/index.html":
-                self._返回文件(self.界面目录 / "主页.html", "text/html")
+                self._返回文件(self.界面目录 / "主页.html", "text/html", 查询串)
             elif 路径.endswith(".css"):
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), "text/css")
+                self._返回文件(self.界面目录 / 路径.lstrip("/"), "text/css", 查询串)
             elif 路径.endswith(".js"):
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), "application/javascript")
+                self._返回文件(self.界面目录 / 路径.lstrip("/"), "application/javascript", 查询串)
             elif 路径.startswith("/api/"):
                 self._处理API_GET(路径, 解析结果)
             else:
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), self._猜测类型(路径))
+                self._返回文件(self.界面目录 / 路径.lstrip("/"), self._猜测类型(路径), 查询串)
         except Exception as e:
             if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
                 return  # 客户端已断开，无需处理
@@ -525,45 +526,6 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"操作": self.操作注册中心.获取操作JSON描述()})
             else:
                 self._返回JSON({"操作": []})
-        elif 路径 == "/api/drives":
-            """获取系统驱动器列表（此电脑视图）"""
-            import subprocess
-            try:
-                result = subprocess.run(
-                    ["powershell", "-Command",
-                     "Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID,DriveType,FreeSpace,Size | ConvertTo-Json"],
-                    capture_output=True, text=True, timeout=10
-                )
-                import json as _json
-                disks = _json.loads(result.stdout) if result.stdout.strip() else []
-                if not isinstance(disks, list):
-                    disks = [disks]
-                驱动器列表 = []
-                类型映射 = {0: "未知", 1: "无根目录", 2: "可移动磁盘", 3: "本地磁盘", 4: "网络磁盘", 5: "光驱", 6: "RAM磁盘"}
-                for d in disks:
-                    盘符 = d.get("DeviceID", "").rstrip(":\\")
-                    if not 盘符:
-                        continue
-                    类型 = 类型映射.get(d.get("DriveType", 0), "未知")
-                    可用空间 = ""
-                    if d.get("FreeSpace") is not None:
-                        可用GB = d["FreeSpace"] / (1024**3)
-                        可用空间 = f"{可用GB:.1f}GB" if 可用GB >= 1 else f"{可用GB*1024:.0f}MB"
-                    驱动器列表.append({"盘符": 盘符, "类型": 类型, "可用空间": 可用空间})
-                # 转换为统一格式（兼容两种前端调用）
-                统一列表 = []
-                for d in 驱动器列表:
-                    统一列表.append({
-                        "盘符": d["盘符"],
-                        "路径": f"{d['盘符']}:\\",
-                        "标签": d["盘符"],
-                        "图标": "💾",
-                        "类型": d.get("类型", ""),
-                        "可用空间": d.get("可用空间", "")
-                    })
-                self._返回JSON({"成功": True, "驱动器列表": 驱动器列表, "驱动器": 统一列表})
-            except Exception as e:
-                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/token-stats":
             """获取Token使用统计"""
             from 模型直连器 import 模型直连器类
@@ -706,9 +668,12 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             周期 = 参数.get("period", ["daily"])[0]
             增量 = 参数.get("incremental", ["1"])[0] != "0"
             含财务 = 参数.get("finance", ["1"])[0] != "0"
+            强制刷新 = 参数.get("refresh", ["0"])[0] == "1"
+            print(f"[股票下载] 启动请求: 周期={周期} 增量={增量} 财务={含财务} 刷新={强制刷新}")
             from 股票缓存 import 获取下载引擎
             引擎 = 获取下载引擎()
-            结果 = 引擎.启动下载(周期, 增量, 含财务)
+            结果 = 引擎.启动下载(周期, 增量, 含财务, 强制刷新列表=强制刷新)
+            print(f"[股票下载] 启动结果: {结果}")
             self._返回JSON(结果)
         elif 路径 == "/api/stock-bulk-progress":
             """查询全量下载进度"""
@@ -734,13 +699,14 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             数据 = 缓存.取财务数据(代码)
             self._返回JSON({"成功": True, "数据": 数据})
         elif 路径 == "/api/drives":
-            # 返回可用磁盘驱动器列表
+            # 返回可用磁盘驱动器列表 + 用户文件夹快捷方式
             驱动器列表 = []
-            # 添加常用快捷方式（桌面、我的文档）
             用户目录 = os.path.expanduser("~")
             快捷方式列表 = [
-                {"盘符": "桌面", "路径": os.path.join(用户目录, "Desktop"), "标签": "桌面", "图标": "🖥️"},
-                {"盘符": "我的文档", "路径": os.path.join(用户目录, "Documents"), "标签": "我的文档", "图标": "📄"},
+                {"盘符": "桌面", "路径": os.path.join(用户目录, "Desktop"), "标签": "桌面", "图标": "🖥️", "类型": "文件夹"},
+                {"盘符": "文档", "路径": os.path.join(用户目录, "Documents"), "标签": "文档", "图标": "📄", "类型": "文件夹"},
+                {"盘符": "下载", "路径": os.path.join(用户目录, "Downloads"), "标签": "下载", "图标": "📥", "类型": "文件夹"},
+                {"盘符": "图片", "路径": os.path.join(用户目录, "Pictures"), "标签": "图片", "图标": "🖼️", "类型": "文件夹"},
             ]
             for 快捷方式 in 快捷方式列表:
                 if os.path.exists(快捷方式["路径"]):
@@ -750,17 +716,24 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     驱动器路径 = f"{盘符}:\\"
                     if os.path.exists(驱动器路径):
                         try:
-                            使用 = shutil.disk_usage(驱动器路径) if hasattr(shutil, 'disk_usage') else None
+                            使用 = shutil.disk_usage(驱动器路径)
+                            总大小GB = round(使用.total / (1024**3), 1)
+                            已用GB = round(使用.used / (1024**3), 1)
+                            可用GB = round(使用.free / (1024**3), 1)
                             驱动器列表.append({
                                 "盘符": f"{盘符}:",
                                 "路径": 驱动器路径,
-                                "标签": 盘符,
-                                "图标": "💾"
+                                "标签": f"本地磁盘 {盘符}",
+                                "图标": "💾",
+                                "类型": "磁盘",
+                                "总大小GB": 总大小GB,
+                                "已用GB": 已用GB,
+                                "可用GB": 可用GB,
                             })
                         except:
-                            驱动器列表.append({"盘符": f"{盘符}:", "路径": 驱动器路径, "标签": 盘符, "图标": "💾"})
+                            驱动器列表.append({"盘符": f"{盘符}:", "路径": 驱动器路径, "标签": f"本地磁盘 {盘符}", "图标": "💾", "类型": "磁盘"})
             else:
-                驱动器列表.append({"盘符": "/", "路径": "/", "标签": "根目录", "图标": "💾"})
+                驱动器列表.append({"盘符": "/", "路径": "/", "标签": "根目录", "图标": "💾", "类型": "磁盘"})
             self._返回JSON({"驱动器": 驱动器列表})
         elif 路径 == "/api/folder-dialog":
             # Windows原生文件夹选择对话框
@@ -870,6 +843,12 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         elif 路径 == "/api/file-rename":
             结果 = self.文件管理器.重命名(数据.get("路径", ""), 数据.get("新名称", ""))
             self._返回JSON(结果)
+        elif 路径 == "/api/file-move":
+            结果 = self.文件管理器.移动(数据.get("源路径", ""), 数据.get("目标目录", ""))
+            self._返回JSON(结果)
+        elif 路径 == "/api/file-copy":
+            结果 = self.文件管理器.复制(数据.get("源路径", ""), 数据.get("目标目录", ""))
+            self._返回JSON(结果)
         elif 路径 == "/api/file-replace":
             结果 = self.文件管理器.替换文本(
                 数据.get("路径", ""),
@@ -877,6 +856,35 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 数据.get("新文本", "")
             )
             self._返回JSON(结果)
+        elif 路径 == "/api/save-image":
+            """保存图片文件（直接二进制body）"""
+            保存路径 = 数据.get("路径", "")
+            if not 保存路径:
+                self._返回JSON({"成功": False, "错误": "缺少路径"})
+                return
+            # 数据字段是 base64 编码的图片
+            图片数据 = 数据.get("数据", "")
+            if not 图片数据:
+                self._返回JSON({"成功": False, "错误": "缺少数据"})
+                return
+            # 去掉 data:image/png;base64, 前缀
+            if "," in 图片数据:
+                图片数据 = 图片数据.split(",", 1)[1]
+            try:
+                import base64
+                字节 = base64.b64decode(图片数据)
+                # 确保目录存在
+                import os
+                目录 = os.path.dirname(保存路径)
+                if 目录 and not os.path.exists(目录):
+                    os.makedirs(目录, exist_ok=True)
+                with open(保存路径, "wb") as f:
+                    f.write(字节)
+                print(f"  ✅ 图片已保存: {保存路径} ({len(字节)} 字节)")
+                self._返回JSON({"成功": True, "路径": 保存路径})
+            except Exception as e:
+                print(f"  ❌ 图片保存失败: {e}")
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/permission":
             self.文件管理器.用户确认权限(
                 数据.get("路径", ""),
@@ -935,6 +943,36 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     self._返回JSON({"成功": True, "消息": "密钥已保存（加密存储）"})
                 except Exception as e:
                     self._返回JSON({"错误": f"保存失败: {e}"})
+        elif 路径 == "/api/tool-keys":
+            """工具密钥管理（Tavily等非LLM工具的API Key）"""
+            if not self.模型直连器:
+                self._返回JSON({"错误": "模型直连器未初始化"})
+            elif not 数据:
+                # GET：返回工具密钥状态（掩码）
+                密钥列表 = self.模型直连器.密钥配置.get("密钥列表", {})
+                tavily配置 = 密钥列表.get("TAVILY", {})
+                tavily密钥 = tavily配置.get("API密钥", "") if isinstance(tavily配置, dict) else ""
+                掩码密钥 = (tavily密钥[:6] + "****" + tavily密钥[-4:]) if len(tavily密钥) > 12 else ("已配置" if tavily密钥 else "")
+                self._返回JSON({"成功": True, "工具列表": [
+                    {"名称": "Tavily", "描述": "AI搜索引擎，网络搜索+网页抓取", "密钥字段": "API密钥", "已配置": bool(tavily密钥), "掩码值": 掩码密钥}
+                ]})
+            else:
+                # POST：保存工具密钥
+                工具名 = 数据.get("工具", "")
+                密钥值 = 数据.get("密钥", "")
+                if 工具名 == "Tavily" and 密钥值:
+                    self.模型直连器.保存模型密钥("TAVILY", {"API密钥": 密钥值})
+                    密钥路径 = self.配置加载器.项目根目录 / "隐私区" / "我的配置" / "密钥.json"
+                    try:
+                        from 模型直连器 import 加密密钥配置
+                        加密后配置 = 加密密钥配置(self.模型直连器.密钥配置)
+                        with open(密钥路径, "w", encoding="utf-8") as f:
+                            json.dump(加密后配置, f, ensure_ascii=False, indent=2)
+                        self._返回JSON({"成功": True, "消息": "Tavily密钥已保存（加密存储）"})
+                    except Exception as e:
+                        self._返回JSON({"错误": f"保存失败: {e}"})
+                else:
+                    self._返回JSON({"错误": "不支持的工具或密钥为空"})
         elif 路径 == "/api/run-action":
             if self.操作注册中心:
                 操作名 = 数据.get("操作", "")
@@ -1599,13 +1637,17 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 ```""")
         return "\n".join(部分)
 
-    def _返回文件(self, 路径: Path, 类型: str):
+    def _返回文件(self, 路径: Path, 类型: str, 查询串: str = ""):
         try:
             if 路径.exists():
                 self.send_response(200)
                 self.send_header("Content-Type", f"{类型}; charset=utf-8")
                 self.send_header("Access-Control-Allow-Origin", "http://localhost:8765")
-                self.send_header("Cache-Control", "no-cache")
+                # 带版本号的静态资源(?v=xxx)长期缓存；动态内容(如逻辑.js)用no-cache
+                if "?v=" in 查询串 or "&v=" in 查询串:
+                    self.send_header("Cache-Control", "max-age=86400")  # 缓存1天
+                else:
+                    self.send_header("Cache-Control", "no-cache")
                 self.end_headers()
                 with open(路径, "rb") as f:
                     self.wfile.write(f.read())
