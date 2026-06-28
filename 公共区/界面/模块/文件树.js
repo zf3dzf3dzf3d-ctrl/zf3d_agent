@@ -495,33 +495,6 @@ function formatSize(bytes) {
     return (bytes / 1073741824).toFixed(1) + " GB";
 }
 
-// === 缩略图悬浮操作按钮 ===
-function setupGalleryItemActions(item, path, name, isDir) {
-    const thumb = item.querySelector(".gallery-thumb");
-    if (!thumb) return;
-    const bar = document.createElement("div");
-    bar.className = "gallery-item-actions";
-    const delBtn = document.createElement("button");
-    delBtn.className = "gallery-action-btn act-del";
-    delBtn.title = "删除";
-    delBtn.textContent = "🗑";
-    delBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); if (ps.length > 1) batchDeleteItems(ps); else deleteItem(path, name, isDir); });
-    const moveBtn = document.createElement("button");
-    moveBtn.className = "gallery-action-btn";
-    moveBtn.title = "移动到…";
-    moveBtn.textContent = "📦";
-    moveBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); showFolderPicker(`移动 ${ps.length} 项到目标文件夹`, t => performMoveOrCopy(ps, t, false)); });
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "gallery-action-btn";
-    copyBtn.title = "复制到…";
-    copyBtn.textContent = "📋";
-    copyBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); showFolderPicker(`复制 ${ps.length} 项到目标文件夹`, t => performMoveOrCopy(ps, t, true)); });
-    bar.appendChild(delBtn);
-    bar.appendChild(moveBtn);
-    bar.appendChild(copyBtn);
-    thumb.appendChild(bar);
-}
-
 // === 批量操作选中文件 ===
 function getSelectedPaths(itemPath) {
     if (itemPath && selectedItems.has(itemPath)) {
@@ -760,7 +733,6 @@ function renderGalleryGrid() {
             item.title = `进入文件夹: ${node.名称}`;
             item.innerHTML = `<div class="gallery-thumb">📁</div><div class="gallery-name">${node.名称}</div>`;
             item.addEventListener("click", () => { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); });
-            setupGalleryItemActions(item, fullPath, node.名称, true);
             setupDropTarget(item, fullPath);
             setupItemDraggable(item);
             grid.appendChild(item);
@@ -821,7 +793,6 @@ function renderGalleryGrid() {
                     item.title = "此文件格式不支持打开";
                 }
             }
-            setupGalleryItemActions(item, fullPath, node.名称, false);
             setupItemDraggable(item);
             grid.appendChild(item);
         }
