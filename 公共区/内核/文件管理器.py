@@ -420,19 +420,31 @@ class 文件管理器类:
         目标项 = 目标 / 目标名
         if 目标项.exists():
             # 复制到同目录时自动生成副本名
-            if 新名称 is None and 目标.resolve() == 源.parent.resolve():
-                基名 = 源.stem
-                后缀 = 源.suffix
-                i = 1
-                while True:
-                    候选名 = f"{基名} - 副本{('(' + str(i) + ')') if i > 1 else ''}{后缀}"
-                    候选项 = 目标 / 候选名
-                    if not 候选项.exists():
-                        目标项 = 候选项
-                        break
-                    i += 1
-                    if i > 999:
-                        return {"成功": False, "错误": "副本数量过多"}
+            if 新名称 is None:
+                # 判断目标目录是否就是源所在目录
+                同目录 = False
+                try:
+                    同目录 = os.path.samefile(str(目标), str(源.parent))
+                except OSError:
+                    try:
+                        同目录 = 目标.resolve() == 源.parent.resolve()
+                    except (OSError, RuntimeError):
+                        同目录 = os.path.normpath(str(目标)).lower() == os.path.normpath(str(源.parent)).lower()
+                if 同目录:
+                    基名 = 源.stem
+                    后缀 = 源.suffix
+                    i = 1
+                    while True:
+                        候选名 = f"{基名} - 副本{('(' + str(i) + ')') if i > 1 else ''}{后缀}"
+                        候选项 = 目标 / 候选名
+                        if not 候选项.exists():
+                            目标项 = 候选项
+                            break
+                        i += 1
+                        if i > 999:
+                            return {"成功": False, "错误": "副本数量过多"}
+                else:
+                    return {"成功": False, "错误": f"目标已存在同名文件: {目标名}"}
             else:
                 return {"成功": False, "错误": f"目标已存在同名文件: {目标名}"}
         try:
