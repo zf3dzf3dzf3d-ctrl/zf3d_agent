@@ -66,8 +66,21 @@ class 操作基类:
     取消检查 = None  # 由操作注册中心注入，签名: 检查() -> bool，返回True表示用户已取消
     当前工作目录 = None  # 由操作注册中心注入（前端打开的文件夹）
 
-    def 执行(self, 参数: dict) -> 操作结果:
-        """执行操作，子类必须实现"""
+    def 执行(self, 参数: dict, 上下文: dict = None) -> 操作结果:
+        """执行操作，子类必须实现
+
+        参数:
+            参数: 操作参数字典
+            上下文: 可选的执行上下文，包含:
+                - sessionID: 当前对话ID
+                - 消息ID: 当前消息ID
+                - agent: 当前Agent名
+                - 取消信号: threading.Event，is_set()=True表示用户已取消
+                - 步数: 当前ReAct步数
+                - 模型直连器: 当前模型直连器实例
+                - 操作注册中心: 操作注册中心实例
+        子类可读取上下文来感知调用环境，不传时为None（兼容旧代码）
+        """
         raise NotImplementedError(f"操作 [{self.名称}] 未实现执行方法")
 
     def 验证参数(self, 参数: dict) -> str:

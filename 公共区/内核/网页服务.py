@@ -847,7 +847,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             结果 = self.文件管理器.移动(数据.get("源路径", ""), 数据.get("目标目录", ""))
             self._返回JSON(结果)
         elif 路径 == "/api/file-copy":
-            结果 = self.文件管理器.复制(数据.get("源路径", ""), 数据.get("目标目录", ""))
+            结果 = self.文件管理器.复制(数据.get("源路径", ""), 数据.get("目标目录", ""), 数据.get("新名称", None))
             self._返回JSON(结果)
         elif 路径 == "/api/file-replace":
             结果 = self.文件管理器.替换文本(

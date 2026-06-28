@@ -128,6 +128,9 @@ class 模型直连器类:
         self.缓存启用 = 缓存配置.get("启用", True)
         self.缓存最大条目 = 缓存配置.get("最大条目", 200)
         self.缓存TTL秒 = 缓存配置.get("TTL秒", 300)
+        # 同步到类属性供classmethod使用
+        模型直连器类._缓存TTL秒 = self.缓存TTL秒
+        模型直连器类._缓存最大条目 = self.缓存最大条目
         self.规则 = 配置.get("规则", {})
         self.超时秒数 = self.规则.get("超时秒数", 30)
 
@@ -140,6 +143,7 @@ class 模型直连器类:
         self.请求模板 = self.配置.get("请求模板", {})
         self.响应路径 = self.配置.get("响应路径", "$.choices[0].message.content")
         self.环境变量 = self.配置.get("环境变量", {})
+        self.上下文窗口 = self.配置.get("上下文窗口", 32768)  # 默认32K
         # 从模型配置列表中覆盖
         已匹配 = False
         for m in self.模型配置列表:
@@ -150,6 +154,7 @@ class 模型直连器类:
                 self.请求模板 = m.get("请求模板", self.请求模板)
                 self.响应路径 = m.get("响应路径", self.响应路径)
                 self.环境变量 = m.get("环境变量", self.环境变量)
+                self.上下文窗口 = m.get("上下文窗口", self.上下文窗口)
                 self.当前模型名 = 模型名
                 已匹配 = True
                 break
@@ -163,6 +168,7 @@ class 模型直连器类:
                     self.请求模板 = m.get("请求模板", self.请求模板)
                     self.响应路径 = m.get("响应路径", self.响应路径)
                     self.环境变量 = m.get("环境变量", self.环境变量)
+                    self.上下文窗口 = m.get("上下文窗口", self.上下文窗口)
                     self.当前模型名 = m.get("名称", "")
                     break
 
@@ -267,11 +273,14 @@ class 模型直连器类:
         ], sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(素材.encode("utf-8")).hexdigest()
 
-    def 发送消息流式(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None, 流式回调=None) -> dict:
+    def 发送消息流式(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None, 流式回调=None, 工具调用就绪回调=None) -> dict:
         """流式发送消息到大模型，逐token回调，返回完整响应
 
         参数同 发送消息()，额外:
             流式回调: function(内容片段: str) — 每收到一个token回调一次
+            工具调用就绪回调: function(工具调用: dict) — 流式中检测到完整工具调用时回调
+                工具调用格式: {"id": str, "名称": str, "参数": dict}
+                回调后工具会立即执行，不等流结束
         """
         if not self.接口地址:
             return {"错误": "未配置模型接口地址"}
@@ -303,6 +312,23 @@ class 模型直连器类:
             累积内容 = []
             工具调用列表 = []
             原始块列表 = []
+            已见索引 = set()
+            已回调索引 = set()
+
+            def _触发就绪回调(idx, finish_reason=""):
+                """当检测到某个工具调用完整时触发回调"""
+                if idx in 已回调索引:
+                    return
+                if idx >= len(工具调用列表) or not 工具调用列表[idx]["名称"]:
+                    return
+                已回调索引.add(idx)
+                参数 = self._解析工具参数(工具调用列表[idx]["参数"], finish_reason)
+                if 工具调用就绪回调:
+                    工具调用就绪回调({
+                        "id": 工具调用列表[idx]["id"],
+                        "名称": 工具调用列表[idx]["名称"],
+                        "参数": 参数
+                    })
 
             for 行 in 响应:
                 行 = 行.decode("utf-8", errors="replace").strip()
@@ -327,6 +353,11 @@ class 模型直连器类:
                         tool_calls = delta.get("tool_calls", [])
                         for tc in tool_calls:
                             idx = tc.get("index", 0)
+                            # 新index出现 → 之前的index已完成
+                            if idx not in 已见索引 and 已见索引:
+                                for prev_idx in sorted(已见索引):
+                                    _触发就绪回调(prev_idx)
+                            已见索引.add(idx)
                             while len(工具调用列表) <= idx:
                                 工具调用列表.append({"id": "", "名称": "", "参数": ""})
                             if tc.get("id"):
@@ -339,18 +370,22 @@ class 模型直连器类:
                 except json.JSONDecodeError:
                     continue
 
-            耗时毫秒 = int((time.time() - 开始时间) * 1000)
-            回复内容 = "".join(累积内容)
-
-            # 解析工具调用参数
-            工具调用结果 = []
-            # 流式模式下finish_reason在最后一个非空chunk中
+            # 流结束 → 触发所有剩余未回调的工具调用
             流式finish_reason = ""
             for 块 in reversed(原始块列表):
                 ch = 块.get("choices", [{}])
                 if ch and ch[0].get("finish_reason"):
                     流式finish_reason = ch[0]["finish_reason"]
                     break
+            if 工具调用就绪回调:
+                for idx in range(len(工具调用列表)):
+                    _触发就绪回调(idx, 流式finish_reason)
+
+            耗时毫秒 = int((time.time() - 开始时间) * 1000)
+            回复内容 = "".join(累积内容)
+
+            # 解析工具调用参数
+            工具调用结果 = []
             for tc in 工具调用列表:
                 if tc["名称"]:
                     参数 = self._解析工具参数(tc["参数"], 流式finish_reason)
@@ -710,9 +745,8 @@ class 模型直连器类:
             else:
                 参数 = {"__空参数错误__": True}
             return 参数
-        # JSON解析成功但为空dict — DeepSeek有时返回"{}"（参数被丢弃）
-        if not 参数:
-            参数 = {"__空参数错误__": True}
+        # 空参数字符串或"{}" → 返回空dict（合法的无参操作）
+        # 不再改写为错误标记，由推理引擎按操作是否有必填参数判断
         return 参数
 
     def _提取工具调用(self, 响应JSON: dict) -> list:

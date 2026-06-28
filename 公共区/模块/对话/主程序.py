@@ -198,9 +198,11 @@ class 对话模块:
 
         # 2. 闲聊直接回复（不进ReAct循环，省token+加速）
         if 意图["类型"] == "闲聊" and not self.当前计划:
-            闲聊结果 = self._直接回复(用户消息)
-            if 闲聊结果 is not None:
-                return 闲聊结果
+            # 确认回复（如"可以""好的"）不走闲聊路径，走ReAct以保持上下文和工具能力
+            if not self._是确认回复(用户消息):
+                闲聊结果 = self._直接回复(用户消息)
+                if 闲聊结果 is not None:
+                    return 闲聊结果
             # _直接回复返回None=AI输出了操作调用，回退到ReAct
             意图 = {"类型": "单步任务", "批量数": 0, "操作类型": None, "闲聊置信度": 0.0}
 
@@ -236,6 +238,24 @@ class 对话模块:
             配置=配置
         )
 
+    def _是确认回复(self, 用户消息: str) -> bool:
+        """检测用户消息是否是对上一轮助手提问的确认回复（如"可以""好的"）"""
+        确认词 = ['可以', '好的', '行', '嗯', '对', '是', '没问题', '好', '确认', '同意', '没错']
+        纯文本 = text_only(用户消息).strip()
+        if len(纯文本) > 10:
+            return False
+        if not any(纯文本 == 词 or 纯文本.startswith(词) for 词 in 确认词):
+            return False
+        # 检查上一轮助手消息是否在请求确认
+        for 消息 in reversed(self.对话历史[:-1]):
+            if 消息.get("角色") == "助手":
+                内容 = 消息.get("内容", "")
+                确认标志 = ['？', '?', '吗', '要不要', '是否', '可以吗', '好不好', '行不行']
+                return any(标志 in 内容 for 标志 in 确认标志)
+            if 消息.get("角色") == "用户":
+                break
+        return False
+
     def _直接回复(self, 用户消息: str) -> dict:
         """闲聊直接回复（单次LLM调用，不进ReAct循环）"""
         系统提示词 = self.提示词构建器.构建(
@@ -246,7 +266,13 @@ class 对话模块:
             配置={**self.配置, "当前消息": 用户消息, "新对话标志": self._新对话标志},
             fc已降级=True  # 闲聊不需要工具
         )
-        消息列表 = [{"role": "user", "content": 用户消息}]
+        # 构建带历史的消息列表（闲聊也需要上下文，否则短回复如"可以"会丢失语境）
+        消息列表 = []
+        for 消息 in self.对话历史[-self.最大历史数:]:
+            if 消息.get("角色") == "系统":
+                continue
+            角色 = "user" if 消息.get("角色") == "用户" else "assistant"
+            消息列表.append({"role": 角色, "content": 消息.get("内容", "")})
 
         # 流式回调：闲聊也支持流式输出
         def _流式回调(片段):
@@ -306,7 +332,13 @@ class 对话模块:
             配置={**self.配置, "当前消息": 用户消息, "新对话标志": self._新对话标志},
             fc已降级=True
         )
-        消息列表 = [{"role": "user", "content": 用户消息}]
+        # 构建带历史的消息列表
+        消息列表 = []
+        for 消息 in self.对话历史[-self.最大历史数:]:
+            if 消息.get("角色") == "系统":
+                continue
+            角色 = "user" if 消息.get("角色") == "用户" else "assistant"
+            消息列表.append({"role": 角色, "content": 消息.get("内容", "")})
 
         # 流式回调：规划模式也支持流式输出
         def _流式回调2(片段):
@@ -510,7 +542,7 @@ class 对话模块:
             self.对话历史.clear()
 
     def 设置工作模式(self, 模式: str):
-        if 模式 in ("商量", "执行", "无人值守", "规划"):
+        if 模式 in ("商量", "执行", "无人值守", "规划", "只读"):
             self.工作模式 = 模式
             return True
         return False

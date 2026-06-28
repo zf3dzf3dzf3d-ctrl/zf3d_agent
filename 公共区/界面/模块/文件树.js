@@ -236,9 +236,13 @@ function buildTreeNode(node, path) {
         const hasKids = (node.子项?.length > 0) || node.截断;
         const fullPath = joinPath(path, node.名称);
         const truncated = !!node.截断;
+        item.dataset.path = fullPath;
+        item.dataset.name = node.名称;
+        item.dataset.type = "目录";
         item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${node.名称}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
         el.appendChild(item);
         setupDropTarget(item, fullPath);
+        setupItemDraggable(item);
         const kids = document.createElement("div");
         kids.className = "tc";
         if (node.子项) for (const c of node.子项) kids.appendChild(buildTreeNode(c, fullPath));
@@ -280,6 +284,9 @@ function buildTreeNode(node, path) {
         const item = document.createElement("div");
         const fullPath = joinPath(path, node.名称);
         item.className = "ti";
+        item.dataset.path = fullPath;
+        item.dataset.name = node.名称;
+        item.dataset.type = "文件";
         item.innerHTML = `<span class="arr"> </span><span class="ico">${fileIcon(node.后缀 || "")}</span><span class="nm">${node.名称}</span><button class="del-btn" title="删除此文件">🗑️</button>`;
         item.addEventListener("click", e => {
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, false); return; }
@@ -294,6 +301,7 @@ function buildTreeNode(node, path) {
             hideMediaView();
             openFileInEditor(path, node.名称);
         });
+        setupItemDraggable(item);
         el.appendChild(item);
     }
     return el;
@@ -378,6 +386,7 @@ function hideMediaView() {
 async function showGallery(folderPath) {
     if (selectedItems.size > 0) clearFileSelection();
     galleryPath = folderPath;
+    setupGalleryBackgroundDrop(folderPath);
     galleryPageNum = 0;
     const ep = document.getElementById("editorPanel");
     const eb = document.getElementById("toggleEditor");
@@ -496,43 +505,136 @@ function setupGalleryItemActions(item, path, name, isDir) {
     delBtn.className = "gallery-action-btn act-del";
     delBtn.title = "删除";
     delBtn.textContent = "🗑";
-    delBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); deleteItem(path, name, isDir); });
+    delBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); if (ps.length > 1) batchDeleteItems(ps); else deleteItem(path, name, isDir); });
     const moveBtn = document.createElement("button");
     moveBtn.className = "gallery-action-btn";
     moveBtn.title = "移动到…";
     moveBtn.textContent = "📦";
-    moveBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); moveItemTo(path, name); });
+    moveBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); showFolderPicker(`移动 ${ps.length} 项到目标文件夹`, t => performMoveOrCopy(ps, t, false)); });
     const copyBtn = document.createElement("button");
     copyBtn.className = "gallery-action-btn";
     copyBtn.title = "复制到…";
     copyBtn.textContent = "📋";
-    copyBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); copyItemTo(path, name); });
+    copyBtn.addEventListener("click", e => { e.stopPropagation(); e.preventDefault(); const ps = getSelectedPaths(path); showFolderPicker(`复制 ${ps.length} 项到目标文件夹`, t => performMoveOrCopy(ps, t, true)); });
     bar.appendChild(delBtn);
     bar.appendChild(moveBtn);
     bar.appendChild(copyBtn);
     thumb.appendChild(bar);
 }
 
-async function moveItemTo(path, name) {
-    const target = prompt(`移动「${name}」到目标文件夹：`, "");
-    if (!target) return;
-    try {
-        const res = await fetch("/api/file-move", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 源路径: path, 目标目录: target }) });
-        const d = await res.json();
-        if (d.成功) { showToast("success", "✅ 移动成功", `${name} → ${target}`); refreshTree(); if (galleryPath) showGallery(galleryPath); }
-        else { showToast("error", "❌ 移动失败", d.错误 || "未知错误"); }
-    } catch (e) { showToast("error", "❌ 移动失败", e.message); }
+// === 批量操作选中文件 ===
+function getSelectedPaths(itemPath) {
+    if (itemPath && selectedItems.has(itemPath)) {
+        return [...selectedItems.values()].map(s => s.路径);
+    }
+    return itemPath ? [itemPath] : [...selectedItems.values()].map(s => s.路径);
 }
 
-async function copyItemTo(path, name) {
-    const target = prompt(`复制「${name}」到目标文件夹：`, "");
-    if (!target) return;
+async function batchDeleteItems(paths) {
+    if (!confirm(`确定要删除选中的 ${paths.length} 项吗？\n此操作不可撤销！`)) return;
+    let ok = 0, fail = 0;
+    for (const p of paths) {
+        try {
+            const res = await fetch("/api/file-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: p }) });
+            const d = await res.json();
+            if (d.成功) {
+                ok++;
+                const idx = openFiles.findIndex(f => f.path === p);
+                if (idx >= 0) closeTab(idx);
+            } else fail++;
+        } catch (e) { fail++; }
+    }
+    if (fail === 0) showToast("success", "✅ 删除完成", `已删除 ${ok} 项`);
+    else showToast("error", "⚠️ 删除完成(部分失败)", `成功${ok} 失败${fail}`);
+    clearFileSelection();
+    refreshTree();
+    if (galleryPath) showGallery(galleryPath);
+}
+
+function batchDeleteSelected() {
+    if (selectedItems.size === 0) return;
+    const paths = [...selectedItems.values()].map(s => s.路径);
+    batchDeleteItems(paths);
+}
+
+function batchMoveSelected() {
+    if (selectedItems.size === 0) return;
+    const paths = [...selectedItems.values()].map(s => s.路径);
+    showFolderPicker(`移动 ${paths.length} 项到目标文件夹`, t => performMoveOrCopy(paths, t, false));
+}
+
+function batchCopySelected() {
+    if (selectedItems.size === 0) return;
+    const paths = [...selectedItems.values()].map(s => s.路径);
+    showFolderPicker(`复制 ${paths.length} 项到目标文件夹`, t => performMoveOrCopy(paths, t, true));
+}
+
+// === 文件夹选择弹窗（复制/移动目标）===
+let folderPickerCallback = null;
+
+async function showFolderPicker(title, callback) {
+    folderPickerCallback = callback;
+    document.getElementById("folderPickerTitle").textContent = title;
+    document.getElementById("folderPickerOverlay").style.display = "flex";
+    const pathInput = document.getElementById("folderPickerPath");
+    pathInput.value = galleryPath || "";
+    pathInput.focus();
+    const list = document.getElementById("folderPickerQuickList");
+    list.innerHTML = "";
+    // 智能体根目录快捷按钮
+    const agentBtn = document.createElement("button");
+    agentBtn.className = "drive-btn";
+    agentBtn.style.background = "var(--accent-soft)";
+    agentBtn.textContent = "🏠 智能体根目录";
+    agentBtn.title = "智能体项目根目录";
+    agentBtn.addEventListener("click", () => { pathInput.value = "."; });
+    list.appendChild(agentBtn);
+    // 当前文件夹快捷按钮
+    if (galleryPath) {
+        const curBtn = document.createElement("button");
+        curBtn.className = "drive-btn";
+        curBtn.style.background = "var(--accent-soft)";
+        curBtn.textContent = "📂 当前文件夹";
+        curBtn.title = galleryPath;
+        curBtn.addEventListener("click", () => { pathInput.value = galleryPath; });
+        list.appendChild(curBtn);
+    }
     try {
-        const res = await fetch("/api/file-copy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 源路径: path, 目标目录: target }) });
+        const res = await fetch("/api/drives");
         const d = await res.json();
-        if (d.成功) { showToast("success", "✅ 复制成功", `${name} → ${target}`); refreshTree(); if (galleryPath) showGallery(galleryPath); }
-        else { showToast("error", "❌ 复制失败", d.错误 || "未知错误"); }
-    } catch (e) { showToast("error", "❌ 复制失败", e.message); }
+        for (const drv of (d.驱动器 || [])) {
+            const btn = document.createElement("button");
+            btn.className = "drive-btn";
+            const icon = drv.图标 || "💾";
+            const label = drv.标签 || drv.盘符;
+            let text = `${icon} ${label}`;
+            if (drv.类型 === "磁盘" && drv.总大小GB) {
+                text += ` (${drv.可用GB}GB可用/${drv.总大小GB}GB)`;
+            }
+            btn.textContent = text;
+            btn.title = `选择 ${drv.路径}`;
+            btn.addEventListener("click", () => { pathInput.value = drv.路径; });
+            list.appendChild(btn);
+        }
+    } catch (e) {}
+}
+
+async function browseFolderPicker() {
+    try {
+        showToast("info", "📂 打开文件夹选择器", "请在弹出的对话框中选择文件夹...");
+        const res = await fetch("/api/folder-dialog", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const d = await res.json();
+        if (d.路径) document.getElementById("folderPickerPath").value = d.路径;
+        else showToast("info", "ℹ️ 已取消", "未选择文件夹");
+    } catch (e) { showToast("error", "❌ 无法打开对话框", e.message); }
+}
+
+function confirmFolderPicker() {
+    const path = document.getElementById("folderPickerPath").value.trim();
+    if (!path) return;
+    document.getElementById("folderPickerOverlay").style.display = "none";
+    if (folderPickerCallback) folderPickerCallback(path);
+    folderPickerCallback = null;
 }
 
 // === HTML5 拖拽移动/复制 ===
@@ -612,6 +714,32 @@ async function performMoveOrCopy(paths, targetDir, isCopy) {
     else showToast("error", `⚠️ ${op}完成(部分失败)`, `成功${ok} 失败${fail}`);
     refreshTree();
     if (galleryPath) showGallery(galleryPath);
+}
+
+// === 画廊背景拖拽（拖到当前文件夹=复制/移动到本文件夹）===
+function setupGalleryBackgroundDrop(folderPath) {
+    const mv = document.getElementById("mediaView");
+    if (!mv) return;
+    mv._galleryDropPath = folderPath;
+    if (mv._galleryDropWired) return;
+    mv._galleryDropWired = true;
+    mv.addEventListener("dragover", e => {
+        if (e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = e.shiftKey ? "copy" : "move";
+        showDragHint(e.shiftKey ? "📋 Shift拖拽=复制到当前文件夹" : "📦 拖拽=移动到当前文件夹");
+    });
+    mv.addEventListener("drop", e => {
+        if (e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row")) return;
+        e.preventDefault();
+        hideDragHint();
+        try {
+            const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+            const isCopy = data.shift || e.shiftKey;
+            const paths = data.paths || [];
+            performMoveOrCopy(paths, mv._galleryDropPath, isCopy);
+        } catch (err) { /* ignore */ }
+    });
 }
 
 function renderGalleryGrid() {

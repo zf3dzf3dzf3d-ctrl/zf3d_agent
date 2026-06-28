@@ -7,7 +7,7 @@
     <title>朱峰社区智能体 v2.1.1</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260629d">
+    <link rel="stylesheet" href="样式.css?v=20260629e">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -91,6 +91,9 @@
                     </div>
                     <div class="gallery-selection-bar">
                         <button class="bar-btn" id="toggleSelectAllBtn" onclick="toggleSelectAll()" title="全选/取消选择 (Ctrl+A / Ctrl+D)">☑️ 全选</button>
+                        <button class="bar-btn" id="batchDeleteBtn" onclick="batchDeleteSelected()" title="删除选中项" style="display:none;">🗑️</button>
+                        <button class="bar-btn" id="batchMoveBtn" onclick="batchMoveSelected()" title="移动选中项" style="display:none;">📦</button>
+                        <button class="bar-btn" id="batchCopyBtn" onclick="batchCopySelected()" title="复制选中项" style="display:none;">📋</button>
                     </div>
                     <div class="gallery-view-toggle">
                         <button class="bar-btn" id="viewBtnGrid" onclick="toggleGalleryView('grid')" title="缩略图视图">📋</button>
@@ -379,12 +382,12 @@
     <script src="模块/多对话管理.js?v=20260627d"></script>
     <script src="模块/模型配置.js?v=20260627d"></script>
     <script src="模块/设置面板.js?v=20260627d"></script>
-    <script src="模块/文件树.js?v=20260629f"></script>
+    <script src="模块/文件树.js?v=20260629h"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
-    <script src="模块/图片查看器.js?v=20260627e"></script>
+    <script src="模块/图片查看器.js?v=20260629a"></script>
     <script src="模块/多标签编辑器.js?v=20260627e"></script>
-    <script src="模块/文件框选.js?v=20260629e"></script>
+    <script src="模块/文件框选.js?v=20260629g"></script>
     <script src="模块/权限轮询.js?v=20260627e"></script>
     <script src="模块/股票模式.js?v=20260627e"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
@@ -417,6 +420,22 @@
             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
                 <button class="dlg-btn" onclick="closeNewFile()" title="取消新建文件">取消</button>
                 <button class="dlg-btn primary" onclick="doNewFile()" title="创建新文件">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 复制/移动目标文件夹选择弹窗 -->
+    <div class="overlay" id="folderPickerOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:520px;">
+            <h3 id="folderPickerTitle">📁 选择目标文件夹</h3>
+            <div id="folderPickerQuickList" class="drive-list"></div>
+            <div style="margin:10px 0;">
+                <input type="text" id="folderPickerPath" class="dialog-input" placeholder="输入或选择目标文件夹路径..." style="width:100%;" onkeydown="if(event.key==='Enter')confirmFolderPicker()" />
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="dlg-btn" onclick="browseFolderPicker()" title="打开系统文件夹选择器">📂 浏览...</button>
+                <button class="dlg-btn" onclick="document.getElementById('folderPickerOverlay').style.display='none'">取消</button>
+                <button class="dlg-btn primary" onclick="confirmFolderPicker()">确定</button>
             </div>
         </div>
     </div>
