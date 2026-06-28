@@ -955,8 +955,20 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 # 二值化遮罩
                 _, mask = cv2.threshold(mask, 128, 255, cv2.THRESH_BINARY)
 
+                # 膨胀遮罩边缘，扩大修复区域3px，减少接缝
+                kernel = np.ones((3, 3), np.uint8)
+                mask = cv2.dilate(mask, kernel, iterations=1)
+
                 alg = cv2.INPAINT_NS if algorithm == "NS" else cv2.INPAINT_TELEA
                 result = cv2.inpaint(img, mask, radius, alg)
+
+                # 对修复区域边缘做羽化混合，消除接缝色差
+                feather_mask = cv2.GaussianBlur(mask.astype(np.float32), (21, 21), 0)
+                feather_mask = np.clip(feather_mask / 255.0, 0, 1)
+                feather_3ch = cv2.merge([feather_mask, feather_mask, feather_mask])
+                blended = (img.astype(np.float32) * (1 - feather_3ch) +
+                          result.astype(np.float32) * feather_3ch)
+                result = blended.astype(np.uint8)
 
                 # 编码返回
                 _, buf = cv2.imencode(".png", result)
