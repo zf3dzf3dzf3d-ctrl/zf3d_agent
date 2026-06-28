@@ -377,6 +377,59 @@ class 文件管理器类:
             self._记录审计("重命名", 旧路径, f"失败: {str(e)}")
             return {"成功": False, "错误": str(e)}
 
+    def 移动(self, 源路径: str, 目标目录: str, AI调用: bool = False) -> dict:
+        """移动文件/文件夹到目标目录"""
+        读校验 = self._校验权限(源路径, "读", AI调用)
+        if not 读校验["允许"]:
+            return {"成功": False, "错误": 读校验["原因"]}
+        写校验 = self._校验权限(目标目录, "写", AI调用)
+        if not 写校验["允许"]:
+            return {"成功": False, "错误": 写校验["原因"]}
+        源 = self._解析路径(源路径)
+        目标 = self._解析路径(目标目录)
+        if not 源.exists():
+            return {"成功": False, "错误": "源文件不存在"}
+        if not 目标.is_dir():
+            return {"成功": False, "错误": "目标路径不是目录"}
+        目标项 = 目标 / 源.name
+        if 目标项.exists():
+            return {"成功": False, "错误": f"目标已存在同名文件: {源.name}"}
+        try:
+            shutil.move(str(源), str(目标项))
+            self._记录审计("移动", 源路径, f"→ {目标目录}")
+            return {"成功": True}
+        except Exception as e:
+            self._记录审计("移动", 源路径, f"失败: {str(e)}")
+            return {"成功": False, "错误": str(e)}
+
+    def 复制(self, 源路径: str, 目标目录: str, AI调用: bool = False) -> dict:
+        """复制文件/文件夹到目标目录"""
+        读校验 = self._校验权限(源路径, "读", AI调用)
+        if not 读校验["允许"]:
+            return {"成功": False, "错误": 读校验["原因"]}
+        写校验 = self._校验权限(目标目录, "写", AI调用)
+        if not 写校验["允许"]:
+            return {"成功": False, "错误": 写校验["原因"]}
+        源 = self._解析路径(源路径)
+        目标 = self._解析路径(目标目录)
+        if not 源.exists():
+            return {"成功": False, "错误": "源文件不存在"}
+        if not 目标.is_dir():
+            return {"成功": False, "错误": "目标路径不是目录"}
+        目标项 = 目标 / 源.name
+        if 目标项.exists():
+            return {"成功": False, "错误": f"目标已存在同名文件: {源.name}"}
+        try:
+            if 源.is_dir():
+                shutil.copytree(str(源), str(目标项))
+            else:
+                shutil.copy2(str(源), str(目标项))
+            self._记录审计("复制", 源路径, f"→ {目标目录}")
+            return {"成功": True}
+        except Exception as e:
+            self._记录审计("复制", 源路径, f"失败: {str(e)}")
+            return {"成功": False, "错误": str(e)}
+
     def 删除(self, 路径: str, AI调用: bool = False) -> dict:
         校验 = self._校验权限(路径, "删除", AI调用)
         if not 校验["允许"]:

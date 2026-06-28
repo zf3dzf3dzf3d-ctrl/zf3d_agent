@@ -119,6 +119,14 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px; }
 .gallery-item { background:var(--bg2); border:1px solid var(--border); border-radius:6px; overflow:hidden; cursor:pointer; transition:border-color 0.15s; }
 .gallery-item:hover { border-color:var(--blue); }
+.gallery-item-actions { position:absolute; top:4px; right:4px; display:none; gap:2px; z-index:10; }
+.gallery-item:hover .gallery-item-actions { display:flex; }
+.gallery-action-btn { width:22px; height:22px; border-radius:50%; border:none; background:rgba(0,0,0,0.55); color:#fff; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center; padding:0; }
+.gallery-action-btn:hover { background:var(--blue); }
+.gallery-action-btn.act-del:hover { background:var(--red); }
+.gallery-item.drag-over { border-color:var(--green); box-shadow:0 0 0 2px var(--green); }
+.ti.drag-over { background:rgba(0,200,83,0.15); box-shadow:inset 0 0 0 2px var(--green); }
+.gallery-drag-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:6px 14px; font-size:12px; color:var(--text); z-index:9999; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
 .gallery-thumb { width:100%; height:100px; object-fit:cover; display:flex; align-items:center; justify-content:center; font-size:40px; background:var(--bg4); position:relative; overflow:hidden; }
 .gallery-thumb img { width:100%; height:100%; object-fit:cover; }
 .gallery-thumb video { width:100%; height:100%; object-fit:cover; background:#000; }
@@ -130,7 +138,14 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .gallery-item-locked:hover { border-color:var(--border); }
 .gallery-name { padding:4px 6px; font-size:12px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .gallery-empty { color:var(--text2); font-size:13px; padding:40px 0; text-align:center; }
+.gallery-load-more { grid-column:1/-1; padding:12px; text-align:center; color:var(--blue); cursor:pointer; font-size:13px; border:1px dashed var(--border); border-radius:6px; margin:4px 0; }
+.gallery-load-more:hover { background:var(--hover); }
 .gallery-view-toggle { margin-left:auto; display:flex; gap:2px; }
+/* 我的电脑分组标题 */
+.tree-group-header { padding:6px 8px 2px; font-size:10px; color:var(--text3); font-weight:bold; user-select:none; margin-top:4px; }
+.tree-group-header:first-child { margin-top:0; }
+.ti-space { font-size:10px; color:var(--text3); flex-shrink:0; margin-left:auto; white-space:nowrap; padding-left:4px; }
+.gallery-group-header { grid-column:1/-1; padding:8px 6px 4px; font-size:12px; color:var(--text3); font-weight:bold; }
 .gallery-view-toggle .bar-btn.active { background:var(--active); color:var(--blue); }
 .gallery-sort-bar { display:flex; gap:2px; align-items:center; margin-left:auto; }
 .gallery-sort-bar .bar-btn { font-size:11px; padding:2px 8px; }
@@ -237,6 +252,14 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .msg-body .folder-link { display:inline-flex; align-items:center; gap:2px; background:var(--active); border:1px solid var(--blue); border-radius:4px; padding:1px 6px; cursor:pointer; text-decoration:none; font-family:Consolas,monospace; font-size:12px; color:var(--blue); transition:all 0.15s; white-space:nowrap; }
 .msg-body .folder-link:hover { background:var(--blue); color:#fff; }
 .msg-body blockquote { border-left:3px solid var(--blue); padding:2px 8px; margin:4px 0; color:var(--text2); }
+
+/* === 消息彩色callout样式（柔和色调） === */
+.msg-body .msg-callout { border-radius:4px; padding:4px 10px; margin:4px 0; border-left:2px solid transparent; font-size:13px; line-height:1.6; }
+.msg-body .msg-callout.msg-success { background:rgba(76,175,80,0.06); border-left-color:rgba(76,175,80,0.5); color:rgba(129,199,132,0.85); }
+.msg-body .msg-callout.msg-error { background:rgba(244,67,54,0.06); border-left-color:rgba(244,67,54,0.5); color:rgba(239,154,154,0.85); }
+.msg-body .msg-callout.msg-step { background:rgba(33,150,243,0.05); border-left-color:rgba(33,150,243,0.4); color:rgba(100,181,246,0.8); }
+.msg-body .msg-callout.msg-info { background:rgba(255,193,7,0.05); border-left-color:rgba(255,193,7,0.4); color:rgba(255,213,79,0.8); }
+.msg-body .msg-callout.msg-test { background:rgba(156,39,176,0.05); border-left-color:rgba(156,39,176,0.4); color:rgba(206,147,216,0.8); }
 .msg-body h1, .msg-body h2, .msg-body h3 { margin:8px 0 4px; }
 .msg-body h1 { font-size:16px; }
 .msg-body h2 { font-size:15px; }
@@ -260,6 +283,15 @@ pre:hover .code-copy-btn { opacity:1; }
 .conv-item .conv-del:hover { background:rgba(244,67,54,0.3); color:#fff; }
 
 .chat-input-area { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border-top:1px solid var(--border); flex-shrink:0; }
+
+/* Tavily快捷配置条 */
+.tavily-bar { background:var(--bg3); border-bottom:1px solid var(--border); padding:6px 10px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+.tavily-bar-row { display:flex; align-items:center; gap:6px; }
+.tavily-status { font-size:11px; color:var(--text2); }
+.tavily-status.active { color:var(--green); }
+.tavily-status.inactive { color:var(--text2); }
+.tavily-bar .dialog-input { background:var(--input); border:1px solid var(--border); color:var(--text); border-radius:3px; outline:none; }
+.tavily-bar .dialog-input:focus { border-color:var(--blue); }
 .chat-input-row { display:flex; gap:6px; align-items:stretch; }
 .chat-input-area textarea { flex:1; background:var(--input); border:1px solid var(--border); color:var(--text); padding:8px; border-radius:6px; font-size:13px; resize:none; min-height:44px; max-height:120px; outline:none; font-family:inherit; overflow-y:hidden; }
 .chat-input-area textarea:focus { border-color:var(--blue); }
