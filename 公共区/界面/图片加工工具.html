@@ -61,13 +61,15 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
   <div class="sep"></div>
   <button onclick="undo()">↩️</button><button onclick="redo()">↪️</button>
   <div class="sep"></div>
-  <label>色</label><input type="color" id="fgColor" value="#ff0000">
-  <label>大小</label><input type="range" id="brushSize" min="1" max="300" value="20" oninput="document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal">20</span>
-  <label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span>
-  <label>透明</label><input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal">100%</span>
-  <div class="sep"></div>
-  <button onclick="doInpaint()">✨去水印</button>
-  <select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select>
+  <div id="grpColor" style="display:flex;align-items:center;gap:3px"><label>色</label><input type="color" id="fgColor" value="#ff0000"></div>
+  <div id="grpBrush" style="display:flex;align-items:center;gap:3px">
+    <label>大小</label><input type="range" id="brushSize" min="1" max="300" value="20" oninput="document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal">20</span>
+    <label>透明</label><input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal">100%</span>
+  </div>
+  <div id="grpHardness" style="display:flex;align-items:center;gap:3px"><label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span></div>
+  <div id="grpDodge" style="display:none;align-items:center;gap:3px"><label>强度</label><input type="range" id="dodgeStrength" min="1" max="100" value="20" oninput="document.getElementById('dsVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="dsVal">20%</span><span style="font-size:9px;color:var(--text2)">左键加深 Alt=减淡</span></div>
+  <div id="grpBlur" style="display:none;align-items:center;gap:3px"><label>模糊</label><input type="range" id="blurStrength" min="1" max="20" value="3" oninput="document.getElementById('blVal').textContent=this.value+'px'"><span style="font-size:9px;width:24px" id="blVal">3px</span></div>
+  <div id="grpInpaint" style="display:none;align-items:center;gap:3px"><button onclick="doInpaint()">✨去水印</button><select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select></div>
   <div class="sep"></div>
   <button onclick="fitCanvas()">📐适应</button><button onclick="setActual()">1:1</button>
 </div>
