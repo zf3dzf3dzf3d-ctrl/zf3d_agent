@@ -126,6 +126,9 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .gallery-action-btn.act-del:hover { background:var(--red); }
 .gallery-item.drag-over { border-color:var(--green); box-shadow:0 0 0 2px var(--green); }
 .ti.drag-over { background:rgba(0,200,83,0.15); box-shadow:inset 0 0 0 2px var(--green); }
+.ti.selected { background:rgba(0,122,204,0.18); box-shadow:inset 3px 0 0 var(--blue); }
+.ti.drag-hover-add { background:rgba(0,122,204,0.12); }
+.ti.drag-hover-remove { background:rgba(244,67,54,0.12); }
 .gallery-drag-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:6px 14px; font-size:12px; color:var(--text); z-index:9999; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
 .gallery-thumb { width:100%; height:100px; object-fit:cover; display:flex; align-items:center; justify-content:center; font-size:40px; background:var(--bg4); position:relative; overflow:hidden; }
 .gallery-thumb img { width:100%; height:100%; object-fit:cover; }

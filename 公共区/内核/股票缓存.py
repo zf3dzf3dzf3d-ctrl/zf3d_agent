@@ -393,6 +393,18 @@ class 股票缓存引擎:
             finally:
                 conn.close()
 
+    def 取本地K线代码列表(self) -> list:
+        """从K线数据表提取所有已有代码（远程获取A股列表失败时的兜底）"""
+        with self._锁:
+            conn = self._获取连接()
+            try:
+                rows = conn.execute("SELECT DISTINCT 代码 FROM K线数据").fetchall()
+                return [{"代码": r[0], "名称": r[0], "市场": ""} for r in rows]
+            except Exception:
+                return []
+            finally:
+                conn.close()
+
     # ============ 财务数据存储 ============
 
     def 存财务数据(self, 数据: dict):
@@ -577,7 +589,8 @@ class 全量下载引擎:
         """从东财获取全部A股代码列表+基础财务指标"""
         import urllib.request
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://quote.eastmoney.com/"}
-        url = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5000&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f9,f12,f14,f20,f21,f23&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid=f3"
+        # pz=10000确保覆盖全部A股（沪深主板+创业板+科创板+北交所），fs增加北交所m:0+t:81
+        url = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10000&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f9,f12,f14,f20,f21,f23&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81&fid=f3"
 
         def _请求():
             req = urllib.request.Request(url, headers=headers)
@@ -590,19 +603,32 @@ class 全量下载引擎:
             return []
 
         结果 = []
-        for item in (data.get("data", {}).get("diff", []) or []):
+        diff_list = data.get("data", {})
+        if diff_list:
+            diff_list = diff_list.get("diff", []) or []
+        for item in diff_list:
             代码 = item.get("f12", "")
             名称 = item.get("f14", "")
-            if 代码 and 名称:
-                市场 = "SH" if 代码.startswith("6") else "SZ"
-                结果.append({"代码": 代码, "名称": 名称, "市场": 市场})
-                self.缓存.存财务数据({
-                    "代码": 代码, "名称": 名称,
-                    "市盈率": round(item.get("f9", 0) / 100, 2) if item.get("f9") else None,
-                    "市净率": round(item.get("f23", 0) / 100, 2) if item.get("f23") else None,
-                    "总市值": item.get("f20", 0),
-                    "流通市值": item.get("f21", 0),
-                })
+            if not 代码:
+                continue
+            # 名称为空时用代码作为名称（停牌/退市整理期等）
+            if not 名称 or 名称 == "-":
+                名称 = 代码
+            # 北交所代码以8/4开头，沪市6开头，其余深市
+            if 代码.startswith("6"):
+                市场 = "SH"
+            elif 代码.startswith(("8", "4")):
+                市场 = "BJ"
+            else:
+                市场 = "SZ"
+            结果.append({"代码": 代码, "名称": 名称, "市场": 市场})
+            self.缓存.存财务数据({
+                "代码": 代码, "名称": 名称,
+                "市盈率": round(item.get("f9", 0) / 100, 2) if item.get("f9") else None,
+                "市净率": round(item.get("f23", 0) / 100, 2) if item.get("f23") else None,
+                "总市值": item.get("f20", 0),
+                "流通市值": item.get("f21", 0),
+            })
         return 结果
 
     def _获取A股列表_新浪(self):
@@ -642,24 +668,39 @@ class 全量下载引擎:
             return f"0.{代码}"
         return ""
 
-    def 请求K线(self, 代码: str, 周期: str = "daily") -> list:
-        """请求K线数据（东财优先，失败切新浪）"""
-        结果 = self._请求K线_东财(代码, 周期)
+    def 请求K线(self, 代码: str, 周期: str = "daily", 起始日期: str = None) -> list:
+        """请求K线数据（东财优先，失败切新浪）
+        
+        参数:
+            起始日期: 增量下载时的起始日期(YYYYMMDD)，只拉此日期之后的数据。None=拉最近120天
+        """
+        结果 = self._请求K线_东财(代码, 周期, 起始日期)
         if 结果:
             return 结果
         # 东财失败，切新浪
         return self._请求K线_新浪(代码, 周期)
 
-    def _请求K线_东财(self, 代码: str, 周期: str = "daily") -> list:
-        """从东财请求K线数据（指数退避重试 + 数据校验）"""
+    def _请求K线_东财(self, 代码: str, 周期: str = "daily", 起始日期: str = None) -> list:
+        """从东财请求K线数据（指数退避重试 + 数据校验）
+        
+        参数:
+            起始日期: 增量模式下的起始日期(YYYYMMDD)，只拉此日期之后的数据
+        """
         import urllib.request
         secid = self.代码转secid(代码)
         if not secid:
             return []
         周期映射 = {"daily": 101, "weekly": 102, "monthly": 103}
         klt = 周期映射.get(周期, 101)
-        天数 = 120 if klt == 101 else (200 if klt == 102 else 240)
-        url = f"https://push2his.eastmoney.com/api/qt/stock/kline/get?secid={secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&klt={klt}&fqt=1&beg=0&end=20500101&lmt={天数}"
+        # 增量模式：beg设为本地最后日期，lmt设大值确保拉到最新
+        # 全量模式：beg=0，lmt=120拉最近120天
+        if 起始日期:
+            beg = 起始日期.replace("-", "")
+            lmt = 30  # 增量最多拉30天，够覆盖假期
+        else:
+            beg = "0"
+            lmt = 120 if klt == 101 else (200 if klt == 102 else 240)
+        url = f"https://push2his.eastmoney.com/api/qt/stock/kline/get?secid={secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&klt={klt}&fqt=1&beg={beg}&end=20500101&lmt={lmt}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://quote.eastmoney.com/"}
 
         def _do_request():
@@ -676,7 +717,8 @@ class 全量下载引擎:
 
         结果, _err = self._指数退避重试(_do_request, max_retries=3)
         if 结果 and len(结果) > 0:
-            if len(结果) < 3 and 天数 >= 120:
+            # 全量模式拉到<3条视为失败；增量模式拉到1条也正常（可能只差1天）
+            if not 起始日期 and len(结果) < 3:
                 return []
             for i in range(1, len(结果)):
                 if 结果[i]["日期"] < 结果[i-1]["日期"]:
@@ -718,37 +760,56 @@ class 全量下载引擎:
         return 结果 or []
 
     def 请求财务详情(self, 代码: str, 名称: str = "") -> dict:
-        """请求单只股票的财务详情：ROE、股东人数、EPS、BVPS、营收、净利润、同比增长"""
+        """请求单只股票的财务详情：ROE、股东人数、EPS、BVPS、营收、净利润、同比增长
+        
+        使用东财数据中心API（datacenter），比旧版F10接口更稳定
+        """
         import urllib.request
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://quote.eastmoney.com/"}
-        市场 = "SH" if 代码.startswith("6") else "SZ"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": "https://data.eastmoney.com/"}
         结果 = {"代码": 代码, "名称": 名称}
 
-        # 1. 关键财务指标（ROE、EPS、BVPS、营收、净利润）
+        # 1. 关键财务指标（ROE、EPS、BVPS、营收、净利润）— 东财数据中心
         def _请求指标():
-            url1 = f"https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/zycwzbAjaxNew?type=0&code={市场}{代码}"
+            url1 = f"https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_MAINFINADATA&columns=ALL&filter=(SECURITY_CODE%3D%22{代码}%22)&pageNumber=1&pageSize=1&sortColumns=REPORT_DATE&sortTypes=-1"
             req1 = urllib.request.Request(url1, headers=headers)
             resp1 = urllib.request.urlopen(req1, timeout=8)
             return json.loads(resp1.read().decode("utf-8"))
-        data1, _ = self._指数退避重试(_请求指标, max_retries=1)
+        data1, _ = self._指数退避重试(_请求指标, max_retries=2)
         if data1:
-            items = data1.get("data", []) or []
-            if items:
-                最新 = items[0]
-                结果["报告期"] = 最新.get("REPORT_DATE", "")[:10]
-                结果["净资产收益率"] = float(最新.get("JROE", 0)) if 最新.get("JROE") else None
-                结果["每股收益"] = float(最新.get("EPSJB", 0)) if 最新.get("EPSJB") else None
-                结果["每股净资产"] = float(最新.get("BPS", 0)) if 最新.get("BPS") else None
-                结果["营业收入"] = float(最新.get("YYSR", 0)) if 最新.get("YYSR") else None
-                结果["归属净利润"] = float(最新.get("GSJLR", 0)) if 最新.get("GSJLR") else None
+            rows = data1.get("result", {}).get("data", []) or []
+            if rows:
+                r = rows[0]
+                结果["报告期"] = str(r.get("REPORT_DATE", ""))[:10]
+                # ROE
+                roe = r.get("WEIGHTAVG_ROE") or r.get("ROEJQ") or r.get("ROE")
+                结果["净资产收益率"] = float(roe) if roe else None
+                # EPS
+                eps = r.get("BASIC_EPS") or r.get("EPSJB")
+                结果["每股收益"] = float(eps) if eps else None
+                # BVPS
+                bps = r.get("BPS") or r.get("TOTAL_ASSETS")
+                结果["每股净资产"] = float(bps) if bps else None
+                # 营收
+                营收 = r.get("TOTAL_OPERATE_INCOME") or r.get("YYSR")
+                结果["营业收入"] = float(营收) if 营收 else None
+                # 净利润
+                净利 = r.get("PARENT_NETPROFIT") or r.get("GSJLR")
+                结果["归属净利润"] = float(净利) if 净利 else None
+                # 同比增长（如果API直接返回）
+                营收增长 = r.get("YSTZ") or r.get("TOTAL_OPERATE_INCOME_YOY")
+                if 营收增长:
+                    结果["营收同比增长"] = float(营收增长)
+                净利增长 = r.get("SJLTZ") or r.get("PARENT_NETPROFIT_YOY")
+                if 净利增长:
+                    结果["净利润同比增长"] = float(净利增长)
 
-        # 2. 股东人数
+        # 2. 股东人数 — 东财数据中心
         def _请求股东():
             url2 = f"https://datacenter.eastmoney.com/api/data/v1/get?reportName=RPT_F10_EH_HOLDERSNUM&columns=ALL&filter=(SECURITY_CODE%3D%22{代码}%22)&pageNumber=1&pageSize=1&sortColumns=END_DATE&sortTypes=-1"
             req2 = urllib.request.Request(url2, headers=headers)
             resp2 = urllib.request.urlopen(req2, timeout=8)
             return json.loads(resp2.read().decode("utf-8"))
-        data2, _ = self._指数退避重试(_请求股东, max_retries=1)
+        data2, _ = self._指数退避重试(_请求股东, max_retries=2)
         if data2:
             rows = data2.get("result", {}).get("data", []) or []
             if rows:
@@ -760,55 +821,40 @@ class 全量下载引擎:
                 if not 结果.get("报告期"):
                     结果["报告期"] = str(row.get("END_DATE", ""))[:10]
 
-        # 3. 同比增长（从利润表获取）
-        def _请求利润表():
-            url3 = f"https://emweb.securities.eastmoney.com/PC_HSF10/NewFinanceAnalysis/lrbAjaxNew?companyType=4&reportDateType=0&reportType=1&dates={结果.get('报告期','')}&code={市场}{代码}"
-            req3 = urllib.request.Request(url3, headers=headers)
-            resp3 = urllib.request.urlopen(req3, timeout=8)
-            return json.loads(resp3.read().decode("utf-8"))
-        data3, _ = self._指数退避重试(_请求利润表, max_retries=1)
-        if data3:
-            利润表 = data3.get("data", []) or []
-            if 利润表:
-                本期 = 利润表[0] if len(利润表) >= 1 else {}
-                上期 = 利润表[1] if len(利润表) >= 2 else {}
-                本期营收 = float(本期.get("OPERATE_INCOME", 0)) if 本期.get("OPERATE_INCOME") else 0
-                上期营收 = float(上期.get("OPERATE_INCOME", 0)) if 上期.get("OPERATE_INCOME") else 0
-                本期净利 = float(本期.get("NETPROFIT", 0)) if 本期.get("NETPROFIT") else 0
-                上期净利 = float(上期.get("NETPROFIT", 0)) if 上期.get("NETPROFIT") else 0
-                if 上期营收 > 0:
-                    结果["营收同比增长"] = round((本期营收 - 上期营收) / 上期营收 * 100, 2)
-                if 上期净利 != 0:
-                    结果["净利润同比增长"] = round((本期净利 - 上期净利) / abs(上期净利) * 100, 2)
-
         return 结果 if len(结果) > 2 else {}
 
-    def 启动下载(self, 周期: str = "daily", 增量: bool = True, 含财务: bool = True):
-        """启动后台多线程下载"""
+    def 启动下载(self, 周期: str = "daily", 增量: bool = True, 含财务: bool = True, 强制刷新列表: bool = False):
+        """启动后台多线程下载
+        
+        参数:
+            强制刷新列表: True时强制从远程重新获取A股列表（忽略本地缓存）
+        """
         # 清理已结束的线程引用
         if self._线程 and not self._线程.is_alive():
             self._线程 = None
         if self._线程 and self._线程.is_alive():
             return {"成功": False, "错误": "下载任务正在运行中"}
         self._停止 = False
-        self._线程 = threading.Thread(target=self._下载任务, args=(周期, 增量, 含财务), daemon=True)
+        self._线程 = threading.Thread(target=self._下载任务, args=(周期, 增量, 含财务, 强制刷新列表), daemon=True)
         self._线程.start()
         return {"成功": True, "消息": "下载已启动"}
 
-    def _下载任务(self, 周期: str, 增量: bool, 含财务: bool = True):
+    def _下载任务(self, 周期: str, 增量: bool, 含财务: bool = True, 强制刷新列表: bool = False):
         from concurrent.futures import ThreadPoolExecutor, as_completed
         try:
+            print(f"[股票下载] 任务开始: 周期={周期} 增量={增量} 财务={含财务} 刷新={强制刷新列表}")
             # 初始延迟：让上一次的连接完全释放
             time.sleep(1)
             # ===== 阶段0: 获取A股列表 =====
             self._更新进度(状态="准备A股列表...", 总数=0, 已完成=0, 失败=0, 跳过=0, 当前代码="", 开始时间=time.time(), 阶段="列表", 失败详情=[])
+            print("[股票下载] 阶段0: 准备A股列表")
 
             # 先查本地
             股票列表 = self.缓存.取A股列表()
+            print(f"[股票下载] 本地A股列表: {len(股票列表)}只")
 
-            # 增量模式：本地有足够列表就直接用，不请求远程
-            # 本地少于1000只视为不完整，需要远程刷新
-            if 增量 and 股票列表 and len(股票列表) >= 1000:
+            # 增量模式：本地有足够列表且未强制刷新时直接用，不请求远程
+            if 增量 and 股票列表 and len(股票列表) >= 1000 and not 强制刷新列表:
                 self._更新进度(状态=f"使用本地A股列表({len(股票列表)}只)", 跳过=0)
             else:
                 # 本地没有或不完整：远程拉取
@@ -823,9 +869,15 @@ class 全量下载引擎:
                     # 远程失败但有本地缓存，继续用本地
                     self._更新进度(状态=f"远程失败，使用本地缓存({len(股票列表)}只)")
                 else:
-                    错误信息 = getattr(self, '_last_error', '') or '未知错误'
-                    self._更新进度(状态=f"失败: 无法获取A股列表 ({错误信息})")
-                    return
+                    # 本地列表也没 → 从K线数据表中提取已有代码作为兜底
+                    本地代码列表 = self.缓存.取本地K线代码列表()
+                    if 本地代码列表:
+                        股票列表 = 本地代码列表
+                        self._更新进度(状态=f"远程失败且无列表缓存，从K线数据恢复{len(股票列表)}只代码")
+                    else:
+                        错误信息 = getattr(self, '_last_error', '') or '未知错误'
+                        self._更新进度(状态=f"失败: 无法获取A股列表 ({错误信息})")
+                        return
 
             # ===== 阶段1: K线下载（断点续传） =====
             检查点名 = f"kline_{周期}"
@@ -836,20 +888,35 @@ class 全量下载引擎:
             # 增量模式：跳过本地已有数据的股票
             待下载 = []
             已跳过 = 0
+            增量日期表 = {}  # 代码 → 本地最后日期，传给下载函数
+            # 盘中时今天K线不完整，目标日期=昨天；盘后/非交易日目标日期=今天
+            if self.缓存._是否盘中():
+                目标日期 = (self.缓存._当前时间() - timedelta(days=1)).strftime("%Y-%m-%d")
+                盘中提示 = "（盘中，只更新到昨日）"
+            else:
+                目标日期 = self.缓存._当前时间().strftime("%Y-%m-%d")
+                盘中提示 = ""
             for s in 股票列表:
                 代码 = s["代码"]
+                if 增量:
+                    本地最后日期 = self.缓存.获取K线最后日期(代码, 周期)
+                    if 本地最后日期:
+                        # 本地最后日期 >= 目标日期 → 已是最新，跳过
+                        if 本地最后日期 >= 目标日期:
+                            已跳过 += 1
+                            continue
+                        # 本地有数据但落后 → 需要增量更新
+                        增量日期表[代码] = 本地最后日期
+                        待下载.append(s)
+                        continue
+                # 非增量模式 或 本地完全没数据
                 if 代码 in 已完成代码:
                     已跳过 += 1
                     continue
-                if 增量:
-                    本地数据 = self.缓存.取K线数据(代码, 周期)
-                    if 本地数据:
-                        已完成代码.add(代码)
-                        已跳过 += 1
-                        continue
                 待下载.append(s)
 
             self._更新进度(状态=f"下载K线中({len(待下载)}只待下载,{已跳过}只已跳过)", 总数=len(待下载), 已完成=0, 失败=len(失败列表), 跳过=已跳过, 阶段="K线")
+            print(f"[股票下载] 阶段1 K线: {len(待下载)}只待下载, {已跳过}只已跳过, 目标日期={目标日期}, 盘中={盘中提示}")
 
             批量缓冲 = []
             批量锁 = threading.Lock()
@@ -857,13 +924,23 @@ class 全量下载引擎:
             失败数 = [len(失败列表)]
             进度锁 = threading.Lock()
 
+            盘中模式 = self.缓存._是否盘中()
+            今日 = self.缓存._当前时间().strftime("%Y-%m-%d")
+
             def _下载单只K线(任务):
                 if self._停止:
                     return None
                 代码 = 任务["代码"]
                 self._更新进度(当前代码=代码)
-                数据 = self.请求K线(代码, 周期)
+                # 增量模式：只拉本地最后日期之后的数据
+                起始 = 增量日期表.get(代码)
+                数据 = self.请求K线(代码, 周期, 起始日期=起始)
                 if 数据:
+                    # 盘中模式：过滤掉今天的不完整K线（等收盘后再更新）
+                    if 盘中模式:
+                        数据 = [d for d in 数据 if d["日期"] < 今日]
+                    if not 数据:
+                        return ("ok", 代码)  # 没有新数据也算成功
                     with 批量锁:
                         批量缓冲.append((代码, 周期, 数据))
                         if len(批量缓冲) >= 10:
@@ -908,18 +985,19 @@ class 全量下载引擎:
 
             # ===== 阶段2: 财务详情下载（ROE/股东人数/EPS/BVPS） =====
             if 含财务:
+                print(f"[股票下载] 阶段2 财务: 开始下载, K线完成{完成数[0]}只")
                 检查点名2 = "finance"
                 检查点2 = self.缓存.取检查点(检查点名2)
                 已完成代码2 = set(检查点2["已完成代码"]) if 检查点2 else set()
                 失败列表2 = list(检查点2["失败列表"]) if 检查点2 else []
 
                 待下载2 = [s for s in 股票列表 if s["代码"] not in 已完成代码2]
-                self._更新进度(状态=f"下载财务详情({len(待下载2)}只待下载,每只3个API)", 总数=len(待下载2), 已完成=0, 失败=len(失败列表2), 跳过=len(已完成代码2), 阶段="财务")
+                self._更新进度(状态=f"下载财务详情({len(待下载2)}只待下载,每只2个API,3线程0.5s间隔)", 总数=len(待下载2), 已完成=0, 失败=len(失败列表2), 跳过=len(已完成代码2), 阶段="财务")
 
-                # 财务阶段：5线程 + 0.2s间隔（每只3个API=约1秒/只，5线程=约5只/秒）
+                # 财务阶段：3线程 + 0.5s间隔（降低频率避免被封IP）
                 原间隔 = self._请求间隔
-                self._请求间隔 = 0.2
-                财务线程数 = 5
+                self._请求间隔 = 0.5
+                财务线程数 = 3
 
                 完成数2 = [0]
                 失败数2 = [len(失败列表2)]
@@ -940,8 +1018,15 @@ class 全量下载引擎:
                             详情.setdefault("总市值", 已有.get("总市值"))
                             详情.setdefault("流通市值", 已有.get("流通市值"))
                         self.缓存.存财务数据(详情)
+                        # 日志：每100只输出一次
+                        总完成 = 完成数2[0] + 失败数2[0] + 1
+                        if 总完成 % 100 == 0:
+                            print(f"  [财务] {总完成}/{len(待下载2)} 完成,当前{代码} ROE={详情.get('净资产收益率')}")
                         return ("ok", 代码)
                     else:
+                        总完成 = 完成数2[0] + 失败数2[0] + 1
+                        if 总完成 % 50 == 0:
+                            print(f"  [财务] {总完成}/{len(待下载2)} 失败{代码}: 财务数据获取失败")
                         return ("fail", 代码, "财务数据获取失败")
 
                 with ThreadPoolExecutor(max_workers=财务线程数) as executor:
@@ -985,8 +1070,23 @@ class 全量下载引擎:
                     摘要 += f" | K线失败: {','.join([f['代码'] for f in 失败列表[:5]])}"
                 if 含财务 and 失败列表2 and len(失败列表2) <= 5:
                     摘要 += f" | 财务失败: {','.join([f['代码'] for f in 失败列表2[:5]])}"
+                print(f"[股票下载] ✅ 任务完成: {摘要}")
                 self._更新进度(状态=f"完成 - {摘要}", 当前代码="", 已完成=完成数[0], 失败=失败数[0], 失败详情=失败列表[:20])
         except Exception as e:
+            import traceback
+            错误堆栈 = traceback.format_exc()
+            print(f"[股票下载] ❌ 任务异常: {e}")
+            print(f"[股票下载] 堆栈:\n{错误堆栈}")
+            # 记录到运行诊断器
+            try:
+                sys.path.insert(0, str(Path(__file__).parent))
+                from 运行诊断器 import 运行诊断器类
+                if 运行诊断器类._实例引用:
+                    运行诊断器类._实例引用.记录错误(
+                        "股票下载.任务", 异常对象=e,
+                        异常类型=type(e).__name__, 异常信息=str(e))
+            except Exception:
+                pass
             self._更新进度(状态=f"错误: {e}", 当前代码="")
         finally:
             self._线程 = None  # 清理线程引用，允许重新启动

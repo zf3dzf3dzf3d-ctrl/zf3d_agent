@@ -402,7 +402,7 @@ class 文件管理器类:
             self._记录审计("移动", 源路径, f"失败: {str(e)}")
             return {"成功": False, "错误": str(e)}
 
-    def 复制(self, 源路径: str, 目标目录: str, AI调用: bool = False) -> dict:
+    def 复制(self, 源路径: str, 目标目录: str, 新名称: str = None, AI调用: bool = False) -> dict:
         """复制文件/文件夹到目标目录"""
         读校验 = self._校验权限(源路径, "读", AI调用)
         if not 读校验["允许"]:
@@ -416,9 +416,25 @@ class 文件管理器类:
             return {"成功": False, "错误": "源文件不存在"}
         if not 目标.is_dir():
             return {"成功": False, "错误": "目标路径不是目录"}
-        目标项 = 目标 / 源.name
+        目标名 = 新名称 if 新名称 else 源.name
+        目标项 = 目标 / 目标名
         if 目标项.exists():
-            return {"成功": False, "错误": f"目标已存在同名文件: {源.name}"}
+            # 复制到同目录时自动生成副本名
+            if 新名称 is None and 目标.resolve() == 源.parent.resolve():
+                基名 = 源.stem
+                后缀 = 源.suffix
+                i = 1
+                while True:
+                    候选名 = f"{基名} - 副本{('(' + str(i) + ')') if i > 1 else ''}{后缀}"
+                    候选项 = 目标 / 候选名
+                    if not 候选项.exists():
+                        目标项 = 候选项
+                        break
+                    i += 1
+                    if i > 999:
+                        return {"成功": False, "错误": "副本数量过多"}
+            else:
+                return {"成功": False, "错误": f"目标已存在同名文件: {目标名}"}
         try:
             if 源.is_dir():
                 shutil.copytree(str(源), str(目标项))

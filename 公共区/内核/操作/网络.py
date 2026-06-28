@@ -1,5 +1,6 @@
 """
 网络操作模块 - 网页抓取/网络搜索/网页分析/图片分析
+v2.2: Tavily API优先，无密钥时回退Bing爬虫
 """
 import json
 import re as re_mod
@@ -8,9 +9,56 @@ from pathlib import Path
 from .基类 import 操作结果, 操作基类
 
 
+def _获取Tavily密钥(操作实例) -> str:
+    """从模型直连器的密钥配置中读取Tavily API Key"""
+    if not 操作实例.模型直连器:
+        return ""
+    密钥配置 = 操作实例.模型直连器.密钥配置 or {}
+    密钥列表 = 密钥配置.get("密钥列表", {})
+    tavily配置 = 密钥列表.get("TAVILY", {})
+    if isinstance(tavily配置, dict):
+        return tavily配置.get("API密钥", "")
+    return ""
+
+
+def _Tavily搜索(关键词: str, 数量: int, api_key: str) -> dict:
+    """调用Tavily Search API，返回结构化结果"""
+    请求体 = json.dumps({
+        "api_key": api_key,
+        "query": 关键词,
+        "max_results": min(数量, 10),
+        "search_depth": "basic",
+        "include_answer": True
+    }).encode("utf-8")
+    请求 = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=请求体,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    响应 = urllib.request.urlopen(请求, timeout=15)
+    return json.loads(响应.read().decode("utf-8"))
+
+
+def _Tavily抓取(网址: str, api_key: str) -> dict:
+    """调用Tavily Extract API，返回网页正文"""
+    请求体 = json.dumps({
+        "api_key": api_key,
+        "urls": 网址
+    }).encode("utf-8")
+    请求 = urllib.request.Request(
+        "https://api.tavily.com/extract",
+        data=请求体,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    响应 = urllib.request.urlopen(请求, timeout=15)
+    return json.loads(响应.read().decode("utf-8"))
+
+
 class 网页抓取(操作基类):
     名称 = "网页抓取"
-    描述 = "获取网页内容"
+    描述 = "获取网页正文内容（Tavily优先，回退urllib）"
     参数结构 = {
         "网址": {"类型": "字符串", "必填": True, "说明": "URL地址"}
     }
@@ -19,38 +67,92 @@ class 网页抓取(操作基类):
         网址 = 参数.get("网址", "")
         if not 网址:
             return 操作结果.失败("网址为空")
+
+        # 优先使用Tavily Extract API
+        api_key = _获取Tavily密钥(self)
+        if api_key:
+            try:
+                import urllib.request
+                数据 = _Tavily抓取(网址, api_key)
+                结果列表 = 数据.get("results", [])
+                if 结果列表:
+                    内容 = 结果列表[0].get("raw_content", "") or 结果列表[0].get("content", "")
+                    if 内容:
+                        return 操作结果.成功(内容[:5000], {"操作类型": "网页抓取", "引擎": "Tavily"})
+                # Tavily返回空结果，回退
+                错误 = 数据.get("failed_results", [{}])
+                if 错误:
+                    return 操作结果.失败(f"Tavily抓取失败: {错误[0].get('error', '未知错误')}")
+            except Exception as e:
+                # Tavily失败，回退到urllib
+                pass
+
+        # 回退：urllib + 正则清洗
         try:
             import urllib.request
             请求 = urllib.request.Request(网址, headers={"User-Agent": "Mozilla/5.0"})
             响应 = urllib.request.urlopen(请求, timeout=15)
             内容 = 响应.read().decode("utf-8", errors="replace")
-            import re
-            文本 = re.sub(r'<[^>]+>', '', 内容)
-            文本 = re.sub(r'\s+', ' ', 文本).strip()
-            return 操作结果.成功(文本[:5000])
+            文本 = re_mod.sub(r'<[^>]+>', '', 内容)
+            文本 = re_mod.sub(r'\s+', ' ', 文本).strip()
+            return 操作结果.成功(文本[:5000], {"操作类型": "网页抓取", "引擎": "urllib"})
         except Exception as e:
             return 操作结果.失败(f"抓取失败: {e}")
 
 
 class 网络搜索(操作基类):
     名称 = "网络搜索"
-    描述 = "搜索互联网信息，返回结构化结果(标题+URL+摘要)"
+    描述 = "搜索互联网信息（Tavily优先，返回结构化结果含正文摘要；无密钥回退Bing）"
     参数结构 = {
         "关键词": {"类型": "字符串", "必填": True, "说明": "搜索关键词"},
-        "页码": {"类型": "整数", "必填": False, "说明": "搜索结果页码，默认1"},
-        "数量": {"类型": "整数", "必填": False, "说明": "返回结果数量，默认8"}
+        "页码": {"类型": "整数", "必填": False, "说明": "搜索结果页码，默认1（Bing回退时有效）"},
+        "数量": {"类型": "整数", "必填": False, "说明": "返回结果数量，默认5"}
     }
 
     def 执行(self, 参数: dict) -> 操作结果:
         关键词 = 参数.get("关键词", "")
         页码 = 参数.get("页码", 1)
-        数量 = 参数.get("数量", 8)
+        数量 = 参数.get("数量", 5)
         if not 关键词:
             return 操作结果.失败("关键词为空")
+
+        # 优先使用Tavily Search API
+        api_key = _获取Tavily密钥(self)
+        if api_key:
+            try:
+                import urllib.request
+                数据 = _Tavily搜索(关键词, 数量, api_key)
+                回答 = 数据.get("answer", "")
+                结果列表 = 数据.get("results", [])
+                if 结果列表:
+                    输出 = []
+                    if 回答:
+                        输出.append(f"💡 {回答}\n")
+                    输出.append(f"搜索「{关键词}」，找到{len(结果列表)}条结果:\n")
+                    for i, 条目 in enumerate(结果列表, 1):
+                        标题 = 条目.get("title", "")
+                        url = 条目.get("url", "")
+                        内容 = 条目.get("content", "")
+                        评分 = 条目.get("score", 0)
+                        条 = f"📄 [{i}] {标题}"
+                        if url:
+                            条 += f"\n   🔗 {url}"
+                        if 内容:
+                            条 += f"\n   {内容[:300]}"
+                        if 评分:
+                            条 += f"\n   📊 相关度: {评分:.0%}"
+                        输出.append(条)
+                    return 操作结果.成功("\n\n".join(输出), {"操作类型": "网络搜索", "引擎": "Tavily", "结果数": len(结果列表)})
+                else:
+                    return 操作结果.成功(f"未找到「{关键词}」的搜索结果", {"操作类型": "网络搜索", "引擎": "Tavily"})
+            except Exception:
+                # Tavily失败，回退到Bing
+                pass
+
+        # 回退：Bing爬虫
         try:
             import urllib.request
             import urllib.parse
-            import re as re_mod
 
             查询 = urllib.parse.quote(关键词)
             起始 = (页码 - 1) * 10
@@ -69,7 +171,8 @@ class 网络搜索(操作基类):
                     干净标题 = re_mod.sub(r'<[^>]+>', '', 标题).strip()
                     if 干净标题:
                         结果列表.append(f"• {干净标题}")
-                return 操作结果.成功("\n".join(结果列表) if 结果列表 else "未找到结果")
+                return 操作结果.成功("\n".join(结果列表) if 结果列表 else "未找到结果",
+                                     {"操作类型": "网络搜索", "引擎": "Bing"})
 
             结果列表 = []
             for 块 in 结果块列表[:数量]:
@@ -89,9 +192,11 @@ class 网络搜索(操作基类):
 
             if 结果列表:
                 汇总 = f"搜索「{关键词}」第{页码}页，找到{len(结果列表)}条结果:\n"
-                return 操作结果.成功(汇总 + "\n\n".join(结果列表))
+                return 操作结果.成功(汇总 + "\n\n".join(结果列表),
+                                     {"操作类型": "网络搜索", "引擎": "Bing", "结果数": len(结果列表)})
             else:
-                return 操作结果.成功(f"未找到「{关键词}」的搜索结果")
+                return 操作结果.成功(f"未找到「{关键词}」的搜索结果",
+                                     {"操作类型": "网络搜索", "引擎": "Bing"})
         except Exception as e:
             return 操作结果.失败(f"搜索失败: {e}")
 
@@ -113,44 +218,70 @@ class 网页分析(操作基类):
             return 操作结果.失败("网址为空")
         if not 问题:
             return 操作结果.失败("问题为空")
-        try:
-            import urllib.request
-            import re as re_mod
 
-            请求 = urllib.request.Request(网址, headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-            })
-            响应 = urllib.request.urlopen(请求, timeout=15)
-            原始内容 = 响应.read().decode("utf-8", errors="replace")
+        # 优先使用Tavily Extract获取干净正文
+        api_key = _获取Tavily密钥(self)
+        内容 = ""
+        引擎 = "urllib"
+        if api_key:
+            try:
+                数据 = _Tavily抓取(网址, api_key)
+                结果列表 = 数据.get("results", [])
+                if 结果列表:
+                    内容 = 结果列表[0].get("raw_content", "") or 结果列表[0].get("content", "")
+                    引擎 = "Tavily"
+                if not 内容:
+                    错误列表 = 数据.get("failed_results", [{}])
+                    if 错误列表:
+                        # Tavily明确失败，回退urllib
+                        pass
+            except Exception:
+                pass
 
-            内容 = re_mod.sub(r'<script[^>]*>.*?</script>', '', 原始内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)
-            内容 = re_mod.sub(r'<style[^>]*>.*?</style>', '', 内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)
-            内容 = re_mod.sub(r'<[^>]+>', '', 内容)
-            内容 = re_mod.sub(r'&nbsp;', ' ', 内容)
-            内容 = re_mod.sub(r'&amp;', '&', 内容)
-            内容 = re_mod.sub(r'&lt;', '<', 内容)
-            内容 = re_mod.sub(r'&gt;', '>', 内容)
-            内容 = re_mod.sub(r'&quot;', '"', 内容)
-            内容 = re_mod.sub(r'\n\s*\n', '\n\n', 内容).strip()
+        # 回退：urllib + 正则清洗
+        if not 内容:
+            try:
+                import urllib.request
+                import re as re_mod
 
-            截断内容 = 内容[:最大长度]
-            if len(内容) > 最大长度:
-                截断内容 += f"\n...(已截断，总长度{len(内容)}字符)"
+                请求 = urllib.request.Request(网址, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                })
+                响应 = urllib.request.urlopen(请求, timeout=15)
+                原始内容 = 响应.read().decode("utf-8", errors="replace")
 
-            if not self.模型直连器:
-                return 操作结果.失败("模型直连器未注入，无法分析网页")
+                内容 = re_mod.sub(r'<script[^>]*>.*?</script>', '', 原始内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)
+                内容 = re_mod.sub(r'<style[^>]*>.*?</style>', '', 内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)
+                内容 = re_mod.sub(r'<[^>]+>', '', 内容)
+                内容 = re_mod.sub(r'&nbsp;', ' ', 内容)
+                内容 = re_mod.sub(r'&amp;', '&', 内容)
+                内容 = re_mod.sub(r'&lt;', '<', 内容)
+                内容 = re_mod.sub(r'&gt;', '>', 内容)
+                内容 = re_mod.sub(r'&quot;', '"', 内容)
+                内容 = re_mod.sub(r'\n\s*\n', '\n\n', 内容).strip()
+            except Exception as e:
+                return 操作结果.失败(f"网页分析失败: {e}")
 
-            分析提示 = f"请根据以下网页内容回答问题。\n\n问题: {问题}\n\n网页URL: {网址}\n网页内容:\n{截断内容}"
-            消息列表 = [{"role": "user", "content": 分析提示}]
-            结果 = self.模型直连器.发送消息(消息列表, "你是一个网页内容分析专家。根据用户提供的网页内容回答问题。")
+        if not 内容:
+            return 操作结果.失败(f"无法获取网页内容: {网址}")
 
-            if 结果.get("成功"):
-                回复 = 结果.get("回复内容", "")
-                return 操作结果.成功(f"🌐 网页分析结果 ({网址}, 抓取{len(内容)}字符):\n{回复}")
-            else:
-                return 操作结果.失败(f"LLM分析失败: {结果.get('错误', '未知错误')}")
-        except Exception as e:
-            return 操作结果.失败(f"网页分析失败: {e}")
+        截断内容 = 内容[:最大长度]
+        if len(内容) > 最大长度:
+            截断内容 += f"\n...(已截断，总长度{len(内容)}字符)"
+
+        if not self.模型直连器:
+            return 操作结果.失败("模型直连器未注入，无法分析网页")
+
+        分析提示 = f"请根据以下网页内容回答问题。\n\n问题: {问题}\n\n网页URL: {网址}\n网页内容:\n{截断内容}"
+        消息列表 = [{"role": "user", "content": 分析提示}]
+        结果 = self.模型直连器.发送消息(消息列表, "你是一个网页内容分析专家。根据用户提供的网页内容回答问题。")
+
+        if 结果.get("成功"):
+            回复 = 结果.get("回复内容", "")
+            return 操作结果.成功(f"🌐 网页分析结果 ({网址}, 抓取{len(内容)}字符, {引擎}):\n{回复}",
+                                 {"操作类型": "网页分析", "引擎": 引擎})
+        else:
+            return 操作结果.失败(f"LLM分析失败: {结果.get('错误', '未知错误')}")
 
 
 class 图片分析(操作基类):

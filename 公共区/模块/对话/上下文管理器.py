@@ -23,12 +23,23 @@ class 上下文管理器类:
 
     def __init__(self, 最大历史数=50, 压缩阈值=30):
         self.最大历史数 = 最大历史数
-        self.压缩阈值 = 压缩阈值
-        self.token预算 = 8000  # 上下文token预算（约8000 token）
+        self.压缩阈值 = 压缩阈值  # 消息条数兜底阈值（token检测优先）
+        self.token预算 = 8000  # 默认token预算，可通过设置模型上下文窗口动态更新
+        self.模型上下文窗口 = 32768  # 默认32K，由推理引擎从模型直连器传入
         # 对话轨迹：本轮ReAct的步骤记录（统一FC和文本模式）
         # 每个步骤: {"assistant消息": dict|None, "tool消息": dict|None, "文本观察": str|None}
         self.本轮轨迹 = []
         self._压缩锁 = False  # 防止重复压缩
+
+    def 设置模型上下文窗口(self, 窗口大小: int, max_tokens: int = 8192):
+        """从模型配置设置上下文窗口大小，动态计算token预算
+
+        token预算 = 上下文窗口 - max_tokens - 安全余量
+        安全余量 = min(8000, 上下文窗口的15%)
+        """
+        self.模型上下文窗口 = 窗口大小
+        安全余量 = min(8000, int(窗口大小 * 0.15))
+        self.token预算 = max(2000, 窗口大小 - max_tokens - 安全余量)
 
     def 重置本轮轨迹(self):
         """每轮ReAct开始前调用"""
@@ -156,7 +167,19 @@ class 上下文管理器类:
 
         裁剪后 = 消息列表[-保留数:]
         while self._估算_列表_token(裁剪后) > self.token预算 and len(裁剪后) > 4:
-            裁剪后 = 裁剪后[2:]  # 每次删掉最前面的一对user-assistant
+            # 智能裁剪：跳过tool消息（role=tool），避免孤立tool_calls
+            # 找到第一个非tool消息对（user+assistant），删掉它们
+            删除数 = 0
+            for i in range(min(2, len(裁剪后))):
+                if 裁剪后[0].get("role") == "tool":
+                    裁剪后.pop(0)
+                    删除数 += 1
+                else:
+                    裁剪后.pop(0)
+                    删除数 += 1
+            # 如果只删了tool消息，再删一个非tool消息
+            if 删除数 == 0:
+                裁剪后 = 裁剪后[2:]
         return 裁剪后
 
     def _估算_列表_token(self, 消息列表) -> int:
@@ -166,11 +189,14 @@ class 上下文管理器类:
         """渐进式历史压缩
 
         改进：
-        1. 先对旧观察做observation masking（零成本，零LLM调用）
-        2. 如果masking后仍然超token预算，再fallback到LLM摘要
-        3. LLM摘要只处理masked后的精简版，token消耗减半
+        1. token溢出检测优先（基于模型上下文窗口动态计算）
+        2. 先对旧观察做observation masking（零成本，零LLM调用）
+        3. 如果masking后仍然超token预算，再fallback到LLM摘要
+        4. LLM摘要只处理masked后的精简版，token消耗减半
         """
-        if len(对话历史) < self.压缩阈值:
+        # === token溢出检测（优先于消息条数阈值） ===
+        当前token = sum(self.估算_token数(m.get("内容", "")) for m in 对话历史)
+        if 当前token <= self.token预算 and len(对话历史) < self.压缩阈值:
             return 对话历史
 
         # 阶段1: Observation Masking — 折叠旧的观察结果（零LLM调用）
@@ -197,8 +223,12 @@ class 上下文管理器类:
             return masked历史
 
         # 阶段2: masking后仍超预算，fallback到LLM摘要
-        压缩部分 = masked历史[:-保留数]
-        保留部分 = masked历史[-保留数:]
+        # 动态调整保留数：消息少但每条很大时，缩小保留数确保有内容可压缩
+        保留数 = min(保留数, len(masked历史) - 2)  # 至少保留2条
+        if 保留数 < 2:
+            保留数 = 2
+        压缩部分 = masked历史[:-保留数] if len(masked历史) > 保留数 else []
+        保留部分 = masked历史[-保留数:] if len(masked历史) > 保留数 else masked历史
 
         摘要文本 = ""
         if 模型直连器 and 压缩部分:

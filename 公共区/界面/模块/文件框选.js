@@ -66,6 +66,18 @@ function updateGallerySelectionVisual() {
             }
         });
     }
+    // 左侧文件树项
+    const tree = document.getElementById("fileTree");
+    if (tree) {
+        tree.querySelectorAll(".ti").forEach(item => {
+            const path = item.dataset.path;
+            if (path && selectedItems.has(path)) {
+                item.classList.add("selected");
+            } else {
+                item.classList.remove("selected");
+            }
+        });
+    }
 }
 
 function showFileSelectionHint() {
@@ -80,6 +92,13 @@ function showFileSelectionHint() {
             toggleBtn.title = "全选当前文件夹 (Ctrl+A)";
         }
     }
+    const batchDel = document.getElementById("batchDeleteBtn");
+    const batchMove = document.getElementById("batchMoveBtn");
+    const batchCopy = document.getElementById("batchCopyBtn");
+    if (batchDel) batchDel.style.display = selectedItems.size > 0 ? "" : "none";
+    if (batchMove) batchMove.style.display = selectedItems.size > 0 ? "" : "none";
+    if (batchCopy) batchCopy.style.display = selectedItems.size > 0 ? "" : "none";
+
     let hint = document.getElementById("fileSelectionHint");
     if (!hint) {
         hint = document.createElement("div");
@@ -114,7 +133,17 @@ function initGallerySelection() {
         mv.addEventListener("click", onSelectionClick, true);
         mv.addEventListener("dblclick", onSelectionDblClick);
     }
+    // 左侧文件树也支持框选
+    const tree = document.getElementById("fileTree");
+    if (tree) {
+        tree.addEventListener("mousedown", onDragStart);
+        tree.addEventListener("click", onSelectionClick, true);
+    }
     document.addEventListener("keydown", onSelectionKeyDown);
+}
+
+function isTreeMode(e) {
+    return e && e.currentTarget && e.currentTarget.id === "fileTree";
 }
 
 function isGalleryMode() {
@@ -123,9 +152,9 @@ function isGalleryMode() {
 }
 
 function onSelectionDblClick(e) {
-    if (!isGalleryMode()) return;
-    const item = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row");
+    const item = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
     if (item) return;
+    if (!isGalleryMode()) return;
     if (selectedItems.size > 0) {
         clearFileSelection();
     }
@@ -140,8 +169,8 @@ function onSelectionClick(e) {
         return;
     }
     if (!e.ctrlKey && !e.metaKey) return;
-    const item = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row");
-    if (!item) return;
+    const item = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
+    if (!item || !item.dataset.path) return;
     const path = item.dataset.path;
     if (!path) return;
     e.preventDefault();
@@ -170,12 +199,13 @@ function onSelectionKeyDown(e) {
 }
 
 function onDragStart(e) {
-    if (!isGalleryMode()) return;
     if (e.button !== 0) return;
-    // 如果鼠标落在 gallery-item / gallery-list-row 上，让浏览器原生拖拽接管（用于拖拽移动/复制）
-    const galleryItem = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row");
-    if (galleryItem && galleryItem.dataset.path) return;
-    e.preventDefault(); // 屏蔽浏览器原生拖拽行为（空白区域才框选）
+    const treeMode = isTreeMode(e);
+    if (!treeMode && !isGalleryMode()) return;
+    // Shift+拖拽 = 原生拖拽(移动/复制)；非Shift = 框选（包括在文件项上）
+    const fileItem = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
+    if (fileItem && fileItem.dataset.path && e.shiftKey) return;
+    e.preventDefault(); // 屏蔽浏览器原生拖拽行为
     // Ctrl=加选模式, Alt=减选模式, 无修饰=普通框选(替换)
     const mode = e.altKey ? "remove" : "add";
 
@@ -235,7 +265,7 @@ function onDragMove(e) {
     dragState.box.style.height = h + "px";
 
     const boxRect = { left: x, top: y, right: x + w, bottom: y + h };
-    container.querySelectorAll(".gallery-item, .gallery-list-row").forEach(item => {
+    container.querySelectorAll(".gallery-item, .gallery-list-row, .ti").forEach(item => {
         const itemRect = item.getBoundingClientRect();
         const itemX = itemRect.left - rect.left + container.scrollLeft;
         const itemY = itemRect.top - rect.top + container.scrollTop;

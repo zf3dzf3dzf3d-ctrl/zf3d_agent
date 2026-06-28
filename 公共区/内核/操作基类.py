@@ -33,6 +33,9 @@ from 操作.图片下载 import (
 from 操作.多线程下载 import (
     多线程下载,
 )
+from 操作.股票预测 import (
+    股票预测,
+)
 from 操作.ComfyUI操作 import (
     ComfyUI提交工作流, ComfyUI查询进度, ComfyUI获取图片, ComfyUI列出模型,
     ComfyUI队列控制, ComfyUI一键生图, ComfyUI上传图片, ComfyUI列出工作流,
@@ -58,4 +61,5 @@ __all__ = [
     "ComfyUI提交工作流", "ComfyUI查询进度", "ComfyUI获取图片",
     "ComfyUI列出模型", "ComfyUI队列控制", "ComfyUI一键生图", "ComfyUI上传图片",
     "ComfyUI列出工作流",
+    "股票预测",
 ]

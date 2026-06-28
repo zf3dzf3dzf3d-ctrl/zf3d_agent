@@ -3,6 +3,7 @@
   "模型配置列表": [
     {
       "名称": "DeepSeek(深度求索)",
+      "上下文窗口": 65536,
       "接口地址": "https://api.deepseek.com/v1/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -23,6 +24,7 @@
     },
     {
       "名称": "通义千问(阿里云)",
+      "上下文窗口": 131072,
       "接口地址": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -43,6 +45,7 @@
     },
     {
       "名称": "智谱大模型(GLM)",
+      "上下文窗口": 131072,
       "接口地址": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -63,6 +66,7 @@
     },
     {
       "名称": "Kimi(月之暗面)",
+      "上下文窗口": 131072,
       "接口地址": "https://api.moonshot.cn/v1/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -83,6 +87,7 @@
     },
     {
       "名称": "豆包(火山大模型)",
+      "上下文窗口": 32768,
       "接口地址": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -103,6 +108,7 @@
     },
     {
       "名称": "OpenAI(ChatGPT)",
+      "上下文窗口": 128000,
       "接口地址": "https://api.openai.com/v1/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -123,6 +129,7 @@
     },
     {
       "名称": "Claude(Anthropic)",
+      "上下文窗口": 200000,
       "接口地址": "https://api.anthropic.com/v1/messages",
       "请求方法": "POST",
       "请求头": {
@@ -143,6 +150,7 @@
     },
     {
       "名称": "Gemini(Google)",
+      "上下文窗口": 1000000,
       "接口地址": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       "请求方法": "POST",
       "请求头": {
@@ -163,6 +171,7 @@
     },
     {
       "名称": "自定义模型",
+      "上下文窗口": 32768,
       "接口地址": "",
       "请求方法": "POST",
       "请求头": {
