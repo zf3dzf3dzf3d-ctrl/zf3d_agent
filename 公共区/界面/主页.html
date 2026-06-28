@@ -103,7 +103,7 @@
                 <div class="gallery-grid" id="galleryGrid"></div>
                 <div class="gallery-list" id="galleryList" style="display:none;"></div>
                 <div class="image-viewer" id="imageViewer" style="display:none;">
-                    <div class="image-viewer-topbar">
+                    <div class="image-viewer-topbar" onmousedown="event.stopPropagation()">
                         <button class="back-to-gallery" onclick="backToGallery()" title="返回缩略图画廊">◀ 返回</button>
                         <span class="image-counter" id="imageCounter"></span>
                         <button class="back-to-gallery" style="margin-left:auto" onclick="window.open('图片加工工具.html?path='+encodeURIComponent(currentViewFile?currentViewFile.路径:''), '_blank')" title="新窗口打开图片加工工具(去水印/调整/裁剪/旋转等)">🎨 图片加工</button>
