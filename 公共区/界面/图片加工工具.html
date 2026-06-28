@@ -68,8 +68,14 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
   </div>
   <div id="grpHardness" style="display:flex;align-items:center;gap:3px"><label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span></div>
   <div id="grpDodge" style="display:none;align-items:center;gap:3px"><label>强度</label><input type="range" id="dodgeStrength" min="1" max="100" value="20" oninput="document.getElementById('dsVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="dsVal">20%</span><span style="font-size:9px;color:var(--text2)">左键加深 Alt=减淡</span></div>
-  <div id="grpBlur" style="display:none;align-items:center;gap:3px"><label>模糊</label><input type="range" id="blurStrength" min="1" max="20" value="3" oninput="document.getElementById('blVal').textContent=this.value+'px'"><span style="font-size:9px;width:24px" id="blVal">3px</span></div>
+  <div id="grpBlur" style="display:none;align-items:center;gap:3px"><label>强度</label><input type="range" id="blurStrength" min="1" max="20" value="3" oninput="document.getElementById('blVal').textContent=this.value+'px'"><span style="font-size:9px;width:24px" id="blVal">3px</span></div>
   <div id="grpInpaint" style="display:none;align-items:center;gap:3px"><button onclick="doInpaint()">✨去水印</button><select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select></div>
+  <div id="grpWand" style="display:none;align-items:center;gap:3px"><label>容差</label><input type="range" id="wandTolerance" min="0" max="200" value="30" oninput="document.getElementById('wtVal').textContent=this.value"><span style="font-size:9px;width:20px" id="wtVal">30</span></div>
+  <div id="grpMagicEraser" style="display:none;align-items:center;gap:3px"><label>容差</label><input type="range" id="magicEraserTol" min="0" max="200" value="30" oninput="document.getElementById('meVal').textContent=this.value"><span style="font-size:9px;width:20px" id="meVal">30</span></div>
+  <div id="grpFill" style="display:none;align-items:center;gap:3px"><span style="font-size:9px;color:var(--text2)">点击填充选区/全图</span></div>
+  <div class="sep"></div>
+  <button id="btnDeselect" onclick="deselectAll()" style="display:none" title="取消选区 Ctrl+D">🚫取消选区</button>
+  <button id="btnInverse" onclick="inverseSelection()" style="display:none" title="反选 Ctrl+Shift+I">🔄反选</button>
   <div class="sep"></div>
   <button onclick="fitCanvas()">📐适应</button><button onclick="setActual()">1:1</button>
 </div>
