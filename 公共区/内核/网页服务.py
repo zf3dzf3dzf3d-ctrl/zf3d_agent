@@ -242,12 +242,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             else:
                 self._返回文件(self.界面目录 / 路径.lstrip("/"), self._猜测类型(路径), 查询串)
         except Exception as e:
-            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
-                return  # 客户端已断开，无需处理
+            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, OSError)):
+                return  # 客户端已断开/连接异常，无需处理
             print(f"  ❌ GET异常: {e}")
             if self.运行诊断器:
                 self.运行诊断器.记录错误("网页服务.do_GET", e)
-            self._返回JSON({"错误": f"服务器异常: {str(e)}"}, 500)
+            try:
+                self._返回JSON({"错误": f"服务器异常: {str(e)}"}, 500)
+            except Exception:
+                return  # 响应也失败了，放弃
 
     def do_POST(self):
         try:
@@ -271,12 +274,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             else:
                 self._返回JSON({"错误": "未知路径"}, 404)
         except Exception as e:
-            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
-                return  # 客户端已断开，无需处理
+            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, OSError)):
+                return  # 客户端已断开/连接异常，无需处理
             print(f"  ❌ POST异常: {e}")
             if self.运行诊断器:
                 self.运行诊断器.记录错误("网页服务.do_POST", e)
-            self._返回JSON({"错误": f"服务器异常: {str(e)}"}, 500)
+            try:
+                self._返回JSON({"错误": f"服务器异常: {str(e)}"}, 500)
+            except Exception:
+                return  # 响应也失败了，放弃
 
     def do_OPTIONS(self):
         self.send_response(200)
