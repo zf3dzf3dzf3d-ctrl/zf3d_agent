@@ -90,8 +90,8 @@
       "描述": "朗读指定的文本内容（调用Windows内置语音合成）",
       "类型": "python",
       "配置": {
-        "脚本": "import subprocess\n文本 = '''${文本}'''\n干净文本 = 文本.replace(\"'\", \"''\").replace('\"', '')\ncmd = f'powershell -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak(\\'{干净文本}\\')\"'\nsubprocess.run(cmd, shell=True, timeout=60)\nprint(f'已朗读: {干净文本[:50]}...' if len(干净文本) > 50 else f'已朗读: {干净文本}')",
-        "超时秒数": 60
+        "脚本": "import subprocess, tempfile, os\n文本 = '''${文本}'''\n干净文本 = 文本.replace('\\r', '').replace('\\n', '。')\nif len(干净文本) > 3000:\n    干净文本 = 干净文本[:3000]\n临时文件 = os.path.join(tempfile.gettempdir(), 'zf3d_speak.txt')\nwith open(临时文件, 'w', encoding='utf-8') as f:\n    f.write(干净文本)\ncmd = f'powershell -Command \"Add-Type -AssemblyName System.Speech; $t = Get-Content -Path \\'{临时文件}\\' -Raw -Encoding UTF8; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($t)\"'\n结果 = subprocess.run(cmd, shell=True, timeout=120)\ntry:\n    os.remove(临时文件)\nexcept:\n    pass\nif 结果.returncode != 0:\n    print(f'朗读失败(退出码{结果.returncode})')\nelse:\n    print(f'已朗读: {干净文本[:50]}...' if len(干净文本) > 50 else f'已朗读: {干净文本}')",
+        "超时秒数": 120
       },
       "参数": [
         {
