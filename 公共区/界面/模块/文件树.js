@@ -242,8 +242,12 @@ function buildTreeNode(node, path) {
         item.dataset.path = fullPath;
         item.dataset.name = node.名称;
         item.dataset.type = "目录";
+        item.dataset.size = node.大小 || 0;
+        item.dataset.date = node.创建时间 || "";
+        item.dataset.ext = "";
         item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${_esc(node.名称)}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
         el.appendChild(item);
+        attachFileTooltip(item, {名称: node.名称, 类型: "目录", 大小: 0, 创建时间: node.创建时间, 后缀: "", 路径: fullPath});
         setupDropTarget(item, fullPath);
         setupItemDraggable(item);
         const kids = document.createElement("div");
@@ -290,7 +294,11 @@ function buildTreeNode(node, path) {
         item.dataset.path = fullPath;
         item.dataset.name = node.名称;
         item.dataset.type = "文件";
+        item.dataset.size = node.大小 || 0;
+        item.dataset.date = node.创建时间 || "";
+        item.dataset.ext = node.后缀 || "";
         item.innerHTML = `<span class="arr"> </span><span class="ico">${fileIcon(node.后缀 || "")}</span><span class="nm">${_esc(node.名称)}</span><button class="del-btn" title="删除此文件">🗑️</button>`;
+        attachFileTooltip(item, {名称: node.名称, 类型: "文件", 大小: node.大小, 创建时间: node.创建时间, 后缀: node.后缀, 路径: fullPath});
         item.addEventListener("click", e => {
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, false); return; }
             e.stopPropagation();
@@ -350,11 +358,11 @@ async function renameItem(path, name) {
 }
 
 function fileIcon(ext) {
-    const m = {".py":"🐍",".js":"📜",".css":"🎨",".html":"🌐",".json":"📋",".md":"📝",".bat":"⚙️",".sh":"⚙️",".txt":"📄",".cs":"🔵",".java":"☕",".ts":"🔷",".tsx":"⚛️",".jsx":"⚛️",".vue":"💚",".go":"🔹",".rs":"🦀",".cpp":"⚙️",".h":"📄",".yml":"📋",".yaml":"📋",".toml":"📋",".ini":"📋",".env":"🔒",".gitignore":"🚫",".png":"🖼️",".jpg":"🖼️",".jpeg":"🖼️",".gif":"🖼️",".webp":"🖼️",".bmp":"🖼️",".svg":"🖼️",".mp3":"🎵",".wav":"🎵",".ogg":"🎵",".m4a":"🎵",".flac":"🎵",".aac":"🎵",".opus":"🎵",".wma":"🎵",".mp4":"🎬",".webm":"🎬",".mkv":"🎬",".avi":"🎬",".wmv":"🎬",".mov":"🎬",".flv":"🎬",".ts":"🎬",".docx":"📄",".doc":"📄",".xlsx":"📊",".xls":"📊",".csv":"📊",".pdf":"📕"};
+    const m = {".py":"🐍",".js":"📜",".css":"🎨",".html":"🌐",".json":"📋",".md":"📝",".bat":"⚙️",".sh":"⚙️",".txt":"📄",".cs":"🔵",".java":"☕",".ts":"🔷",".tsx":"⚛️",".jsx":"⚛️",".vue":"💚",".go":"🔹",".rs":"🦀",".cpp":"⚙️",".h":"📄",".yml":"📋",".yaml":"📋",".toml":"📋",".ini":"📋",".env":"🔒",".gitignore":"🚫",".png":"🖼️",".jpg":"🖼️",".jpeg":"🖼️",".gif":"🖼️",".webp":"🖼️",".bmp":"🖼️",".svg":"🖼️",".tga":"🖼️",".mp3":"🎵",".wav":"🎵",".ogg":"🎵",".m4a":"🎵",".flac":"🎵",".aac":"🎵",".opus":"🎵",".wma":"🎵",".mp4":"🎬",".webm":"🎬",".mkv":"🎬",".avi":"🎬",".wmv":"🎬",".mov":"🎬",".flv":"🎬",".ts":"🎬",".docx":"📄",".doc":"📄",".xlsx":"📊",".xls":"📊",".csv":"📊",".pdf":"📕"};
     return m[ext] || "📄";
 }
 
-const 图片后缀 = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"];
+const 图片后缀 = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".tga"];
 function isImage(ext) { return 图片后缀.includes(ext.toLowerCase()); }
 
 const 音频后缀 = [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac", ".opus", ".wma"];
@@ -733,8 +741,8 @@ function renderGalleryGrid() {
             item.dataset.path = fullPath;
             item.dataset.name = node.名称;
             item.dataset.type = "目录";
-            item.title = `进入文件夹: ${_esc(node.名称)}`;
             item.innerHTML = `<div class="gallery-thumb">📁</div><div class="gallery-name">${_esc(node.名称)}</div>`;
+            attachFileTooltip(item, {名称: node.名称, 类型: "目录", 大小: 0, 创建时间: node.创建时间, 后缀: "", 路径: fullPath});
             item.addEventListener("click", () => { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); });
             setupDropTarget(item, fullPath);
             setupItemDraggable(item);
@@ -748,22 +756,26 @@ function renderGalleryGrid() {
             item.dataset.path = fullPath;
             item.dataset.name = node.名称;
             item.dataset.type = "文件";
-            if (isImage(ext)) {
-                item.title = `查看图片: ${_esc(node.名称)}`;
+            const _ftNode = {名称: node.名称, 类型: "文件", 大小: node.大小, 创建时间: node.创建时间, 后缀: node.后缀, 路径: fullPath};
+            if (isImage(ext) && ext.toLowerCase() !== ".tga") {
                 item.innerHTML = `<div class="gallery-thumb"><img src="/api/image?path=${encodeURIComponent(fullPath)}" loading="lazy" /></div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => {
                     const idx = galleryImages.findIndex(g => g.路径 === fullPath);
                     showImage(fullPath, node.名称, idx);
                 });
+            } else if (ext.toLowerCase() === ".tga") {
+                item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">🖼️</div><div class="gallery-name">${_esc(node.名称)}</div>`;
+                item.addEventListener("click", () => {
+                    const idx = galleryImages.findIndex(g => g.路径 === fullPath);
+                    showImage(fullPath, node.名称, idx);
+                });
             } else if (isAudio(ext)) {
-                item.title = `播放音频: ${_esc(node.名称)}`;
                 item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">🎵</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => {
                     const idx = audioPlaylist.findIndex(a => a.路径 === fullPath);
                     showAudio(fullPath, node.名称, idx);
                 });
             } else if (isVideo(ext)) {
-                item.title = `播放视频: ${_esc(node.名称)}`;
                 item.innerHTML = `<div class="gallery-thumb"><video src="/api/video?path=${encodeURIComponent(fullPath)}" preload="metadata" muted playsinline></video><div class="gallery-play-overlay">▶</div></div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 const vEl = item.querySelector('video');
                 if (vEl) {
@@ -778,7 +790,6 @@ function renderGalleryGrid() {
                 }
                 item.addEventListener("click", () => { showVideo(fullPath, node.名称); });
             } else if (isDocument(ext)) {
-                item.title = `预览文档: ${_esc(node.名称)}`;
                 const docIcon = ext === ".pdf" ? "📕" : (ext === ".xlsx" || ext === ".xls" || ext === ".csv" ? "📊" : "📄");
                 item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${docIcon}</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                 item.addEventListener("click", () => { showDocument(fullPath, node.名称); });
@@ -786,16 +797,15 @@ function renderGalleryGrid() {
                 const icon = fileIcon(ext);
                 const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext.toLowerCase());
                 if (可编辑) {
-                    item.title = `在编辑器中打开: ${_esc(node.名称)}`;
                     item.innerHTML = `<div class="gallery-thumb gallery-thumb-text">${icon}</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                     item.addEventListener("click", () => { hideMediaView(); openFileInEditor(galleryPath, node.名称); });
                 } else {
                     item.innerHTML = `<div class="gallery-thumb gallery-thumb-locked">🔒</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                     item.className = "gallery-item gallery-item-locked";
                     if (selectedItems.has(fullPath)) item.classList.add("selected");
-                    item.title = "此文件格式不支持打开";
                 }
             }
+            attachFileTooltip(item, _ftNode);
             setupItemDraggable(item);
             grid.appendChild(item);
         }
@@ -866,6 +876,7 @@ function renderGalleryList() {
             else { showToast("info", "🔒 不支持的格式", `「${_esc(node.名称)}」无法在此应用中打开`); }
         });
         setupItemDraggable(row);
+        attachFileTooltip(row, {名称: node.名称, 类型: node.类型, 大小: node.大小, 创建时间: node.创建时间, 后缀: node.后缀, 路径: fullPath});
         if (isDir) setupDropTarget(row, fullPath);
         list.appendChild(row);
     }
@@ -1041,3 +1052,123 @@ function backToGallery() {
     if (galleryPath) showGallery(galleryPath);
 }
 
+// ============ 文件悬浮提示 ============
+let _tooltipEl = null;
+let _tooltipTimer = null;
+
+function _getTooltipEl() {
+    if (!_tooltipEl) _tooltipEl = document.getElementById("fileTooltip");
+    return _tooltipEl;
+}
+
+function _formatTooltipSize(bytes) {
+    if (!bytes || bytes === 0) return "-";
+    return formatSize(bytes);
+}
+
+function _formatTooltipType(node) {
+    if (node.类型 === "目录") return "文件夹";
+    const ext = (node.后缀 || "").toLowerCase();
+    const typeMap = {
+        ".py": "Python 脚本", ".js": "JavaScript", ".css": "CSS 样式表", ".html": "HTML 网页",
+        ".json": "JSON 数据", ".md": "Markdown 文档", ".bat": "批处理脚本", ".sh": "Shell 脚本",
+        ".txt": "文本文件", ".cs": "C# 源码", ".ts": "TypeScript", ".java": "Java 源码",
+        ".png": "PNG 图片", ".jpg": "JPEG 图片", ".jpeg": "JPEG 图片", ".gif": "GIF 图片",
+        ".webp": "WebP 图片", ".bmp": "BMP 图片", ".svg": "SVG 矢量图", ".tga": "TGA 图片",
+        ".mp3": "MP3 音频", ".wav": "WAV 音频", ".ogg": "OGG 音频", ".m4a": "M4A 音频", ".flac": "FLAC 音频",
+        ".mp4": "MP4 视频", ".mkv": "MKV 视频", ".avi": "AVI 视频", ".wmv": "WMV 视频", ".mov": "MOV 视频",
+        ".docx": "Word 文档", ".doc": "Word 文档", ".xlsx": "Excel 表格", ".xls": "Excel 表格",
+        ".csv": "CSV 表格", ".pdf": "PDF 文档", ".zip": "ZIP 压缩包", ".7z": "7Z 压缩包",
+        ".rar": "RAR 压缩包", ".tar": "TAR 压缩包", ".gz": "GZ 压缩包"
+    };
+    return typeMap[ext] || (ext ? ext.slice(1).toUpperCase() + " 文件" : "文件");
+}
+
+function showFileTooltip(e, node) {
+    clearTimeout(_tooltipTimer);
+    _tooltipTimer = setTimeout(() => {
+        const el = _getTooltipEl();
+        if (!el) return;
+        const name = node.名称 || node.dataset?.name || "";
+        const isDir = (node.类型 || node.dataset?.type) === "目录";
+        const size = node.大小 !== undefined ? node.大小 : (node.dataset?.size ? parseInt(node.dataset.size) : 0);
+        const date = node.创建时间 || node.dataset?.date || "";
+        const ext = node.后缀 || node.dataset?.ext || "";
+        const path = node.路径 || node.dataset?.path || "";
+
+        let html = `<div class="ft-name">${_esc(name)}</div>`;
+        html += `<div class="ft-row"><span class="ft-label">类型</span><span class="ft-value">${_formatTooltipType({类型: isDir ? "目录" : "文件", 后缀: ext})}</span></div>`;
+        if (!isDir) {
+            html += `<div class="ft-row"><span class="ft-label">大小</span><span class="ft-value">${_formatTooltipSize(size)}</span></div>`;
+        } else {
+            html += `<div class="ft-row"><span class="ft-label">大小</span><span class="ft-value ft-size-val">计算中...</span></div>`;
+            html += `<div class="ft-row"><span class="ft-label">内容</span><span class="ft-value ft-count-val">-</span></div>`;
+        }
+        if (date) {
+            html += `<div class="ft-row"><span class="ft-label">时间</span><span class="ft-value">${date}</span></div>`;
+        }
+        el.innerHTML = html;
+        el.dataset.currentPath = path;
+        el.style.display = "block";
+
+        // 异步获取文件夹大小和文件数
+        if (isDir && path) {
+            _fetchFolderInfo(path, el);
+        }
+
+        // 定位
+        const x = e.clientX + 14;
+        const y = e.clientY + 14;
+        const rect = el.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width - 8;
+        const maxY = window.innerHeight - rect.height - 8;
+        el.style.left = Math.min(x, maxX) + "px";
+        el.style.top = Math.min(y, maxY) + "px";
+    }, 150);
+}
+
+let _folderInfoCache = {};
+
+function _fetchFolderInfo(path, tooltipEl) {
+    const cached = _folderInfoCache[path];
+    if (cached) {
+        _applyFolderInfo(tooltipEl, cached);
+        return;
+    }
+    fetch(`/api/folder-size?path=${encodeURIComponent(path)}`)
+        .then(r => r.json())
+        .then(d => {
+            if (!d.成功) return;
+            const info = { 大小: d.大小 || 0, 文件数: d.文件数 || 0, 文件夹数: d.文件夹数 || 0 };
+            _folderInfoCache[path] = info;
+            _applyFolderInfo(tooltipEl, info);
+        })
+        .catch(() => {
+            const valEl = tooltipEl.querySelector(".ft-size-val");
+            if (valEl) valEl.textContent = "-";
+        });
+}
+
+function _applyFolderInfo(tooltipEl, info) {
+    const sizeEl = tooltipEl.querySelector(".ft-size-val");
+    const countEl = tooltipEl.querySelector(".ft-count-val");
+    if (sizeEl) sizeEl.textContent = _formatTooltipSize(info.大小);
+    if (countEl) {
+        const parts = [];
+        if (info.文件数) parts.push(`${info.文件数}个文件`);
+        if (info.文件夹数) parts.push(`${info.文件夹数}个子文件夹`);
+        countEl.textContent = parts.length ? parts.join("，") : "空";
+    }
+}
+
+function hideFileTooltip() {
+    clearTimeout(_tooltipTimer);
+    const el = _getTooltipEl();
+    if (el) el.style.display = "none";
+}
+
+function attachFileTooltip(el, node) {
+    el.addEventListener("mouseenter", e => showFileTooltip(e, node));
+    el.addEventListener("mouseleave", hideFileTooltip);
+    el.addEventListener("mousemove", () => { /* 不重新定位，避免抖动 */ });
+}

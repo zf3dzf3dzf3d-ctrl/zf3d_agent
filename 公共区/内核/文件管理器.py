@@ -193,7 +193,11 @@ class 文件管理器类:
         return {"成功": True, "树": 树}
 
     def _递归目录树(self, 目录: Path, 最大深度: int, 当前深度: int) -> dict:
-        节点 = {"名称": 目录.name, "类型": "目录", "子项": []}
+        try:
+            stat = 目录.stat()
+            节点 = {"名称": 目录.name, "类型": "目录", "创建时间": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"), "子项": []}
+        except OSError:
+            节点 = {"名称": 目录.name, "类型": "目录", "子项": []}
         if 当前深度 >= 最大深度:
             节点["截断"] = True
             return 节点
@@ -205,11 +209,13 @@ class 文件管理器类:
                     if 子项.is_dir():
                         节点["子项"].append(self._递归目录树(子项, 最大深度, 当前深度 + 1))
                     else:
+                        st = 子项.stat()
                         节点["子项"].append({
                             "名称": 子项.name,
                             "类型": "文件",
-                            "大小": 子项.stat().st_size,
-                            "后缀": 子项.suffix.lower()
+                            "大小": st.st_size,
+                            "后缀": 子项.suffix.lower(),
+                            "创建时间": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M")
                         })
                 except OSError:
                     continue

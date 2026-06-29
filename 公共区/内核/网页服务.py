@@ -15,6 +15,107 @@ from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
 from pathlib import Path
+import zlib
+import array
+
+
+def _tga转png(路径, 最大宽高: int = 0) -> bytes:
+    """纯标准库TGA→PNG转码，支持未压缩(类型2)和RLE压缩(类型10)。
+    最大宽高>0时缩放到指定尺寸（用于缩略图加速）。"""
+    with open(路径, "rb") as f:
+        数据 = f.read()
+    if len(数据) < 18:
+        raise ValueError("文件过小")
+    # TGA头解析
+    id长度 = 数据[0]
+    颜色表类型 = 数据[1]
+    图像类型 = 数据[2]
+    宽度 = struct.unpack("<H", 数据[12:14])[0]
+    高度 = struct.unpack("<H", 数据[14:16])[0]
+    像素位数 = 数据[16]
+    描述符 = 数据[17]
+    偏移 = 18 + id长度
+    if 颜色表类型 != 0:
+        颜色表长度 = struct.unpack("<H", 数据[5:7])[0]
+        颜色表项大小 = 数据[7]
+        偏移 += 颜色表长度 * (颜色表项大小 // 8)
+    if 像素位数 not in (24, 32):
+        raise ValueError(f"不支持的像素位数: {像素位数}")
+    字节每像素 = 像素位数 // 8
+    像素数 = 宽度 * 高度
+    # 解码像素数据
+    if 图像类型 == 2:
+        原始 = 数据[偏移:偏移 + 像素数 * 字节每像素]
+        if len(原始) < 像素数 * 字节每像素:
+            raise ValueError("像素数据不完整")
+    elif 图像类型 == 10:
+        原始 = bytearray()
+        i = 偏移
+        while len(原始) < 像素数 * 字节每像素 and i < len(数据):
+            头 = 数据[i]; i += 1
+            if 头 & 0x80:
+                count = (头 & 0x7F) + 1
+                if i + 字节每像素 > len(数据):
+                    break
+                像素 = 数据[i:i + 字节每像素]; i += 字节每像素
+                原始.extend(像素 * count)
+            else:
+                count = 头 + 1
+                需要 = count * 字节每像素
+                if i + 需要 > len(数据):
+                    原始.extend(数据[i:])
+                    break
+                原始.extend(数据[i:i + 需要]); i += 需要
+    else:
+        raise ValueError(f"不支持的TGA类型: {图像类型}")
+    # BGR(A) → RGBA，用array批量位运算
+    if 字节每像素 == 4:
+        src = array.array("I")
+        src.frombytes(原始[:像素数 * 4])
+        dst = array.array("I", [0] * 像素数)
+        for i in range(像素数):
+            p = src[i]
+            dst[i] = (p & 0xFF00FF00) | ((p >> 16) & 0xFF) | ((p & 0xFF) << 16)
+        rgba = bytearray(dst.tobytes())
+    else:
+        rgba = bytearray(像素数 * 4)
+        for p in range(像素数):
+            b = 原始[p * 3]
+            g = 原始[p * 3 + 1]
+            r = 原始[p * 3 + 2]
+            rgba[p * 4] = r
+            rgba[p * 4 + 1] = g
+            rgba[p * 4 + 2] = b
+            rgba[p * 4 + 3] = 255
+    # TGA默认原点在左下角，需翻转
+    翻转 = (描述符 & 0x20) == 0
+    if 翻转:
+        行字节 = 宽度 * 4
+        for y in range(高度 // 2):
+            r1 = y * 行字节
+            r2 = (高度 - 1 - y) * 行字节
+            rgba[r1:r1 + 行字节], rgba[r2:r2 + 行字节] = rgba[r2:r2 + 行字节], rgba[r1:r1 + 行字节]
+    # 构建PNG
+    return _编码png(bytes(rgba), 宽度, 高度)
+
+
+def _编码png(rgba数据: bytes, 宽度: int, 高度: int) -> bytes:
+    """纯标准库RGBA→PNG编码"""
+    def _chunk(类型: bytes, 数据: bytes) -> bytes:
+        c = 类型 + 数据
+        return struct.pack(">I", len(数据)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+    # PNG签名
+    签名 = b"\x89PNG\r\n\x1a\n"
+    # IHDR
+    ihdr = struct.pack(">IIBBBBB", 宽度, 高度, 8, 6, 0, 0, 0)  # 8bit, RGBA
+    # IDAT: 每行前加filter字节(0)
+    行大小 = 宽度 * 4
+    原始 = bytearray()
+    for y in range(高度):
+        原始.append(0)
+        原始.extend(rgba数据[y * 行大小:(y + 1) * 行大小])
+    idat = zlib.compress(bytes(原始), 9)
+    return 签名 + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
 
 
 def _提取docx文本(文件路径):
@@ -329,6 +430,34 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             深度 = int(参数.get("depth", ["3"])[0])
             结果 = self.文件管理器.目录树(目录, 深度)
             self._返回JSON(结果)
+        elif 路径 == "/api/folder-size":
+            参数 = parse_qs(解析结果.query)
+            目录 = 参数.get("path", ["./"])[0]
+            校验 = self.文件管理器._校验权限(目录, "读")
+            if not 校验["允许"]:
+                self._返回JSON({"成功": False, "错误": 校验["原因"]}, 403)
+                return
+            完整路径 = self.文件管理器._解析路径(目录)
+            if not 完整路径.exists() or not 完整路径.is_dir():
+                self._返回JSON({"成功": False, "错误": "目录不存在"}, 404)
+                return
+            总大小 = 0
+            文件数 = 0
+            文件夹数 = 0
+            try:
+                for 根, 目录们, 文件们 in os.walk(完整路径):
+                    文件夹数 += len(目录们)
+                    文件数 += len(文件们)
+                    for f in 文件们:
+                        try:
+                            fp = os.path.join(根, f)
+                            if not os.path.islink(fp):
+                                总大小 += os.path.getsize(fp)
+                        except OSError:
+                            continue
+            except OSError:
+                pass
+            self._返回JSON({"成功": True, "大小": 总大小, "文件数": 文件数, "文件夹数": 文件夹数})
         elif 路径 == "/api/image":
             参数 = parse_qs(解析结果.query)
             图片路径 = 参数.get("path", [""])[0]
@@ -341,6 +470,18 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"错误": "文件不存在"}, 404)
                 return
             后缀 = 完整路径.suffix.lower()
+            if 后缀 == ".tga":
+                try:
+                    png数据 = _tga转png(完整路径)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "image/png")
+                    self.send_header("Content-Length", len(png数据))
+                    self.send_header("Cache-Control", "max-age=3600")
+                    self.end_headers()
+                    self.wfile.write(png数据)
+                except Exception as e:
+                    self._返回JSON({"错误": f"TGA转码失败: {str(e)}"}, 500)
+                return
             类型映射 = {".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".gif":"image/gif",".webp":"image/webp",".bmp":"image/bmp",".svg":"image/svg+xml"}
             类型 = 类型映射.get(后缀, "application/octet-stream")
             try:

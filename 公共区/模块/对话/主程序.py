@@ -32,6 +32,7 @@ from 上下文管理器 import 上下文管理器类
 from 提示词构建器 import 提示词构建器类
 from 推理引擎 import 推理引擎类
 from 反思评估器 import 反思评估器类
+from 经验师 import 经验师类
 
 
 def text_only(消息: str) -> str:
@@ -76,6 +77,7 @@ class 对话模块:
         self.提示词构建器 = 提示词构建器类()
         self.推理引擎 = 推理引擎类()
         self.反思评估器 = 反思评估器类()
+        self.经验师 = 经验师类()
 
     def 初始化(self, 配置: dict):
         """初始化对话模块"""
@@ -100,6 +102,8 @@ class 对话模块:
         项目根 = Path(self.配置.get("项目根目录", "."))
         self.检查点目录 = 项目根 / "隐私区" / "我的日志" / "检查点"
         self.检查点目录.mkdir(parents=True, exist_ok=True)
+        # 经验师初始化
+        self.经验师.初始化(self.模型直连器, str(项目根))
         # 多对话管理
         try:
             self._初始化对话管理()
@@ -168,6 +172,11 @@ class 对话模块:
                             self.存储引擎.插入任务经验(经验卡片)
                         except Exception:
                             pass
+                # 经验师沉淀经验文档
+                try:
+                    self.经验师.沉淀经验(用户消息, 推理结果)
+                except Exception:
+                    pass
 
             全局事件中心.发布("收到消息", {"角色": "助手", "内容": 推理结果.get("回复", "")})
 

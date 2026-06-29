@@ -691,3 +691,24 @@ pre:hover .code-copy-btn { opacity:1; }
 .sp-bulk-status.running { color:var(--blue); }
 .sp-bulk-status.done { color:#4EC9B0; }
 .sp-bulk-status.error { color:#f14c4c; }
+
+/* === 文件悬浮提示 === */
+.file-tooltip {
+    position: fixed;
+    z-index: 99999;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    pointer-events: none;
+    max-width: 320px;
+    word-break: break-all;
+    line-height: 1.6;
+}
+.file-tooltip .ft-name { font-weight: bold; color: var(--text); margin-bottom: 4px; text-align: center; }
+.file-tooltip .ft-row { display: flex; gap: 6px; }
+.file-tooltip .ft-label { color: var(--text2); min-width: 48px; text-align: right; }
+.file-tooltip .ft-value { color: var(--text); flex: 1; }

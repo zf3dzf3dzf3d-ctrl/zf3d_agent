@@ -208,23 +208,10 @@
             <div class="panel-bar">
                 <span>💬 对话</span>
                 <div class="panel-bar-actions">
-                    <button class="bar-btn" id="tavilyBtn" onclick="toggleTavilyBar()" title="Tavily搜索配置">🔍</button>
                     <button class="bar-btn" onclick="toggleConvList()" title="显示/隐藏对话列表">📋</button>
                     <button class="bar-btn" onclick="newConversation()" title="新建对话">➕</button>
                     <button class="bar-btn" onclick="clearChat()" title="清空当前对话内容">🗑️</button>
                 </div>
-            </div>
-            <!-- Tavily快捷配置条 -->
-            <div class="tavily-bar" id="tavilyBar" style="display:none;">
-                <div class="tavily-bar-row">
-                    <span class="tavily-status" id="tavilyStatus">🔍 Tavily: 加载中...</span>
-                    <button class="bar-btn" onclick="toggleTavilyBar()" style="margin-left:auto;">✖</button>
-                </div>
-                <div class="tavily-bar-row">
-                    <input type="password" id="tavilyKeyInput" class="dialog-input" placeholder="输入Tavily API Key..." style="flex:1;font-size:11px;padding:4px 8px;" />
-                    <button class="dlg-btn primary" onclick="saveTavilyKeyFromBar()" style="font-size:11px;padding:3px 10px;">保存</button>
-                </div>
-                <div style="font-size:10px;color:var(--text2);margin-top:3px;">免费注册: <a href="https://tavily.com" target="_blank" style="color:var(--blue);">tavily.com</a> · 每月1000次 · 未配置时回退Bing</div>
             </div>
             <!-- 对话列表（折叠式，不占主界面） -->
             <div class="conv-list" id="convList" style="display:none;">
@@ -474,5 +461,8 @@
             </div>
         </div>
     </div>
+
+    <!-- 文件悬浮提示 -->
+    <div class="file-tooltip" id="fileTooltip" style="display:none;"></div>
 </body>
 </html>

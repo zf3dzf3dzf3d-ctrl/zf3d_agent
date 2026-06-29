@@ -194,64 +194,6 @@ async function saveToolKey(工具名) {
     }
 }
 
-// ============ Tavily快捷配置（对话面板） ============
-async function toggleTavilyBar() {
-    const bar = document.getElementById("tavilyBar");
-    if (bar.style.display === "none") {
-        bar.style.display = "flex";
-        await loadTavilyStatus();
-    } else {
-        bar.style.display = "none";
-    }
-}
-
-async function loadTavilyStatus() {
-    const el = document.getElementById("tavilyStatus");
-    const btn = document.getElementById("tavilyBtn");
-    if (!el) return;
-    el.textContent = "🔍 Tavily: 加载中...";
-    el.className = "tavily-status";
-    try {
-        const res = await fetch("/api/tool-keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-        const d = await res.json();
-        if (d.成功) {
-            const t = (d.工具列表 || []).find(x => x.名称 === "Tavily");
-            if (t && t.已配置) {
-                el.textContent = `✅ Tavily: ${t.掩码值}`;
-                el.className = "tavily-status active";
-                btn.style.color = "var(--green)";
-            } else {
-                el.textContent = "⚠️ Tavily: 未配置（回退Bing）";
-                el.className = "tavily-status inactive";
-                btn.style.color = "var(--text2)";
-            }
-        }
-    } catch (e) {
-        el.textContent = "🔍 Tavily: 连接失败";
-    }
-}
-
-async function saveTavilyKeyFromBar() {
-    const input = document.getElementById("tavilyKeyInput");
-    if (!input || !input.value.trim()) {
-        showToast("info", "ℹ️ 密钥为空", "请输入Tavily API Key");
-        return;
-    }
-    try {
-        const res = await fetch("/api/tool-keys", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 工具: "Tavily", 密钥: input.value.trim() }) });
-        const d = await res.json();
-        if (d.成功) {
-            showToast("success", "✅ Tavily密钥已保存", "搜索已升级为Tavily");
-            input.value = "";
-            loadTavilyStatus();
-        } else {
-            showToast("error", "❌ 保存失败", d.错误 || "");
-        }
-    } catch (e) {
-        showToast("error", "❌ 连接错误", e.message);
-    }
-}
-
 async function loadSystemStatus() {
     try {
         const res = await fetch("/api/status"); const s = await res.json();
