@@ -110,22 +110,10 @@ function initToolbar(){
 }
 
 function updateToolPanel(){
-  const isBrush=BRUSH_TOOLS.includes(tool);
-  const isPencil=tool==='pencil';
-  const showBrush=(isBrush||isPencil);
-  document.getElementById('grpBrush').style.display=showBrush?'flex':'none';
-  document.getElementById('grpHardness').style.display=(isBrush&&!isPencil)?'flex':'none';
-  const noColor=['eraser','magicEraser','blur','sharpen','dodge','sponge','inpaint','eyedropper','hand'];
-  document.getElementById('grpColor').style.display=noColor.includes(tool)?'none':'flex';
-  document.getElementById('grpDodge').style.display=(tool==='dodge'||tool==='sponge')?'flex':'none';
-  document.getElementById('grpBlur').style.display=(tool==='blur'||tool==='sharpen')?'flex':'none';
-  document.getElementById('grpInpaint').style.display=tool==='inpaint'?'flex':'none';
-  document.getElementById('grpWand').style.display=tool==='wand'?'flex':'none';
-  document.getElementById('grpMagicEraser').style.display=tool==='magicEraser'?'flex':'none';
-  document.getElementById('grpFill').style.display=tool==='fill'?'flex':'none';
-  const hasSel=selRect||lassoPath.length>2||wandMask;
-  document.getElementById('btnDeselect').style.display=hasSel?'inline-block':'none';
-  document.getElementById('btnInverse').style.display=hasSel?'inline-block':'none';
+  // PS风格：只显示当前工具对应的选项组
+  document.querySelectorAll('#optBar .opt-group').forEach(g=>{
+    g.classList.toggle('show',g.dataset.tool===tool);
+  });
 }
 
 function setTool(t){
