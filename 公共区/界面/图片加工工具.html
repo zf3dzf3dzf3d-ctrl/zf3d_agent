@@ -8,7 +8,6 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--border:#1a4a7a;--accent:#533483;--text:#e0e0e0;--text2:#888;--blue:#0078d4;--red:#f44336;--orange:#ff9800}
 body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;user-select:none}
-/* 顶栏分为：左=文件操作 中=工具选项栏(动态) 右=视图 */
 .topbar{display:flex;align-items:center;gap:4px;padding:4px 6px;background:var(--bg2);border-bottom:1px solid var(--border);z-index:20}
 .topbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:3px;cursor:pointer;font-size:11px;white-space:nowrap}
 .topbar button:hover{background:#1a4a7a}
@@ -20,24 +19,30 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
 .topbar input[type=number]{width:40px;background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px;font-size:11px}
 .topbar select{background:#0a0a1a;color:var(--text);border:1px solid #333;border-radius:3px;padding:2px;font-size:11px}
 .topbar .opt{font-size:9px;color:var(--text2)}
-/* 动态选项栏 */
 #optBar{display:flex;align-items:center;gap:4px;flex:1;overflow-x:auto;overflow-y:hidden}
 #optBar .opt-group{display:none;align-items:center;gap:3px;flex-shrink:0}
 #optBar .opt-group.show{display:flex}
-/* 左工具栏 */
+/* 前景/背景色 */
+.color-box{display:flex;flex-direction:column;gap:1px;position:relative;width:30px;height:30px}
+.color-box input[type=color]{width:20px;height:20px;border:1px solid #555;border-radius:2px;padding:0;cursor:pointer;position:absolute}
+#fgColorInput{top:0;left:0;z-index:2}
+#bgColorInput{bottom:0;right:0;z-index:1}
+.color-box .swap-hint{position:absolute;top:-8px;left:-2px;font-size:8px;color:var(--text2);white-space:nowrap}
 .main{flex:1;display:flex;overflow:hidden}
-.leftbar{width:40px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1px;padding:4px 0;align-items:center;overflow-y:auto}
-.leftbar button{width:34px;height:34px;border:none;background:none;color:var(--text2);font-size:15px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative}
+/* 左工具栏：双排 */
+.leftbar{width:76px;background:var(--bg2);border-right:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:1px;padding:4px 3px;overflow-y:auto;align-content:start}
+.leftbar button{width:32px;height:32px;border:none;background:none;color:var(--text2);font-size:14px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;margin:auto}
 .leftbar button:hover{background:var(--bg3);color:var(--text)}
 .leftbar button.active{background:var(--accent);color:#fff}
-.leftbar .sep{width:26px;height:1px;background:#333;margin:3px 0}
-.leftbar .tip{position:absolute;left:42px;background:#000;padding:2px 6px;border-radius:3px;font-size:10px;white-space:nowrap;display:none;z-index:100;border:1px solid #333}
+.leftbar .sep{grid-column:span 2;width:100%;height:1px;background:#333;margin:2px 0}
+.leftbar .tip{position:absolute;left:36px;background:#000;padding:2px 6px;border-radius:3px;font-size:10px;white-space:nowrap;display:none;z-index:100;border:1px solid #333}
 .leftbar button:hover .tip{display:block}
-/* 画布 */
+/* 画布区域 */
 .canvas-area{flex:1;position:relative;overflow:hidden;background:#0d0d1a}
 #canvasBg{position:absolute;inset:0;background-image:linear-gradient(45deg,#151530 25%,transparent 25%),linear-gradient(-45deg,#151530 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#151530 75%),linear-gradient(-45deg,transparent 75%,#151530 75%);background-size:20px 20px}
-#mainCanvas{position:absolute;transform-origin:0 0}
-#overlayCanvas{position:absolute;pointer-events:none;transform-origin:0 0}
+#canvasBorder{position:absolute;border:1px solid #555;pointer-events:none;z-index:5;transform-origin:0 0}
+#mainCanvas{position:absolute;transform-origin:0 0;z-index:6}
+#overlayCanvas{position:absolute;pointer-events:none;transform-origin:0 0;z-index:7}
 #zoomPill{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.7);color:#aaa;padding:2px 8px;border-radius:3px;font-size:10px;z-index:10;pointer-events:none}
 /* 右面板 */
 .rightbar{width:220px;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
@@ -65,9 +70,7 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
 </head>
 <body>
 
-<!-- 顶栏：固定按钮 + 动态工具选项栏 + 视图按钮 -->
 <div class="topbar">
-  <!-- 左：固定操作 -->
   <button onclick="loadImage()">📁</button>
   <button onclick="resetAll()">↩️</button>
   <button onclick="saveImage()" class="primary">💾</button>
@@ -75,172 +78,40 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
   <button onclick="undo()">↩️</button>
   <button onclick="redo()">↪️</button>
   <div class="sep"></div>
+  <!-- 前景/背景色 -->
+  <div class="color-box">
+    <span class="swap-hint">X</span>
+    <input type="color" id="fgColorInput" value="#ff0000" title="前景色 (Alt+Delete填充)">
+    <input type="color" id="bgColorInput" value="#000000" title="背景色 (Ctrl+Delete填充)">
+  </div>
+  <div class="sep"></div>
 
-  <!-- 中：动态工具选项栏（每个工具有不同的选项组） -->
   <div id="optBar">
-
-    <!-- 移动工具 -->
-    <div class="opt-group" data-tool="move">
-      <span class="opt">移动当前图层 · 中键/右键平移</span>
-    </div>
-
-    <!-- 矩形选区 -->
-    <div class="opt-group" data-tool="rect">
-      <span class="opt">拖拽选择矩形区域 · 双击取消</span>
-      <div class="sep"></div>
-      <button id="btnDeselectM" onclick="deselectAll()">🚫取消</button>
-      <button onclick="inverseSelection()">🔄反选</button>
-    </div>
-
-    <!-- 椭圆选区 -->
-    <div class="opt-group" data-tool="ellipse">
-      <span class="opt">拖拽选择椭圆区域 · 双击取消</span>
-      <div class="sep"></div>
-      <button onclick="deselectAll()">🚫取消</button>
-      <button onclick="inverseSelection()">🔄反选</button>
-    </div>
-
-    <!-- 套索 -->
-    <div class="opt-group" data-tool="lasso">
-      <span class="opt">自由手绘选区 · 松开自动闭合</span>
-      <div class="sep"></div>
-      <button onclick="deselectAll()">🚫取消</button>
-      <button onclick="inverseSelection()">🔄反选</button>
-    </div>
-
-    <!-- 魔棒 -->
-    <div class="opt-group" data-tool="wand">
-      <label>容差</label>
-      <input type="range" id="wandTolerance" min="0" max="200" value="30" oninput="document.getElementById('wtVal').textContent=this.value">
-      <span style="font-size:9px;width:20px" id="wtVal">30</span>
-      <span class="opt">点击选择相似颜色</span>
-      <div class="sep"></div>
-      <button onclick="deselectAll()">🚫取消</button>
-      <button onclick="inverseSelection()">🔄反选</button>
-    </div>
-
-    <!-- 裁剪 -->
-    <div class="opt-group" data-tool="crop">
-      <span class="opt">框选区域后自动裁剪</span>
-    </div>
-
-    <!-- 画笔 -->
-    <div class="opt-group" data-tool="brush">
-      <label>色</label><input type="color" id="fgColor_brush" value="#ff0000" onchange="document.getElementById('fgColor').value=this.value">
-      <div class="sep"></div>
-      <label>大小</label><input type="range" id="brushSize" min="1" max="300" value="20" oninput="document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal">20</span>
-      <label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span>
-      <label>透明</label><input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal">100%</span>
-      <span class="opt">Alt=吸管 Ctrl=调大小透明</span>
-    </div>
-
-    <!-- 铅笔 -->
-    <div class="opt-group" data-tool="pencil">
-      <label>色</label><input type="color" id="fgColor_pencil" value="#ff0000" onchange="document.getElementById('fgColor').value=this.value">
-      <div class="sep"></div>
-      <label>大小</label><input type="range" id="brushSize_p" min="1" max="100" value="5" oninput="document.getElementById('bsVal_p').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_p">5</span>
-      <label>透明</label><input type="range" id="brushOpacity_p" min="0" max="100" value="100" oninput="document.getElementById('boVal_p').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_p">100%</span>
-      <span class="opt">方块硬边</span>
-    </div>
-
-    <!-- 橡皮 -->
-    <div class="opt-group" data-tool="eraser">
-      <label>大小</label><input type="range" id="brushSize_e" min="1" max="300" value="20" oninput="document.getElementById('bsVal_e').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_e">20</span>
-      <label>透明</label><input type="range" id="brushOpacity_e" min="0" max="100" value="100" oninput="document.getElementById('boVal_e').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_e">100%</span>
-      <span class="opt">擦除当前层</span>
-    </div>
-
-    <!-- 魔术橡皮 -->
-    <div class="opt-group" data-tool="magicEraser">
-      <label>容差</label><input type="range" id="magicEraserTol" min="0" max="200" value="30" oninput="document.getElementById('meVal').textContent=this.value"><span style="font-size:9px;width:20px" id="meVal">30</span>
-      <span class="opt">点击擦除相似颜色</span>
-    </div>
-
-    <!-- 图章 -->
-    <div class="opt-group" data-tool="stamp">
-      <label>大小</label><input type="range" id="brushSize_s" min="1" max="300" value="40" oninput="document.getElementById('bsVal_s').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_s">40</span>
-      <label>透明</label><input type="range" id="brushOpacity_s" min="0" max="100" value="100" oninput="document.getElementById('boVal_s').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_s">100%</span>
-      <span class="opt">Alt+左键设源 → 左键复制</span>
-    </div>
-
-    <!-- 吸管 -->
-    <div class="opt-group" data-tool="eyedropper">
-      <span class="opt">点击拾取颜色</span>
-      <div class="sep"></div>
-      <label>当前色</label><input type="color" id="fgColor" value="#ff0000">
-    </div>
-
-    <!-- 渐变 -->
-    <div class="opt-group" data-tool="gradient">
-      <label>色</label><input type="color" id="fgColor_g" value="#ff0000" onchange="document.getElementById('fgColor').value=this.value">
-      <label>透明</label><input type="range" id="brushOpacity_g" min="0" max="100" value="100" oninput="document.getElementById('boVal_g').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_g">100%</span>
-      <span class="opt">拉直线=渐变填充</span>
-    </div>
-
-    <!-- 填充 -->
-    <div class="opt-group" data-tool="fill">
-      <label>色</label><input type="color" id="fgColor_f" value="#ff0000" onchange="document.getElementById('fgColor').value=this.value">
-      <label>透明</label><input type="range" id="brushOpacity_f" min="0" max="100" value="100" oninput="document.getElementById('boVal_f').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_f">100%</span>
-      <span class="opt">点击填充选区/全图</span>
-    </div>
-
-    <!-- 文字 -->
-    <div class="opt-group" data-tool="text">
-      <label>色</label><input type="color" id="fgColor_t" value="#ff0000" onchange="document.getElementById('fgColor').value=this.value">
-      <label>大小</label><input type="number" id="textSize" value="24" min="8" max="200" style="width:40px">
-      <label>透明</label><input type="range" id="brushOpacity_t" min="0" max="100" value="100" oninput="document.getElementById('boVal_t').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_t">100%</span>
-      <span class="opt">点击输入文字</span>
-    </div>
-
-    <!-- 模糊 -->
-    <div class="opt-group" data-tool="blur">
-      <label>大小</label><input type="range" id="brushSize_bl" min="1" max="300" value="40" oninput="document.getElementById('bsVal_bl').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_bl">40</span>
-      <label>强度</label><input type="range" id="blurStrength" min="1" max="20" value="3" oninput="document.getElementById('blVal').textContent=this.value+'px'"><span style="font-size:9px;width:24px" id="blVal">3px</span>
-      <label>透明</label><input type="range" id="brushOpacity_bl2" min="0" max="100" value="100" oninput="document.getElementById('boVal_bl2').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_bl2">100%</span>
-    </div>
-
-    <!-- 锐化 -->
-    <div class="opt-group" data-tool="sharpen">
-      <label>大小</label><input type="range" id="brushSize_sh" min="1" max="300" value="40" oninput="document.getElementById('bsVal_sh').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_sh">40</span>
-      <label>强度</label><input type="range" id="sharpenStrength" min="1" max="20" value="3" oninput="document.getElementById('ssVal').textContent=this.value"><span style="font-size:9px;width:24px" id="ssVal">3</span>
-      <label>透明</label><input type="range" id="brushOpacity_sh" min="0" max="100" value="100" oninput="document.getElementById('boVal_sh').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_sh">100%</span>
-    </div>
-
-    <!-- 加深减淡 -->
-    <div class="opt-group" data-tool="dodge">
-      <label>大小</label><input type="range" id="brushSize_d" min="1" max="300" value="40" oninput="document.getElementById('bsVal_d').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_d">40</span>
-      <label>强度</label><input type="range" id="dodgeStrength" min="1" max="100" value="20" oninput="document.getElementById('dsVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="dsVal">20%</span>
-      <label>透明</label><input type="range" id="brushOpacity_d" min="0" max="100" value="100" oninput="document.getElementById('boVal_d').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_d">100%</span>
-      <span class="opt">左键加深 Alt=减淡</span>
-    </div>
-
-    <!-- 海绵 -->
-    <div class="opt-group" data-tool="sponge">
-      <label>大小</label><input type="range" id="brushSize_sp" min="1" max="300" value="40" oninput="document.getElementById('bsVal_sp').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_sp">40</span>
-      <label>强度</label><input type="range" id="spongeStrength" min="1" max="100" value="30" oninput="document.getElementById('spVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="spVal">30%</span>
-      <label>透明</label><input type="range" id="brushOpacity_sp" min="0" max="100" value="100" oninput="document.getElementById('boVal_sp').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_sp">100%</span>
-      <span class="opt">左键加色 Alt=去色</span>
-    </div>
-
-    <!-- 去水印 -->
-    <div class="opt-group" data-tool="inpaint">
-      <label>笔刷</label><input type="range" id="brushSize_i" min="5" max="200" value="30" oninput="document.getElementById('bsVal_i').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_i">30</span>
-      <div class="sep"></div>
-      <button onclick="doInpaint()" class="primary">✨去除</button>
-      <select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select>
-      <span class="opt">涂抹区域后点✨</span>
-    </div>
-
-    <!-- 抓手 -->
-    <div class="opt-group" data-tool="hand">
-      <span class="opt">拖拽平移视图 · 滚轮缩放</span>
-    </div>
-
+    <div class="opt-group" data-tool="move"><span class="opt">移动当前图层 · 中键/右键平移</span></div>
+    <div class="opt-group" data-tool="rect"><span class="opt">拖拽选择矩形 · 双击取消 · Ctrl+左键加选 · Alt+左键减选</span><div class="sep"></div><button onclick="deselectAll()">🚫取消</button><button onclick="inverseSelection()">🔄反选</button></div>
+    <div class="opt-group" data-tool="ellipse"><span class="opt">拖拽选择椭圆 · 双击取消</span><div class="sep"></div><button onclick="deselectAll()">🚫取消</button><button onclick="inverseSelection()">🔄反选</button></div>
+    <div class="opt-group" data-tool="lasso"><span class="opt">自由手绘选区 · 松开自动闭合</span><div class="sep"></div><button onclick="deselectAll()">🚫取消</button><button onclick="inverseSelection()">🔄反选</button></div>
+    <div class="opt-group" data-tool="wand"><label>容差</label><input type="range" id="wandTolerance" min="0" max="200" value="30" oninput="document.getElementById('wtVal').textContent=this.value"><span style="font-size:9px;width:20px" id="wtVal">30</span><span class="opt">点击选择相似颜色</span><div class="sep"></div><button onclick="deselectAll()">🚫取消</button><button onclick="inverseSelection()">🔄反选</button></div>
+    <div class="opt-group" data-tool="crop"><span class="opt">框选区域后自动裁剪</span></div>
+    <div class="opt-group" data-tool="brush"><label>大小</label><input type="range" id="brushSize" min="1" max="300" value="20" oninput="document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal">20</span><label>硬度</label><input type="range" id="brushHardness" min="0" max="100" value="80" oninput="document.getElementById('bhVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="bhVal">80%</span><label>透明</label><input type="range" id="brushOpacity" min="0" max="100" value="100" oninput="document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal">100%</span><span class="opt">Alt=吸管 Ctrl=调大小</span></div>
+    <div class="opt-group" data-tool="pencil"><label>大小</label><input type="range" id="brushSize_p" min="1" max="100" value="5" oninput="document.getElementById('bsVal_p').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_p">5</span><label>透明</label><input type="range" id="brushOpacity_p" min="0" max="100" value="100" oninput="document.getElementById('boVal_p').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_p">100%</span><span class="opt">方块硬边</span></div>
+    <div class="opt-group" data-tool="eraser"><label>大小</label><input type="range" id="brushSize_e" min="1" max="300" value="20" oninput="document.getElementById('bsVal_e').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_e">20</span><label>透明</label><input type="range" id="brushOpacity_e" min="0" max="100" value="100" oninput="document.getElementById('boVal_e').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_e">100%</span></div>
+    <div class="opt-group" data-tool="magicEraser"><label>容差</label><input type="range" id="magicEraserTol" min="0" max="200" value="30" oninput="document.getElementById('meVal').textContent=this.value"><span style="font-size:9px;width:20px" id="meVal">30</span><span class="opt">点击擦除相似颜色</span></div>
+    <div class="opt-group" data-tool="stamp"><label>大小</label><input type="range" id="brushSize_s" min="1" max="300" value="40" oninput="document.getElementById('bsVal_s').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_s">40</span><label>透明</label><input type="range" id="brushOpacity_s" min="0" max="100" value="100" oninput="document.getElementById('boVal_s').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_s">100%</span><span class="opt">Alt+左键设源 → 左键复制</span></div>
+    <div class="opt-group" data-tool="eyedropper"><span class="opt">点击拾取颜色到前景色</span></div>
+    <div class="opt-group" data-tool="gradient"><label>透明</label><input type="range" id="brushOpacity_g" min="0" max="100" value="100" oninput="document.getElementById('boVal_g').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_g">100%</span><span class="opt">拉直线=渐变填充(前景色→透明)</span></div>
+    <div class="opt-group" data-tool="fill"><label>透明</label><input type="range" id="brushOpacity_f" min="0" max="100" value="100" oninput="document.getElementById('boVal_f').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_f">100%</span><span class="opt">点击填充(Alt+Del=前景色 Ctrl+Del=背景色)</span></div>
+    <div class="opt-group" data-tool="text"><label>字号</label><input type="number" id="textSize" value="24" min="8" max="200" style="width:40px"><label>透明</label><input type="range" id="brushOpacity_t" min="0" max="100" value="100" oninput="document.getElementById('boVal_t').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_t">100%</span><span class="opt">点击输入文字(用前景色)</span></div>
+    <div class="opt-group" data-tool="blur"><label>大小</label><input type="range" id="brushSize_bl" min="1" max="300" value="40" oninput="document.getElementById('bsVal_bl').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_bl">40</span><label>强度</label><input type="range" id="blurStrength" min="1" max="20" value="3" oninput="document.getElementById('blVal').textContent=this.value+'px'"><span style="font-size:9px;width:24px" id="blVal">3px</span><label>透明</label><input type="range" id="brushOpacity_bl2" min="0" max="100" value="100" oninput="document.getElementById('boVal_bl2').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_bl2">100%</span></div>
+    <div class="opt-group" data-tool="sharpen"><label>大小</label><input type="range" id="brushSize_sh" min="1" max="300" value="40" oninput="document.getElementById('bsVal_sh').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_sh">40</span><label>强度</label><input type="range" id="sharpenStrength" min="1" max="20" value="3" oninput="document.getElementById('ssVal').textContent=this.value"><span style="font-size:9px;width:24px" id="ssVal">3</span><label>透明</label><input type="range" id="brushOpacity_sh" min="0" max="100" value="100" oninput="document.getElementById('boVal_sh').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_sh">100%</span></div>
+    <div class="opt-group" data-tool="dodge"><label>大小</label><input type="range" id="brushSize_d" min="1" max="300" value="40" oninput="document.getElementById('bsVal_d').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_d">40</span><label>强度</label><input type="range" id="dodgeStrength" min="1" max="100" value="20" oninput="document.getElementById('dsVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="dsVal">20%</span><label>透明</label><input type="range" id="brushOpacity_d" min="0" max="100" value="100" oninput="document.getElementById('boVal_d').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_d">100%</span><span class="opt">左键加深 Alt=减淡</span></div>
+    <div class="opt-group" data-tool="sponge"><label>大小</label><input type="range" id="brushSize_sp" min="1" max="300" value="40" oninput="document.getElementById('bsVal_sp').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_sp">40</span><label>强度</label><input type="range" id="spongeStrength" min="1" max="100" value="30" oninput="document.getElementById('spVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="spVal">30%</span><label>透明</label><input type="range" id="brushOpacity_sp" min="0" max="100" value="100" oninput="document.getElementById('boVal_sp').textContent=this.value+'%';document.getElementById('brushOpacity').value=this.value;document.getElementById('boVal').textContent=this.value+'%'"><span style="font-size:9px;width:24px" id="boVal_sp">100%</span><span class="opt">左键加色 Alt=去色</span></div>
+    <div class="opt-group" data-tool="inpaint"><label>笔刷</label><input type="range" id="brushSize_i" min="5" max="200" value="30" oninput="document.getElementById('bsVal_i').textContent=this.value;document.getElementById('brushSize').value=this.value;document.getElementById('bsVal').textContent=this.value"><span style="font-size:9px;width:20px" id="bsVal_i">30</span><div class="sep"></div><button onclick="doInpaint()" class="primary">✨去除</button><select id="inpaintAlg"><option value="TELEA">快速</option><option value="NS">精细</option></select></div>
+    <div class="opt-group" data-tool="hand"><span class="opt">拖拽平移 · 滚轮缩放</span></div>
   </div>
 
-  <!-- 右：视图 -->
   <div class="sep"></div>
-  <button onclick="fitCanvas()">📐适应</button>
+  <button onclick="fitCanvas()">📐</button>
   <button onclick="setActual()">1:1</button>
 </div>
 
@@ -248,6 +119,7 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
   <div class="leftbar" id="leftbar"></div>
   <div class="canvas-area" id="viewport">
     <div id="canvasBg"></div>
+    <div id="canvasBorder"></div>
     <canvas id="mainCanvas"></canvas>
     <canvas id="overlayCanvas"></canvas>
     <input type="text" class="text-input" id="textInput" onkeydown="if(event.key==='Enter')commitText()" onblur="commitText()">
