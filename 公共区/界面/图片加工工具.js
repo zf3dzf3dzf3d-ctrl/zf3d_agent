@@ -67,6 +67,7 @@ let moveStartOX=0,moveStartOY=0;
 let stampSrcCanvas=null,stampSrcX=0,stampSrcY=0;
 let gradStart=null,gradDrawing=false;
 let textPos=null;
+let selectionMode='new'; // 'new'|'add'|'sub'
 
 // ── 工具栏 ──
 const TOOLS=[
@@ -218,10 +219,16 @@ viewport.addEventListener('mousedown',e=>{
   if(tool==='text'){const ti=document.getElementById('textInput');const r=viewport.getBoundingClientRect();
     ti.style.left=(e.clientX-r.left)+'px';ti.style.top=(e.clientY-r.top)+'px';
     ti.style.display='block';ti.value='';ti.focus();textPos=p;return;}
+  // 选区工具：Ctrl+左键=加选 Alt+左键=减选
+  const selMode=e.ctrlKey?'add':(e.altKey?'sub':'new');
+  if(SELECTION_TOOLS.includes(tool)&&(tool!=='crop')){
+    if(selMode==='new'){selRect=null;lassoPath=[];wandMask=null;}
+    selectionMode=selMode;
+  }
   // 套索
   if(tool==='lasso'){lassoDrawing=true;lassoPath=[{x:p.x,y:p.y}];return;}
   // 魔棒
-  if(tool==='wand'){doWand(p.x,p.y);return;}
+  if(tool==='wand'){doWand(p.x,p.y,selMode);return;}
   // 魔术橡皮
   if(tool==='magicEraser'){doMagicEraser(p.x,p.y);return;}
   // 填充
@@ -279,11 +286,19 @@ window.addEventListener('mouseup',e=>{
     rectDrawing=false;
     if(selRect){const w=Math.abs(selRect.x1-selRect.x0),h=Math.abs(selRect.y1-selRect.y0);
       if(w<3&&h<3){selRect=null;}
-      else if(tool==='crop'){doCrop();}}
+      else if(tool==='crop'){doCrop();}
+      else if(selectionMode==='add'||selectionMode==='sub'){
+        // 把矩形/椭圆转成wandMask并合并
+        rectToMaskMerge();
+      }
+    }
     document.getElementById('adjustScope').textContent=(selRect||lassoPath.length>2||wandMask)?'（选区）':'（全图）';
     updateToolPanel();drawOverlay();
   }
   if(lassoDrawing){lassoDrawing=false;if(lassoPath.length<3){lassoPath=[];}
+    else if(selectionMode==='add'||selectionMode==='sub'){
+      lassoToMaskMerge();
+    }
     document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();drawOverlay();}
   if(gradDrawing){gradDrawing=false;doGradient(screenToCanvas(e));pushHistory();}
 });
@@ -449,7 +464,8 @@ function sharpenAt(x,y){
 }
 
 // ── 魔棒（用栈代替队列，性能好）──
-function doWand(x,y){
+function doWand(x,y,mode){
+  mode=mode||selectionMode||'new';
   const merged=getMergedCanvas();
   const id=merged.getContext('2d').getImageData(0,0,imgW,imgH);const d=id.data;
   const xi=Math.max(0,Math.min(imgW-1,Math.floor(x))),yi=Math.max(0,Math.min(imgH-1,Math.floor(y)));
@@ -459,18 +475,29 @@ function doWand(x,y){
   const tol2=tol*tol;
   const visited=new Uint8Array(imgW*imgH);
   const stack=[yi*imgW+xi];visited[yi*imgW+xi]=1;
-  const mask=new Uint8ClampedArray(imgW*imgH*4);
+  const newMask=new Uint8ClampedArray(imgW*imgH*4);
   while(stack.length){
     const pos=stack.pop();const px=pos%imgW,py=Math.floor(pos/imgW);
     const ci=pos*4;const dr=d[ci]-tr,dg=d[ci+1]-tg,db=d[ci+2]-tb;
     if(dr*dr+dg*dg+db*db>tol2)continue;
-    mask[ci]=255;mask[ci+3]=255;
+    newMask[ci]=255;newMask[ci+3]=255;
     if(px>0&&!visited[pos-1]){visited[pos-1]=1;stack.push(pos-1);}
     if(px<imgW-1&&!visited[pos+1]){visited[pos+1]=1;stack.push(pos+1);}
     if(py>0&&!visited[pos-imgW]){visited[pos-imgW]=1;stack.push(pos-imgW);}
     if(py<imgH-1&&!visited[pos+imgW]){visited[pos+imgW]=1;stack.push(pos+imgW);}
   }
-  wandMask=new ImageData(imgW,imgH);wandMask.data.set(mask);
+  // 与现有wandMask做布尔运算
+  if(mode==='add'&&wandMask){
+    const old=wandMask.data;
+    for(let i=0;i<old.length;i+=4){if(newMask[i]>0){old[i]=255;old[i+3]=255;}}
+    // 已修改wandMask.data，无需重建
+  }else if(mode==='sub'&&wandMask){
+    const old=wandMask.data;
+    for(let i=0;i<old.length;i+=4){if(newMask[i]>0){old[i]=0;old[i+1]=0;old[i+2]=0;old[i+3]=0;}}
+  }else{
+    wandMask=new ImageData(imgW,imgH);wandMask.data.set(newMask);
+    selRect=null;lassoPath=[]; // 清除其他选区
+  }
   document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();drawOverlay();
 }
 
@@ -720,8 +747,46 @@ document.addEventListener('keydown',e=>{
   if(map[e.key.toLowerCase()])setTool(map[e.key.toLowerCase()]);
 });
 
+// ── 选区布尔运算辅助 ──
+function rectToMaskMerge(){
+  if(!selRect)return;
+  const x0=Math.max(0,Math.floor(Math.min(selRect.x0,selRect.x1))),y0=Math.max(0,Math.floor(Math.min(selRect.y0,selRect.y1)));
+  const x1=Math.min(imgW,Math.ceil(Math.max(selRect.x0,selRect.x1))),y1=Math.min(imgH,Math.ceil(Math.max(selRect.y0,selRect.y1)));
+  if(!wandMask){wandMask=new ImageData(imgW,imgH);}
+  const d=wandMask.data;
+  if(selectionMode==='add'){
+    for(let y=y0;y<y1;y++){for(let x=x0;x<x1;x++){
+      if(selEllipse){const cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;if(((x-cx)/rx)**2+((y-cy)/ry)**2<=1){const i=(y*imgW+x)*4;d[i]=255;d[i+3]=255;}}
+      else{const i=(y*imgW+x)*4;d[i]=255;d[i+3]=255;}
+    }}
+  }else if(selectionMode==='sub'){
+    for(let y=y0;y<y1;y++){for(let x=x0;x<x1;x++){
+      if(selEllipse){const cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;if(((x-cx)/rx)**2+((y-cy)/ry)**2<=1){const i=(y*imgW+x)*4;d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=0;}}
+      else{const i=(y*imgW+x)*4;d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=0;}
+    }}
+  }
+  selRect=null; // 合并后清除矩形，保留wandMask
+}
+function lassoToMaskMerge(){
+  if(lassoPath.length<3)return;
+  // 在临时canvas上画套索路径得到mask
+  const tc=document.createElement('canvas');tc.width=imgW;tc.height=imgH;const tctx=tc.getContext('2d');
+  tctx.fillStyle='#fff';tctx.beginPath();tctx.moveTo(lassoPath[0].x,lassoPath[0].y);
+  for(let i=1;i<lassoPath.length;i++)tctx.lineTo(lassoPath[i].x,lassoPath[i].y);
+  tctx.closePath();tctx.fill();
+  const newMask=tctx.getImageData(0,0,imgW,imgH).data;
+  if(!wandMask){wandMask=new ImageData(imgW,imgH);}
+  const d=wandMask.data;
+  if(selectionMode==='add'){
+    for(let i=0;i<d.length;i+=4){if(newMask[i]>0){d[i]=255;d[i+3]=255;}}
+  }else if(selectionMode==='sub'){
+    for(let i=0;i<d.length;i+=4){if(newMask[i]>0){d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=0;}}
+  }
+  lassoPath=[]; // 合并后清除套索，保留wandMask
+}
+
 // ── 选区操作 ──
-function deselectAll(){selRect=null;lassoPath=[];wandMask=null;document.getElementById('adjustScope').textContent='（全图）';updateToolPanel();drawOverlay();}
+function deselectAll(){selRect=null;lassoPath=[];wandMask=null;selectionMode='new';document.getElementById('adjustScope').textContent='（全图）';updateToolPanel();drawOverlay();}
 function inverseSelection(){
   if(wandMask){
     const d=wandMask.data;
