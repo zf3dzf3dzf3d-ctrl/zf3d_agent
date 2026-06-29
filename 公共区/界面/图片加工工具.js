@@ -68,6 +68,7 @@ let stampSrcCanvas=null,stampSrcX=0,stampSrcY=0;
 let gradStart=null,gradDrawing=false;
 let textPos=null;
 let selectionMode='new'; // 'new'|'add'|'sub'
+let floatCanvas=null,floatOffX=0,floatOffY=0,floatStartCX=0,floatStartCY=0,savedClearedCanvas=null,floatBBox=null;
 
 // ── 工具栏 ──
 const TOOLS=[
@@ -129,7 +130,7 @@ function setTool(t){
   if(t!=='lasso'){lassoDrawing=false;}
   // 同步前景色到隐藏的fgColor
   syncFgColor();
-  document.getElementById('adjustScope').textContent=(selRect||lassoPath.length>2||wandMask)?'（选区）':'（全图）';
+  document.getElementById('adjustScope').textContent=hasSelection()?'（选区）':'（全图）';
   updateToolPanel();drawOverlay();
 }
 
@@ -192,8 +193,9 @@ viewport.addEventListener('wheel',e=>{e.preventDefault();const r=viewport.getBou
 
 viewport.addEventListener('mousedown',e=>{
   if(!imgW)return;const p=screenToCanvas(e);
-  // Alt+左键=吸管（任何工具）
-  if(e.button===0&&e.altKey&&tool!=='stamp'&&tool!=='dodge'&&tool!=='sponge'){pickColor(p);return;}
+  // Alt+左键=吸管（任何工具，但选区工具除外——选区工具Alt=减选）
+  const ADD_SUB_TOOLS=['rect','ellipse','lasso','wand'];
+  if(e.button===0&&e.altKey&&tool!=='stamp'&&tool!=='dodge'&&tool!=='sponge'&&!ADD_SUB_TOOLS.includes(tool)){pickColor(p);return;}
   // Ctrl+左键=调笔刷
   if(e.button===0&&e.ctrlKey&&(BRUSH_TOOLS.includes(tool)||tool==='pencil')){
     isPanning=true;panSX=e.clientX;panSY=e.clientY;e.preventDefault();return;}
@@ -238,7 +240,37 @@ viewport.addEventListener('mousedown',e=>{
   // 框选/椭圆/裁剪
   if(tool==='rect'||tool==='ellipse'||tool==='crop'){rectDrawing=true;selRect={x0:p.x,y0:p.y,x1:p.x,y1:p.y};return;}
   // 移动
-  if(tool==='move'){const l=getActiveLayer();if(!l)return;moveStartOX=l.offsetX;moveStartOY=l.offsetY;isDrawing=true;lastX=e.clientX;lastY=e.clientY;return;}
+  if(tool==='move'){const l=getActiveLayer();if(!l)return;
+    const mask=getSelectionMask();
+    if(mask){
+      // 浮动选区内容：提取选中像素→清除原位置→拖拽移动
+      floatCanvas=document.createElement('canvas');floatCanvas.width=imgW;floatCanvas.height=imgH;
+      const fctx=floatCanvas.getContext('2d');
+      const srcData=l.ctx.getImageData(0,0,imgW,imgH);
+      const floatData=fctx.createImageData(imgW,imgH);
+      let minX=imgW,maxX=0,minY=imgH,maxY=0;
+      for(let j=0;j<mask.length;j++){
+        if(mask[j]){const i=j*4;
+          floatData.data[i]=srcData.data[i];floatData.data[i+1]=srcData.data[i+1];
+          floatData.data[i+2]=srcData.data[i+2];floatData.data[i+3]=srcData.data[i+3];
+          srcData.data[i+3]=0;
+          const x=j%imgW,y=Math.floor(j/imgW);
+          if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+        }
+      }
+      fctx.putImageData(floatData,0,0);
+      l.ctx.putImageData(srcData,0,0);
+      savedClearedCanvas=document.createElement('canvas');savedClearedCanvas.width=imgW;savedClearedCanvas.height=imgH;
+      savedClearedCanvas.getContext('2d').drawImage(l.canvas,0,0);
+      floatBBox={x:minX,y:minY,w:maxX-minX,h:maxY-minY};
+      floatOffX=0;floatOffY=0;floatStartCX=e.clientX;floatStartCY=e.clientY;
+      isDrawing=true;compositeLayers();drawOverlay();
+      document.getElementById('statusbar').textContent='移动选区内容...';
+    }else{
+      moveStartOX=l.offsetX;moveStartOY=l.offsetY;isDrawing=true;lastX=e.clientX;lastY=e.clientY;
+    }
+    return;
+  }
   // 渐变
   if(tool==='gradient'){gradStart=p;gradDrawing=true;return;}
   // 画笔类
@@ -260,7 +292,15 @@ viewport.addEventListener('mousemove',e=>{
   }
   if(isPanning){offsetX+=e.clientX-panSX;offsetY+=e.clientY-panSY;panSX=e.clientX;panSY=e.clientY;applyTransform();return;}
   if(isDrawing){
-    if(tool==='move'){const l=getActiveLayer();if(!l)return;l.offsetX=moveStartOX+(e.clientX-lastX)/scale;l.offsetY=moveStartOY+(e.clientY-lastY)/scale;compositeLayers();return;}
+    if(tool==='move'){const l=getActiveLayer();if(!l)return;
+      if(floatCanvas){
+        floatOffX=(e.clientX-floatStartCX)/scale;floatOffY=(e.clientY-floatStartCY)/scale;
+        l.ctx.clearRect(0,0,imgW,imgH);
+        l.ctx.drawImage(savedClearedCanvas,0,0);
+        l.ctx.drawImage(floatCanvas,floatOffX,floatOffY);
+        compositeLayers();drawOverlay();return;
+      }
+      l.offsetX=moveStartOX+(e.clientX-lastX)/scale;l.offsetY=moveStartOY+(e.clientY-lastY)/scale;compositeLayers();return;}
     if(tool==='brush'||tool==='pencil'||tool==='eraser'){drawBrushLine(lastX,lastY,p.x,p.y);lastX=p.x;lastY=p.y;return;}
     if(tool==='stamp'&&stampSrcCanvas){stampCopy(p.x,p.y);lastX=p.x;lastY=p.y;return;}
     if(tool==='blur'){blurAt(p.x,p.y);lastX=p.x;lastY=p.y;return;}
@@ -279,7 +319,9 @@ window.addEventListener('mouseup',e=>{
   if(isPanning){isPanning=false;viewport.style.cursor=tool==='move'?'grab':'crosshair';return;}
   if(isDrawing){
     isDrawing=false;
-    if(tool==='move'){pushHistory();return;}
+    if(tool==='move'){
+      if(floatCanvas){floatCanvas=null;savedClearedCanvas=null;floatBBox=null;deselectAll();pushHistory();document.getElementById('statusbar').textContent='✅ 选区内容已移动';return;}
+      pushHistory();return;}
     if(tool!=='gradient'&&tool!=='inpaint')pushHistory();
   }
   if(rectDrawing){
@@ -292,7 +334,7 @@ window.addEventListener('mouseup',e=>{
         rectToMaskMerge();
       }
     }
-    document.getElementById('adjustScope').textContent=(selRect||lassoPath.length>2||wandMask)?'（选区）':'（全图）';
+    document.getElementById('adjustScope').textContent=hasSelection()?'（选区）':'（全图）';
     updateToolPanel();drawOverlay();
   }
   if(lassoDrawing){lassoDrawing=false;if(lassoPath.length<3){lassoPath=[];}
@@ -635,10 +677,14 @@ function applyAdjust(){
   const tmp=getMergedCanvas();
   const tmp2=document.createElement('canvas');tmp2.width=imgW;tmp2.height=imgH;const t2ctx=tmp2.getContext('2d');
   t2ctx.filter=fs;t2ctx.drawImage(tmp,0,0);t2ctx.filter='none';
-  if(selRect){const x0=Math.max(0,Math.floor(Math.min(selRect.x0,selRect.x1))),y0=Math.max(0,Math.floor(Math.min(selRect.y0,selRect.y1))),w=Math.min(imgW,Math.ceil(Math.abs(selRect.x1-selRect.x0))),h=Math.min(imgH,Math.ceil(Math.abs(selRect.y1-selRect.y0)));const sd=l.ctx.getImageData(x0,y0,w,h);const nd=t2ctx.getImageData(x0,y0,w,h);for(let i=0;i<sd.data.length;i+=4){sd.data[i]=nd.data[i];sd.data[i+1]=nd.data[i+1];sd.data[i+2]=nd.data[i+2];}l.ctx.putImageData(sd,x0,y0);}
-  else{l.ctx.clearRect(0,0,imgW,imgH);l.ctx.drawImage(tmp2,0,0);}
+  const mask=getSelectionMask();
+  if(mask){
+    const sd=l.ctx.getImageData(0,0,imgW,imgH);const nd=t2ctx.getImageData(0,0,imgW,imgH);
+    for(let j=0;j<mask.length;j++){if(mask[j]){const i=j*4;sd.data[i]=nd.data[i];sd.data[i+1]=nd.data[i+1];sd.data[i+2]=nd.data[i+2];}}
+    l.ctx.putImageData(sd,0,0);
+  }else{l.ctx.clearRect(0,0,imgW,imgH);l.ctx.drawImage(tmp2,0,0);}
   canvas.style.filter='none';compositeLayers();pushHistory();resetAdjust();
-  document.getElementById('statusbar').textContent='✅ 调整已应用'+(selRect?'（选区）':'（全图）');
+  document.getElementById('statusbar').textContent='✅ 调整已应用'+(hasSelection()?'（选区）':'（全图）');
 }
 function resetAdjust(){['brightness','contrast','hue','saturate'].forEach(id=>{document.getElementById(id).value=0;});['brVal','ctVal','huVal','saVal'].forEach(id=>{document.getElementById(id).textContent='0';});canvas.style.filter='none';}
 
@@ -651,15 +697,31 @@ function applyLevels(){
   const id=tctx.getImageData(0,0,imgW,imgH);const d=id.data;const range=w-b;const midF=(m-b)/range;
   for(let i=0;i<d.length;i+=4){for(let ch=0;ch<3;ch++){let v=d[i+ch];v=(v-b)/range*255;v=Math.max(0,Math.min(255,v));v=255*Math.pow(v/255,1/(midF*2||1));d[i+ch]=Math.max(0,Math.min(255,v));}}
   tctx.putImageData(id,0,0);
-  if(selRect){const x0=Math.max(0,Math.floor(Math.min(selRect.x0,selRect.x1))),y0=Math.max(0,Math.floor(Math.min(selRect.y0,selRect.y1))),sw=Math.min(imgW,Math.ceil(Math.abs(selRect.x1-selRect.x0))),sh=Math.min(imgH,Math.ceil(Math.abs(selRect.y1-selRect.y0)));const sd=l.ctx.getImageData(x0,y0,sw,sh);const nd=tctx.getImageData(x0,y0,sw,sh);for(let i=0;i<sd.data.length;i+=4){sd.data[i]=nd.data[i];sd.data[i+1]=nd.data[i+1];sd.data[i+2]=nd.data[i+2];}l.ctx.putImageData(sd,x0,y0);}
-  else{l.ctx.clearRect(0,0,imgW,imgH);l.ctx.drawImage(tmp,0,0);}
-  canvas.style.filter='none';compositeLayers();pushHistory();resetLevels();document.getElementById('statusbar').textContent='✅ 色阶已应用';
+  const mask=getSelectionMask();
+  if(mask){
+    const sd=l.ctx.getImageData(0,0,imgW,imgH);const nd=tctx.getImageData(0,0,imgW,imgH);
+    for(let j=0;j<mask.length;j++){if(mask[j]){const i=j*4;sd.data[i]=nd.data[i];sd.data[i+1]=nd.data[i+1];sd.data[i+2]=nd.data[i+2];}}
+    l.ctx.putImageData(sd,0,0);
+  }else{l.ctx.clearRect(0,0,imgW,imgH);l.ctx.drawImage(tmp,0,0);}
+  canvas.style.filter='none';compositeLayers();pushHistory();resetLevels();document.getElementById('statusbar').textContent='✅ 色阶已应用'+(hasSelection()?'（选区）':'（全图）');
 }
 function resetLevels(){document.getElementById('levelBlack').value=0;document.getElementById('levelMid').value=128;document.getElementById('levelWhite').value=255;document.getElementById('lbVal').textContent='0';document.getElementById('lmVal').textContent='128';document.getElementById('lwVal').textContent='255';canvas.style.filter='none';}
 
 // ── 快速操作 ──
 function doGray(){const l=getActiveLayer();if(!l)return;const id=l.ctx.getImageData(0,0,imgW,imgH);const d=id.data;for(let i=0;i<d.length;i+=4){const g=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;d[i]=d[i+1]=d[i+2]=g;}l.ctx.putImageData(id,0,0);compositeLayers();pushHistory();}
 function doBlur(){const l=getActiveLayer();if(!l)return;const tmp=getMergedCanvas();l.ctx.clearRect(0,0,imgW,imgH);l.ctx.filter='blur(5px)';l.ctx.drawImage(tmp,0,0);l.ctx.filter='none';compositeLayers();pushHistory();}
+function doBackgroundDarken(){
+  const l=getActiveLayer();if(!l)return;
+  const mask=getSelectionMask();
+  if(!mask){alert('请先框选区域，框内不动框外变暗');return;}
+  const factor=1-(parseInt(document.getElementById('darkenAmount').value)||50)/100;
+  const id=l.ctx.getImageData(0,0,imgW,imgH);const d=id.data;
+  for(let j=0;j<mask.length;j++){
+    if(!mask[j]){const i=j*4;d[i]*=factor;d[i+1]*=factor;d[i+2]*=factor;}
+  }
+  l.ctx.putImageData(id,0,0);compositeLayers();pushHistory();
+  document.getElementById('statusbar').textContent='✅ 背景加深 '+(Math.round((1-factor)*100))+'%（选区内不变）';
+}
 
 // ── 图像大小 ──
 let aspectRatio=1;
@@ -696,8 +758,10 @@ function drawOverlay(){
     else{ovCtx.strokeRect(x0,y0,w,h);}
     ovCtx.setLineDash([]);
   }
-  if(stampSrcCanvas&&tool==='stamp'){ovCtx.strokeStyle='#0f0';ovCtx.lineWidth=2/scale;const s=parseInt(document.getElementById('brushSize').value);ovCtx.strokeRect(stampSrcX-s/2,stampSrcY-s/2,s,s);}
-}
+   if(stampSrcCanvas&&tool==='stamp'){ovCtx.strokeStyle='#0f0';ovCtx.lineWidth=2/scale;const s=parseInt(document.getElementById('brushSize').value);ovCtx.strokeRect(stampSrcX-s/2,stampSrcY-s/2,s,s);}
+   // 浮动选区内容边框
+   if(floatCanvas&&floatBBox){ovCtx.strokeStyle='#00ff00';ovCtx.lineWidth=2/scale;ovCtx.setLineDash([6/scale,4/scale]);ovCtx.strokeRect(floatBBox.x+floatOffX,floatBBox.y+floatOffY,floatBBox.w,floatBBox.h);ovCtx.setLineDash([]);}
+  }
 
 // ── 撤销/重做（修复：保存所有图层状态）──
 let history=[],historyIdx=-1;
@@ -785,27 +849,48 @@ function lassoToMaskMerge(){
   lassoPath=[]; // 合并后清除套索，保留wandMask
 }
 
-// ── 选区操作 ──
-function deselectAll(){selRect=null;lassoPath=[];wandMask=null;selectionMode='new';document.getElementById('adjustScope').textContent='（全图）';updateToolPanel();drawOverlay();}
-function inverseSelection(){
+// ── 统一选区遮罩 ──
+function hasSelection(){return !!(selRect||lassoPath.length>2||wandMask);}
+function getSelectionMask(){
+  if(!hasSelection())return null;
+  const mask=new Uint8Array(imgW*imgH);
   if(wandMask){
     const d=wandMask.data;
-    for(let i=0;i<d.length;i+=4){if(d[i]>0){d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=0;}else{d[i]=255;d[i+1]=255;d[i+2]=255;d[i+3]=255;}}
-    drawOverlay();document.getElementById('statusbar').textContent='已反选';
-  }else{
-    // 矩形/套索反选：生成mask
-    const mask=new Uint8ClampedArray(imgW*imgH*4);
-    for(let i=3;i<mask.length;i+=4)mask[i]=255; // 先全选
-    if(selRect){
-      const x0=Math.max(0,Math.floor(Math.min(selRect.x0,selRect.x1))),y0=Math.max(0,Math.floor(Math.min(selRect.y0,selRect.y1)));
-      const x1=Math.min(imgW,Math.ceil(Math.max(selRect.x0,selRect.x1))),y1=Math.min(imgH,Math.ceil(Math.max(selRect.y0,selRect.y1)));
-      for(let y=y0;y<y1;y++){for(let x=x0;x<x1;x++){const i=(y*imgW+x)*4;mask[i]=0;mask[i+3]=0;}}
-    }
-    wandMask=new ImageData(imgW,imgH);wandMask.data.set(mask);
-    selRect=null;lassoPath=[];
-    drawOverlay();document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();
-    document.getElementById('statusbar').textContent='已反选';
+    for(let i=0,j=0;i<d.length;i+=4,j++){if(d[i]>0)mask[j]=1;}
+  }else if(lassoPath.length>2){
+    const tc=document.createElement('canvas');tc.width=imgW;tc.height=imgH;const tctx=tc.getContext('2d');
+    tctx.fillStyle='#fff';tctx.beginPath();tctx.moveTo(lassoPath[0].x,lassoPath[0].y);
+    for(let i=1;i<lassoPath.length;i++)tctx.lineTo(lassoPath[i].x,lassoPath[i].y);
+    tctx.closePath();tctx.fill();
+    const data=tctx.getImageData(0,0,imgW,imgH).data;
+    for(let i=0,j=0;i<data.length;i+=4,j++){if(data[i]>0)mask[j]=1;}
+  }else if(selRect){
+    const x0=Math.max(0,Math.floor(Math.min(selRect.x0,selRect.x1)));
+    const y0=Math.max(0,Math.floor(Math.min(selRect.y0,selRect.y1)));
+    const x1=Math.min(imgW,Math.ceil(Math.max(selRect.x0,selRect.x1)));
+    const y1=Math.min(imgH,Math.ceil(Math.max(selRect.y0,selRect.y1)));
+    for(let y=y0;y<y1;y++){for(let x=x0;x<x1;x++){
+      if(selEllipse){const cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;if(((x-cx)/rx)**2+((y-cy)/ry)**2<=1)mask[y*imgW+x]=1;}
+      else mask[y*imgW+x]=1;
+    }}
   }
+  return mask;
+}
+
+// ── 选区操作 ──
+function deselectAll(){selRect=null;lassoPath=[];wandMask=null;selectionMode='new';floatCanvas=null;document.getElementById('adjustScope').textContent='（全图）';updateToolPanel();drawOverlay();}
+function inverseSelection(){
+  const mask=getSelectionMask();
+  if(!mask){alert('请先选择区域');return;}
+  // 反转mask：选中→未选，未选→选中
+  wandMask=new ImageData(imgW,imgH);
+  const d=wandMask.data;
+  for(let j=0;j<mask.length;j++){
+    if(!mask[j]){const i=j*4;d[i]=255;d[i+1]=255;d[i+2]=255;d[i+3]=255;}
+  }
+  selRect=null;lassoPath=[];
+  drawOverlay();document.getElementById('adjustScope').textContent='（选区）';updateToolPanel();
+  document.getElementById('statusbar').textContent='已反选';
 }
 
 // ── 初始化 ──

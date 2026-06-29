@@ -150,6 +150,7 @@ body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;ove
     <div class="section">
       <h3>⚡ 快速</h3>
       <div class="row"><button onclick="doGray()" style="flex:1">⚫灰度</button><button onclick="doBlur()" style="flex:1">🌫模糊</button></div>
+      <div class="row"><label>暗度</label><input type="range" id="darkenAmount" min="10" max="90" value="50" oninput="document.getElementById('dkVal').textContent=this.value+'%'"><span class="val" id="dkVal">50%</span><button onclick="doBackgroundDarken()" class="primary" style="flex:1">🎭背景加深</button></div>
     </div>
     <div class="section" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <h3>🗂️ 图层</h3>
