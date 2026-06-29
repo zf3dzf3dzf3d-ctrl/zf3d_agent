@@ -1,12 +1,14 @@
-// ═══ 图片加工工具 v3 — 全面修复版 ═══
+// ═══ 图片加工工具 v4 — 模块化适配版 ═══
 let tool='move',scale=1,offsetX=0,offsetY=0;
 let isDrawing=false,isPanning=false,lastX=0,lastY=0,panSX=0,panSY=0;
 let imgW=0,imgH=0,imgPath=null;
 let canvas=document.getElementById('mainCanvas'),ctx=canvas.getContext('2d');
 let overlayCanvas=document.getElementById('overlayCanvas'),ovCtx=overlayCanvas.getContext('2d');
 let viewport=document.getElementById('viewport');
+let canvasBorder=document.getElementById('canvasBorder');
 let maskCanvas=document.createElement('canvas'),maskCtx=maskCanvas.getContext('2d');
 let hasMaskFlag=false;
+let fgColor='#ff0000',bgColor='#000000';
 
 // ── 图层 ──
 let layers=[],activeLayerIdx=0;
@@ -121,11 +123,33 @@ function setTool(t){
   const btn=document.getElementById('tool-'+t);if(btn)btn.classList.add('active');
   canvas.style.cursor=t==='move'?'grab':(t==='hand'?'grab':'crosshair');
   selEllipse=(t==='ellipse');
-  if(!SELECTION_TOOLS.includes(t)){selRect=null;lassoPath=[];wandMask=null;}
+  // 选区持久化：切换工具不清除选区，只有选区工具自己操作时才修改
   if(t!=='inpaint'){maskCtx.clearRect(0,0,imgW||1,imgH||1);hasMaskFlag=false;}
-  if(t!=='lasso'){lassoPath=[];lassoDrawing=false;}
+  if(t!=='lasso'){lassoDrawing=false;}
+  // 同步前景色到隐藏的fgColor
+  syncFgColor();
   document.getElementById('adjustScope').textContent=(selRect||lassoPath.length>2||wandMask)?'（选区）':'（全图）';
   updateToolPanel();drawOverlay();
+}
+
+// ── 前景/背景色 ──
+function syncFgColor(){
+  const fi=document.getElementById('fgColorInput');
+  if(fi) fgColor=fi.value;
+  // 创建/更新隐藏的fgColor input供旧代码用
+  let hidden=document.getElementById('fgColor');
+  if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='fgColor';document.body.appendChild(hidden);}
+  hidden.value=fgColor;
+}
+function syncBgColor(){
+  const bi=document.getElementById('bgColorInput');
+  if(bi) bgColor=bi.value;
+}
+function swapColors(){
+  const fi=document.getElementById('fgColorInput'),bi=document.getElementById('bgColorInput');
+  if(!fi||!bi)return;
+  const tmp=fi.value;fi.value=bi.value;bi.value=tmp;
+  fgColor=fi.value;bgColor=bi.value;syncFgColor();
 }
 
 // ── 图片加载 ──
@@ -157,7 +181,7 @@ function resetAll(){
 }
 
 // ── 视图 ──
-function applyTransform(){const t=`translate(${offsetX}px,${offsetY}px) scale(${scale})`;canvas.style.transform=t;overlayCanvas.style.transform=t;document.getElementById('zoomPill').textContent=Math.round(scale*100)+'%';}
+function applyTransform(){const t=`translate(${offsetX}px,${offsetY}px) scale(${scale})`;canvas.style.transform=t;overlayCanvas.style.transform=t;if(canvasBorder){canvasBorder.style.transform=t;canvasBorder.style.width=imgW+'px';canvasBorder.style.height=imgH+'px';}document.getElementById('zoomPill').textContent=Math.round(scale*100)+'%';}
 function fitCanvas(){if(!imgW)return;const vw=viewport.clientWidth-20,vh=viewport.clientHeight-20;scale=Math.min(vw/imgW,vh/imgH,1);offsetX=(viewport.clientWidth-imgW*scale)/2;offsetY=(viewport.clientHeight-imgH*scale)/2;applyTransform();}
 function setActual(){scale=1;offsetX=(viewport.clientWidth-imgW)/2;offsetY=(viewport.clientHeight-imgH)/2;applyTransform();}
 function screenToCanvas(e){const r=viewport.getBoundingClientRect();return{x:(e.clientX-r.left-offsetX)/scale,y:(e.clientY-r.top-offsetY)/scale};}
@@ -281,7 +305,8 @@ function pickColor(p){
   const x=Math.max(0,Math.min(imgW-1,Math.floor(p.x))),y=Math.max(0,Math.min(imgH-1,Math.floor(p.y)));
   const d=merged.getContext('2d').getImageData(x,y,1,1).data;
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
-  document.getElementById('fgColor').value=hex;
+  const fi=document.getElementById('fgColorInput');if(fi)fi.value=hex;
+  fgColor=hex;syncFgColor();
   document.getElementById('statusbar').textContent='吸管取色: '+hex;
 }
 
@@ -474,10 +499,11 @@ function doMagicEraser(x,y){
 }
 
 // ── 填充（修复clip逻辑）──
-function doFill(){
+function doFill(fillColor){
   const l=getActiveLayer();if(!l)return;
-  const color=document.getElementById('fgColor').value;
-  const opacity=parseInt(document.getElementById('brushOpacity').value)/100;
+  const color=fillColor||fgColor;
+  const opacityEl=document.getElementById('brushOpacity');
+  const opacity=opacityEl?parseInt(opacityEl.value)/100:1;
   const r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
   l.ctx.save();
   l.ctx.globalAlpha=opacity;
@@ -679,11 +705,17 @@ function saveImage(){if(!imgW){alert('请先打开图片');return;}const m=getMe
 // ── 键盘 ──
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  // Ctrl+Delete = 填充背景色
+  if((e.ctrlKey||e.metaKey)&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();doFill(bgColor);return;}
+  // Alt+Delete = 填充前景色
+  if(e.altKey&&(e.key==='Delete'||e.key==='Backspace')){e.preventDefault();doFill(fgColor);return;}
   if(e.ctrlKey||e.metaKey){if(e.key==='z'){e.preventDefault();undo();}if(e.key==='y'){e.preventDefault();redo();}if(e.key==='s'){e.preventDefault();saveImage();}if(e.key==='d'){e.preventDefault();deselectAll();}if(e.key==='i'&&e.shiftKey){e.preventDefault();inverseSelection();}return;}
-  if(e.key==='x'||e.key==='X'){const fg=document.getElementById('fgColor');const tmp=fg.value;fg.value=bgColor;bgColor=tmp;return;}
-  if(e.key==='d'||e.key==='D'){document.getElementById('fgColor').value='#000000';bgColor='#ffffff';return;}
-  if(e.key==='['){const s=document.getElementById('brushSize');s.value=Math.max(1,parseInt(s.value)-5);document.getElementById('bsVal').textContent=s.value;return;}
-  if(e.key===']'){const s=document.getElementById('brushSize');s.value=Math.min(300,parseInt(s.value)+5);document.getElementById('bsVal').textContent=s.value;return;}
+  // X = 切换前景/背景色
+  if(e.key==='x'||e.key==='X'){swapColors();return;}
+  // D = 默认黑白色
+  if(e.key==='d'||e.key==='D'){const fi=document.getElementById('fgColorInput'),bi=document.getElementById('bgColorInput');if(fi)fi.value='#000000';if(bi)bi.value='#ffffff';fgColor='#000000';bgColor='#ffffff';syncFgColor();return;}
+  if(e.key==='['){const s=document.getElementById('brushSize');if(s){s.value=Math.max(1,parseInt(s.value)-5);const v=document.getElementById('bsVal');if(v)v.textContent=s.value;}return;}
+  if(e.key===']'){const s=document.getElementById('brushSize');if(s){s.value=Math.min(300,parseInt(s.value)+5);const v=document.getElementById('bsVal');if(v)v.textContent=s.value;}return;}
   const map={m:'rect',v:'move',c:'crop',b:'brush',n:'pencil',e:'eraser',s:'stamp',i:'eyedropper',g:'gradient',t:'text',r:'blur',o:'dodge',w:'inpaint',h:'hand',l:'lasso',f:'fill'};
   if(map[e.key.toLowerCase()])setTool(map[e.key.toLowerCase()]);
 });
@@ -712,5 +744,5 @@ function inverseSelection(){
 }
 
 // ── 初始化 ──
-initToolbar();updateToolPanel();
+initToolbar();syncFgColor();syncBgColor();updateToolPanel();
 (function(){const params=new URLSearchParams(location.search);imgPath=params.get('path');if(!imgPath)return;const img=new Image();img.crossOrigin='anonymous';img.onload=()=>{setImage(img,imgPath.replace(/[\\/]/g,'/').split('/').pop());aspectRatio=img.width/img.height;};img.onerror=()=>{document.getElementById('statusbar').textContent='图片加载失败';};img.src='/api/image?path='+encodeURIComponent(imgPath);})();
