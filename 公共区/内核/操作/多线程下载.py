@@ -349,20 +349,9 @@ class 多线程下载(操作基类):
                     )
 
                 # 解析 aria2c 进度行
-                # 格式: [#17870 482MiB/9.3GiB(5%) CN:16 DL:2.4MiB ETA:1h12m]
+                # 格式: [#96c9e8 0B/0B CN:1 DL:0B]  或  [#17870 482MiB/9.3GiB(5%) CN:16 DL:2.4MiB ETA:1h12m]
                 if '[' in line and ']' in line and 'DL:' in line:
                     import re
-                    已下载匹配 = re.search(r'(\d+\.?\d*)([KMG]?)i?B?/', line)
-                    总大小匹配 = re.search(r'/(\d+\.?\d*)([KMG]?)i?B?', line)
-                    百分比匹配 = r'(\d+)%'
-                    速度匹配 = r'DL:([\d.]+)([KMG]?)i?B/s'
-                    eta匹配 = r'ETA:(\S+)'
-                    cn匹配 = r'CN:(\d+)'
-
-                    def 解析大小(数值, 单位):
-                        倍数 = {'': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3}
-                        return float(数值) * 倍数.get(单位, 1)
-
                     已下载MB = 0
                     总大小MB = 0
                     百分比 = 0
@@ -370,33 +359,36 @@ class 多线程下载(操作基类):
                     eta = ''
                     分块 = ''
 
-                    m = re.search(r'已下载.*?(\d+\.?\d*)([KMG]?)i?B?/(\d+\.?\d*)([KMG]?)i?B?\((\d+)%\).*?DL:([\d.]+)([KMG]?)i?B/s.*?ETA:(\S+)', line)
-                    if m:
-                        倍数 = {'': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3}
-                        已下载MB = round(float(m.group(1)) * 倍数.get(m.group(2), 1) / (1024*1024), 2)
-                        总大小MB = round(float(m.group(3)) * 倍数.get(m.group(4), 1) / (1024*1024), 2)
-                        百分比 = int(m.group(5))
-                        速度MB = round(float(m.group(6)) * 倍数.get(m.group(7), 1) / (1024*1024), 2)
-                        eta = m.group(8)
-                        分块 = m.group(0)
-                    else:
-                        # 简化解析
-                        m1 = re.search(r'(\d+\.?\d*)([KMG]?)i?B?/(\d+\.?\d*)([KMG]?)i?B?\((\d+)%\)', line)
-                        if m1:
-                            倍数 = {'': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3}
-                            已下载MB = round(float(m1.group(1)) * 倍数.get(m1.group(2), 1) / (1024*1024), 2)
-                            总大小MB = round(float(m1.group(3)) * 倍数.get(m1.group(4), 1) / (1024*1024), 2)
-                            百分比 = int(m1.group(5))
-                        m2 = re.search(r'DL:([\d.]+)([KMG]?)i?B/s', line)
-                        if m2:
-                            倍数 = {'': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3}
-                            速度MB = round(float(m2.group(1)) * 倍数.get(m2.group(2), 1) / (1024*1024), 2)
-                        m3 = re.search(r'ETA:(\S+)', line)
-                        if m3:
-                            eta = m3.group(1)
-                        m4 = re.search(r'CN:(\d+)', line)
-                        if m4:
-                            分块 = f"{m4.group(1)}连接"
+                    倍数 = {'': 1, 'K': 1024, 'M': 1024**2, 'G': 1024**3}
+
+                    # 解析已下载/总大小，格式: NUM[KMG]?i?B?/NUM[KMG]?i?B?
+                    # 匹配 [#xxx 482MiB/9.3GiB 或 [#xxx 0B/0B
+                    m_size = re.search(r'\[\S+\s+(\d+\.?\d*)([KMG]?)i?B?/(\d+\.?\d*)([KMG]?)i?B?', line)
+                    if m_size:
+                        已下载MB = round(float(m_size.group(1)) * 倍数.get(m_size.group(2), 1) / (1024*1024), 2)
+                        总大小MB = round(float(m_size.group(3)) * 倍数.get(m_size.group(4), 1) / (1024*1024), 2)
+
+                    # 解析百分比 (可选)
+                    m_pct = re.search(r'\((\d+)%\)', line)
+                    if m_pct:
+                        百分比 = int(m_pct.group(1))
+                    elif 总大小MB > 0 and 已下载MB > 0:
+                        百分比 = int(已下载MB * 100 / 总大小MB)
+
+                    # 解析速度 DL:NUM[KMG]?i?B/s
+                    m_spd = re.search(r'DL:(\d+\.?\d*)([KMG]?)i?B/s', line)
+                    if m_spd:
+                        速度MB = round(float(m_spd.group(1)) * 倍数.get(m_spd.group(2), 1) / (1024*1024), 2)
+
+                    # 解析ETA (可选)
+                    m_eta = re.search(r'ETA:(\S+)', line)
+                    if m_eta:
+                        eta = m_eta.group(1)
+
+                    # 解析连接数
+                    m_cn = re.search(r'CN:(\d+)', line)
+                    if m_cn:
+                        分块 = f"{m_cn.group(1)}连接"
 
                     # 推送进度（含ETA）
                     if time.time() - 上次推送 > 1:
