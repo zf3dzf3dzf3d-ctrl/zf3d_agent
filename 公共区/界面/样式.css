@@ -23,6 +23,14 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .panel-narrow > .panel-bar > span { display:none; }
 .panel-narrow .btn-text { display:none; }
 
+/* 窄屏隐藏画廊列表的次要列（大小/类型/修改日期） */
+.panel-narrow .gallery-list-header .glh-size,
+.panel-narrow .gallery-list-header .glh-type,
+.panel-narrow .gallery-list-header .glh-date,
+.panel-narrow .gallery-list-row .glr-size,
+.panel-narrow .gallery-list-row .glr-type,
+.panel-narrow .gallery-list-row .glr-date { display:none; }
+
 /* 窄屏隐藏标题文字 */
 @media (max-width: 600px) {
     .topbar-title { display:none; }
@@ -77,7 +85,7 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .open-folder-bar button { background:var(--blue); color:white; border:none; padding:3px 10px; border-radius:2px; cursor:pointer; font-size:11px; }
 
 /* === 中间编辑器 === */
-.editor-panel { flex:1; min-width:200px; background:var(--bg); }
+.editor-panel { flex:1; min-width:200px; background:var(--bg); position:relative; overflow:visible; display:flex; flex-direction:column; }
 
 /* 编辑器工具栏 */
 .editor-toolbar { display:flex; align-items:center; gap:4px; padding:3px 8px; background:var(--bg3); border-bottom:1px solid var(--border); flex-shrink:0; font-size:12px; }
@@ -113,7 +121,7 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .editor-body { flex:1; display:flex; overflow:hidden; position:relative; }
 
 /* 图片/画廊视图 */
-.media-view { flex:1; overflow-y:auto; padding:0 12px 12px 12px; display:flex; flex-direction:column; }
+.media-view { flex:1; overflow-y:auto; padding:0 12px 12px 12px; display:flex; flex-direction:column; position:relative; }
 .gallery-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; }
 .gallery-current-path { font-size:11px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px; }
@@ -497,8 +505,10 @@ pre:hover .code-copy-btn { opacity:1; }
 .dl-bar-container { width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin-bottom:3px; }
 .dl-bar-fill { height:100%; background:linear-gradient(90deg, var(--blue), #00E5FF); border-radius:4px; transition:width 0.3s ease; }
 .dl-bar-fill.complete { background:linear-gradient(90deg, #4CAF50, #66BB6A); }
+.dl-bar-fill.failed { background:linear-gradient(90deg, #f44336, #ef5350); }
 .dl-info { display:flex; justify-content:space-between; font-size:10px; color:var(--text2); gap:8px; flex-wrap:wrap; }
 .dl-info .dl-pct { color:#00E5FF; font-weight:bold; }
+.dl-info .dl-eta { color:var(--orange); }
 
 /* === 生成等待进度条 === */
 .reasoning-item.gen-progress { padding:4px 0; }
@@ -711,4 +721,64 @@ pre:hover .code-copy-btn { opacity:1; }
 .file-tooltip .ft-name { font-weight: bold; color: var(--text); margin-bottom: 4px; text-align: center; }
 .file-tooltip .ft-row { display: flex; gap: 6px; }
 .file-tooltip .ft-label { color: var(--text2); min-width: 48px; text-align: right; }
+
+/* === 底部音乐播放栏（浮空在中间区域底部） === */
+.music-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+    background: rgba(30,30,30,0.95); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+    box-sizing: border-box;
+}
+.mb-cover { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; background: var(--bg4); overflow: hidden; }
+.mb-cover img { display: none; }
+.mb-info { min-width: 100px; max-width: 200px; flex-shrink: 0; }
+.mb-name { font-size: 13px; color: var(--text); font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-artist { font-size: 11px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.mb-ctrl-btn { background: none; border: none; color: var(--text2); font-size: 16px; cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all 0.15s; }
+.mb-ctrl-btn:hover { background: var(--hover); color: var(--text); }
+.mb-play-btn { background: var(--blue); border: none; color: #fff; font-size: 18px; cursor: pointer; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.mb-play-btn:hover { background: #1976D2; transform: scale(1.05); }
+.mb-play-btn:active { transform: scale(0.95); }
+.mb-count { font-size: 11px; color: var(--text2); min-width: 30px; font-family: Consolas, monospace; }
+.mb-progress-row { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mb-time { font-size: 11px; color: var(--text2); min-width: 32px; text-align: center; font-family: Consolas, monospace; flex-shrink: 0; }
+.mb-progress { flex: 1; height: 5px; background: var(--bg4); border-radius: 3px; position: relative; cursor: pointer; }
+.mb-progress:hover { height: 7px; }
+.mb-progress-fill { height: 100%; background: linear-gradient(90deg, var(--blue), #00E5FF); border-radius: 3px; width: 0%; transition: width 0.1s linear; }
+.mb-progress-handle { position: absolute; top: 50%; width: 12px; height: 12px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); left: 0%; opacity: 0; transition: opacity 0.15s; }
+.mb-progress:hover .mb-progress-handle { opacity: 1; }
+.mb-volume { display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0; }
+.mb-vol-btn { background: none; border: none; color: var(--text2); font-size: 10px; cursor: pointer; padding: 1px 4px; line-height: 1; border-radius: 3px; transition: all 0.1s; }
+.mb-vol-btn:hover { background: var(--hover); color: var(--blue); }
+
+/* 播放列表面板 */
+.mb-playlist-panel {
+    position: absolute; bottom: 50px; right: 16px; z-index: 201;
+    width: 300px; max-height: 360px; display: flex; flex-direction: column;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.mb-pl-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); }
+.mb-pl-header button { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 14px; }
+.mb-pl-header button:hover { color: var(--text); }
+.mb-pl-items { flex: 1; overflow-y: auto; padding: 4px; }
+.mb-pl-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.15s; }
+.mb-pl-item:hover { background: var(--hover); }
+.mb-pl-item.active { background: rgba(0,122,204,0.15); }
+.mb-pl-icon { flex-shrink: 0; }
+.mb-pl-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-pl-artist { color: var(--text2); font-size: 11px; flex-shrink: 0; }
+.mb-pl-del { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 11px; padding: 2px; opacity: 0.5; }
+.mb-pl-del:hover { opacity: 1; color: var(--red); }
+
+/* 窄屏适配 */
+.panel-narrow ~ .music-bar .mb-info { max-width: 80px; }
+.panel-narrow ~ .music-bar .mb-volume { display: none; }
+@media (max-width: 768px) {
+    .music-bar { flex-wrap: wrap; gap: 4px; padding: 4px 8px; }
+    .mb-progress-row { order: 5; flex-basis: 100%; }
+}
 .file-tooltip .ft-value { color: var(--text); flex: 1; }

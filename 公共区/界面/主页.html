@@ -7,7 +7,7 @@
     <title>朱峰社区智能体 v2.1.1</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260629e">
+    <link rel="stylesheet" href="样式.css?v=20260630j">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -167,9 +167,46 @@
                     <div class="doc-file-name" id="docFileName"></div>
                     <div class="doc-content" id="docContent"></div>
                 </div>
+            <!-- 底部音乐播放栏（浮空在缩略图区域底部） -->
+            <div class="music-bar" id="musicBar" style="display:none;">
+                <div class="mb-cover" id="mbCover">🎵</div>
+                <div class="mb-info">
+                    <div class="mb-name" id="mbName"></div>
+                    <div class="mb-artist" id="mbArtist"></div>
+                </div>
+                <div class="mb-controls">
+                    <button class="mb-ctrl-btn" id="mbPrevBtn" onclick="mbPrev()" title="上一首" style="display:none;">⏮</button>
+                    <button class="mb-play-btn" id="mbPlayBtn" onclick="mbToggle()" title="播放/暂停">▶</button>
+                    <button class="mb-ctrl-btn" id="mbNextBtn" onclick="mbNext()" title="下一首" style="display:none;">⏭</button>
+                    <span class="mb-count" id="mbCount"></span>
+                </div>
+                <div class="mb-progress-row">
+                    <span class="mb-time" id="mbCurrentTime">0:00</span>
+                    <div class="mb-progress" id="mbProgress">
+                        <div class="mb-progress-fill" id="mbProgressFill"></div>
+                        <div class="mb-progress-handle" id="mbProgressHandle"></div>
+                    </div>
+                    <span class="mb-time" id="mbTotalTime">0:00</span>
+                </div>
+                <div class="mb-volume" style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
+                    <button class="mb-vol-btn" onclick="mbVolumeUp()" title="音量+">▲</button>
+                    <span id="mbVolIcon" style="font-size:11px;cursor:pointer;user-select:none;" onclick="mbCycleVolume()" title="点击循环音量">🔊</span>
+                    <button class="mb-vol-btn" onclick="mbVolumeDown()" title="音量-">▼</button>
+                </div>
+                <button class="mb-ctrl-btn" onclick="mbTogglePlaylist()" title="播放列表">📋</button>
+                <button class="mb-ctrl-btn" onclick="mbClose()" title="关闭播放器">✕</button>
+                <audio id="mbAudio" preload="metadata"></audio>
+            </div>
+            <!-- 播放列表面板 -->
+            <div class="mb-playlist-panel" id="mbPlaylistPanel" style="display:none;">
+                <div class="mb-pl-header">
+                    <span>📋 播放列表</span>
+                    <button onclick="mbTogglePlaylist()">✕</button>
+                </div>
+                <div class="mb-pl-items" id="mbPlaylistItems"></div>
+            </div>
             </div>
         </div>
-
         <!-- 股票模式面板（默认隐藏，切换时替代文件面板+编辑器面板） -->
         <div class="panel stock-panel" id="stockPanel" style="display:none;">
             <!-- 左侧导航栏 -->
@@ -364,7 +401,8 @@
     <script src="模块/语音播报.js?v=20260627b"></script>
     <script src="模块/语音输入.js?v=20260627b"></script>
     <script src="模块/对话核心.js?v=20260627c"></script>
-    <script src="模块/推理流.js?v=20260627c"></script>
+    <script src="模块/推理流.js?v=20260630s"></script>
+    <script src="模块/音乐播放器.js?v=20260630l"></script>
     <script src="模块/实时Diff.js?v=20260627c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
