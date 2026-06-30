@@ -89,12 +89,15 @@ function appendReasoningRecord(rec) {
             break;
         case "下载进度": {
             const p = rec.内容;
-            let progBar = document.getElementById("downloadProgressBar");
+            const dlId = p.下载ID || 'default';
+            const barId = `dlBar_${dlId}`;
+            let progBar = document.getElementById(barId);
             if (!progBar) {
                 progBar = document.createElement("div");
-                progBar.id = "downloadProgressBar";
+                progBar.id = barId;
                 progBar.className = "reasoning-card rc-progress download-progress";
-                progBar.innerHTML = `<div class="dl-header">⬇️ <span class="dl-name">${escapeHtml(p.文件名||'下载中')}</span></div><div class="dl-bar-container"><div class="dl-bar-fill" style="width:${p.百分比||0}%"></div></div><div class="dl-info"><span class="dl-pct">${p.百分比||0}%</span><span class="dl-size">${p.已下载MB||0}/${p.总大小MB||0} MB</span><span class="dl-speed">${p.速度MB每秒||0} MB/s</span><span class="dl-chunks">${p.已完成分块||''}</span></div>`;
+                let etaHtml = p.ETA ? `<span class="dl-eta">⏳ ${escapeHtml(String(p.ETA))}</span>` : '';
+                progBar.innerHTML = `<div class="dl-header">⬇️ <span class="dl-name">${escapeHtml(p.文件名||'下载中')}</span></div><div class="dl-bar-container"><div class="dl-bar-fill" style="width:${p.百分比||0}%"></div></div><div class="dl-info"><span class="dl-pct">${p.百分比||0}%</span><span class="dl-size">${p.已下载MB||0}/${p.总大小MB||0} MB</span><span class="dl-speed">${p.速度MB每秒||0} MB/s</span>${etaHtml}<span class="dl-chunks">${p.已完成分块||''}</span></div>`;
                 body.appendChild(progBar);
             } else {
                 progBar.querySelector(".dl-name").textContent = p.文件名 || '下载中';
@@ -102,15 +105,48 @@ function appendReasoningRecord(rec) {
                 progBar.querySelector(".dl-pct").textContent = (p.百分比||0) + "%";
                 progBar.querySelector(".dl-size").textContent = `${p.已下载MB||0}/${p.总大小MB||0} MB`;
                 progBar.querySelector(".dl-speed").textContent = `${p.速度MB每秒||0} MB/s`;
-                progBar.querySelector(".dl-chunks").textContent = p.已完成分块 || '';
-                if ((p.百分比||0) >= 100) {
-                    progBar.querySelector(".dl-bar-fill").classList.add("complete");
-                    progBar.removeAttribute("id");
-                    refreshTree();
-                    if (galleryPath) showGallery(galleryPath);
+                let etaEl = progBar.querySelector(".dl-eta");
+                if (p.ETA) {
+                    if (!etaEl) {
+                        etaEl = document.createElement("span");
+                        etaEl.className = "dl-eta";
+                        progBar.querySelector(".dl-info").insertBefore(etaEl, progBar.querySelector(".dl-chunks"));
+                    }
+                    etaEl.textContent = `⏳ ${p.ETA}`;
+                } else if (etaEl) {
+                    etaEl.remove();
                 }
+                progBar.querySelector(".dl-chunks").textContent = p.已完成分块 || '';
             }
             body.scrollTop = body.scrollHeight;
+            return;
+        }
+        case "下载完成": {
+            const p = rec.内容;
+            const dlId = p.下载ID || 'default';
+            const barId = `dlBar_${dlId}`;
+            let progBar = document.getElementById(barId);
+            if (progBar) {
+                progBar.querySelector(".dl-bar-fill").classList.add("complete");
+                progBar.querySelector(".dl-bar-fill").style.width = "100%";
+                progBar.querySelector(".dl-header").innerHTML = `✅ <span class="dl-name">${escapeHtml(p.文件名||'下载完成')}</span>`;
+                progBar.removeAttribute("id");
+            }
+            showToast("success", "✅ 下载完成", `${p.文件名||'文件'} (${p.大小MB||0}MB) 已保存`);
+            refreshTree();
+            if (galleryPath) showGallery(galleryPath);
+            return;
+        }
+        case "下载失败": {
+            const p = rec.内容;
+            const dlId = p.下载ID || 'default';
+            const barId = `dlBar_${dlId}`;
+            let progBar = document.getElementById(barId);
+            if (progBar) {
+                progBar.querySelector(".dl-bar-fill").classList.add("failed");
+                progBar.removeAttribute("id");
+            }
+            showToast("error", "❌ 下载失败", `${p.文件名||'文件'}: ${p.错误||'未知错误'}`);
             return;
         }
         case "最终回复":
@@ -138,6 +174,32 @@ function appendReasoningRecord(rec) {
                 if (header) header.innerHTML = `⏳ ${label}... <span class="gen-elapsed">${elapsed}秒</span>`;
             }
             body.scrollTop = body.scrollHeight;
+            return;
+        }
+        case "播放视频": {
+            const p = rec.内容;
+            if (p.文件路径) {
+                videoPlaylist = [{ 路径: p.文件路径, 名称: p.标题 }];
+                showVideo(p.文件路径, p.标题, 0);
+            }
+            _updateThinkingDisplay("播放", `🎬 ${p.标题||''}`, 90);
+            return;
+        }
+        case "视频搜索": {
+            const p = rec.内容;
+            _updateThinkingDisplay("搜索", p.状态 === "搜索中" ? `搜索视频: ${p.关键词||''}` : `处理中...`, 60);
+            return;
+        }
+        case "播放音乐": {
+            const p = rec.内容;
+            if (typeof mbPlaySong === 'function') {
+                mbPlaySong(p.文件路径 || "", p.歌名, p.歌手, p.封面, p.来源, p.添加到列表, p.播放URL, p.bvid);
+            }
+            return;
+        }
+        case "音乐搜索": {
+            const p = rec.内容;
+            _updateThinkingDisplay("搜索", p.状态 === "下载中" ? `下载: ${p.歌名||''} ${p.歌手||''}` : `搜索: ${p.关键词||''}`, 60);
             return;
         }
         default:

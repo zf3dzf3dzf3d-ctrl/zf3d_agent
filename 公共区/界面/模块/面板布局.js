@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
     openFolder(initPath);
     showGallery(initPath);
     initAudioPlayer();
+    initMusicBar();
     initSlideshowSpeed();
     setTimeout(checkPanelNarrow, 100);
     setTimeout(checkForUpdate, 3000);

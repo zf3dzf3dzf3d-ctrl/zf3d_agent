@@ -826,13 +826,14 @@ function renderGalleryList() {
     const header = document.createElement("div");
     header.className = "gallery-list-header";
     const cols = [
-        { key: "名称", label: "名称", flex: true },
-        { key: "大小", label: "大小", width: "80px" },
-        { key: "类型", label: "类型", width: "70px" },
-        { key: "创建时间", label: "修改日期", width: "120px" }
+        { key: "名称", label: "名称", flex: true, cls: "glh-name" },
+        { key: "大小", label: "大小", width: "80px", cls: "glh-size" },
+        { key: "类型", label: "类型", width: "70px", cls: "glh-type" },
+        { key: "创建时间", label: "修改日期", width: "120px", cls: "glh-date" }
     ];
     for (const col of cols) {
         const cell = document.createElement("div");
+        if (col.cls) cell.className = col.cls;
         if (!col.flex) cell.style.width = col.width;
         else cell.style.flex = "1";
         cell.innerHTML = `${col.label}<span class="glh-sort">${gallerySortKey === col.key ? (gallerySortAsc ? "▲" : "▼") : ""}</span>`;

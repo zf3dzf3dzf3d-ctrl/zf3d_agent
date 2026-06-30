@@ -14,6 +14,7 @@ import threading
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
+import urllib.request
 from pathlib import Path
 import zlib
 import array
@@ -510,14 +511,168 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             类型映射 = {".mp3":"audio/mpeg",".wav":"audio/wav",".ogg":"audio/ogg",".m4a":"audio/mp4",".flac":"audio/flac",".aac":"audio/aac",".opus":"audio/opus",".wma":"audio/x-ms-wma"}
             类型 = 类型映射.get(后缀, "application/octet-stream")
             try:
+                文件大小 = 完整路径.stat().st_size
+                range_header = self.headers.get("Range")
+                if range_header:
+                    import re as _re
+                    m = _re.match(r'bytes=(\d*)-(\d*)', range_header)
+                    if m:
+                        start = int(m.group(1)) if m.group(1) else 0
+                        end = int(m.group(2)) if m.group(2) else 文件大小 - 1
+                        end = min(end, 文件大小 - 1)
+                        长度 = end - start + 1
+                        self.send_response(206)
+                        self.send_header("Content-Type", 类型)
+                        self.send_header("Content-Length", 长度)
+                        self.send_header("Content-Range", f"bytes {start}-{end}/{文件大小}")
+                        self.send_header("Accept-Ranges", "bytes")
+                        self.send_header("Cache-Control", "max-age=3600")
+                        self.end_headers()
+                        with open(完整路径, "rb") as f:
+                            f.seek(start)
+                            剩余 = 长度
+                            while 剩余 > 0:
+                                块 = f.read(min(65536, 剩余))
+                                if not 块:
+                                    break
+                                self.wfile.write(块)
+                                剩余 -= len(块)
+                        return
                 with open(完整路径, "rb") as f:
                     数据 = f.read()
                 self.send_response(200)
                 self.send_header("Content-Type", 类型)
                 self.send_header("Content-Length", len(数据))
+                self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Cache-Control", "max-age=3600")
                 self.end_headers()
                 self.wfile.write(数据)
+            except Exception as e:
+                self._返回JSON({"错误": str(e)}, 500)
+        elif 路径 == "/api/music-proxy":
+            """音乐流代理 — 接收BV号，实时获取B站音频流并转发给前端"""
+            参数 = parse_qs(解析结果.query)
+            bvid = 参数.get("bvid", [""])[0]
+            if not bvid:
+                self._返回JSON({"错误": "缺少bvid参数"}, 400)
+                return
+            try:
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+
+                # 1. 访问B站首页获取cookie
+                cj = __import__('http.cookiejar', fromlist=['CookieJar']).CookieJar()
+                _opener = urllib.request.build_opener(
+                    urllib.request.HTTPCookieProcessor(cj),
+                    urllib.request.HTTPSHandler(context=ctx)
+                )
+                _opener.addheaders = [
+                    ("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"),
+                    ("Referer", "https://www.bilibili.com"),
+                    ("Accept", "application/json, text/plain, */*"),
+                ]
+                try:
+                    _opener.open("https://www.bilibili.com", timeout=5)
+                except Exception:
+                    pass
+
+                # 2. 获取cid
+                info_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
+                info_resp = _opener.open(info_url, timeout=10)
+                info = json.loads(info_resp.read().decode("utf-8"))
+                info_resp.close()
+                if info.get("code") != 0:
+                    self._返回JSON({"错误": f"获取视频信息失败: {info.get('message', '')}"}, 500)
+                    return
+                cid = info["data"]["cid"]
+
+                # 3. 获取音频流
+                play_url = f"https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16&qn=0"
+                play_resp = _opener.open(play_url, timeout=10)
+                play_data = json.loads(play_resp.read().decode("utf-8"))
+                play_resp.close()
+
+                audio_list = play_data.get("data", {}).get("dash", {}).get("audio", [])
+                if not audio_list:
+                    self._返回JSON({"错误": "无音频流"}, 500)
+                    return
+
+                audio_url = audio_list[0].get("baseUrl") or audio_list[0].get("base_url", "")
+
+                # 4. 代理转发音频流
+                audio_req = urllib.request.Request(audio_url, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Referer": "https://www.bilibili.com",
+                    "Accept": "*/*",
+                    "Origin": "https://www.bilibili.com",
+                })
+                # 转发Range请求
+                range_header = self.headers.get("Range")
+                if range_header:
+                    audio_req.add_header("Range", range_header)
+
+                audio_resp = _opener.open(audio_req, timeout=30)
+                原始类型 = audio_resp.headers.get("Content-Type", "")
+                # B站返回application/octet-stream，浏览器audio标签不认，强制改成audio/mp4
+                if "octet-stream" in 原始类型 or not 原始类型:
+                    类型 = "audio/mp4"
+                else:
+                    类型 = 原始类型
+                长度 = audio_resp.headers.get("Content-Length", "")
+                content_range = audio_resp.headers.get("Content-Range", "")
+                status = audio_resp.status if hasattr(audio_resp, 'status') else 200
+
+                self.send_response(status)
+                self.send_header("Content-Type", 类型)
+                if 长度:
+                    self.send_header("Content-Length", 长度)
+                if content_range:
+                    self.send_header("Content-Range", content_range)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Accept-Ranges", "bytes")
+                self.end_headers()
+
+                while True:
+                    数据 = audio_resp.read(65536)
+                    if not 数据:
+                        break
+                    try:
+                        self.wfile.write(数据)
+                    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                        break
+                audio_resp.close()
+            except Exception as e:
+                self._返回JSON({"错误": str(e)}, 500)
+        elif 路径 == "/api/music-download":
+            """按需下载B站音频→转MP3→返回本地文件路径"""
+            参数 = parse_qs(解析结果.query)
+            bvid = 参数.get("bvid", [""])[0]
+            歌名 = 参数.get("name", ["未知"])[0]
+            if not bvid:
+                self._返回JSON({"错误": "缺少bvid参数"}, 400)
+                return
+            try:
+                from 操作.音乐 import _下载并转换, _添加到音乐库, _加载音乐库
+                # 先查库，已下载过的不重复
+                库 = _加载音乐库()
+                for s in 库.get("歌曲列表", []):
+                    if s.get("bvid") == bvid:
+                        路径 = s.get("路径", "")
+                        if 路径 and os.path.exists(路径):
+                            self._返回JSON({"成功": True, "文件路径": 路径, "歌名": s.get("歌名", 歌名), "已缓存": True})
+                            return
+                # 下载
+                import re as _re
+                干净名 = _re.sub(r'[<>:"/\\|?*]', '', 歌名[:30])
+                结果 = _下载并转换(bvid, 干净名)
+                if 结果:
+                    文件路径, 原始标题, 时长秒 = 结果
+                    _添加到音乐库(文件路径, 歌名, "B站", bvid, 时长秒)
+                    self._返回JSON({"成功": True, "文件路径": 文件路径, "歌名": 歌名})
+                else:
+                    self._返回JSON({"错误": "下载失败"}, 500)
             except Exception as e:
                 self._返回JSON({"错误": str(e)}, 500)
         elif 路径 == "/api/video":
@@ -1691,6 +1846,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             if self.模块注册 and "对话" in self.模块注册:
                 对话模块 = self.模块注册["对话"]
+                # 重置取消标志（防止上次取消后新建对话仍处于取消状态）
+                对话模块._取消标志 = False
                 # 将文件上下文注入对话模块
                 if 文件上下文提示:
                     对话模块.文件上下文 = 文件上下文提示

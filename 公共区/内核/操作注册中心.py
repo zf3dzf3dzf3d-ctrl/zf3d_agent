@@ -48,6 +48,12 @@ from 操作.导出与配置操作 import (
 from 操作.询问用户 import (
     询问用户,
 )
+from 操作.音乐 import (
+    搜索音乐, 播放音乐, 同步音乐库,
+)
+from 操作.视频 import (
+    播放视频, 搜索视频,
+)
 from 操作.图片处理 import (
     图片去水印, 图片去杂物, 图片调整, 图片裁剪,
     图片缩放, 图片模糊, 图片灰度化, 图片旋转,
@@ -172,6 +178,13 @@ class 操作注册中心类:
                     "恢复文件": "restore_file",
                     "清空回收站": "empty_trash",
                     "股票预测": "stock_predict",
+                    "搜索音乐": "search_music", "播放音乐": "play_music", "同步音乐库": "sync_music_library",
+                    "播放视频": "play_video", "搜索视频": "search_video",
+                    "图片去水印": "remove_watermark", "图片去杂物": "remove_objects",
+                    "图片调整": "adjust_image", "图片裁剪": "crop_image",
+                    "图片缩放": "scale_image", "图片模糊": "blur_image",
+                    "图片灰度化": "grayscale_image", "图片旋转": "rotate_image",
+                    "多线程下载": "multithread_download",
                 }
         self._英文反查 = {v: k for k, v in self._英文名映射.items()}
         # 参数名中文→英文映射
@@ -489,6 +502,8 @@ class 操作注册中心类:
             保存浏览器会话操作(), 加载浏览器会话操作(),
             分析网页操作(),
             询问用户(),
+            搜索音乐(), 播放音乐(), 同步音乐库(),
+            播放视频(), 搜索视频(),
             图片去水印(), 图片去杂物(), 图片调整(), 图片裁剪(),
             图片缩放(), 图片模糊(), 图片灰度化(), 图片旋转(),
         ]
