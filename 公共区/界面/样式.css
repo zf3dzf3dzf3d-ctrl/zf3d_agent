@@ -500,6 +500,7 @@ pre:hover .code-copy-btn { opacity:1; }
 .reasoning-item { font-size:11px; line-height:1.5; padding:1px 0; border-bottom:1px solid rgba(255,255,255,0.03); }
 
 /* ============ 下载进度条 ============ */
+.download-progress { padding:4px 0; }
 .reasoning-item.download-progress { padding:4px 0; }
 .dl-header { color:var(--blue); font-weight:bold; margin-bottom:3px; font-size:11px; }
 .dl-bar-container { width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin-bottom:3px; }
@@ -509,6 +510,73 @@ pre:hover .code-copy-btn { opacity:1; }
 .dl-info { display:flex; justify-content:space-between; font-size:10px; color:var(--text2); gap:8px; flex-wrap:wrap; }
 .dl-info .dl-pct { color:#00E5FF; font-weight:bold; }
 .dl-info .dl-eta { color:var(--orange); }
+
+/* ============ 独立下载面板 ============ */
+.download-panel {
+    position:fixed; top:40px; left:0; width:280px; z-index:10000;
+    background:rgba(18,18,26,0.98); backdrop-filter:blur(12px);
+    border-right:1px solid rgba(33,150,243,0.2); border-bottom:1px solid rgba(33,150,243,0.15);
+    border-radius:0 0 12px 0; box-shadow:4px 4px 24px rgba(0,0,0,0.5);
+    font-family:"Consolas","Microsoft YaHei",monospace;
+}
+.download-panel.collapsed .download-panel-body { display:none; }
+.download-panel-header {
+    display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer;
+    border-bottom:1px solid rgba(255,255,255,0.05); user-select:none;
+}
+.download-panel-header:hover { background:rgba(255,255,255,0.03); }
+.dp-title { font-size:12px; font-weight:bold; color:var(--blue); }
+.dp-count {
+    background:var(--blue); color:#fff; font-size:10px; font-weight:bold;
+    border-radius:10px; padding:1px 8px; min-width:18px; text-align:center;
+}
+.dp-toggle { margin-left:auto; font-size:10px; color:var(--text2); transition:transform 0.2s; }
+.download-panel.collapsed .dp-toggle { transform:rotate(180deg); }
+.download-panel-body {
+    max-height:320px; overflow-y:auto; padding:6px 10px 10px;
+}
+.download-panel-body::-webkit-scrollbar { width:4px; }
+.download-panel-body::-webkit-scrollbar-thumb { background:rgba(33,150,243,0.3); border-radius:2px; }
+
+/* 单个下载项 */
+.dl-item {
+    background:rgba(255,255,255,0.03); border-radius:8px; padding:10px 12px; margin-bottom:6px;
+    border-left:3px solid var(--blue); transition:border-color 0.3s;
+}
+.dl-item.dl-complete { border-left-color:#4CAF50; }
+.dl-item.dl-failed { border-left-color:#f44336; }
+.dl-item.dl-starting { border-left-color:var(--orange); }
+.dl-item.dl-verifying { border-left-color:#9C27B0; }
+.dl-item-name {
+    font-size:11px; color:var(--text); font-weight:bold; margin-bottom:6px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.dl-item-bar {
+    width:100%; height:10px; background:rgba(255,255,255,0.06);
+    border-radius:5px; overflow:hidden; margin-bottom:6px;
+}
+.dl-item-bar-fill {
+    height:100%; border-radius:5px; transition:width 0.5s ease;
+    background:linear-gradient(90deg, var(--blue), #00E5FF);
+}
+.dl-item.dl-complete .dl-item-bar-fill { background:linear-gradient(90deg, #4CAF50, #66BB6A); }
+.dl-item.dl-failed .dl-item-bar-fill { background:linear-gradient(90deg, #f44336, #ef5350); }
+.dl-item.dl-starting .dl-item-bar-fill {
+    background:linear-gradient(90deg, var(--orange), #FFB74D);
+    animation:dl-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dl-pulse { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+.dl-item-stats {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:10px; color:var(--text2); gap:6px;
+}
+.dl-item-pct { font-size:13px; font-weight:bold; color:#00E5FF; }
+.dl-item.dl-complete .dl-item-pct { color:#4CAF50; }
+.dl-item.dl-failed .dl-item-pct { color:#f44336; }
+.dl-item-speed { color:var(--green); font-weight:bold; }
+.dl-item-eta { color:var(--orange); }
+.dl-item-size { color:var(--text2); }
+.dl-item-status { font-size:10px; color:var(--orange); }
 
 /* === 生成等待进度条 === */
 .reasoning-item.gen-progress { padding:4px 0; }

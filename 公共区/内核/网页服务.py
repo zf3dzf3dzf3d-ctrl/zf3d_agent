@@ -675,6 +675,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     self._返回JSON({"错误": "下载失败"}, 500)
             except Exception as e:
                 self._返回JSON({"错误": str(e)}, 500)
+        elif 路径 == "/api/download-status":
+            """查询后台下载进度"""
+            try:
+                from 操作.多线程下载 import 多线程下载
+                with 多线程下载._下载进度锁:
+                    进度表 = dict(多线程下载._下载进度表)
+                self._返回JSON({"成功": True, "下载列表": 进度表})
+            except Exception as e:
+                self._返回JSON({"错误": str(e)}, 500)
         elif 路径 == "/api/video":
             参数 = parse_qs(解析结果.query)
             视频路径 = 参数.get("path", [""])[0]
@@ -902,9 +911,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """股票盘面：指数+涨幅榜+跌幅榜+市场总览（缓存）"""
             参数 = parse_qs(解析结果.query)
             页码 = int(参数.get("page", ["1"])[0])
+            排序字段 = 参数.get("sort", ["f3"])[0]  # 默认涨幅
+            排序方向 = 参数.get("order", ["desc"])[0]  # desc降序 asc升序
             from 股票缓存 import 获取股票缓存
             缓存 = 获取股票缓存()
-            结果 = 缓存.读取或请求(f"panel_{页码}", "panel", lambda: self._获取股票盘面(页码))
+            结果 = 缓存.读取或请求(f"panel_{页码}_{排序字段}_{排序方向}", "panel", lambda: self._获取股票盘面(页码, 排序字段, 排序方向))
             self._返回JSON(结果)
         elif 路径 == "/api/stock-kline":
             """股票K线数据（支持日K/周K/月K，缓存+增量更新）"""
@@ -1867,8 +1878,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         行 = f"data: {json.dumps(事件数据, ensure_ascii=False)}\n\n"
                         self.wfile.write(行.encode("utf-8"))
                         self.wfile.flush()
-                    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-                        pass
+                    except Exception:
+                        pass  # SSE流已关闭（后台下载线程仍在推送进度），静默忽略
 
                 # 拦截推理流推送，实时写SSE
                 原始推入 = 对话模块._推入推理流
@@ -2122,8 +2133,132 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     raise
                 import time; time.sleep(0.3)
 
-    def _获取股票盘面(self, 页码: int = 1) -> dict:
-        """获取盘面数据：指数+涨幅榜+跌幅榜+市场总览"""
+    # 缓存最新交易日(避免每次查MAX)
+    _最新交易日缓存 = None
+    _最新交易日时间 = 0
+
+    def _获取最新交易日(self):
+        """获取最新交易日(60秒内缓存)"""
+        import time as _time
+        now = _time.time()
+        if self._最新交易日缓存 and (now - self._最新交易日时间) < 60:
+            return self._最新交易日缓存
+        try:
+            import sqlite3 as _sqlite3
+            db路径 = str(Path(__file__).parent.parent.parent / "隐私区" / "我的数据" / "股票缓存.db")
+            conn = _sqlite3.connect(db路径, timeout=5)
+            c = conn.cursor()
+            c.execute("SELECT MAX(日期) FROM K线数据 WHERE 周期='daily'")
+            row = c.fetchone()
+            conn.close()
+            if row and row[0]:
+                self._最新交易日缓存 = row[0]
+                self._最新交易日时间 = now
+                return row[0]
+        except:
+            pass
+        return None
+
+    def _获取股票盘面(self, 页码: int = 1, 排序字段: str = "f3", 排序方向: str = "desc") -> dict:
+        """获取盘面数据 — 本地数据库SQL原生分页+排序, 一次连接完成所有查询"""
+        import sqlite3 as _sqlite3
+        from datetime import datetime
+        try:
+            db路径 = str(Path(__file__).parent.parent.parent / "隐私区" / "我的数据" / "股票缓存.db")
+            conn = _sqlite3.connect(db路径, timeout=10)
+            conn.row_factory = _sqlite3.Row
+            c = conn.cursor()
+
+            # 1. 最新交易日(用缓存)
+            最新日 = self._获取最新交易日()
+            if not 最新日:
+                c.execute("SELECT MAX(日期) as d FROM K线数据 WHERE 周期='daily'")
+                r = c.fetchone()
+                最新日 = r["d"] if r else None
+            if not 最新日:
+                conn.close()
+                return {"成功": False, "错误": "数据库无K线数据"}
+
+            # 2. 排序+分页(一次SQL取20行)
+            排序列 = {
+                "f3": "(收-开)/开",   # 涨幅
+                "f6": "量",           # 成交量(额为空,用量代替)
+                "f8": "量",            # 成交量
+            }.get(排序字段, "(收-开)/开")
+            方向 = "DESC" if 排序方向 == "desc" else "ASC"
+            每页 = 20
+            offset = (页码 - 1) * 每页
+
+            c.execute(f"""
+                SELECT k.代码, k.收, k.量, k.额, a.名称,
+                       (k.收-k.开)/k.开*100 as 涨幅
+                FROM K线数据 k JOIN A股列表 a ON k.代码=a.代码
+                WHERE k.周期='daily' AND k.日期=?
+                ORDER BY {排序列} {方向}
+                LIMIT ? OFFSET ?
+            """, (最新日, 每页, offset))
+            涨幅榜 = []
+            for r in c.fetchall():
+                涨幅 = r["涨幅"] if r["涨幅"] else 0
+                # 成交额: 如果额为空, 用量×均价近似
+                额 = r["额"] if r["额"] and r["额"] > 0 else (r["量"] or 0) * r["收"]
+                涨幅榜.append({
+                    "代码": r["代码"], "名称": r["名称"],
+                    "最新价": round(r["收"], 2), "涨幅": round(涨幅, 2),
+                    "涨速": 0,
+                    "成交额": self._格式化成交额(额),
+                    "量比": 0, "换手率": 0
+                })
+
+            # 3. 总数+市场总览(合并成一次查询)
+            c.execute("""
+                SELECT COUNT(*) as 总数,
+                    SUM(CASE WHEN 收>开 THEN 1 ELSE 0 END) as 上涨,
+                    SUM(CASE WHEN 收<开 THEN 1 ELSE 0 END) as 下跌,
+                    SUM(CASE WHEN 收=开 THEN 1 ELSE 0 END) as 平盘,
+                    SUM(CASE WHEN (收-开)/开*100>=9.8 THEN 1 ELSE 0 END) as 涨停,
+                    SUM(CASE WHEN (收-开)/开*100<=-9.8 THEN 1 ELSE 0 END) as 跌停
+                FROM K线数据 WHERE 周期='daily' AND 日期=?
+            """, (最新日,))
+            row = c.fetchone()
+            总数 = row["总数"]
+
+            # 4. 跌幅榜(最低10只)
+            c.execute("""
+                SELECT k.代码, k.收, k.额, a.名称,
+                       (k.收-k.开)/k.开*100 as 涨幅
+                FROM K线数据 k JOIN A股列表 a ON k.代码=a.代码
+                WHERE k.周期='daily' AND k.日期=?
+                ORDER BY 涨幅 ASC LIMIT 10
+            """, (最新日,))
+            跌幅榜 = []
+            for r in c.fetchall():
+                涨幅 = r["涨幅"] if r["涨幅"] else 0
+                跌幅榜.append({
+                    "代码": r["代码"], "名称": r["名称"],
+                    "最新价": round(r["收"], 2), "涨幅": round(涨幅, 2),
+                    "主力净流入": 0, "成交额": self._格式化成交额(r["额"] or 0)
+                })
+
+            conn.close()
+
+            return {
+                "成功": True,
+                "时间": datetime.now().strftime("%H:%M:%S"),
+                "指数": [],
+                "涨幅榜": 涨幅榜,
+                "跌幅榜": 跌幅榜,
+                "市场总览": {"上涨": row["上涨"] or 0, "下跌": row["下跌"] or 0,
+                            "平盘": row["平盘"] or 0, "涨停": row["涨停"] or 0, "跌停": row["跌停"] or 0},
+                "涨幅榜总数": 总数,
+                "当前页": 页码,
+                "排序字段": 排序字段,
+                "排序方向": 排序方向
+            }
+        except Exception as e:
+            pass
+
+        # 回退: 东财API
         from datetime import datetime
         try:
             # 1. 获取指数
@@ -2145,10 +2280,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
-            # 2. 获取涨幅榜（A股，按涨幅降序，支持翻页）
+            # 2. 获取股票列表（按指定字段排序，支持翻页）
             涨幅榜 = []
             总数涨 = 0
-            url涨 = f"https://push2.eastmoney.com/api/qt/clist/get?pn={页码}&pz=20&po=1&np=1&fltt=2&invt=2&fields=f2,f3,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f62,f184,f66&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid=f3"
+            po = 1 if 排序方向 == "desc" else 0  # 1降序 0升序
+            url涨 = f"https://push2.eastmoney.com/api/qt/clist/get?pn={页码}&pz=20&po={po}&np=1&fltt=2&invt=2&fields=f2,f3,f6,f7,f8,f9,f10,f12,f14,f15,f16,f17,f18,f20,f21,f62,f184,f66&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fid={排序字段}"
             try:
                 数据 = self._东财请求(url涨)
                 总数涨 = 数据.get("data", {}).get("total", 0)
@@ -2217,7 +2353,9 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 "跌幅榜": 跌幅榜,
                 "市场总览": 市场总览,
                 "涨幅榜总数": 总数涨,
-                "当前页": 页码
+                "当前页": 页码,
+                "排序字段": 排序字段,
+                "排序方向": 排序方向
             }
         except Exception as e:
             return {"成功": False, "错误": str(e)}
@@ -2231,7 +2369,47 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         return f"{万:.0f}万"
 
     def _获取股票K线(self, 代码: str, 周期: str = "daily") -> dict:
-        """获取K线数据（支持日K/周K/月K）"""
+        """获取K线数据 — 一次连接读数据库, 回退东财API"""
+        try:
+            import sqlite3 as _sqlite3
+            db路径 = str(Path(__file__).parent.parent.parent / "隐私区" / "我的数据" / "股票缓存.db")
+            conn = _sqlite3.connect(db路径, timeout=5)
+            conn.row_factory = _sqlite3.Row
+            c = conn.cursor()
+
+            # 一次查询: K线+名称(JOIN)
+            c.execute("""
+                SELECT k.日期, k.开, k.收, k.高, k.低, k.量, k.额, a.名称
+                FROM K线数据 k
+                LEFT JOIN A股列表 a ON k.代码 = a.代码
+                WHERE k.代码=? AND k.周期=?
+                ORDER BY k.日期 DESC LIMIT 120
+            """, (代码, 周期))
+            rows = c.fetchall()
+            conn.close()
+
+            if rows:
+                rows.reverse()  # 正序
+                结果 = [{"日期": r["日期"], "开": float(r["开"]), "收": float(r["收"]),
+                         "高": float(r["高"]), "低": float(r["低"]),
+                         "量": float(r["量"]), "额": float(r["额"]) if r["额"] else 0.0} for r in rows]
+                名称 = rows[0]["名称"] or 代码
+                最新 = 结果[-1]["收"]
+                前收 = 结果[-2]["收"] if len(结果) >= 2 else 最新
+                涨跌幅 = (最新 - 前收) / 前收 * 100 if 前收 > 0 else 0
+                # MA计算
+                收盘价 = [d["收"] for d in 结果]
+                def ma(n, data):
+                    return round(sum(data[-n:]) / n, 2) if len(data) >= n else 0
+                return {
+                    "成功": True, "数据": 结果,
+                    "MA5": ma(5, 收盘价), "MA10": ma(10, 收盘价), "MA20": ma(20, 收盘价),
+                    "股票信息": {"名称": 名称, "代码": 代码, "最新价": 最新, "涨跌幅": 涨跌幅}
+                }
+        except Exception as e:
+            pass  # 数据库没有, 回退API
+
+        # 回退: 东财API
         try:
             secid = self._代码转secid(代码)
             if not secid:
@@ -2499,8 +2677,30 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             return {"成功": False, "错误": str(e)}
 
     def _获取资金流向(self, 代码: str) -> dict:
-        """获取个股资金流向明细（近5日）"""
+        """获取个股资金流向明细 — 优先本地数据库, 回退东财API"""
+        # 优先从本地数据库读取
         try:
+            import sqlite3 as _sqlite3
+            db路径 = str(Path(__file__).parent.parent.parent / "隐私区" / "我的数据" / "股票缓存.db")
+            conn = _sqlite3.connect(db路径, timeout=10)
+            c = conn.cursor()
+            # 检查是否有资金流向表
+            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='资金流向'")
+            if c.fetchone():
+                c.execute("SELECT 日期, 主力净流入, 超大单净流入, 大单净流入, 中单净流入, 小单净流入 FROM 资金流向 WHERE 代码=? ORDER BY 日期 DESC LIMIT 20", (代码,))
+                rows = c.fetchall()
+                conn.close()
+                if rows:
+                    rows.reverse()
+                    结果 = [{"日期": r[0], "主力净流入": float(r[1] or 0)/10000, "超大单净流入": float(r[2] or 0)/10000,
+                             "大单净流入": float(r[3] or 0)/10000, "中单净流入": float(r[4] or 0)/10000,
+                             "小单净流入": float(r[5] or 0)/10000, "主力净流入占比": 0} for r in rows]
+                    return {"成功": True, "数据": 结果, "代码": 代码}
+            conn.close()
+        except Exception:
+            pass
+
+        # 回退: 东财API
             secid = self._代码转secid(代码)
             if not secid:
                 return {"成功": False, "错误": f"无法识别股票代码: {代码}"}

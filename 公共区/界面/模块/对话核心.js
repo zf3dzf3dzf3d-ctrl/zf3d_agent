@@ -297,6 +297,7 @@ async function sendMessage() {
     }
     // 停止推理流轮询（SSE模式下不再需要，但保留兼容）
     if (reasoningPollTimer) { clearInterval(reasoningPollTimer); reasoningPollTimer = null; }
+    // 对话结束后立即隐藏推理面板（下载进度由独立面板显示）
     hideReasoningPanel();
     isChatting = false;
     chatAbortController = null;

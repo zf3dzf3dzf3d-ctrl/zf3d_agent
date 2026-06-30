@@ -84,8 +84,8 @@ def _下载视频(bvid, 保存文件名):
     title = info["data"].get("title", "")[:30]
     时长秒 = info["data"].get("duration", 0)
 
-    # 2. 获取视频流（DASH格式：视频和音频分离）
-    play_url = f"https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16&qn=64"
+    # 2. 获取视频流（DASH格式：视频和音频分离），qn=80为1080P
+    play_url = f"https://api.bilibili.com/x/player/playurl?bvid={bvid}&cid={cid}&fnval=16&qn=80"
     play = json.loads(opener.open(play_url, timeout=10).read().decode("utf-8"))
     dash = play.get("data", {}).get("dash", {})
     video_list = dash.get("video", [])
@@ -94,8 +94,8 @@ def _下载视频(bvid, 保存文件名):
     if not video_list:
         return None
 
-    # 选最低清晰度（减少文件大小）
-    video_url = video_list[-1].get("baseUrl") or video_list[-1].get("base_url", "")
+    # 选最高清晰度（第一个是最高）
+    video_url = video_list[0].get("baseUrl") or video_list[0].get("base_url", "")
     audio_url = audio_list[0].get("baseUrl") or audio_list[0].get("base_url", "") if audio_list else ""
 
     _视频目录.mkdir(parents=True, exist_ok=True)

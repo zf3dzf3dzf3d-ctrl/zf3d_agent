@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import time
+import hashlib
 import threading
 import subprocess
 import shutil
@@ -15,13 +16,41 @@ from pathlib import Path
 from .基类 import 操作结果, 操作基类
 
 
+def _提取SHA256(url或文件名):
+    """从URL或文件名中提取sha256哈希值，返回小写hex或None"""
+    import re
+    m = re.search(r'sha256:([a-fA-F0-9]{64})', url或文件名)
+    if m:
+        return m.group(1).lower()
+    # 文件名本身就是64位hex
+    base = Path(url或文件名).name
+    m = re.match(r'^([a-fA-F0-9]{64})$', base)
+    if m:
+        return m.group(1).lower()
+    return None
+
+
 def _检测aria2c():
-    """检测系统是否安装 aria2c"""
+    """检测系统是否安装 aria2c，返回完整路径或None"""
+    # 方法1: PATH中查找
     try:
         r = subprocess.run(['aria2c', '--version'], capture_output=True, text=True, timeout=5)
-        return r.returncode == 0
+        if r.returncode == 0:
+            return 'aria2c'
     except Exception:
-        return False
+        pass
+    # 方法2: 常见安装路径
+    候选路径 = [
+        r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Links\aria2c.exe",
+        r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\aria2.aria2_Microsoft.Winget.Source_8wekyb3d8bbwe\aria2c-1.37.0-win-64bit-build1\aria2c.exe",
+    ]
+    import glob
+    # 方法3: WinGet包目录通配
+    候选路径 += glob.glob(r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\aria2*\**\aria2c.exe", recursive=True)
+    for p in 候选路径:
+        if os.path.exists(p):
+            return p
+    return None
 
 
 class 多线程下载(操作基类):
@@ -34,12 +63,12 @@ class 多线程下载(操作基类):
     支持后台下载模式：参数 后台=true 时立即返回，下载在独立线程完成
     """
     名称 = "多线程下载"
-    描述 = "多线程断点续传下载文件。优先使用aria2c加速（多连接），未安装时回退纯Python多线程。支持断点续传、自动重试、后台下载"
+    描述 = "多线程断点续传下载文件。后台执行不阻塞，进度条自动显示在界面右下角。优先使用aria2c加速，未安装时回退纯Python多线程。支持断点续传、自动重试。参数别名：下载地址也可用「网址/url/URL」，保存路径也可用「保存到/路径」"
     参数结构 = {
-        "下载地址": {"类型": "字符串", "必填": True, "说明": "文件下载URL"},
-        "保存路径": {"类型": "字符串", "必填": True, "说明": "文件保存完整路径（含文件名）"},
-        "线程数": {"类型": "整数", "必填": False, "说明": "下载线程数，默认32（全速），范围1-32"},
-        "重试次数": {"类型": "整数", "必填": False, "说明": "每个分块下载失败重试次数，默认5"},
+        "下载地址": {"类型": "字符串", "必填": True, "说明": "文件下载URL（也可用参数名：网址、url、URL）"},
+        "保存路径": {"类型": "字符串", "必填": True, "说明": "文件保存完整路径（含文件名）（也可用参数名：保存到、路径）"},
+        "线程数": {"类型": "整数", "必填": False, "说明": "下载线程数，默认32（全速），范围1-32（也可用：连接数）"},
+        "重试次数": {"类型": "整数", "必填": False, "说明": "每个分块下载失败重试次数，默认5（也可用：重试）"},
     }
 
     # 每块最小大小（低于此值不拆分，直接单线程）
@@ -55,12 +84,82 @@ class 多线程下载(操作基类):
 
     _下载计数器 = 0
     _下载计数锁 = threading.Lock()
+    _下载进度表 = {}  # 下载ID -> {文件名, 百分比, 已下载MB, 总大小MB, 速度MB每秒, ETA, 状态}
+    _下载进度锁 = threading.Lock()
+
+    def _安全推送进度(self, 类型, 数据):
+        """推送进度到回调，SSE流关闭后不会崩溃"""
+        if not self.进度回调:
+            return
+        try:
+            self.进度回调(类型, 数据)
+        except Exception:
+            pass
+
+    def _校验文件(self, 保存路径, url, 下载ID, 文件名):
+        """下载完成后自动校验文件完整性。
+
+        如果URL或文件名中包含sha256哈希，则计算文件的实际SHA256对比。
+        校验失败时删除文件并返回失败结果。
+        """
+        期望哈希 = _提取SHA256(url) or _提取SHA256(文件名)
+        if not 期望哈希:
+            return True, "无SHA256哈希可校验"
+
+        # 推送校验中状态
+        self._安全推送进度("下载进度", {
+            "下载ID": 下载ID, "文件名": 文件名,
+            "已下载MB": 0, "总大小MB": 0,
+            "百分比": 100, "速度MB每秒": 0,
+            "ETA": "", "已完成分块": "校验SHA256中...",
+        })
+        with 多线程下载._下载进度锁:
+            if 下载ID in 多线程下载._下载进度表:
+                多线程下载._下载进度表[下载ID]["状态"] = "校验中"
+
+        try:
+            实际哈希 = self._计算文件SHA256(保存路径)
+            if 实际哈希 == 期望哈希:
+                return True, f"SHA256校验通过: {实际哈希[:16]}..."
+            else:
+                # 校验失败，删除损坏文件
+                try:
+                    保存路径.unlink()
+                except Exception:
+                    pass
+                return False, f"SHA256校验失败！期望={期望哈希[:16]}... 实际={实际哈希[:16]}... 文件已删除"
+        except Exception as e:
+            return False, f"SHA256校验异常: {e}"
+
+    @staticmethod
+    def _计算文件SHA256(文件路径):
+        """分块计算大文件的SHA256"""
+        h = hashlib.sha256()
+        with open(文件路径, 'rb') as f:
+            while True:
+                数据 = f.read(8 * 1024 * 1024)  # 8MB块
+                if not 数据:
+                    break
+                h.update(数据)
+        return h.hexdigest().lower()
 
     def 执行(self, 参数: dict) -> 操作结果:
         下载地址 = 参数.get("下载地址", "").strip()
         保存路径 = 参数.get("保存路径", "").strip()
-        线程数 = 参数.get("线程数", 32)
-        重试次数 = 参数.get("重试次数", 5)
+        # 兼容AI常用别名
+        if not 下载地址:
+            下载地址 = 参数.get("网址", "").strip()
+        if not 下载地址:
+            下载地址 = 参数.get("url", "").strip()
+        if not 下载地址:
+            下载地址 = 参数.get("URL", "").strip()
+        if not 保存路径:
+            保存路径 = 参数.get("保存到", "").strip()
+        if not 保存路径:
+            保存路径 = 参数.get("路径", "").strip()
+
+        线程数 = 参数.get("线程数", 参数.get("连接数", 32))
+        重试次数 = 参数.get("重试次数", 参数.get("重试", 5))
 
         if not 下载地址:
             return 操作结果.失败("下载地址为空")
@@ -77,27 +176,51 @@ class 多线程下载(操作基类):
         with 多线程下载._下载计数锁:
             多线程下载._下载计数器 += 1
             下载ID = 多线程下载._下载计数器
+        # 初始化进度记录
+        with 多线程下载._下载进度锁:
+            多线程下载._下载进度表[下载ID] = {
+                "文件名": 保存路径.name, "百分比": 0, "已下载MB": 0,
+                "总大小MB": 0, "速度MB每秒": 0, "ETA": "", "状态": "启动中"
+            }
 
         回调 = self.进度回调
         取消 = self.取消检查
         文件名 = 保存路径.name
 
+        def _安全回调(类型, 数据):
+            """安全调用进度回调，SSE流关闭后不会崩溃"""
+            if not 回调:
+                return
+            try:
+                回调(类型, 数据)
+            except Exception:
+                pass
+
         def _后台执行():
             结果 = self._执行下载(下载地址, 保存路径, 线程数, 重试次数, 下载ID, 文件名)
-            if 回调:
-                if 结果.成功:
-                    回调("下载完成", {
-                        "下载ID": 下载ID,
-                        "文件名": 文件名,
-                        "保存路径": str(保存路径),
-                        "大小MB": 结果.元数据.get("文件大小MB", 0),
-                    })
-                else:
-                    回调("下载失败", {
-                        "下载ID": 下载ID,
-                        "文件名": 文件名,
-                        "错误": 结果.错误,
-                    })
+            if 结果.成功:
+                _安全回调("下载完成", {
+                    "下载ID": 下载ID,
+                    "文件名": 文件名,
+                    "保存路径": str(保存路径),
+                    "大小MB": 结果.元数据.get("文件大小MB", 0),
+                })
+            else:
+                _安全回调("下载失败", {
+                    "下载ID": 下载ID,
+                    "文件名": 文件名,
+                    "错误": 结果.错误,
+                })
+            # 更新状态，延迟清理进度记录（让前端有时间读取最终状态）
+            with 多线程下载._下载进度锁:
+                if 下载ID in 多线程下载._下载进度表:
+                    多线程下载._下载进度表[下载ID]["状态"] = "完成" if 结果.成功 else "失败"
+
+            def _延迟清理():
+                time.sleep(10)
+                with 多线程下载._下载进度锁:
+                    多线程下载._下载进度表.pop(下载ID, None)
+            threading.Thread(target=_延迟清理, daemon=True).start()
 
         t = threading.Thread(target=_后台执行, daemon=True)
         t.start()
@@ -111,11 +234,35 @@ class 多线程下载(操作基类):
         # 临时分块目录
         临时目录 = 保存路径.parent / f".{保存路径.name}.parts"
         元数据路径 = 保存路径.parent / f".{保存路径.name}.dlmeta"
+        aria2控制文件 = 保存路径.parent / f"{保存路径.name}.aria2"
+
+        # 断点续传校验：如果目标文件已存在，但没有对应的控制文件，
+        # 说明文件可能来自其他工具（BITS/curl/python等）或上次异常退出，可能损坏
+        # 此时删除文件强制重新下载，避免"大小对了但内容是坏的"
+        if 保存路径.exists():
+            有aria2控制 = aria2控制文件.exists()
+            有dlmeta = 元数据路径.exists()
+            有parts目录 = 临时目录.exists()
+            if not 有aria2控制 and not 有dlmeta and not 有parts目录:
+                # 没有任何控制文件 → 文件来源不可靠，删除重下
+                旧大小 = 保存路径.stat().st_size
+                try:
+                    保存路径.unlink()
+                    if self.进度回调:
+                        self._安全推送进度("下载进度", {
+                            "下载ID": 下载ID, "文件名": 文件名,
+                            "已下载MB": 0, "总大小MB": 0,
+                            "百分比": 0, "速度MB每秒": 0,
+                            "ETA": "", "已完成分块": f"已删除旧文件({旧大小//1048576}MB)，重新下载",
+                        })
+                except Exception:
+                    pass
 
         try:
             # 优先使用 aria2c
-            if _检测aria2c():
-                return self._aria2c下载(下载地址, 保存路径, 线程数, 重试次数, 下载ID, 文件名)
+            _aria2c路径 = _检测aria2c()
+            if _aria2c路径:
+                return self._aria2c下载(下载地址, 保存路径, 线程数, 重试次数, 下载ID, 文件名, _aria2c路径)
 
             # 回退到纯Python
             文件大小, 支持断点 = self._获取文件信息(下载地址)
@@ -131,7 +278,7 @@ class 多线程下载(操作基类):
         except Exception as e:
             return 操作结果.失败(f"下载失败: {e}")
 
-    def _aria2c下载(self, url, 保存路径, 线程数, 重试次数, 下载ID=0, 文件名=""):
+    def _aria2c下载(self, url, 保存路径, 线程数, 重试次数, 下载ID=0, 文件名="", aria2c路径="aria2c"):
         """使用 aria2c 下载（多连接加速）"""
         下载目录 = str(保存路径.parent)
         if not 文件名:
@@ -140,15 +287,17 @@ class 多线程下载(操作基类):
         上次推送 = 0
 
         cmd = [
-            'aria2c',
-            '--console-log-level=warn',
+            aria2c路径,
+            '--console-log-level=notice',  # notice级别才能输出进度摘要
             '--summary-interval=1',
-            f'--max-connection-per-server={线程数}',
-            f'--split={线程数}',
-            f'--max-tries={重试次数 + 1}',
-            '--retry-wait=2',
+            f'--max-connection-per-server={min(线程数, 16)}',
+            f'--split={min(线程数, 16)}',
+            f'--max-tries={重试次数 + 1}',  # 有限重试，避免无限卡死
+            '--retry-wait=3',
             '--continue=true',          # 断点续传
             '--file-allocation=none',    # 不预分配磁盘空间（省时间）
+            '--timeout=60',             # 连接超时60秒
+            '--connect-timeout=60',     # 连接超时60秒
             f'--dir={下载目录}',
             f'--out={文件名}',
             '--enable-color=false',
@@ -156,6 +305,22 @@ class 多线程下载(操作基类):
         ]
 
         try:
+            # 启动前先获取文件大小，推送初始进度
+            try:
+                文件大小, _ = self._获取文件信息(url)
+                if 文件大小 > 0:
+                    初始进度 = {
+                        "下载ID": 下载ID, "文件名": 文件名,
+                        "已下载MB": 0, "总大小MB": round(文件大小 / (1024*1024), 2),
+                        "百分比": 0, "速度MB每秒": 0, "ETA": "", "已完成分块": "连接中",
+                    }
+                    self._安全推送进度("下载进度", 初始进度)
+                    with 多线程下载._下载进度锁:
+                        if 下载ID in 多线程下载._下载进度表:
+                            多线程下载._下载进度表[下载ID].update(初始进度)
+            except Exception:
+                pass
+
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding='utf-8', errors='replace',
@@ -234,8 +399,8 @@ class 多线程下载(操作基类):
                             分块 = f"{m4.group(1)}连接"
 
                     # 推送进度（含ETA）
-                    if self.进度回调 and time.time() - 上次推送 > 1:
-                        self.进度回调("下载进度", {
+                    if time.time() - 上次推送 > 1:
+                        进度数据 = {
                             "下载ID": 下载ID,
                             "文件名": 文件名,
                             "已下载MB": 已下载MB,
@@ -244,21 +409,35 @@ class 多线程下载(操作基类):
                             "速度MB每秒": 速度MB,
                             "ETA": eta,
                             "已完成分块": 分块,
-                        })
+                        }
+                        self._安全推送进度("下载进度", 进度数据)
+                        with 多线程下载._下载进度锁:
+                            if 下载ID in 多线程下载._下载进度表:
+                                多线程下载._下载进度表[下载ID].update(进度数据)
+                                多线程下载._下载进度表[下载ID]["状态"] = "下载中"
                         上次推送 = time.time()
 
             ret = proc.wait()
 
             if ret == 0:
+                # 下载完成，自动校验SHA256完整性
+                校验通过, 校验信息 = self._校验文件(保存路径, url, 下载ID, 文件名)
                 耗时 = time.time() - 开始时间
                 大小mb = 保存路径.stat().st_size / (1024*1024) if 保存路径.exists() else 0
                 速度mb = 大小mb / 耗时 if 耗时 > 0 else 0
+
+                if not 校验通过:
+                    return 操作结果.失败(
+                        f"下载完成但校验失败: {文件名}\n{校验信息}\n请重新执行此操作重新下载",
+                        元数据={"操作类型": "多线程下载", "模式": "aria2c", "校验失败": True}
+                    )
                 return 操作结果.成功(
                     f"下载完成: {文件名}\n"
                     f"大小: {大小mb:.2f} MB\n"
                     f"模式: aria2c({线程数}连接)\n"
                     f"耗时: {耗时:.1f}秒\n"
-                    f"平均速度: {速度mb:.2f} MB/s",
+                    f"平均速度: {速度mb:.2f} MB/s\n"
+                    f"完整性校验: {校验信息}",
                     元数据={
                         "操作类型": "多线程下载",
                         "模式": "aria2c",
@@ -357,12 +536,12 @@ class 多线程下载(操作基类):
                             break
                         f.write(数据)
                         已下载 += len(数据)
-                        if self.进度回调 and 总大小 > 0 and time.time() - 上次推送 > 1:
+                        if 总大小 > 0 and time.time() - 上次推送 > 1:
                             耗时 = time.time() - 开始时间
                             速度 = 已下载 / (1024*1024) / 耗时 if 耗时 > 0 else 0
                             剩余 = (总大小 - 已下载) / (速度 * 1024 * 1024) if 速度 > 0 else 0
                             eta = f"{int(剩余//60)}m{int(剩余%60)}s" if 剩余 > 0 else ""
-                            self.进度回调("下载进度", {
+                            进度数据 = {
                                 "下载ID": 下载ID,
                                 "文件名": 保存路径.name,
                                 "已下载MB": round(已下载 / (1024*1024), 2),
@@ -371,12 +550,24 @@ class 多线程下载(操作基类):
                                 "速度MB每秒": round(速度, 2),
                                 "ETA": eta,
                                 "已完成分块": f"0/1",
-                            })
+                            }
+                            self._安全推送进度("下载进度", 进度数据)
+                            with 多线程下载._下载进度锁:
+                                if 下载ID in 多线程下载._下载进度表:
+                                    多线程下载._下载进度表[下载ID].update(进度数据)
+                                    多线程下载._下载进度表[下载ID]["状态"] = "下载中"
                             上次推送 = time.time()
                 响应.close()
                 大小mb = 已下载 / (1024 * 1024)
+                # 下载完成，自动校验SHA256完整性
+                校验通过, 校验信息 = self._校验文件(保存路径, url, 下载ID, 文件名)
+                if not 校验通过:
+                    return 操作结果.失败(
+                        f"下载完成但校验失败: {保存路径.name}\n{校验信息}\n请重新执行此操作重新下载",
+                        元数据={"操作类型": "多线程下载", "模式": "单线程", "校验失败": True}
+                    )
                 return 操作结果.成功(
-                    f"下载完成: {保存路径.name}\n大小: {大小mb:.2f} MB\n模式: 单线程",
+                    f"下载完成: {保存路径.name}\n大小: {大小mb:.2f} MB\n模式: 单线程\n完整性校验: {校验信息}",
                     元数据={
                         "操作类型": "多线程下载",
                         "模式": "单线程",
@@ -422,12 +613,22 @@ class 多线程下载(操作基类):
                                 块["已下载"] = 旧块.get("已下载", 0)
                                 块["完成"] = 旧块.get("完成", False)
                                 break
-                    已完成字节数 = sum(块["已下载"] for 块 in 分块列表)
-                    if 已完成字节数 >= 文件大小 and all(块["完成"] for 块 in 分块列表):
-                        # 所有分块已完成，直接合并
-                        pass
-                    else:
-                        pass  # 继续未完成的分块
+                        # 校验part文件实际大小，防止元数据过期导致数据损坏
+                        part文件 = 临时目录 / f"part_{块['序号']}"
+                        if not 块["完成"] and part文件.exists():
+                            实际大小 = part文件.stat().st_size
+                            if 实际大小 > 块["已下载"]:
+                                块["已下载"] = 实际大小
+                            elif 实际大小 < 块["已下载"]:
+                                # part文件比元数据小，截断到实际大小重新下载
+                                块["已下载"] = 实际大小
+                                with open(part文件, 'wb') as f2:
+                                    f2.truncate(实际大小)
+                        elif not 块["完成"] and not part文件.exists():
+                            # part文件不存在但元数据有记录，重置
+                            块["已下载"] = 0
+                else:
+                    pass  # URL或文件大小不匹配，重新下载
             except Exception:
                 pass  # 元数据损坏，重新下载
 
@@ -526,16 +727,20 @@ class 多线程下载(操作基类):
             return False
 
         # 推送下载开始
-        if self.进度回调:
-            self.进度回调("下载进度", {
-                "下载ID": 下载ID,
-                "文件名": 保存路径.name,
-                "已下载MB": round(已完成字节数 / (1024*1024), 2),
-                "总大小MB": round(文件大小 / (1024*1024), 2),
-                "百分比": 已完成字节数 * 100 // 文件大小 if 文件大小 > 0 else 0,
-                "速度MB每秒": 0,
-                "已完成分块": f"0/{实际线程数}",
-            })
+        进度数据 = {
+            "下载ID": 下载ID,
+            "文件名": 保存路径.name,
+            "已下载MB": round(已完成字节数 / (1024*1024), 2),
+            "总大小MB": round(文件大小 / (1024*1024), 2),
+            "百分比": 已完成字节数 * 100 // 文件大小 if 文件大小 > 0 else 0,
+            "速度MB每秒": 0,
+            "已完成分块": f"0/{实际线程数}",
+        }
+        self._安全推送进度("下载进度", 进度数据)
+        with 多线程下载._下载进度锁:
+            if 下载ID in 多线程下载._下载进度表:
+                多线程下载._下载进度表[下载ID].update(进度数据)
+                多线程下载._下载进度表[下载ID]["状态"] = "下载中"
 
         # 启动线程
         线程列表 = []
@@ -552,25 +757,29 @@ class 多线程下载(操作基类):
             if self.取消检查 and self.取消检查():
                 用户取消 = True
                 break
-            if self.进度回调:
-                with 进度锁:
-                    已完成字节数 = sum(块["已下载"] for 块 in 分块列表)
-                    已完成分块数 = sum(1 for 块 in 分块列表 if 块["完成"])
-                耗时 = time.time() - 开始时间
-                速度 = 已完成字节数 / (1024*1024) / 耗时 if 耗时 > 0 else 0
-                百分比 = 已完成字节数 * 100 // 文件大小 if 文件大小 > 0 else 0
-                剩余 = (文件大小 - 已完成字节数) / (速度 * 1024 * 1024) if 速度 > 0 else 0
-                eta = f"{int(剩余//60)}m{int(剩余%60)}s" if 剩余 > 0 else ""
-                self.进度回调("下载进度", {
-                    "下载ID": 下载ID,
-                    "文件名": 保存路径.name,
-                    "已下载MB": round(已完成字节数 / (1024*1024), 2),
-                    "总大小MB": round(文件大小 / (1024*1024), 2),
-                    "百分比": 百分比,
-                    "速度MB每秒": round(速度, 2),
-                    "ETA": eta,
-                    "已完成分块": f"{已完成分块数}/{实际线程数}",
-                })
+            with 进度锁:
+                已完成字节数 = sum(块["已下载"] for 块 in 分块列表)
+                已完成分块数 = sum(1 for 块 in 分块列表 if 块["完成"])
+            耗时 = time.time() - 开始时间
+            速度 = 已完成字节数 / (1024*1024) / 耗时 if 耗时 > 0 else 0
+            百分比 = 已完成字节数 * 100 // 文件大小 if 文件大小 > 0 else 0
+            剩余 = (文件大小 - 已完成字节数) / (速度 * 1024 * 1024) if 速度 > 0 else 0
+            eta = f"{int(剩余//60)}m{int(剩余%60)}s" if 剩余 > 0 else ""
+            进度数据 = {
+                "下载ID": 下载ID,
+                "文件名": 保存路径.name,
+                "已下载MB": round(已完成字节数 / (1024*1024), 2),
+                "总大小MB": round(文件大小 / (1024*1024), 2),
+                "百分比": 百分比,
+                "速度MB每秒": round(速度, 2),
+                "ETA": eta,
+                "已完成分块": f"{已完成分块数}/{实际线程数}",
+            }
+            self._安全推送进度("下载进度", 进度数据)
+            with 多线程下载._下载进度锁:
+                if 下载ID in 多线程下载._下载进度表:
+                    多线程下载._下载进度表[下载ID].update(进度数据)
+                    多线程下载._下载进度表[下载ID]["状态"] = "下载中"
         for t in 线程列表:
             t.join(timeout=5)  # 最多等5秒让线程退出
 
@@ -645,12 +854,21 @@ class 多线程下载(操作基类):
         大小mb = 文件大小 / (1024 * 1024)
         速度mb = 大小mb / 耗时 if 耗时 > 0 else 0
 
+        # 下载完成，自动校验SHA256完整性
+        校验通过, 校验信息 = self._校验文件(保存路径, url, 下载ID, 文件名)
+        if not 校验通过:
+            return 操作结果.失败(
+                f"下载完成但校验失败: {保存路径.name}\n{校验信息}\n请重新执行此操作重新下载",
+                元数据={"操作类型": "多线程下载", "模式": "多线程", "校验失败": True}
+            )
+
         return 操作结果.成功(
             f"下载完成: {保存路径.name}\n"
             f"大小: {大小mb:.2f} MB\n"
             f"模式: 多线程({实际线程数}线程)\n"
             f"耗时: {耗时:.1f}秒\n"
-            f"平均速度: {速度mb:.2f} MB/s",
+            f"平均速度: {速度mb:.2f} MB/s\n"
+            f"完整性校验: {校验信息}",
             元数据={
                 "操作类型": "多线程下载",
                 "模式": "多线程",
