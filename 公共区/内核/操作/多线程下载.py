@@ -380,8 +380,8 @@ class 多线程下载(操作基类):
                     if m_spd:
                         速度MB = round(float(m_spd.group(1)) * 倍数.get(m_spd.group(2), 1) / (1024*1024), 2)
 
-                    # 解析ETA (可选)
-                    m_eta = re.search(r'ETA:(\S+)', line)
+                    # 解析ETA (可选) — 格式 ETA:1h12m] 或 ETA:3m5s]
+                    m_eta = re.search(r'ETA:([^\]\s]+)', line)
                     if m_eta:
                         eta = m_eta.group(1)
 
