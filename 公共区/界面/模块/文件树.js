@@ -1101,6 +1101,12 @@ function showFileTooltip(e, node) {
         html += `<div class="ft-row"><span class="ft-label">类型</span><span class="ft-value">${_formatTooltipType({类型: isDir ? "目录" : "文件", 后缀: ext})}</span></div>`;
         if (!isDir) {
             html += `<div class="ft-row"><span class="ft-label">大小</span><span class="ft-value">${_formatTooltipSize(size)}</span></div>`;
+            // 图片和视频显示宽高
+            const imgExts = [".jpg",".jpeg",".png",".gif",".webp",".bmp",".svg"];
+            const videoExts = [".mp4",".mkv",".avi",".mov",".wmv",".flv",".webm",".m4v"];
+            if (imgExts.includes(ext.toLowerCase()) || videoExts.includes(ext.toLowerCase())) {
+                html += `<div class="ft-row"><span class="ft-label">尺寸</span><span class="ft-value ft-dim-val">读取中...</span></div>`;
+            }
         } else {
             html += `<div class="ft-row"><span class="ft-label">大小</span><span class="ft-value ft-size-val">计算中...</span></div>`;
             html += `<div class="ft-row"><span class="ft-label">内容</span><span class="ft-value ft-count-val">-</span></div>`;
@@ -1111,6 +1117,11 @@ function showFileTooltip(e, node) {
         el.innerHTML = html;
         el.dataset.currentPath = path;
         el.style.display = "block";
+
+        // 异步获取图片/视频宽高
+        if (!isDir && path) {
+            _fetchMediaDimensions(path, ext, el);
+        }
 
         // 异步获取文件夹大小和文件数
         if (isDir && path) {
@@ -1159,6 +1170,32 @@ function _applyFolderInfo(tooltipEl, info) {
         if (info.文件数) parts.push(`${info.文件数}个文件`);
         if (info.文件夹数) parts.push(`${info.文件夹数}个子文件夹`);
         countEl.textContent = parts.length ? parts.join("，") : "空";
+    }
+}
+
+function _fetchMediaDimensions(path, ext, tooltipEl) {
+    const dimEl = tooltipEl.querySelector(".ft-dim-val");
+    if (!dimEl) return;
+    const imgExts = [".jpg",".jpeg",".png",".gif",".webp",".bmp",".svg"];
+    const videoExts = [".mp4",".mkv",".avi",".mov",".wmv",".flv",".webm",".m4v"];
+    ext = ext.toLowerCase();
+    const url = `/api/image?path=${encodeURIComponent(path)}`;
+    const videoUrl = `/api/video?path=${encodeURIComponent(path)}`;
+
+    if (imgExts.includes(ext)) {
+        const img = new Image();
+        img.onload = () => {
+            dimEl.textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+        };
+        img.onerror = () => { dimEl.textContent = "-"; };
+        img.src = url;
+    } else if (videoExts.includes(ext)) {
+        const video = document.createElement("video");
+        video.onloadedmetadata = () => {
+            dimEl.textContent = `${video.videoWidth} × ${video.videoHeight}`;
+        };
+        video.onerror = () => { dimEl.textContent = "-"; };
+        video.src = videoUrl;
     }
 }
 

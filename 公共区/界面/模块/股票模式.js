@@ -8,10 +8,116 @@ let stockModeActive = false;
 let stockCurrentView = 'panel';
 let stockRefreshTimer = null;
 let stockCurrentCode = '';
+let stockPrevView = ''; // 用于ESC后退
+
+// 键盘快捷键: Enter→分时, ESC→后退, 左右→切换日期
+let stockKlineData = null;  // K线数据缓存(供箭头键导航)
+let stockDateCursor = -1;   // 当前选中日期索引(-1=未选中)
+
+document.addEventListener('keydown', function(e) {
+    if (!stockModeActive) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+    if (e.key === 'Enter' && stockCurrentCode) {
+        if (stockCurrentView === 'kline') {
+            e.preventDefault();
+            switchStockView('minute');
+        }
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (stockCurrentView === 'minute') {
+            switchStockView('kline');
+        } else if (stockCurrentView === 'kline') {
+            switchStockView('panel');
+        }
+    } else if (stockCurrentView === 'kline' && stockKlineData) {
+        // 左右箭头: 在K线上导航日期
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            stockDateCursor = stockDateCursor < 0 ? stockKlineData.length - 1 : Math.max(0, stockDateCursor - 1);
+            showDateCursor();
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            stockDateCursor = stockDateCursor < 0 ? 0 : Math.min(stockKlineData.length - 1, stockDateCursor + 1);
+            showDateCursor();
+        } else if (e.key === 'Enter' && stockDateCursor >= 0) {
+            // 有日期选中时, 回车显示该日详情
+            e.preventDefault();
+            showDateDetail();
+        }
+    }
+});
+
+function showDateCursor() {
+    const bar = document.getElementById('stockDateBar');
+    if (!bar || stockDateCursor < 0 || !stockKlineData) return;
+    const d = stockKlineData[stockDateCursor];
+    const isUp = d.收 >= d.开;
+    const cls = isUp ? 'sp-up' : 'sp-down';
+    bar.innerHTML = `<span style="color:var(--text2);">◀ ${stockDateCursor + 1}/${stockKlineData.length} ▶</span> ` +
+        `<span>${d.日期}</span> ` +
+        `<span class="${cls}">开${d.开} 收${d.收} 高${d.高} 低${d.低}</span> ` +
+        `<span class="${cls}">${isUp ? '+' : ''}${((d.收-d.开)/d.开*100).toFixed(2)}%</span> ` +
+        `<span style="color:var(--text2);font-size:11px;">量${(d.量/10000).toFixed(0)}万 额${(d.额/100000000).toFixed(1)}亿</span> ` +
+        `<span style="color:var(--blue);font-size:11px;">[Enter查看分时]</span>`;
+}
+
+function showDateDetail() {
+    if (stockDateCursor < 0 || !stockKlineData) return;
+    const d = stockKlineData[stockDateCursor];
+    // 分时数据只有当天有, 历史日期显示日K详情
+    const isToday = stockDateCursor === stockKlineData.length - 1;
+    if (isToday) {
+        switchStockView('minute');
+    } else {
+        // 显示该日详情弹窗
+        const bar = document.getElementById('stockDateBar');
+        if (bar) {
+            const cls = d.收 >= d.开 ? 'sp-up' : 'sp-down';
+            bar.innerHTML = `<span>${d.日期} 详情</span> ` +
+                `<span class="${cls}">开:${d.开} 收:${d.收} 高:${d.高} 低:${d.低}</span> ` +
+                `<span class="${cls}">${d.收 >= d.开 ? '+' : ''}${((d.收-d.开)/d.开*100).toFixed(2)}%</span> ` +
+                `<span style="color:var(--text2);font-size:11px;">量:${(d.量/10000).toFixed(0)}万 额:${(d.额/100000000).toFixed(1)}亿</span> ` +
+                `<span style="color:var(--text2);font-size:11px;">[历史无分时数据]</span>`;
+        }
+    }
+}
 let stockCurrentPeriod = 'daily';
 let stockPanelPage = 1;
 let stockSearchTimer = null;
 let stockWatchlist = JSON.parse(localStorage.getItem('stockWatchlist') || '[]');
+let stockWheelTimer = null;  // 滚轮防抖
+
+// 盘面滚轮翻页(仅在盘面视图)
+document.addEventListener('wheel', function(e) {
+    if (!stockModeActive || stockCurrentView !== 'panel') return;
+    // 在表格内滚动时不翻页(让表格自己滚)
+    const panel = document.getElementById('stockViewPanel');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    // 检查是否在panel区域内且滚动到边界
+    if (e.clientX < rect.left || e.clientX > rect.right) return;
+
+    // 防抖: 300ms内只翻一次
+    if (stockWheelTimer) return;
+
+    if (e.deltaY > 0) {
+        // 下滚→下一页
+        const 总页数 = Math.ceil((panel.dataset.total || 4000) / 20);
+        if (stockPanelPage < 总页数) {
+            stockWheelTimer = setTimeout(() => stockWheelTimer = null, 300);
+            stockPanelPage++;
+            loadStockPanel();
+        }
+    } else if (e.deltaY < 0) {
+        // 上滚→上一页
+        if (stockPanelPage > 1) {
+            stockWheelTimer = setTimeout(() => stockWheelTimer = null, 300);
+            stockPanelPage--;
+            loadStockPanel();
+        }
+    }
+}, { passive: true });
 
 function toggleStockMode() {
     stockModeActive = !stockModeActive;
@@ -69,7 +175,7 @@ function switchStockView(view) {
         tab.classList.toggle('active', tab.dataset.view === view);
     });
     // 切换视图显示
-    const views = ['panel', 'kline', 'minute', 'sectors', 'flow', 'data'];
+    const views = ['panel', 'kline', 'minute', 'sectors', 'ai', 'data'];
     views.forEach(v => {
         const el = document.getElementById('stockView' + v.charAt(0).toUpperCase() + v.slice(1));
         if (el) el.style.display = v === view ? 'block' : 'none';
@@ -87,9 +193,12 @@ function switchStockView(view) {
         loadStockMinute(stockCurrentCode);
     } else if (view === 'sectors') {
         loadStockSectors();
-    } else if (view === 'flow' && stockCurrentCode) {
-        loadStockFlow(stockCurrentCode);
+    } else if (view === 'ai') {
+        loadStockAi();
     } else if (view === 'data') {
+        loadStockDataPanel(); // 兼容旧data标签
+        loadStockAi(); // data标签也显示AI面板(含数据同步)
+    } else {
         loadStockDataPanel();
     }
 }
@@ -164,11 +273,24 @@ function selectStock(code) {
 }
 
 // 盘面列表
+let stockSortField = 'f3';  // 默认涨幅排序
+let stockSortOrder = 'desc'; // desc降序 asc升序
+
+function sortStockPanel(field) {
+    if (stockSortField === field) {
+        stockSortOrder = stockSortOrder === 'desc' ? 'asc' : 'desc';
+    } else {
+        stockSortField = field;
+        stockSortOrder = 'desc';
+    }
+    loadStockPanel();
+}
+
 async function loadStockPanel(isAutoRefresh, isTimer) {
     const container = document.getElementById('stockViewPanel');
     if (!isAutoRefresh) container.innerHTML = '<div class="sp-loading">⏳ 加载盘面数据...</div>';
     try {
-        const res = await fetch('/api/stock-panel?page=' + stockPanelPage);
+        const res = await fetch('/api/stock-panel?page=' + stockPanelPage + '&sort=' + stockSortField + '&order=' + stockSortOrder);
         const d = await res.json();
         if (!d.成功) {
             container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(d.错误 || '加载失败') + '</div>';
@@ -202,60 +324,50 @@ async function loadStockPanel(isAutoRefresh, isTimer) {
             html += '</div>';
         }
 
-        // 涨幅榜
+        // 排序表头(可点击切换排序)
+        const sortIcon = (field) => {
+            if (stockSortField !== field) return ' <span style="color:var(--text2);font-size:10px;">⇅</span>';
+            return stockSortOrder === 'desc' ? ' <span style="color:var(--blue);">↓</span>' : ' <span style="color:var(--blue);">↑</span>';
+        };
         html += '<table class="sp-table"><thead><tr>';
-        html += '<th></th><th>代码</th><th>名称</th><th>最新价</th><th>涨幅%</th><th>涨速</th><th>主力净流入</th><th>成交额</th><th>量比</th>';
+        html += '<th></th>';
+        html += '<th>代码</th>';
+        html += '<th>名称</th>';
+        html += `<th style="cursor:pointer;" onclick="sortStockPanel('f2')">最新价${sortIcon('f2')}</th>`;
+        html += `<th style="cursor:pointer;" onclick="sortStockPanel('f3')">涨幅%${sortIcon('f3')}</th>`;
+        html += `<th style="cursor:pointer;" onclick="sortStockPanel('f6')">成交额${sortIcon('f6')}</th>`;
+        html += `<th style="cursor:pointer;" onclick="sortStockPanel('f8')">量比${sortIcon('f8')}</th>`;
         html += '</tr></thead><tbody>';
         for (const s of (d.涨幅榜 || [])) {
             const cls = s.涨幅 >= 0 ? 'sp-up' : 'sp-down';
             const code = s.代码 || '';
             const inWatch = stockWatchlist.some(w => w.code === code);
-            html += `<tr style="cursor:pointer">`;
+            html += `<tr style="cursor:pointer" ondblclick="stockCurrentCode='${code}';switchStockView('kline')">`;
             html += `<td style="text-align:center"><span class="star-btn" style="cursor:pointer;color:${inWatch ? 'var(--blue)' : 'var(--text2)'}" onclick="event.stopPropagation();toggleWatchlist('${code}','${escapeHtml(s.名称 || '')}')">${inWatch ? '★' : '☆'}</span></td>`;
-            html += `<td class="sp-code" onclick="stockCurrentCode='${code}';switchStockView('kline')">${code}</td>`;
-            html += `<td class="sp-name" onclick="stockCurrentCode='${code}';switchStockView('kline')">${escapeHtml(s.名称 || '')}</td>`;
-            html += `<td class="${cls}" onclick="stockCurrentCode='${code}';switchStockView('kline')">${s.最新价 || '-'}</td>`;
-            html += `<td class="${cls}" onclick="stockCurrentCode='${code}';switchStockView('kline')">${(s.涨幅 || 0).toFixed(2)}</td>`;
-            html += `<td onclick="stockCurrentCode='${code}';switchStockView('kline')">${s.涨速 != null ? s.涨速.toFixed(2) : '-'}</td>`;
-            const flow = s.主力净流入;
-            const flowCls = flow >= 0 ? 'sp-up' : 'sp-down';
-            html += `<td class="${flowCls}" onclick="stockCurrentCode='${code}';switchStockView('kline')">${flow != null ? (flow >= 0 ? '+' : '') + flow.toFixed(2) + '亿' : '-'}</td>`;
-            html += `<td onclick="stockCurrentCode='${code}';switchStockView('kline')">${s.成交额 || '-'}</td>`;
-            html += `<td onclick="stockCurrentCode='${code}';switchStockView('kline')">${s.量比 != null ? s.量比.toFixed(2) : '-'}</td>`;
+            html += `<td class="sp-code">${code}</td>`;
+            html += `<td class="sp-name">${escapeHtml(s.名称 || '')}</td>`;
+            html += `<td class="${cls}">${s.最新价 || '-'}</td>`;
+            html += `<td class="${cls}">${(s.涨幅 || 0).toFixed(2)}</td>`;
+            html += `<td>${s.成交额 || '-'}</td>`;
+            html += `<td>${s.量比 != null ? s.量比.toFixed(2) : '-'}</td>`;
             html += '</tr>';
         }
         html += '</tbody></table>';
 
         // 分页
+        const 总页数 = Math.ceil((d.涨幅榜总数 || 0) / 20);
+        panel.dataset.total = d.涨幅榜总数 || 0;  // 供滚轮翻页用
         html += '<div class="sp-pagination">';
+        html += `<button class="sp-page-btn" onclick="stockPanelPage=1;loadStockPanel()" ${stockPanelPage <= 1 ? 'disabled' : ''}>首页</button>`;
         if (stockPanelPage > 1) {
             html += `<button class="sp-page-btn" onclick="stockPanelPage--;loadStockPanel()">上一页</button>`;
         }
-        html += `<span class="sp-page-info">第 ${stockPanelPage} 页</span>`;
-        html += `<button class="sp-page-btn" onclick="stockPanelPage++;loadStockPanel()">下一页</button>`;
-        html += '</div>';
-
-        // 跌幅榜
-        if (d.跌幅榜 && d.跌幅榜.length > 0) {
-            html += '<table class="sp-table" style="margin-top:8px;"><thead><tr>';
-            html += '<th>代码</th><th>名称</th><th>最新价</th><th>跌幅%</th><th>主力净流入</th><th>成交额</th>';
-            html += '</tr></thead><tbody>';
-            for (const s of d.跌幅榜) {
-                const cls = s.涨幅 >= 0 ? 'sp-up' : 'sp-down';
-                const code = s.代码 || '';
-                html += `<tr onclick="stockCurrentCode='${code}';switchStockView('kline')" style="cursor:pointer">`;
-                html += `<td class="sp-code">${code}</td>`;
-                html += `<td class="sp-name">${escapeHtml(s.名称 || '')}</td>`;
-                html += `<td class="${cls}">${s.最新价 || '-'}</td>`;
-                html += `<td class="${cls}">${(s.涨幅 || 0).toFixed(2)}</td>`;
-                const flow = s.主力净流入;
-                const flowCls = flow >= 0 ? 'sp-up' : 'sp-down';
-                html += `<td class="${flowCls}">${flow != null ? (flow >= 0 ? '+' : '') + flow.toFixed(2) + '亿' : '-'}</td>`;
-                html += `<td>${s.成交额 || '-'}</td>`;
-                html += '</tr>';
-            }
-            html += '</tbody></table>';
+        html += `<span class="sp-page-info">第 ${stockPanelPage}/${总页数} 页</span>`;
+        if (stockPanelPage < 总页数) {
+            html += `<button class="sp-page-btn" onclick="stockPanelPage++;loadStockPanel()">下一页</button>`;
         }
+        html += `<button class="sp-page-btn" onclick="stockPanelPage=${总页数};loadStockPanel()" ${stockPanelPage >= 总页数 ? 'disabled' : ''}>尾页</button>`;
+        html += '</div>';
 
         container.innerHTML = html;
     } catch (e) {
@@ -316,8 +428,21 @@ async function loadStockKline(code) {
         container.innerHTML = html;
         // 绘制K线（含MA线）
         drawKline('klineCanvas', data, d.MA5, d.MA10, d.MA20);
+        // 缓存K线数据(供左右箭头导航)
+        stockKlineData = data;
+        stockDateCursor = -1;
+        // 日期导航栏
+        const dateBar = document.createElement('div');
+        dateBar.id = 'stockDateBar';
+        dateBar.className = 'stock-detail-bar';
+        dateBar.style.cssText = 'font-size:12px;padding:4px 8px;border-top:1px solid var(--border);color:var(--text2);';
+        dateBar.innerHTML = '<span style="color:var(--text2);">← → 切换日期, Enter查看详情</span>';
+        klineContainer = document.getElementById('stockViewKline');
+        if (klineContainer) klineContainer.appendChild(dateBar);
         // 加载详情
         loadStockDetail(code);
+        // 加载资金流向(合并到K线页面底部)
+        loadStockFlowInline(code);
     } catch (e) {
         container.innerHTML = '<div class="sp-loading">❌ ' + escapeHtml(e.message) + '</div>';
     }
@@ -712,7 +837,47 @@ async function loadStockSectors() {
     }
 }
 
-// ============ 资金流向 ============
+// ============ 资金流向(内联到K线页面底部) ============
+async function loadStockFlowInline(code) {
+    try {
+        const res = await fetch('/api/stock-capital-flow?code=' + encodeURIComponent(code));
+        const d = await res.json();
+        if (!d.成功 || !d.数据 || d.数据.length === 0) return;
+
+        const data = d.数据;
+        let html = '<div style="padding:4px 8px;margin-top:8px;border-top:1px solid var(--border);">';
+        html += '<div style="font-size:13px;font-weight:bold;margin-bottom:4px;">💰 资金流向(近' + data.length + '日)</div>';
+        html += '<table class="sp-flow-table" style="font-size:11px;width:100%;border-collapse:collapse;">';
+        html += '<thead><tr style="color:var(--text2);"><th>日期</th><th>主力</th><th>超大单</th><th>大单</th><th>中单</th><th>小单</th></tr></thead><tbody>';
+        for (const r of data) {
+            const mainFlow = r.主力净流入 || 0;
+            const mainCls = mainFlow >= 0 ? 'sp-up' : 'sp-down';
+            const fmt = (v) => v >= 0 ? '<span class="sp-up">+' + v.toFixed(0) + '</span>' : '<span class="sp-down">' + v.toFixed(0) + '</span>';
+            html += '<tr style="border-bottom:1px solid var(--border);">';
+            html += '<td>' + (r.日期 || '').slice(5) + '</td>';
+            html += '<td class="' + mainCls + '">' + (mainFlow >= 0 ? '+' : '') + mainFlow.toFixed(0) + '</td>';
+            html += '<td>' + fmt(r.超大单净流入 || 0) + '</td>';
+            html += '<td>' + fmt(r.大单净流入 || 0) + '</td>';
+            html += '<td>' + fmt(r.中单净流入 || 0) + '</td>';
+            html += '<td>' + fmt(r.小单净流入 || 0) + '</td>';
+            html += '</tr>';
+        }
+        html += '</tbody></table></div>';
+
+        // 追加到K线容器底部
+        const klineContainer = document.getElementById('stockViewKline');
+        if (klineContainer) {
+            const existing = document.getElementById('flowInline');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = 'flowInline';
+            div.innerHTML = html;
+            klineContainer.appendChild(div);
+        }
+    } catch (e) {}
+}
+
+// ============ 资金流向(独立视图,已废弃但保留兼容) ============
 async function loadStockFlow(code) {
     const container = document.getElementById('stockViewFlow');
     container.innerHTML = '<div class="sp-loading">⏳ 加载资金流向...</div>';
@@ -844,4 +1009,163 @@ async function clearStockCache() {
         else if (stockCurrentView === 'kline' && stockCurrentCode) loadStockKline(stockCurrentCode);
     } catch (e) {}
 }
+
+// ============ AI预测面板 ============
+function loadStockAi() {
+    const container = document.getElementById('stockViewAi');
+    let html = '<div style="padding:12px;">';
+    html += '<div style="font-size:16px;font-weight:bold;margin-bottom:12px;">🤖 AI大模型预测</div>';
+
+    // 选股区
+    html += '<div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:12px;">';
+    html += '<div style="font-size:14px;font-weight:bold;margin-bottom:8px;">智能选股</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+    html += '<span style="font-size:12px;color:var(--text2);">Top</span>';
+    html += '<select id="aiSelectCount" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:12px;">';
+    html += '<option value="3">3</option><option value="5" selected>5</option><option value="10">10</option></select>';
+    html += '<span style="font-size:12px;color:var(--text2);">只</span>';
+    html += '<button onclick="aiSelectStock()" style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;">🎯 开始选股</button>';
+    html += '</div>';
+    html += '<div style="font-size:11px;color:var(--text2);">多周期模型动态加权投票 · 自动排除涨停跌停</div>';
+    html += '</div>';
+
+    // 单股预测区
+    html += '<div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:12px;">';
+    html += '<div style="font-size:14px;font-weight:bold;margin-bottom:8px;">单股预测</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+    html += '<input type="text" id="aiPredictCode" placeholder="股票代码/名称" style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:13px;" onkeydown="if(event.key===\'Enter\')aiPredictStock()" />';
+    html += '<select id="aiPredictDays" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:12px;">';
+    html += '<option value="1">1日</option><option value="3">3日</option><option value="5" selected>5日</option><option value="10">10日</option><option value="20">20日</option></select>';
+    html += '<button onclick="aiPredictStock()" style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;">🔮 预测</button>';
+    html += '</div>';
+    if (stockCurrentCode) {
+        html += `<div style="font-size:11px;color:var(--text2);">当前查看: ${stockCurrentCode} <a onclick="document.getElementById('aiPredictCode').value='${stockCurrentCode}';aiPredictStock()" style="color:var(--blue);cursor:pointer;text-decoration:underline;">预测当前股</a></div>`;
+    }
+    html += '</div>';
+
+    // 数据同步区
+    html += '<div style="background:var(--bg2);border-radius:8px;padding:12px;margin-bottom:12px;">';
+    html += '<div style="font-size:14px;font-weight:bold;margin-bottom:8px;">数据同步</div>';
+    html += '<div style="display:flex;align-items:center;gap:8px;">';
+    html += '<button onclick="aiSyncData()" style="background:var(--green,#4EC9B0);color:#000;border:none;border-radius:4px;padding:6px 16px;font-size:13px;cursor:pointer;">📥 同步最新数据</button>';
+    html += '<span id="aiSyncStatus" style="font-size:11px;color:var(--text2);">点击下载最新K线+财务数据</span>';
+    html += '</div>';
+    html += '</div>';
+
+    // 结果区
+    html += '<div id="aiResult" style="font-size:13px;"></div>';
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function aiSelectStock() {
+    const count = document.getElementById('aiSelectCount').value;
+    const resultDiv = document.getElementById('aiResult');
+    resultDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">⏳ AI选股中... 多周期模型动态加权投票</div>';
+
+    try {
+        const res = await callAgent('股票预测', { '模式': '选股', '数量': parseInt(count) });
+        const data = typeof res === 'string' ? JSON.parse(res) : res;
+
+        if (data.成功 && data.数据) {
+            resultDiv.innerHTML = '<pre style="white-space:pre-wrap;font-size:13px;line-height:1.6;">' + escapeHtml(data.数据) + '</pre>';
+        } else if (data.元数据 && data.元数据.选股结果) {
+            const stocks = JSON.parse(data.元数据.选股结果);
+            let html = '<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+            html += '<tr style="border-bottom:1px solid var(--border);"><th>#</th><th>代码</th><th>名称</th><th>涨%</th><th>投票</th><th>置信</th><th>收盘</th><th>状态</th></tr>';
+            stocks.forEach((s, i) => {
+                const cls = (s.涨概率 || 0) > 50 ? 'sp-up' : '';
+                html += `<tr style="border-bottom:1px solid var(--border);" onclick="stockCurrentCode='${s.代码}';switchStockView('kline')" style="cursor:pointer">`;
+                html += `<td>${i+1}</td><td class="sp-code">${s.代码}</td><td>${escapeHtml(s.名称||'')}</td>`;
+                html += `<td class="${cls}">${(s.涨概率||0).toFixed(1)}%</td>`;
+                html += `<td>${s.投票||''}</td><td>${(s.置信度||0).toFixed(1)}%</td>`;
+                html += `<td>${(s.收盘||0).toFixed(2)}</td><td>${s.状态||''}</td></tr>`;
+            });
+            html += '</table>';
+            resultDiv.innerHTML = html;
+        } else {
+            resultDiv.innerHTML = '<div style="color:var(--down);">' + escapeHtml(data.错误 || JSON.stringify(data)) + '</div>';
+        }
+    } catch (e) {
+        resultDiv.innerHTML = '<div style="color:var(--down);">AI选股失败: ' + escapeHtml(e.message) + '<br>如需使用请到 zf3d.com 获取授权</div>';
+    }
+}
+
+async function aiPredictStock() {
+    const code = document.getElementById('aiPredictCode').value.trim();
+    const days = document.getElementById('aiPredictDays').value;
+    const resultDiv = document.getElementById('aiResult');
+    if (!code) { resultDiv.innerHTML = '<div style="color:var(--down);">请输入股票代码</div>'; return; }
+    resultDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2);">⏳ AI预测中...</div>';
+
+    try {
+        const res = await callAgent('股票预测', { '模式': '单股', '股票代码': code, '天数': parseInt(days) });
+        const data = typeof res === 'string' ? JSON.parse(res) : res;
+
+        if (data.成功 && data.数据) {
+            resultDiv.innerHTML = '<pre style="white-space:pre-wrap;font-size:13px;line-height:1.6;">' + escapeHtml(data.数据) + '</pre>';
+        } else {
+            resultDiv.innerHTML = '<div style="color:var(--down);">' + escapeHtml(data.错误 || JSON.stringify(data)) + '</div>';
+        }
+    } catch (e) {
+        resultDiv.innerHTML = '<div style="color:var(--down);">预测失败: ' + escapeHtml(e.message) + '</div>';
+    }
+}
+
+// 调用智能体操作(通过内置API)
+async function callAgent(操作名, 参数) {
+    const res = await fetch('/api/run-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 操作: 操作名, 参数: 参数 })
+    });
+    return await res.json();
+}
+
+// ============ 数据同步 ============
+async function aiSyncData() {
+    const statusEl = document.getElementById('aiSyncStatus');
+    if (!statusEl) return;
+    statusEl.textContent = '⏳ 正在触发增量下载...';
+    statusEl.style.color = 'var(--blue)';
+
+    try {
+        // 调用智能体已有的下载引擎
+        const res = await fetch('/api/stock-bulk-start?period=daily&incremental=1&finance=1');
+        const d = await res.json();
+        if (d.成功 || d.状态 === "下载中" || d.状态 === "已启动") {
+            statusEl.textContent = '⏳ 下载已启动, 轮询进度...';
+            statusEl.style.color = 'var(--blue)';
+            // 轮询进度
+            let 轮询次数 = 0;
+            const timer = setInterval(async () => {
+                轮询次数++;
+                try {
+                    const pRes = await fetch('/api/stock-bulk-progress');
+                    const p = await pRes.json();
+                    const 状态 = p.状态 || p.状态 || '';
+                    if (状态 === '完成' || 状态 === '空闲' || 轮询次数 > 120) {
+                        clearInterval(timer);
+                        const 缓存Res = await fetch('/api/stock-cache-stats');
+                        const c = await 缓存Res.json();
+                        statusEl.textContent = '✅ 同步完成';
+                        statusEl.style.color = 'var(--green,#4EC9B0)';
+                    } else {
+                        const 进度 = p.进度 || p.当前 || '';
+                        statusEl.textContent = `⏳ ${状态} ${进度} (${轮询次数 * 5}秒)`;
+                    }
+                } catch (e) {}
+            }, 5000);
+        } else {
+            statusEl.textContent = '⚠️ ' + (d.错误 || d.消息 || '下载启动失败');
+            statusEl.style.color = 'var(--down,#f14c4c)';
+        }
+    } catch (e) {
+        statusEl.textContent = '❌ 同步失败: ' + e.message;
+        statusEl.style.color = 'var(--down,#f14c4c)';
+    }
+}
+
+// 兼容缺失的数据面板
+function loadStockDataPanel() {}
 

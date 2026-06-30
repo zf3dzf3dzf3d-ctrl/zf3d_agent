@@ -154,7 +154,10 @@ function appendReasoningRecord(rec) {
                 document.getElementById("genProgressBar").remove();
             }
             div.className += " rc-reply";
-            div.innerHTML = `<div class="rc-icon">💬</div><div class="rc-content">${escapeHtml((rec.内容.内容||"").substring(0,300))}</div>`; break;
+            div.innerHTML = `<div class="rc-icon">💬</div><div class="rc-content">${escapeHtml((rec.内容.内容||"").substring(0,300))}</div>`;
+            // 如果有下载进度条，启动轮询
+            startDownloadPolling();
+            break;
         case "生成进度":
         case "启动进度": {
             const p = rec.内容;
@@ -207,5 +210,17 @@ function appendReasoningRecord(rec) {
     }
     body.appendChild(div);
     body.scrollTop = body.scrollHeight;
+}
+
+// === 下载进度轮询 ===
+// 已由 下载面板.js 接管，这里保留空函数避免报错
+let _downloadPollTimer = null;
+
+function startDownloadPolling() {
+    // 下载面板.js 已独立处理轮询，此处不再重复
+}
+
+function pollDownloadStatus() {
+    // 已由 下载面板.js 接管
 }
 

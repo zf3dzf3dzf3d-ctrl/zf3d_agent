@@ -54,7 +54,7 @@ class 后台执行(操作基类):
     }
 
     def 执行(self, 参数: dict) -> 操作结果:
-        操作名 = 参数.get("操作名", "")
+        操作名 = 参数.get("操作名", "") or 参数.get("操作", "") or 参数.get("operation", "")
         操作参数字符串 = 参数.get("参数", "{}")
         try:
             操作参数 = json.loads(操作参数字符串) if isinstance(操作参数字符串, str) else 操作参数字符串

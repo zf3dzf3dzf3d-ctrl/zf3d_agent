@@ -47,7 +47,7 @@ class 启动器类:
     def 启动(self):
         """启动系统"""
         print("=" * 50)
-        print("  朱峰社区智能体 (ZF3D Agent) v2.0")
+        print("  朱峰社区智能体 (ZF3D Agent) v2.5.0")
         print("=" * 50)
 
         # 1. 加载配置
@@ -165,7 +165,7 @@ class 启动器类:
             try:
                 from 系统托盘 import 系统托盘 as 系统托盘类
                 self.系统托盘 = 系统托盘类(self)
-                self.系统托盘.启动("朱峰社区智能体 v2.1 运行中")
+                self.系统托盘.启动("朱峰社区智能体 v2.5.0 运行中")
                 print("   ✅ 系统托盘已创建")
             except Exception as e:
                 print(f"   ⚠️ 系统托盘初始化失败: {e}")
