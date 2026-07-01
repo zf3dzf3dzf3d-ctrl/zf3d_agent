@@ -1759,6 +1759,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 目标 = 数据.get("目标", "")
                 启动器.进化引擎.设置目标(目标)
                 self._返回JSON({"成功": True, "消息": f"目标已设置: {目标}"})
+            elif 动作 == "对话测试模式":
+                启用 = 数据.get("启用", False)
+                启动器.进化引擎.设置对话测试模式(启用)
+                self._返回JSON({"成功": True, "消息": f"对话测试模式: {'开启' if 启用 else '关闭'}"})
             else:
                 self._返回JSON({"成功": False, "错误": f"未知动作: {动作}"})
         else:
