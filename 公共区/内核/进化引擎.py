@@ -91,6 +91,7 @@ class 进化引擎类:
         self._排错员已介入 = False  # 当前轮次排错员是否已介入
         self._错误历史 = []     # 记录失败原因供导师/排错员分析
         self._介入级别 = 0      # 当前介入级别：0=开发者 1=导师 2=排错员
+        self._跳过文件 = set()  # 放弃过的文件，本轮不再选中
 
     def 设置对话测试模式(self, 启用: bool):
         """开启/关闭对话测试模式"""
@@ -310,6 +311,7 @@ class 进化引擎类:
             self._排错员已介入 = False
             self._介入级别 = 0
             self._错误历史 = []  # 清空错误历史
+            self._跳过文件.clear()  # 新轮次清空跳过列表
 
             # 对话测试模式：生成随机对话→执行→捕获错误
             if self._对话测试模式:
@@ -490,6 +492,8 @@ class 进化引擎类:
 
         if 动作 == "放弃":
             self._日志记录("系统", f"AI决策放弃此文件(第{失败次数}次失败)：{原因[:80]}")
+            self._跳过文件.add(文件)
+            self._日志记录("系统", f"已加入跳过列表，本轮不再分析 {文件}")
             self._导师已介入 = False
             self._排错员已介入 = False
             self._介入级别 = 0
@@ -888,8 +892,15 @@ class 进化引擎类:
             if f.suffix not in (".py", ".json"):
                 continue
             相对 = self._转相对路径(f)
+            if 相对 in self._跳过文件:
+                continue
             if not self._文件被禁止(相对) and self._文件在允许范围(相对):
                 候选文件.append(f)
+        if not 候选文件 and self._跳过文件:
+            # 所有文件都被跳过→清空跳过列表重来
+            self._跳过文件.clear()
+            self._日志记录("系统", "所有文件已分析完，清空跳过列表重新开始")
+            return self._随机选文件()
         return random.choice(候选文件) if 候选文件 else None
 
     def _文件被禁止(self, 相对路径):
