@@ -251,3 +251,81 @@ class 创建工具(操作基类):
         if not 声明.get("参数映射"):
             声明["参数映射"] = {}
         return {"有效": True}
+
+
+class 导出训练数据(操作基类):
+    """将对话记录导出为ShareGPT格式JSONL，可用于模型微调"""
+    名称 = "导出训练数据"
+    描述 = "将对话记录导出为ShareGPT格式JSONL训练数据"
+    参数结构 = {
+        "对话ID": {"类型": "字符串", "必填": False, "说明": "指定对话ID（留空导出全部）"},
+        "仅成功": {"类型": "布尔", "必填": False, "说明": "仅导出成功完成的对话（默认是）"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        对话ID = 参数.get("对话ID", "")
+        仅成功 = 参数.get("仅成功", True)
+
+        对话列表 = self._获取对话列表(对话ID)
+        if not 对话列表:
+            return 操作结果.失败("未找到对话记录")
+
+        导出目录 = Path("隐私区") / "我的数据"
+        导出目录.mkdir(parents=True, exist_ok=True)
+        时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
+        文件路径 = 导出目录 / f"训练数据_{时间戳}.jsonl"
+
+        导出数 = 0
+        with open(文件路径, "w", encoding="utf-8") as f:
+            for 对话 in 对话列表:
+                历史 = 对话.get("历史", [])
+                成功 = 对话.get("成功", True)
+                if 仅成功 and not 成功:
+                    continue
+                if len(历史) < 2:
+                    continue
+
+                # 转换为ShareGPT格式
+                conversations = []
+                for msg in 历史:
+                    角色 = msg.get("角色", "")
+                    内容 = msg.get("内容", "")
+                    if 角色 in ("user", "用户"):
+                        conversations.append({"from": "human", "value": 内容})
+                    elif 角色 in ("assistant", "助手"):
+                        conversations.append({"from": "gpt", "value": 内容})
+
+                if len(conversations) >= 2:
+                    条目 = {
+                        "conversations": conversations,
+                        "timestamp": 对话.get("时间", ""),
+                        "source": "zf3d_agent"
+                    }
+                    f.write(json.dumps(条目, ensure_ascii=False) + "\n")
+                    导出数 += 1
+
+        return 操作结果.成功(
+            f"已导出 {导出数} 条训练数据到 {文件路径}",
+            元数据={"文件路径": str(文件路径), "条目数": 导出数}
+        )
+
+    def _获取对话列表(self, 对话ID: str) -> list:
+        """从对话记录目录获取对话列表"""
+        记录目录 = Path("隐私区") / "对话记录"
+        结果 = []
+        if 对话ID:
+            文件路径 = 记录目录 / f"{对话ID}.json"
+            if 文件路径.exists():
+                with open(文件路径, "r", encoding="utf-8") as f:
+                    结果.append(json.load(f))
+        else:
+            if 记录目录.exists():
+                for 文件 in sorted(记录目录.glob("*.json")):
+                    if 文件.name.startswith("_"):
+                        continue
+                    try:
+                        with open(文件, "r", encoding="utf-8") as f:
+                            结果.append(json.load(f))
+                    except Exception:
+                        pass
+        return 结果
