@@ -147,9 +147,15 @@ class 技能脚本操作包装器:
 class 技能加载器类:
     """扫描技能目录，加载技能，提供指令注入"""
 
+    # 生命周期阈值（天）
+    _stale天数 = 30
+    _archived天数 = 90
+
     def __init__(self):
         self.已加载技能 = {}      # 名称 → 技能信息
         self.技能目录 = None      # Path 对象
+        self._使用记录 = {}       # 名称 → {"last_used": ISO时间, "use_count": N}
+        self._使用记录路径 = None
 
     def 扫描加载(self, 目录路径: str, 注册目标=None) -> list:
         """扫描目录，加载所有技能
@@ -227,6 +233,10 @@ class 技能加载器类:
         else:
             print(f"   ℹ️ 技能目录无可用技能: {目录路径}")
 
+        # 加载使用记录并执行生命周期扫描
+        self._加载使用记录()
+        self._生命周期扫描()
+
         return 加载列表
 
     def _解析技能(self, skill_md路径: Path, 技能目录: Path) -> 技能信息:
@@ -295,6 +305,10 @@ class 技能加载器类:
             if 命中:
                 匹配列表.append(技能)
 
+        # 记录使用（驱动生命周期）
+        for 技能 in 匹配列表:
+            self._记录使用(技能.名称)
+
         return 匹配列表[:3]  # 最多返回3个
 
     def 获取技能指令(self, 用户消息: str) -> str:
@@ -332,3 +346,96 @@ class 技能加载器类:
     def 列出技能(self) -> list:
         """列出所有已加载技能"""
         return list(self.已加载技能.keys())
+
+    # ========== 生命周期管理 ==========
+
+    def _加载使用记录(self):
+        """从磁盘加载使用记录"""
+        if not self.技能目录:
+            return
+        self._使用记录路径 = self.技能目录 / ".使用记录.json"
+        if self._使用记录路径.exists():
+            try:
+                with open(self._使用记录路径, "r", encoding="utf-8") as f:
+                    self._使用记录 = json.load(f)
+            except Exception:
+                self._使用记录 = {}
+
+    def _保存使用记录(self):
+        """保存使用记录到磁盘"""
+        if not self._使用记录路径:
+            return
+        try:
+            with open(self._使用记录路径, "w", encoding="utf-8") as f:
+                json.dump(self._使用记录, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _记录使用(self, 技能名: str):
+        """记录技能被使用（更新 last_used 和 use_count）"""
+        from datetime import datetime
+        if 技能名 not in self._使用记录:
+            self._使用记录[技能名] = {"last_used": None, "use_count": 0}
+        self._使用记录[技能名]["last_used"] = datetime.now().isoformat()
+        self._使用记录[技能名]["use_count"] = self._使用记录[技能名].get("use_count", 0) + 1
+        self._保存使用记录()
+
+    def _生命周期扫描(self):
+        """扫描所有技能，按最后使用时间标记状态，归档过期技能"""
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        归档数 = 0
+        stale数 = 0
+
+        for 技能名 in list(self.已加载技能.keys()):
+            记录 = self._使用记录.get(技能名, {})
+            last_used = 记录.get("last_used")
+            if last_used:
+                try:
+                    最后时间 = datetime.fromisoformat(last_used)
+                    天数 = (now - 最后时间).days
+                except Exception:
+                    天数 = 0
+            else:
+                天数 = 0  # 从未使用但有加载，不立即归档（给宽限期）
+
+            if 天数 >= self._archived天数:
+                # 归档（移动到 .归档/ 子目录）
+                技能 = self.已加载技能[技能名]
+                if 技能.目录 and 技能.目录.exists():
+                    归档目录 = self.技能目录 / ".归档"
+                    归档目录.mkdir(exist_ok=True)
+                    目标 = 归档目录 / 技能.目录.name
+                    if not 目标.exists():
+                        try:
+                            技能.目录.rename(目标)
+                            del self.已加载技能[技能名]
+                            归档数 += 1
+                        except Exception:
+                            pass
+            elif 天数 >= self._stale天数:
+                stale数 += 1
+
+        if 归档数 or stale数:
+            print(f"   📊 技能生命周期: 归档{归档数}个, 标记stale{stale数}个")
+
+    def 恢复技能(self, 技能名: str) -> bool:
+        """从归档恢复技能"""
+        if not self.技能目录:
+            return False
+        归档目录 = self.技能目录 / ".归档"
+        for 子目录 in 归档目录.iterdir():
+            if 子目录.is_dir() and 子目录.name == 技能名:
+                目标 = self.技能目录 / 技能名
+                try:
+                    子目录.rename(目标)
+                    # 重新加载该技能
+                    skill_md = 目标 / "SKILL.md"
+                    if skill_md.exists():
+                        技能 = self._解析技能(skill_md, 目标)
+                        if 技能:
+                            self.已加载技能[技能.名称] = 技能
+                            return True
+                except Exception:
+                    pass
+        return False

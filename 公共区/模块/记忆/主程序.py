@@ -26,6 +26,11 @@ class 记忆模块:
         self.摘要计数 = 0
         self._摘要锁 = threading.Lock()  # 摘要生成线程安全锁
         self.存储引擎 = None  # SQLite存储引擎（用于读取历史对话）
+        # 异步写入队列
+        import queue as _queue
+        self._写入队列 = _queue.Queue()
+        self._写入线程 = None
+        self._写入停止 = False
 
     def 初始化(self, 配置: dict):
         """初始化记忆模块"""
@@ -100,6 +105,32 @@ class 记忆模块:
         except Exception as e:
             print(f"  ⚠️ 记忆模块存储引擎注入失败: {e}")
 
+        # 启动异步写入线程
+        self._写入线程 = threading.Thread(target=self._写入循环, daemon=True)
+        self._写入线程.start()
+
+    def _写入循环(self):
+        """后台写入线程：从队列取任务执行磁盘写入，不阻塞对话"""
+        while not self._写入停止:
+            try:
+                任务 = self._写入队列.get(timeout=1.0)
+                if 任务 is None:
+                    break
+                任务类型, 数据 = 任务
+                try:
+                    if 任务类型 == "记忆库":
+                        self._写入记忆库到磁盘(数据)
+                    elif 任务类型 == "用户画像":
+                        self._写入用户画像到磁盘(数据)
+                    elif 任务类型 == "摘要索引":
+                        self._写入摘要索引到磁盘(数据)
+                    elif 任务类型 == "索引数据":
+                        self._写入索引数据到磁盘(数据)
+                except Exception as e:
+                    print(f"  ⚠️ 记忆异步写入失败: {e}")
+            except Exception:
+                pass
+
     def 运行(self, 输入数据: dict) -> dict:
         """执行记忆操作"""
         操作 = 输入数据.get("操作", "")
@@ -136,11 +167,17 @@ class 记忆模块:
             return {"成功": False, "错误": f"未知操作: {操作}"}
 
     def 停止(self):
-        """停止记忆模块，保存所有数据"""
+        """停止记忆模块，排空写入队列后保存所有数据"""
+        # 先把当前内存数据入队
         self._保存记忆库()
         self._保存用户画像()
         self._保存摘要索引()
         self._保存索引数据()
+        # 发送停止信号（线程处理完队列后退出）
+        self._写入队列.put(None)
+        self._写入停止 = True
+        if self._写入线程 and self._写入线程.is_alive():
+            self._写入线程.join(timeout=5)
 
     # ============ v2 单文件记忆系统 ============
 
@@ -961,33 +998,47 @@ tags: [{', '.join(标签)}]
         return {}
 
     def _保存记忆库(self):
+        self._写入队列.put(("记忆库", dict(self.记忆库)))
+
+    def _保存用户画像(self):
+        self._写入队列.put(("用户画像", dict(self.用户画像)))
+
+    def _保存摘要索引(self):
+        self._写入队列.put(("摘要索引", dict(self.摘要索引)))
+
+    def _保存索引数据(self):
+        self._写入队列.put(("索引数据", dict(self.索引数据)))
+
+    # ========== 实际磁盘写入（由后台线程调用） ==========
+
+    def _写入记忆库到磁盘(self, 数据):
         if self.存储引擎:
-            self.存储引擎.写入KV_JSON("记忆库", self.记忆库)
+            self.存储引擎.写入KV_JSON("记忆库", 数据)
         elif self.记忆库路径:
             self.记忆库路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.记忆库路径, "w", encoding="utf-8") as f:
-                json.dump(self.记忆库, f, ensure_ascii=False, indent=2)
+                json.dump(数据, f, ensure_ascii=False, indent=2)
 
-    def _保存用户画像(self):
+    def _写入用户画像到磁盘(self, 数据):
         if self.存储引擎:
-            self.存储引擎.写入KV_JSON("用户画像", self.用户画像)
+            self.存储引擎.写入KV_JSON("用户画像", 数据)
         elif self.用户画像路径:
             self.用户画像路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.用户画像路径, "w", encoding="utf-8") as f:
-                json.dump(self.用户画像, f, ensure_ascii=False, indent=2)
+                json.dump(数据, f, ensure_ascii=False, indent=2)
 
-    def _保存摘要索引(self):
+    def _写入摘要索引到磁盘(self, 数据):
         if self.存储引擎:
-            self.存储引擎.写入KV_JSON("摘要索引", self.摘要索引)
+            self.存储引擎.写入KV_JSON("摘要索引", 数据)
         elif self.摘要索引路径:
             self.摘要索引路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.摘要索引路径, "w", encoding="utf-8") as f:
-                json.dump(self.摘要索引, f, ensure_ascii=False, indent=2)
+                json.dump(数据, f, ensure_ascii=False, indent=2)
 
-    def _保存索引数据(self):
+    def _写入索引数据到磁盘(self, 数据):
         if self.存储引擎:
-            self.存储引擎.写入KV_JSON("记忆索引数据", self.索引数据)
+            self.存储引擎.写入KV_JSON("记忆索引数据", 数据)
         elif self.索引数据路径:
             self.索引数据路径.parent.mkdir(parents=True, exist_ok=True)
             with open(self.索引数据路径, "w", encoding="utf-8") as f:
-                json.dump(self.索引数据, f, ensure_ascii=False, indent=2)
+                json.dump(数据, f, ensure_ascii=False, indent=2)
