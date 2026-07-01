@@ -296,9 +296,8 @@ class 进化引擎类:
                 time.sleep(5)
                 continue
             if self._读取连续失败() >= self.最大连续失败:
-                self._日志记录("系统", f"连续失败{self._读取连续失败()}次，自动暂停")
-                self._暂停 = True
-                continue
+                self._日志记录("系统", f"连续失败{self._读取连续失败()}次，重置计数继续运行")
+                self._重置连续失败()
 
             self._轮次 += 1
             self._日志记录("测试员", f"第{self._轮次}轮开始")
