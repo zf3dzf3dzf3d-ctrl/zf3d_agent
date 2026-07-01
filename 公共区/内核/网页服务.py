@@ -1114,6 +1114,57 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "备份列表": 备份列表})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/evolution-status":
+            """获取进化引擎状态"""
+            启动器 = getattr(self, '_启动器实例', None)
+            if 启动器 and hasattr(启动器, '进化引擎'):
+                self._返回JSON({"成功": True, "状态": 启动器.进化引擎.获取状态()})
+            else:
+                self._返回JSON({"成功": False, "错误": "进化引擎未启动"})
+        elif 路径 == "/api/evolution-records":
+            """获取进化历史记录"""
+            try:
+                参数 = parse_qs(解析结果.query)
+                项目根 = self.配置加载器.项目根目录
+                记录目录 = 项目根 / "隐私区" / "我的工作引擎" / "进化记录"
+                记录列表 = []
+                关键词 = 参数.get("关键词", [""])[0]
+                if 记录目录.exists():
+                    for d in sorted(记录目录.iterdir(), reverse=True):
+                        清单文件 = d / "修改清单.json"
+                        if not 清单文件.exists():
+                            continue
+                        try:
+                            with open(清单文件, "r", encoding="utf-8") as f:
+                                记录 = json.load(f)
+                            文件名 = 记录.get("文件", "")
+                            if 关键词 and 关键词 not in 文件名:
+                                continue
+                            修改说明 = ""
+                            问题描述 = ""
+                            if 记录.get("修改详情"):
+                                详情 = 记录["修改详情"][0] if isinstance(记录["修改详情"], list) else 记录["修改详情"]
+                                修改说明 = 详情.get("说明", "") if isinstance(详情, dict) else str(详情)
+                            if 记录.get("问题列表"):
+                                问题项 = 记录["问题列表"][0] if isinstance(记录["问题列表"], list) else 记录["问题列表"]
+                                问题描述 = 问题项.get("问题描述", "") if isinstance(问题项, dict) else str(问题项)
+                            记录列表.append({
+                                "文件": 文件名,
+                                "时间": 记录.get("时间", ""),
+                                "轮次": 记录.get("轮次", 0),
+                                "状态": "审查通过" if 记录.get("审查意见") else "待审查",
+                                "风险等级": 记录.get("风险", "低"),
+                                "审查意见": 记录.get("审查意见", ""),
+                                "修改说明": 修改说明,
+                                "问题描述": 问题描述,
+                                "原始代码": "",
+                                "完整代码": ""
+                            })
+                        except Exception:
+                            continue
+                self._返回JSON({"成功": True, "记录": 记录列表})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         else:
             print(f"  ❌ 未知GET API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
@@ -1585,6 +1636,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON(结果)
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/download-cancel":
+            """取消指定下载任务"""
+            try:
+                from 操作.多线程下载 import 多线程下载
+                下载ID = int(数据.get("下载ID", 0))
+                多线程下载.取消下载(下载ID)
+                self._返回JSON({"成功": True, "消息": "下载取消中..."})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/memory-add":
             if self.模块注册 and "对话" in self.模块注册:
                 self.模块注册["对话"].添加永久记忆(数据.get("内容", ""))
@@ -1656,6 +1716,51 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON(结果)
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/evolution-control":
+            """控制进化引擎：启动/停止/暂停/恢复/设置目标"""
+            启动器 = getattr(self, '_启动器实例', None)
+            if not 启动器:
+                self._返回JSON({"成功": False, "错误": "启动器实例未绑定"})
+                return
+            动作 = 数据.get("动作", "")
+            if 动作 == "启动":
+                if hasattr(启动器, '进化引擎'):
+                    self._返回JSON({"成功": False, "错误": "进化引擎已在运行"})
+                    return
+                if not hasattr(启动器, '_进化引擎类'):
+                    self._返回JSON({"成功": False, "错误": "进化引擎类未预加载，请检查模型规则.json中自我进化配置"})
+                    return
+                try:
+                    进化配置 = getattr(启动器, '_进化配置', {})
+                    启动器.进化引擎 = 启动器._进化引擎类(启动器.模型直连器, 启动器.项目根目录, 进化配置)
+                    启动器.进化引擎.启动()
+                    self._返回JSON({"成功": True, "消息": "进化引擎已启动（测试员+开发者+审查员）"})
+                except Exception as e:
+                    self._返回JSON({"成功": False, "错误": f"启动失败: {e}"})
+                return
+            if 动作 == "停止":
+                if hasattr(启动器, '进化引擎'):
+                    启动器.进化引擎.停止()
+                    del 启动器.进化引擎
+                    self._返回JSON({"成功": True, "消息": "进化引擎已停止"})
+                else:
+                    self._返回JSON({"成功": False, "错误": "进化引擎未运行"})
+                return
+            if not hasattr(启动器, '进化引擎'):
+                self._返回JSON({"成功": False, "错误": "进化引擎未启动"})
+                return
+            if 动作 == "暂停":
+                启动器.进化引擎.暂停()
+                self._返回JSON({"成功": True, "消息": "已暂停"})
+            elif 动作 == "恢复":
+                启动器.进化引擎.恢复()
+                self._返回JSON({"成功": True, "消息": "已恢复"})
+            elif 动作 == "设置目标":
+                目标 = 数据.get("目标", "")
+                启动器.进化引擎.设置目标(目标)
+                self._返回JSON({"成功": True, "消息": f"目标已设置: {目标}"})
+            else:
+                self._返回JSON({"成功": False, "错误": f"未知动作: {动作}"})
         else:
             print(f"  ❌ 未知POST API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
@@ -1802,6 +1907,14 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         })
         with open(合并日志路径, "w", encoding="utf-8") as f:
             json.dump(合并日志, f, ensure_ascii=False, indent=2)
+
+        # 在工作引擎git中打标签，标记此commit已合并到主引擎
+        启动器 = getattr(self, '_启动器实例', None)
+        if 启动器 and hasattr(启动器, '进化引擎'):
+            try:
+                启动器.进化引擎._git打标签(f"已合并_{时间戳}")
+            except Exception:
+                pass  # 标签失败不影响合并结果
 
         return {"成功": True, "合并数": 合并数, "备份": 时间戳, "检测结果": 检测结果}
 
