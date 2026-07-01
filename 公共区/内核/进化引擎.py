@@ -408,7 +408,7 @@ class 进化引擎类:
             return
 
         修改列表 = 修改结果["修改列表"][:self.单次最大修改]
-        修改详情, 备份代码, 已提交 = self._执行修改(修改列表, 文件)
+        修改详情, 备份代码, 已提交 = self._执行修改_查找替换(修改列表, 文件, 代码)
 
         if 修改详情:
             self._修复数 += len(修改详情)
@@ -476,6 +476,72 @@ class 进化引擎类:
         else:
             self._增加连续失败()
             self._日志记录("开发者", "重新修复失败")
+
+    def _执行修改_查找替换(self, 修改列表, 默认文件, 原始代码):
+        """用查找-替换片段方式修改代码（不需要输出完整文件）"""
+        修改详情 = []
+        备份代码 = {}
+        当前代码 = 原始代码
+
+        for 修改 in 修改列表:
+            修改文件 = 修改.get("文件", 默认文件)
+            查找片段 = 修改.get("查找", "")
+            替换为 = 修改.get("替换为", "")
+            说明 = 修改.get("修改说明", "")
+
+            if not 查找片段 or not 替换为:
+                continue
+            if self._文件被禁止(修改文件):
+                continue
+
+            # 在当前代码中查找片段
+            if 查找片段 not in 当前代码:
+                self._日志记录("开发者", f"查找片段未命中: {修改文件}")
+                continue
+
+            # 执行替换
+            新代码 = 当前代码.replace(查找片段, 替换为, 1)
+
+            # 写入文件并验证
+            完整路径 = self.工作引擎目录.parent / 修改文件
+            try:
+                完整路径.parent.mkdir(parents=True, exist_ok=True)
+                if 完整路径.exists():
+                    备份代码[修改文件] = 完整路径.read_text(encoding="utf-8")
+                # 写临时文件验证语法
+                临时路径 = 完整路径.with_suffix(".tmp")
+                临时路径.write_text(新代码, encoding="utf-8")
+                if 修改文件.endswith(".py"):
+                    py_compile.compile(str(临时路径), doraise=True)
+                elif 修改文件.endswith(".json"):
+                    json.loads(新代码)
+                # 验证通过，替换正式文件
+                if 完整路径.exists():
+                    完整路径.unlink()
+                临时路径.rename(完整路径)
+                当前代码 = 新代码
+                修改详情.append({"文件": 修改文件, "说明": 说明, "代码": 新代码[:5000]})
+                self._日志记录("开发者", f"已替换 {修改文件}: {说明}")
+            except py_compile.PyCompileError as e:
+                self._日志记录("开发者", f"Python语法错误 {修改文件}: {e}")
+                临时路径.unlink(missing_ok=True)
+                self._git回滚未提交()
+                return [], {}, False
+            except json.JSONDecodeError as e:
+                self._日志记录("开发者", f"JSON格式错误 {修改文件}: {e}")
+                临时路径.unlink(missing_ok=True)
+                self._git回滚未提交()
+                return [], {}, False
+            except Exception as e:
+                self._日志记录("开发者", f"替换失败 {修改文件}: {e}")
+                临时路径.unlink(missing_ok=True)
+                return [], {}, False
+
+        if 修改详情:
+            # git提交
+            已提交 = self._git提交(f"进化: {默认文件}")
+            return 修改详情, 备份代码, 已提交
+        return [], {}, False
 
     def _执行修改(self, 修改列表, 默认文件):
         """执行修改 + 语法检查，返回(修改详情, 备份代码, 已提交)
