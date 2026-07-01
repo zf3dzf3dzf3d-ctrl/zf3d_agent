@@ -25,6 +25,7 @@ class 记忆模块:
         self.事件计数 = 0
         self.摘要计数 = 0
         self._摘要锁 = threading.Lock()  # 摘要生成线程安全锁
+        self._索引锁 = threading.Lock()  # 索引数据读写锁（异步写入时保护）
         self.存储引擎 = None  # SQLite存储引擎（用于读取历史对话）
         # 异步写入队列
         import queue as _queue
@@ -218,18 +219,19 @@ tags: [{', '.join(标签)}]
             with open(文件路径, "w", encoding="utf-8") as f:
                 f.write(frontmatter)
 
-            # 更新索引
-            self.索引数据.setdefault("条目", {})[name] = {
-                "文件名": 文件名,
-                "描述": description,
-                "类型": memory_type,
-                "标签": 标签,
-                "创建时间": now,
-                "更新时间": now
-            }
-            # 更新标签索引
-            for tag in 标签:
-                self.索引数据.setdefault("标签索引", {}).setdefault(tag, []).append(name)
+            # 更新索引（加锁防止与异步写入冲突）
+            with self._索引锁:
+                self.索引数据.setdefault("条目", {})[name] = {
+                    "文件名": 文件名,
+                    "描述": description,
+                    "类型": memory_type,
+                    "标签": 标签,
+                    "创建时间": now,
+                    "更新时间": now
+                }
+                # 更新标签索引
+                for tag in 标签:
+                    self.索引数据.setdefault("标签索引", {}).setdefault(tag, []).append(name)
 
             self._保存索引数据()
             self._更新MEMORY索引()
@@ -1037,8 +1039,10 @@ tags: [{', '.join(标签)}]
 
     def _写入索引数据到磁盘(self, 数据):
         if self.存储引擎:
-            self.存储引擎.写入KV_JSON("记忆索引数据", 数据)
+            with self._索引锁:
+                self.存储引擎.写入KV_JSON("记忆索引数据", 数据)
         elif self.索引数据路径:
             self.索引数据路径.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.索引数据路径, "w", encoding="utf-8") as f:
-                json.dump(数据, f, ensure_ascii=False, indent=2)
+            with self._索引锁:
+                with open(self.索引数据路径, "w", encoding="utf-8") as f:
+                    json.dump(数据, f, ensure_ascii=False, indent=2)

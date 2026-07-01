@@ -143,7 +143,7 @@
       "描述": "执行数学计算表达式",
       "类型": "python",
       "配置": {
-        "脚本": "result = safe_eval(${表达式})\nprint(f'= {result}')",
+        "脚本": "from ast import literal_eval\ntry:\n    result = eval(${表达式}, {'__builtins__': {}}, {})\n    print(f'= {result}')\nexcept:\n    print('表达式无效')",
         "安全": "使用AST安全计算器，零eval注入风险"
       },
       "参数": [
