@@ -356,6 +356,10 @@ pre:hover .code-copy-btn { opacity:1; }
 @keyframes mic-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(211,47,47,0.5);} 50%{box-shadow:0 0 0 8px rgba(211,47,47,0);} }
 .mic-btn:disabled { opacity:0.3; cursor:not-allowed; }
 
+/* 录音按钮（工具栏样式） */
+#recordBtn.recording { background:#D32F2F !important; color:#fff !important; border-color:#D32F2F !important; animation:mic-pulse 1s infinite; }
+#recordBtn.recording:hover { background:#C62828 !important; }
+
 /* === 实时Diff高亮 === */
 .diff-highlight-layer { position:absolute; left:48px; right:0; z-index:10; transition:opacity 1s; pointer-events:auto; }
 .diff-change-info { display:inline-flex; gap:6px; align-items:center; padding:3px 10px; border-radius:4px; font-size:11px; font-family:Consolas,monospace; background:#1a1a2e; border:1px solid #E91E63; box-shadow:0 2px 12px rgba(233,30,126,0.3); }
@@ -513,16 +517,16 @@ pre:hover .code-copy-btn { opacity:1; }
 
 /* ============ 独立下载面板 ============ */
 .download-panel {
-    position:fixed; top:40px; left:0; width:280px; z-index:10000;
+    position:fixed; bottom:32px; left:0; width:280px; z-index:10000;
     background:rgba(18,18,26,0.98); backdrop-filter:blur(12px);
-    border-right:1px solid rgba(33,150,243,0.2); border-bottom:1px solid rgba(33,150,243,0.15);
-    border-radius:0 0 12px 0; box-shadow:4px 4px 24px rgba(0,0,0,0.5);
+    border-right:1px solid rgba(33,150,243,0.2); border-top:1px solid rgba(33,150,243,0.15);
+    border-radius:0 12px 0 0; box-shadow:4px -4px 24px rgba(0,0,0,0.5);
     font-family:"Consolas","Microsoft YaHei",monospace;
 }
 .download-panel.collapsed .download-panel-body { display:none; }
 .download-panel-header {
     display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer;
-    border-bottom:1px solid rgba(255,255,255,0.05); user-select:none;
+    border-top:1px solid rgba(255,255,255,0.05); user-select:none;
 }
 .download-panel-header:hover { background:rgba(255,255,255,0.03); }
 .dp-title { font-size:12px; font-weight:bold; color:var(--blue); }
@@ -549,7 +553,10 @@ pre:hover .code-copy-btn { opacity:1; }
 .dl-item.dl-verifying { border-left-color:#9C27B0; }
 .dl-item-name {
     font-size:11px; color:var(--text); font-weight:bold; margin-bottom:6px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    display:flex; align-items:center; gap:6px;
+}
+.dl-item-name .dl-name-text {
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;
 }
 .dl-item-bar {
     width:100%; height:10px; background:rgba(255,255,255,0.06);
@@ -577,6 +584,22 @@ pre:hover .code-copy-btn { opacity:1; }
 .dl-item-eta { color:var(--orange); }
 .dl-item-size { color:var(--text2); }
 .dl-item-status { font-size:10px; color:var(--orange); }
+/* 取消按钮 — 内联flex布局，不走absolute避免错位 */
+.dl-cancel-btn {
+    flex-shrink:0; width:20px; height:20px; line-height:20px; text-align:center;
+    border-radius:50%; background:rgba(255,255,255,0.08); border:none;
+    color:var(--text2); cursor:pointer; font-size:14px; font-weight:bold;
+    transition:background 0.2s, color 0.2s; padding:0;
+}
+.dl-cancel-btn:hover { background:#f44336; color:#fff; }
+.dl-cancel-btn:active { transform:scale(0.9); }
+/* 取消中状态 */
+.dl-item.dl-cancelling { border-left-color:#888; }
+.dl-item.dl-cancelling .dl-item-bar-fill {
+    background:linear-gradient(90deg, #888, #aaa) !important;
+    animation:dl-pulse 1.5s ease-in-out infinite;
+}
+.dl-item.dl-cancelling .dl-item-pct { color:#888; }
 
 /* === 生成等待进度条 === */
 .reasoning-item.gen-progress { padding:4px 0; }

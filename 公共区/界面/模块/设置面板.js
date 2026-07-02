@@ -16,12 +16,13 @@ function initSettings() {
             if (item.dataset.tab === "logs") loadLogs();
             if (item.dataset.tab === "models") loadModelConfig();
             if (item.dataset.tab === "engine") loadEngineInfo();
+            else if (_evoPollTimer) { clearTimeout(_evoPollTimer); _evoPollTimer = null; }
             if (item.dataset.tab === "tokenstats") loadTokenStats();
             if (item.dataset.tab === "config") loadConfig();
         });
     });
 }
-function closeSettings() { document.getElementById("settingsOverlay").style.display = "none"; }
+function closeSettings() { document.getElementById("settingsOverlay").style.display = "none"; if (_evoPollTimer) { clearTimeout(_evoPollTimer); _evoPollTimer = null; } }
 async function loadMemory() {
     try { const res = await fetch("/api/config"); const c = await res.json();
         if (c.记忆库) { document.getElementById("currentEvent").textContent = c.记忆库.当前事件 || "无"; const l = c.记忆库.事件列表 || {}; document.getElementById("eventList").innerHTML = Object.entries(l).map(([id, ev]) => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">${id}: ${ev.事件标题 || "未命名"} (${ev.状态})</div>`).join("") || "暂无"; }
@@ -37,6 +38,7 @@ async function loadEngineInfo() {
         if (c.引擎配置) { document.getElementById("mainVer").textContent = c.引擎配置.主引擎.版本; document.getElementById("mainStatus").textContent = c.引擎配置.主引擎.状态; document.getElementById("workVer").textContent = c.引擎配置.工作引擎.版本; document.getElementById("workStatus").textContent = c.引擎配置.工作引擎.状态; }
         if (c.合并日志) document.getElementById("mergeHistory").innerHTML = (c.合并日志.记录 || []).map(r => `<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:12px">${r.时间} ${r.方向} ${r.变更摘要 || ""}</div>`).join("") || "暂无";
     } catch (e) {}
+    loadEvolutionStatus();
 }
 async function loadEngineDiff() {
     try {
@@ -168,3 +170,155 @@ async function loadTokenStats() {
     }
 }
 
+// ============ 进化引擎 ============
+let _evoPollTimer = null;
+async function loadEvolutionStatus() {
+    try {
+        const res = await fetch("/api/evolution-status");
+        const d = await res.json();
+        const el = document.getElementById("evolutionPanel");
+        if (!el) return;
+        if (!d.成功) {
+            el.innerHTML = `<div style="padding:12px;">
+                <div style="font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:12px;padding:10px;border:1px solid var(--border);border-radius:6px;">
+                    <b style="color:var(--text1);">🧬 三智能体进化引擎</b><br>
+                    <b>流程：</b>测试员找问题 → 开发者写修复 → 审查员通过/打回<br>
+                    <b>安全：</b>只在工作引擎改代码，不影响运行中的系统<br>
+                    <b>使用：</b>启动 → 设目标 → 等审查通过 → 扫描差异 → 执行合并 → 重启生效<br>
+                    <b>回滚：</b>合并后不满意 → 查看备份 → 回滚恢复
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="dlg-btn primary" onclick="evoControl('启动')" style="font-size:12px;padding:6px 16px;">🧬 启动进化引擎</button>
+                    <button class="dlg-btn" onclick="loadEvolutionHistory()" style="font-size:12px;padding:6px 16px;">📜 历史记录</button>
+                    <button class="dlg-btn" onclick="evoReset()" style="font-size:12px;padding:6px 16px;color:#f44336;">🗑 丢弃进化</button>
+                </div>
+            </div>`;
+            return;
+        }
+        const s = d.状态;
+        let html = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:14px;">🧬</span>
+            <span style="font-weight:600;font-size:13px;">三智能体进化引擎</span>
+            <span style="font-size:11px;padding:2px 8px;border-radius:10px;${s.暂停?'background:#f39c12;color:#000;':'background:#4caf50;color:#000;'}">${s.暂停?'已暂停':'运行中'}</span>
+            <button class="dlg-btn" onclick="evoControl('停止')" style="font-size:11px;padding:2px 8px;">⏹ 停止</button>
+            <button class="dlg-btn" onclick="evoReset()" style="font-size:11px;padding:2px 8px;color:#f44336;">🗑 丢弃</button>
+        </div>`;
+        html += `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px;text-align:center;">
+            <div><div style="font-size:18px;font-weight:700;color:var(--blue);">${s.轮次}</div><div style="font-size:10px;color:var(--text2);">轮次</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:#f44336;">${s.发现问题数}</div><div style="font-size:10px;color:var(--text2);">发现问题</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:#ff9800;">${s.修复数}</div><div style="font-size:10px;color:var(--text2);">修复</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:#4caf50;">${s.通过数}</div><div style="font-size:10px;color:var(--text2);">审查通过</div></div>
+            <div><div style="font-size:18px;font-weight:700;color:var(--text2);">${s.失败数}</div><div style="font-size:10px;color:var(--text2);">失败</div></div>
+        </div>`;
+        const mg = !s.目标;
+        html += `<div style="display:flex;gap:4px;margin-bottom:8px;">
+            <input id="evoGoal" type="text" placeholder="${mg?'请先设置进化目标':''}" value="${s.目标||''}" style="flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text1);font-size:12px;">
+            <button class="dlg-btn primary" onclick="setEvoGoal()" style="font-size:11px;padding:4px 10px;">${mg?'🎯 设目标并开始':'修改目标'}</button>
+            ${s.暂停&&!mg?'<button class="dlg-btn" onclick="evoControl(\'恢复\')" style="font-size:11px;padding:4px 10px;background:#4caf50;color:#000;">▶ 恢复</button>':(!s.暂停?'<button class="dlg-btn" onclick="evoControl(\'暂停\')" style="font-size:11px;padding:4px 10px;background:#f39c12;color:#000;">⏸ 暂停</button>':'')}
+        </div>`;
+        if (mg) html += `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;padding:6px 10px;background:rgba(243,156,18,0.1);border-radius:4px;">⏳ 请先设置进化目标，设置后自动开始</div>`;
+        if (s.待合并列表 && s.待合并列表.length > 0) {
+            html += `<div style="margin-bottom:8px;">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">📋 修改记录（点击查看详情）:</div>
+                ${s.待合并列表.map((m,i)=>`<div style="font-size:11px;padding:4px 6px;margin:2px 0;border:1px solid var(--border);border-radius:4px;cursor:pointer;" onclick="showEvolutionDetail(${i})">✅ <span style="font-family:monospace;">${m.文件}</span><br><span style="color:var(--text2);">${(m.审查意见||'').substring(0,60)}</span></div>`).join('')}
+            </div>`;
+        }
+        window._evoPending = s.待合并列表 || [];
+        if (s.日志 && s.日志.length > 0) {
+            const jb = {"测试员":"🔍","开发者":"🔧","审查员":"✅","系统":"⚙️"};
+            html += `<div style="border-top:1px solid var(--border);padding-top:6px;">
+                <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">实时日志:</div>
+                <div style="max-height:200px;overflow-y:auto;font-size:11px;font-family:monospace;">
+                    ${s.日志.slice(-15).reverse().map(l=>`<div style="padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05);"><span style="color:var(--text2);">[${l.时间}]</span> <span style="color:${l.发送者==='测试员'?'#4a9eff':l.发送者==='开发者'?'#ff9800':l.发送者==='审查员'?'#4caf50':'var(--text2)'};font-weight:600;">${jb[l.发送者]||'📋'}${l.发送者}</span> <span style="color:var(--text1);">${l.内容}</span></div>`).join('')}
+                </div>
+            </div>`;
+        }
+        el.innerHTML = html;
+        if (_evoPollTimer) clearTimeout(_evoPollTimer);
+        if (!s.暂停) _evoPollTimer = setTimeout(loadEvolutionStatus, 3000);
+    } catch(e) {}
+}
+async function loadEvolutionHistory() {
+    try {
+        const res = await fetch("/api/evolution-records");
+        const d = await res.json();
+        const 记录 = d.记录 || [];
+        const ov = document.createElement("div");
+        ov.id = "evoHistoryOverlay";
+        ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;overflow-y:auto;";
+        ov.innerHTML = `<div style="max-width:800px;margin:20px auto;padding:20px;background:#1a1a2e;border-radius:8px;">
+            <div style="display:flex;align-items:center;margin-bottom:12px;"><h3 style="flex:1;">📜 进化历史记录（${记录.length}条）</h3><button class="dlg-btn" onclick="this.closest('#evoHistoryOverlay').remove()" style="font-size:12px;">关闭</button></div>
+            ${记录.length===0?'<p style="color:var(--text2);">暂无记录</p>':记录.map((r,i)=>`<div style="padding:8px;margin-bottom:6px;border:1px solid var(--border);border-radius:6px;cursor:pointer;" onclick="showEvolutionRecordDetail(${i})">
+                <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:11px;padding:1px 6px;border-radius:8px;${r.状态==='审查通过'?'background:#4caf50;color:#000;':r.状态==='审查打回'?'background:#f44336;color:#fff;':'background:#333;color:var(--text2);'}">${r.状态||'-'}</span><span style="font-family:monospace;font-size:12px;">${r.文件||'-'}</span><span style="font-size:11px;color:var(--text2);margin-left:auto;">${r.时间||''} 第${r.轮次||'?'}轮</span></div>
+                ${r.问题描述?`<div style="font-size:11px;color:var(--text2);margin-top:4px;">🔍 ${r.问题描述.substring(0,80)}</div>`:''}
+                ${r.修改说明?`<div style="font-size:11px;color:var(--text2);margin-top:2px;">🔧 ${r.修改说明.substring(0,80)}</div>`:''}
+            </div>`).join('')}
+        </div>`;
+        window._evoHistory = 记录;
+        ov.addEventListener("click", e => { if (e.target === ov) ov.remove(); });
+        document.body.appendChild(ov);
+    } catch(e) { showToast("error","❌ 加载失败",e.message); }
+}
+function showEvolutionRecordDetail(idx) {
+    const r = (window._evoHistory || [])[idx];
+    if (!r) return;
+    const pop = document.createElement("div");
+    pop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;";
+    pop.innerHTML = `<div style="padding:16px;max-width:700px;margin:auto;background:#1a1a2e;border-radius:8px;max-height:90vh;overflow-y:auto;">
+        <h3 style="margin-bottom:8px;">📋 ${r.文件||'详情'}</h3>
+        <div style="font-size:12px;margin-bottom:12px;color:var(--text2);"><b>时间:</b> ${r.时间||'-'}<br><b>轮次:</b> 第${r.轮次||'?'}轮<br><b>目标:</b> ${r.目标||'-'}<br><b>状态:</b> ${r.状态||'-'}<br><b>风险:</b> ${r.风险等级||'-'}</div>
+        ${r.问题描述?`<div style="margin-bottom:12px;"><b style="color:#f44336;">🔍 测试员发现问题:</b><pre style="background:#1a0000;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;color:#ff8888;">${r.问题描述}</pre></div>`:''}
+        ${r.建议修复?`<div style="margin-bottom:12px;"><b style="color:#ff9800;">💡 建议修复:</b><pre style="background:#222;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:100px;overflow-y:auto;">${r.建议修复}</pre></div>`:''}
+        ${r.修改说明?`<div style="margin-bottom:12px;"><b style="color:#ff9800;">🔧 开发者修改:</b><pre style="background:#222;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">${r.修改说明}</pre></div>`:''}
+        ${r.审查意见?`<div style="margin-bottom:12px;"><b style="color:#4caf50;">✅ 审查员意见:</b><pre style="background:#222;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">${r.审查意见}</pre></div>`:''}
+        ${r.原始代码?`<details style="margin-bottom:8px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">📄 原始代码</summary><pre style="background:#1a0000;padding:8px;border-radius:4px;font-size:10px;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:#ff8888;">${(r.原始代码||'').substring(0,3000)}</pre></details>`:''}
+        ${r.完整代码?`<details style="margin-bottom:8px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">📄 修改后代码</summary><pre style="background:#001a00;padding:8px;border-radius:4px;font-size:10px;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:#88ff88;">${(r.完整代码||'').substring(0,3000)}</pre></details>`:''}
+        <button class="dlg-btn" onclick="this.closest('[style*=position]').remove()" style="margin-top:8px;">关闭</button>
+    </div>`;
+    pop.addEventListener("click", e => { if (e.target === pop) pop.remove(); });
+    document.body.appendChild(pop);
+}
+function showEvolutionDetail(idx) {
+    const item = (window._evoPending || [])[idx];
+    if (!item) return;
+    fetch("/api/evolution-records?关键词=" + encodeURIComponent(item.文件)).then(r=>r.json()).then(d=>{
+        const r = (d.记录||[])[0] || {};
+        const pop = document.createElement("div");
+        pop.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;";
+        pop.innerHTML = `<div style="padding:16px;max-width:700px;margin:auto;background:#1a1a2e;border-radius:8px;max-height:90vh;overflow-y:auto;">
+            <h3 style="margin-bottom:8px;">📋 ${r.文件||item.文件}</h3>
+            ${r.问题描述?`<div style="margin-bottom:12px;"><b style="color:#f44336;">🔍 测试员发现问题:</b><pre style="background:#1a0000;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;color:#ff8888;">${r.问题描述}</pre></div>`:''}
+            ${r.修改说明?`<div style="margin-bottom:12px;"><b style="color:#ff9800;">🔧 开发者修改:</b><pre style="background:#222;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">${r.修改说明}</pre></div>`:''}
+            ${r.审查意见?`<div style="margin-bottom:12px;"><b style="color:#4caf50;">✅ 审查员意见:</b><pre style="background:#222;padding:8px;border-radius:4px;font-size:11px;white-space:pre-wrap;max-height:150px;overflow-y:auto;">${r.审查意见}</pre></div>`:''}
+            ${r.原始代码?`<details style="margin-bottom:8px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">📄 原始代码</summary><pre style="background:#1a0000;padding:8px;border-radius:4px;font-size:10px;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:#ff8888;">${(r.原始代码||'').substring(0,3000)}</pre></details>`:''}
+            ${r.完整代码?`<details style="margin-bottom:8px;"><summary style="cursor:pointer;font-size:12px;color:var(--text2);">📄 修改后代码</summary><pre style="background:#001a00;padding:8px;border-radius:4px;font-size:10px;white-space:pre-wrap;max-height:300px;overflow-y:auto;color:#88ff88;">${(r.完整代码||'').substring(0,3000)}</pre></details>`:''}
+            <button class="dlg-btn" onclick="this.closest('[style*=position]').remove()" style="margin-top:8px;">关闭</button>
+        </div>`;
+        pop.addEventListener("click", e => { if (e.target === pop) pop.remove(); });
+        document.body.appendChild(pop);
+    }).catch(e=>showToast("error","❌ 查询失败",e.message));
+}
+async function setEvoGoal() {
+    const goal = document.getElementById("evoGoal").value.trim();
+    if (!goal) { showToast("error","❌ 目标为空","请输入进化目标"); return; }
+    await evoControl("设置目标", goal);
+}
+async function evoControl(动作, 目标) {
+    try {
+        const body = {动作};
+        if (目标) body.目标 = 目标;
+        const res = await fetch("/api/evolution-control", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        const d = await res.json();
+        if (d.成功) { showToast("info","🧬 进化引擎",d.消息); loadEvolutionStatus(); }
+        else { showToast("error","❌ 操作失败",d.错误); }
+    } catch(e) { showToast("error","❌ 请求失败",e.message); }
+}
+async function evoReset() {
+    if (!confirm("确定丢弃当前所有进化进度？\n\n将执行：\n• 停止进化引擎\n• 清空进化记录和待合并列表\n• 从主引擎重新同步工作引擎\n• 删除进化Git标签\n\n此操作不可撤销。")) return;
+    try {
+        const res = await fetch("/api/evolution-control", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({动作:"重置工作引擎"})});
+        const d = await res.json();
+        if (d.成功) { showToast("info","🧬 进化引擎",d.消息); loadEvolutionStatus(); }
+        else { showToast("error","❌ 操作失败",d.错误); }
+    } catch(e) { showToast("error","❌ 请求失败",e.message); }
+}

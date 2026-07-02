@@ -45,9 +45,15 @@ class 会话管理器类:
                 "localStorage": local_storage,
             }
 
-            文件路径 = self._会话目录 / f"{站点名}.json"
-            with open(文件路径, "w", encoding="utf-8") as f:
-                json.dump(数据, f, ensure_ascii=False, indent=2)
+            from 存储引擎 import 获取存储引擎
+            存储 = 获取存储引擎()
+            if 存储:
+                存储.写入KV_JSON(f"浏览器会话_{站点名}", 数据)
+                # 更新会话索引列表
+                索引 = 存储.读取KV_JSON("浏览器会话列表", [])
+                if 站点名 not in 索引:
+                    索引.append(站点名)
+                    存储.写入KV_JSON("浏览器会话列表", 索引)
             return True
         except Exception as e:
             return False
@@ -62,12 +68,14 @@ class 会话管理器类:
             成功与否
         """
         try:
-            文件路径 = self._会话目录 / f"{站点名}.json"
-            if not 文件路径.exists():
+            from 存储引擎 import 获取存储引擎
+            存储 = 获取存储引擎()
+            if not 存储:
                 return False
 
-            with open(文件路径, "r", encoding="utf-8") as f:
-                数据 = json.load(f)
+            数据 = 存储.读取KV_JSON(f"浏览器会话_{站点名}", None)
+            if not 数据:
+                return False
 
             cookies = 数据.get("cookies", [])
             if cookies:
@@ -86,18 +94,20 @@ class 会话管理器类:
             return False
 
     def 检查会话有效性(self, 站点名: str) -> dict:
-        """检查会话文件是否存在且未过期
+        """检查会话是否存在且未过期
 
         Returns:
             {存在, 过期, 保存时间, URL}
         """
-        文件路径 = self._会话目录 / f"{站点名}.json"
-        if not 文件路径.exists():
-            return {"存在": False}
-
         try:
-            with open(文件路径, "r", encoding="utf-8") as f:
-                数据 = json.load(f)
+            from 存储引擎 import 获取存储引擎
+            存储 = 获取存储引擎()
+            if not 存储:
+                return {"存在": False}
+
+            数据 = 存储.读取KV_JSON(f"浏览器会话_{站点名}", None)
+            if not 数据:
+                return {"存在": False}
 
             保存时间戳 = 数据.get("保存时间戳", 0)
             当前时间 = time.time()
@@ -117,27 +127,40 @@ class 会话管理器类:
     def 列出所有会话(self) -> list:
         """列出所有已保存的会话"""
         结果 = []
-        if not self._会话目录.exists():
-            return 结果
+        try:
+            from 存储引擎 import 获取存储引擎
+            存储 = 获取存储引擎()
+            if not 存储:
+                return 结果
 
-        for 文件 in self._会话目录.glob("*.json"):
-            try:
-                with open(文件, "r", encoding="utf-8") as f:
-                    数据 = json.load(f)
-                结果.append({
-                    "站点名称": 数据.get("站点名称", 文件.stem),
-                    "保存时间": 数据.get("保存时间", ""),
-                    "URL": 数据.get("URL", ""),
-                    "Cookie数": len(数据.get("cookies", [])),
-                })
-            except Exception:
-                continue
+            站点列表 = 存储.读取KV_JSON("浏览器会话列表", [])
+            for 站点名 in 站点列表:
+                数据 = 存储.读取KV_JSON(f"浏览器会话_{站点名}", None)
+                if 数据:
+                    结果.append({
+                        "站点名称": 数据.get("站点名称", 站点名),
+                        "保存时间": 数据.get("保存时间", ""),
+                        "URL": 数据.get("URL", ""),
+                        "Cookie数": len(数据.get("cookies", [])),
+                    })
+        except Exception:
+            pass
         return 结果
 
     def 删除会话(self, 站点名: str) -> bool:
         """删除指定站点的会话"""
-        文件路径 = self._会话目录 / f"{站点名}.json"
-        if 文件路径.exists():
-            文件路径.unlink()
+        try:
+            from 存储引擎 import 获取存储引擎
+            存储 = 获取存储引擎()
+            if not 存储:
+                return False
+
+            存储.删除KV(f"浏览器会话_{站点名}")
+            # 更新索引列表
+            索引 = 存储.读取KV_JSON("浏览器会话列表", [])
+            if 站点名 in 索引:
+                索引.remove(站点名)
+                存储.写入KV_JSON("浏览器会话列表", 索引)
             return True
-        return False
+        except Exception:
+            return False

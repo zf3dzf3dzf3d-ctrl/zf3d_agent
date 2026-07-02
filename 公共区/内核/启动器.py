@@ -27,6 +27,7 @@ from 操作注册中心 import 操作注册中心类
 from 动态工具加载器 import 动态工具加载器类
 from 定时任务与影响分析 import 定时任务调度器
 from 运行诊断器 import 运行诊断器类
+from Bug追踪器 import Bug追踪器类
 from 操作注册中心 import 操作注册中心类
 from 动态工具加载器 import 动态工具加载器类
 from 定时任务与影响分析 import 定时任务调度器
@@ -41,6 +42,7 @@ class 启动器类:
         self.网页服务 = None
         self.操作注册中心 = None
         self.运行诊断器 = None
+        self.Bug追踪器 = None
         self.模块注册 = {}
         self.运行中 = False
 
@@ -82,6 +84,11 @@ class 启动器类:
         print("🔬 初始化运行诊断器...")
         self.运行诊断器 = 运行诊断器类(self.项目根目录)
         print("   ✅ 运行诊断器就绪（错误自动记录+监控规则引擎）")
+
+        # 3c. 初始化Bug追踪器
+        print("🐛 初始化Bug追踪器...")
+        self.Bug追踪器 = Bug追踪器类(self.项目根目录)
+        print("   ✅ Bug追踪器就绪（代码级Bug SQLite持久化）")
 
         # 4. 初始化操作注册中心
         print("⚡ 初始化操作注册中心...")
@@ -199,10 +206,89 @@ class 启动器类:
         全局命令中心.注册命令("退出", self._命令_退出)
         print("   ✅ 已注册 3 个全局命令")
 
+        # 6b. 初始化快速呼出轮盘（仅Windows）
+        if sys.platform == 'win32':
+            print("⚡ 初始化快速呼出轮盘...")
+            try:
+                快速配置路径 = self.项目根目录 / "公共区" / "配置" / "快速呼出配置.json"
+                with open(快速配置路径, "r", encoding="utf-8") as f:
+                    快速配置 = json.load(f)
+                if 快速配置.get("启用", False):
+                    from 快速浮窗 import 快速浮窗
+                    from 全局呼出器 import 全局呼出器
+
+                    # 获取用户画像的回调（dict引用，零IO）
+                    def 获取画像():
+                        记忆模块 = self.模块注册.get("记忆")
+                        if 记忆模块:
+                            return getattr(记忆模块, "用户画像", {})
+                        return {}
+
+                    # TTS回调（走Web服务的 /api/tts）
+                    def TTS回调(文本):
+                        import urllib.request
+                        try:
+                            端口 = 配置.get("系统配置", {}).get("网页端口", 8765)
+                            data = json.dumps({"文本": 文本[:500]}).encode("utf-8")
+                            req = urllib.request.Request(
+                                f"http://localhost:{端口}/api/tts",
+                                data=data,
+                                headers={"Content-Type": "application/json"},
+                                method="POST"
+                            )
+                            resp = urllib.request.urlopen(req, timeout=5)
+                            print(f"🔊 TTS请求已发送: {resp.status} 文本长度={len(文本)}")
+                        except Exception as e:
+                            print(f"⚠️ TTS回调失败: {e}")
+
+                    self.快速浮窗 = 快速浮窗(快速配置, self.模型直连器, 获取画像, TTS回调)
+                    self.快速浮窗.启动()
+
+                    def 呼出回调(鼠标坐标, 窗口标题, 选中文本):
+                        self.快速浮窗.弹出(鼠标坐标, 窗口标题, 选中文本)
+
+                    self.全局呼出器 = 全局呼出器(呼出回调)
+                    self.全局呼出器.启动()
+                    print("   ✅ 快速呼出轮盘已启动（Ctrl+~ 呼出）")
+                else:
+                    print("   ⏭️ 快速呼出已禁用（配置中启用=false）")
+            except Exception as e:
+                print(f"   ⚠️ 快速呼出初始化失败: {e}")
+
         # 7. 启动Web服务
         系统配置 = 配置.get("系统配置", {})
         端口 = 系统配置.get("网页端口", 8765)
         界面目录 = self.项目根目录 / "公共区" / "界面"
+
+        # 恢复未完成的下载任务（断点续传）
+        try:
+            from 操作.多线程下载 import 多线程下载
+            多线程下载.恢复未完成任务()
+        except Exception as e:
+            print(f"   ⚠️ 恢复下载任务失败: {e}")
+
+        # 6c. 进化引擎（不在启动时自动启动，用户在界面手动启动）
+        进化配置 = 配置.get("模型规则", {}).get("自我进化", {})
+        if 进化配置.get("启用", False) and 进化配置.get("进化触发") == "自动":
+            print("🧬 初始化进化引擎...")
+            try:
+                from 进化引擎 import 进化引擎类
+                self.进化引擎 = 进化引擎类(self.模型直连器, self.项目根目录, 进化配置)
+                self.进化引擎.启动()
+                print("   ✅ 进化引擎已启动（测试员+开发者+审查员）")
+            except Exception as e:
+                print(f"   ⚠️ 进化引擎初始化失败: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            # 预加载进化引擎类，供界面手动启动
+            try:
+                from 进化引擎 import 进化引擎类
+                self._进化引擎类 = 进化引擎类
+                self._进化配置 = 进化配置
+                print("🧬 进化引擎已就绪（手动启动，在设置面板→引擎Tab中启动）")
+            except Exception:
+                pass
 
         print(f"🌐 启动Web服务 (端口 {端口})...")
         self.网页服务 = 网页服务类(端口, 界面目录)
@@ -304,6 +390,36 @@ class 启动器类:
             self.MCP管理器.断开全部()
         if hasattr(self, '系统托盘'):
             self.系统托盘.停止()
+        if hasattr(self, '全局呼出器'):
+            self.全局呼出器.停止()
+        if hasattr(self, '快速浮窗'):
+            self.快速浮窗.停止()
+        if hasattr(self, '进化引擎'):
+            self.进化引擎.停止()
+        # 通知Ollama卸载模型释放显存
+        if self.模型直连器 and "localhost:11434" in str(getattr(self.模型直连器, "接口地址", "")):
+            try:
+                import urllib.request
+                # 从配置读模型名
+                模型名 = ""
+                当前模型 = self.配置加载器.配置缓存.get("模型规则", {}).get("当前模型", "")
+                模型列表 = self.配置加载器.配置缓存.get("模型规则", {}).get("模型配置列表", [])
+                for m in 模型列表:
+                    if m.get("名称") == 当前模型:
+                        模型名 = m.get("请求模板", {}).get("model", "")
+                        break
+                if not 模型名:
+                    模型名 = "qwen3:14b"  # fallback
+                req = urllib.request.Request(
+                    "http://localhost:11434/api/generate",
+                    data=json.dumps({"model": 模型名, "keep_alive": 0}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                urllib.request.urlopen(req, timeout=3)
+                print(f"   ✅ 已通知Ollama卸载模型({模型名})释放显存")
+            except Exception as e:
+                print(f"   ⚠️ 通知Ollama卸载失败: {e}")
         if self.网页服务:
             self.网页服务.停止()
         全局事件中心.发布("系统关闭", {})

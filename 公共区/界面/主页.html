@@ -91,6 +91,7 @@
                     </div>
                     <div class="gallery-selection-bar">
                         <button class="bar-btn" id="toggleSelectAllBtn" onclick="toggleSelectAll()" title="全选/取消选择 (Ctrl+A / Ctrl+D)">☑️ 全选</button>
+                        <button class="bar-btn" id="recordBtn" title="录制系统音频">🔴</button>
                         <button class="bar-btn" id="batchDeleteBtn" onclick="batchDeleteSelected()" title="删除选中项" style="display:none;">🗑️</button>
                         <button class="bar-btn" id="batchMoveBtn" onclick="batchMoveSelected()" title="移动选中项" style="display:none;">📦</button>
                         <button class="bar-btn" id="batchCopyBtn" onclick="batchCopySelected()" title="复制选中项" style="display:none;">📋</button>
@@ -336,6 +337,10 @@
                         <div id="engineDiff"></div>
                     </div>
                     <div class="scard"><h3>📝 合并历史</h3><div id="mergeHistory"></div></div>
+                    <div class="scard" style="margin-top:12px;">
+                        <h3>🧬 进化引擎</h3>
+                        <div id="evolutionPanel"><p style="color:var(--text2);font-size:12px;">加载中...</p></div>
+                    </div>
                 </div>
                 <div class="stab" id="tab_tokenstats">
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -404,11 +409,12 @@
     <script src="模块/对话核心.js?v=20260630c"></script>
     <script src="模块/推理流.js?v=20260630y"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
+    <script src="模块/录音.js?v=20260702b"></script>
     <script src="模块/实时Diff.js?v=20260627c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
-    <script src="模块/模型配置.js?v=20260627d"></script>
-    <script src="模块/设置面板.js?v=20260627d"></script>
+    <script src="模块/模型配置.js?v=20260701a"></script>
+    <script src="模块/设置面板.js?v=20260701h"></script>
     <script src="模块/文件树.js?v=20260630a"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
@@ -418,7 +424,7 @@
     <script src="模块/权限轮询.js?v=20260627e"></script>
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
-    <script src="模块/下载面板.js?v=20260630d"></script>
+    <script src="模块/下载面板.js?v=20260701d"></script>
     <script src="逻辑.js?v=20260627j"></script>
 
     <!-- 新建文件弹窗 -->

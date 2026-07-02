@@ -17,7 +17,8 @@ import http.cookiejar
 _项目根 = Path(__file__).parent.parent.parent.parent
 _视频库路径 = _项目根 / "视频" / "视频库.json"
 _视频目录 = _项目根 / "视频"
-_ffmpeg = r"C:\ffmpeg\bin\ffmpeg.exe"
+import shutil as _shutil
+_ffmpeg = _shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 
 _ctx = ssl.create_default_context()
 _ctx.check_hostname = False

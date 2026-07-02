@@ -152,57 +152,34 @@ class 剧本管理器:
     # ==================== 持久化 ====================
 
     def 保存剧本(self, 剧本: dict) -> dict:
-        """保存剧本到文件和SQLite"""
+        """保存剧本到SQLite"""
         名称 = 剧本.get("名称", "未命名")
         内容 = json.dumps(剧本, ensure_ascii=False, indent=2)
-        # 保存到文件
-        文件路径 = self.剧本目录 / f"{名称}.json"
-        with open(文件路径, "w", encoding="utf-8") as f:
-            f.write(内容)
-        # 保存到SQLite
         if self.存储引擎:
             self.存储引擎.保存剧本(名称, 内容)
-        return {"成功": True, "名称": 名称, "路径": str(文件路径)}
+        return {"成功": True, "名称": 名称}
 
     def 加载剧本(self, 名称: str) -> dict:
-        """从文件加载剧本"""
-        文件路径 = self.剧本目录 / f"{名称}.json"
-        if not 文件路径.exists():
-            return {"成功": False, "错误": f"剧本不存在: {名称}"}
-        with open(文件路径, "r", encoding="utf-8") as f:
-            剧本 = json.load(f)
-        return {"成功": True, "剧本": 剧本}
+        """从SQLite加载剧本"""
+        if self.存储引擎:
+            结果 = self.存储引擎.加载剧本(名称)
+            if 结果:
+                try:
+                    return {"成功": True, "剧本": json.loads(结果)}
+                except Exception:
+                    pass
+        return {"成功": False, "错误": f"剧本不存在: {名称}"}
 
     def 列出剧本(self) -> list:
         """列出所有已保存的剧本"""
-        结果 = []
-        # 从SQLite查询
         if self.存储引擎:
-            try:
-                结果 = self.存储引擎.列出剧本()
-                if 结果:
-                    return 结果
-            except Exception:
-                pass
-        # 从文件系统查询
-        for 文件 in self.剧本目录.glob("*.json"):
-            try:
-                with open(文件, "r", encoding="utf-8") as f:
-                    剧本 = json.load(f)
-                结果.append({
-                    "名称": 剧本.get("名称", 文件.stem),
-                    "创建时间": 剧本.get("创建时间", ""),
-                    "修改时间": ""
-                })
-            except Exception:
-                continue
-        return 结果
+            结果 = self.存储引擎.列出剧本()
+            if 结果:
+                return 结果
+        return []
 
     def 删除剧本(self, 名称: str) -> dict:
         """删除剧本"""
-        文件路径 = self.剧本目录 / f"{名称}.json"
-        if 文件路径.exists():
-            文件路径.unlink()
         if self.存储引擎:
             self.存储引擎.删除剧本(名称)
         return {"成功": True, "名称": 名称}

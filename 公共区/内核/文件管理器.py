@@ -23,6 +23,7 @@ class 文件管理器类:
         self.默认权限 = 权限配置.get("默认权限", [])
         self.询问规则 = 权限配置.get("询问规则", {})
         self.询问记录路径 = 项目根目录 / (权限配置.get("询问记录路径", "./隐私区/我的配置/询问记录.json")[2:] if 权限配置.get("询问记录路径", "").startswith("./") else 权限配置.get("询问记录路径", "./隐私区/我的配置/询问记录.json"))
+        self._询问记录缓存 = {"记录": []}  # 存储引擎不可用时的内存回退
         self.审计日志 = []
         self.待确认队列 = []
         self._锁 = threading.Lock()  # 线程安全锁
@@ -784,18 +785,27 @@ class 文件管理器类:
         self._写入询问记录(询问记录)
 
     def _读取询问记录(self) -> dict:
-        if self.询问记录路径.exists():
-            try:
-                with open(self.询问记录路径, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return {"记录": []}
-        return {"记录": []}
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                return 引擎.读取KV_JSON("询问记录", 默认值={"记录": []})
+        except Exception:
+            pass
+        # 存储引擎不可用时回退到内存
+        return self._询问记录缓存
 
     def _写入询问记录(self, 数据: dict):
-        self.询问记录路径.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.询问记录路径, "w", encoding="utf-8") as f:
-            json.dump(数据, f, ensure_ascii=False, indent=2)
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                引擎.写入KV_JSON("询问记录", 数据)
+                return
+        except Exception:
+            pass
+        # 存储引擎不可用时回退到内存
+        self._询问记录缓存 = 数据
 
     def _自动检测编码(self, 原始字节: bytes) -> str:
         """自动检测并解码文件编码，支持UTF-8/GBK/GB18030/双重编码"""
@@ -852,12 +862,12 @@ class 文件管理器类:
 
     def _记录用户偏好(self, 操作类型: str, 结果: str):
         """记录用户的操作偏好（批准/拒绝/权限授予）"""
-        画像路径 = self.项目根目录 / "隐私区" / "我的记忆" / "用户画像.json"
         try:
-            画像 = {}
-            if 画像路径.exists():
-                with open(画像路径, "r", encoding="utf-8") as f:
-                    画像 = json.load(f)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if not 引擎:
+                return
+            画像 = 引擎.读取KV_JSON("用户画像", 默认值={})
             if "操作偏好" not in 画像:
                 画像["操作偏好"] = {}
             if 操作类型 not in 画像["操作偏好"]:
@@ -871,18 +881,17 @@ class 文件管理器类:
             偏好 = 画像["操作偏好"][操作类型]
             总 = 偏好["批准次数"] + 偏好["拒绝次数"]
             偏好["偏好分"] = round(偏好["批准次数"] / 总, 2) if 总 > 0 else 0.5
-            with open(画像路径, "w", encoding="utf-8") as f:
-                json.dump(画像, f, ensure_ascii=False, indent=2)
+            引擎.写入KV_JSON("用户画像", 画像)
         except Exception:
             pass
 
     def 获取操作偏好(self) -> dict:
         """获取所有操作的用户偏好分数"""
-        画像路径 = self.项目根目录 / "隐私区" / "我的记忆" / "用户画像.json"
         try:
-            if 画像路径.exists():
-                with open(画像路径, "r", encoding="utf-8") as f:
-                    画像 = json.load(f)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                画像 = 引擎.读取KV_JSON("用户画像", 默认值={})
                 return 画像.get("操作偏好", {})
         except Exception:
             pass

@@ -665,9 +665,7 @@ class 模型直连器类:
         return 最后错误
 
     def _记录LLM调用日志(self, 结果: dict, 系统提示词: str, 消息列表: list):
-        """将LLM调用原始请求/响应追加写入JSONL日志（全透明溯源）"""
-        if not 模型直连器类._LLM日志路径:
-            return
+        """将LLM调用原始请求/响应写入SQLite日志（全透明溯源）"""
         try:
             # 深拷贝原始请求并掩码敏感信息
             原始请求 = 结果.get("原始请求")
@@ -677,6 +675,25 @@ class 模型直连器类:
                 for 键 in list(请求头.keys()):
                     if "authorization" in 键.lower() or "key" in 键.lower() or "token" in 键.lower():
                         请求头[键] = "***掩码***"
+                # 截断请求体中的tools定义和system content，防止日志膨胀
+                请求体 = 原始请求.get("body", {})
+                if isinstance(请求体, dict):
+                    请求体副本 = {}
+                    for k, v in 请求体.items():
+                        if k == "tools":
+                            请求体副本[k] = f"[{len(v)}个工具定义已省略]" if isinstance(v, list) else v
+                        elif k == "messages" and isinstance(v, list):
+                            消息副本 = []
+                            for msg in v:
+                                msg_copy = dict(msg) if isinstance(msg, dict) else msg
+                                if isinstance(msg_copy, dict) and msg_copy.get("role") == "system":
+                                    c = msg_copy.get("content", "")
+                                    msg_copy["content"] = c[:500] + f"...[已截断，共{len(c)}字符]" if len(c) > 500 else c
+                                消息副本.append(msg_copy)
+                            请求体副本[k] = 消息副本
+                        else:
+                            请求体副本[k] = v
+                    原始请求["body"] = 请求体副本
             日志条目 = {
                 "时间": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "模型": self.当前模型名,
@@ -690,9 +707,11 @@ class 模型直连器类:
                 "回复内容": 结果.get("回复内容", "")[:2000] if 结果.get("成功") else "",
                 "工具调用": 结果.get("工具调用", []) if 结果.get("成功") else []
             }
-            with 模型直连器类._日志锁:
-                with open(模型直连器类._LLM日志路径, "a", encoding="utf-8") as f:
-                    f.write(json.dumps(日志条目, ensure_ascii=False) + "\n")
+            # 写入SQLite
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                引擎.插入LLM日志(日志条目)
         except Exception:
             pass
 

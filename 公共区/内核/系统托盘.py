@@ -144,7 +144,7 @@ class 系统托盘:
             # 消息循环
             msg = wintypes.MSG()
             while self._运行:
-                ret = ctypes.windll.user32 GetMessageW(ctypes.byref(msg), 0, 0, 0)
+                ret = ctypes.windll.user32.GetMessageW(ctypes.byref(msg), 0, 0, 0)
                 if ret <= 0:
                     break
                 ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))

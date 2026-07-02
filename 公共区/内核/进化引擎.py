@@ -156,6 +156,7 @@ class 进化引擎类:
                 推理引擎 = 推理引擎类()
                 推理引擎.最大步数 = 10  # 限制步数避免跑太久
                 提示词 = 提示词构建器类()
+                上下文 = 上下文管理器类()
 
                 # 获取操作注册中心
                 from 操作注册中心 import 操作注册中心类
@@ -255,6 +256,49 @@ class 进化引擎类:
         self._重置连续失败()
         self._日志记录("系统", "进化引擎已恢复")
 
+    def 重置工作引擎(self):
+        """停止进化 + 清空进化记录 + 从主引擎重新同步工作引擎"""
+        self._日志记录("系统", "开始重置工作引擎...")
+        # 1. 停止三线程
+        self._运行 = False
+        self._开发者队列.put(None)
+        self._审查员队列.put(None)
+        # 2. 清空进化记录
+        if self.进化记录目录.exists():
+            shutil.rmtree(str(self.进化记录目录), ignore_errors=True)
+            self._日志记录("系统", "进化记录已清空")
+        # 3. 清空待合并列表和计数器
+        with self._状态锁:
+            self._待合并 = []
+            self._连续失败 = 0
+            self._轮次 = 0
+            self._发现问题数 = 0
+            self._修复数 = 0
+            self._通过数 = 0
+            self._失败数 = 0
+            self._文件打回次数 = {}
+        self._重置介入状态()
+        self._清空错误历史()
+        self._清空跳过文件()
+        # 4. 删除旧git标签
+        try:
+            subprocess.run(["git", "tag"], cwd=str(self.工作引擎目录),
+                          capture_output=True, timeout=5).stdout.decode("utf-8", errors="replace")
+            标签输出 = subprocess.run(
+                ["git", "tag", "-l", "进化_*"],
+                cwd=str(self.工作引擎目录), capture_output=True, timeout=5
+            ).stdout.decode("utf-8", errors="replace").strip()
+            for 标签 in 标签输出.split("\n"):
+                标签 = 标签.strip()
+                if 标签:
+                    subprocess.run(["git", "tag", "-d", 标签],
+                                  cwd=str(self.工作引擎目录), capture_output=True, timeout=5)
+        except Exception:
+            pass
+        # 5. 从主引擎重新同步
+        self._同步工作引擎()
+        self._日志记录("系统", "✅ 工作引擎已重置，从主引擎重新同步完成")
+
     def _增加连续失败(self):
         with self._状态锁:
             self._连续失败 += 1
@@ -274,6 +318,55 @@ class 进化引擎类:
             # 超过50条时删除最旧的，防止内存泄漏
             if len(self._待合并) > 50:
                 self._待合并 = self._待合并[-50:]
+
+    def _追加错误历史(self, 记录):
+        with self._状态锁:
+            self._错误历史.append(记录)
+
+    def _读取错误历史(self, 取最后N=0):
+        with self._状态锁:
+            if 取最后N:
+                return list(self._错误历史[-取最后N:])
+            return list(self._错误历史)
+
+    def _清空错误历史(self):
+        with self._状态锁:
+            self._错误历史 = []
+
+    def _添加跳过文件(self, 文件):
+        with self._状态锁:
+            self._跳过文件.add(文件)
+
+    def _读取跳过文件(self):
+        with self._状态锁:
+            return set(self._跳过文件)
+
+    def _清空跳过文件(self):
+        with self._状态锁:
+            self._跳过文件.clear()
+
+    def _重置介入状态(self):
+        with self._状态锁:
+            self._导师已介入 = False
+            self._排错员已介入 = False
+            self._介入级别 = 0
+
+    def _读取介入状态(self):
+        with self._状态锁:
+            return {
+                "导师已介入": self._导师已介入,
+                "排错员已介入": self._排错员已介入,
+                "介入级别": self._介入级别
+            }
+
+    def _设置介入状态(self, 导师=None, 排错员=None, 级别=None):
+        with self._状态锁:
+            if 导师 is not None:
+                self._导师已介入 = 导师
+            if 排错员 is not None:
+                self._排错员已介入 = 排错员
+            if 级别 is not None:
+                self._介入级别 = 级别
 
     def 获取状态(self):
         with self._状态锁:
@@ -310,11 +403,9 @@ class 进化引擎类:
             self._日志记录("测试员", f"第{self._轮次}轮开始")
             # 每轮重置导师/排错员标志（等开发者队列空了再清，避免竞态）
             if self._开发者队列.empty():
-                self._导师已介入 = False
-                self._排错员已介入 = False
-                self._介入级别 = 0
-                self._错误历史 = []  # 清空错误历史
-                self._跳过文件.clear()  # 新轮次清空跳过列表
+                self._重置介入状态()
+                self._清空错误历史()
+                self._清空跳过文件()
 
             # 对话测试模式：生成随机对话→执行→捕获错误
             if self._对话测试模式:
@@ -421,13 +512,13 @@ class 进化引擎类:
         if not 修改结果 or not 修改结果.get("修改列表"):
             self._增加连续失败()
             失败原因 = "LLM未返回有效方案"
-            self._错误历史.append({"文件": 文件, "原因": 失败原因, "代码": 代码[:2000]})
+            self._追加错误历史({"文件": 文件, "原因": 失败原因, "代码": 代码[:2000]})
             self._日志记录("开发者", f"{失败原因}，连续失败{self._读取连续失败()}")
             self._尝试升级介入(消息, 文件, 代码, 问题列表)
             return
 
         修改列表 = 修改结果["修改列表"][:self.单次最大修改]
-        修改详情, 备份代码, 已提交 = self._执行修改_查找替换(修改列表, 文件, 代码)
+        修改详情, 备份代码, 已提交 = self._执行修改(修改列表, 文件)
 
         if 修改详情:
             self._修复数 += len(修改详情)
@@ -442,7 +533,7 @@ class 进化引擎类:
         else:
             self._增加连续失败()
             失败原因 = "修复未通过自检(语法错误)"
-            self._错误历史.append({"文件": 文件, "原因": 失败原因, "代码": 代码[:2000]})
+            self._追加错误历史({"文件": 文件, "原因": 失败原因, "代码": 代码[:2000]})
             self._日志记录("开发者", f"{失败原因}，连续失败{self._读取连续失败()}")
             self._尝试升级介入(消息, 文件, 代码, 问题列表)
 
@@ -456,9 +547,9 @@ class 进化引擎类:
         动作 = 决策.get("动作", "继续")
         原因 = 决策.get("原因", "")
 
-        if 动作 == "导师介入" and not self._导师已介入:
-            self._导师已介入 = True
-            self._介入级别 = 1
+        介入状态 = self._读取介入状态()
+        if 动作 == "导师介入" and not 介入状态["导师已介入"]:
+            self._设置介入状态(导师=True, 级别=1)
             self._日志记录("导师", f"介入(第{失败次数}次失败)：{原因[:80]}")
             导师建议 = 决策.get("新思路", "请重新分析问题，尝试与之前不同的修复方向")
             self._日志记录("导师", f"建议: {导师建议[:100]}")
@@ -466,9 +557,8 @@ class 进化引擎类:
             self._开发者队列.put(消息)
             return
 
-        if 动作 == "排错员接管" and not self._排错员已介入:
-            self._排错员已介入 = True
-            self._介入级别 = 2
+        if 动作 == "排错员接管" and not 介入状态["排错员已介入"]:
+            self._设置介入状态(排错员=True, 级别=2)
             self._日志记录("排错员", f"接管(第{失败次数}次失败)：{原因[:80]}")
             排错方案 = self._排错员修复(文件, 代码, 问题列表)
             if 排错方案 and 排错方案.get("修改列表"):
@@ -486,31 +576,25 @@ class 进化引擎类:
                     self._日志记录("排错员", "修复成功，提交审查")
                     return
             self._日志记录("排错员", "修复失败，放弃此文件，重置计数")
-            self._导师已介入 = False
-            self._排错员已介入 = False
-            self._介入级别 = 0
+            self._重置介入状态()
             self._重置连续失败()
             return
 
         if 动作 == "放弃":
             self._日志记录("系统", f"AI决策放弃此文件(第{失败次数}次失败)：{原因[:80]}")
-            self._跳过文件.add(文件)
+            self._添加跳过文件(文件)
             self._日志记录("系统", f"已加入跳过列表，本轮不再分析 {文件}")
-            self._导师已介入 = False
-            self._排错员已介入 = False
-            self._介入级别 = 0
-            self._错误历史 = []
+            self._重置介入状态()
+            self._清空错误历史()
             self._重置连续失败()
             return
 
         # 动作="继续" — 重新入队让开发者再试，但设上限防无限循环
         if 失败次数 >= 8:
             self._日志记录("系统", f"失败已达{失败次数}次上限，强制放弃此文件")
-            self._跳过文件.add(文件)
-            self._导师已介入 = False
-            self._排错员已介入 = False
-            self._介入级别 = 0
-            self._错误历史 = []
+            self._添加跳过文件(文件)
+            self._重置介入状态()
+            self._清空错误历史()
             self._重置连续失败()
         else:
             self._日志记录("开发者", f"继续尝试(第{失败次数}次失败)：{原因[:80]}")
@@ -518,7 +602,7 @@ class 进化引擎类:
 
     def _动态决策升级(self, 文件, 失败次数):
         """让AI根据失败历史动态决策下一步动作"""
-        错误摘要 = "\n".join([f"- 第{i+1}次: {e['原因']}" for i, e in enumerate(self._错误历史[-8:])])
+        错误摘要 = "\n".join([f"- 第{i+1}次: {e['原因']}" for i, e in enumerate(self._读取错误历史(8))])
         提示 = (
             f"进化引擎在修复文件 [{文件}] 时已连续失败{失败次数}次。\n\n"
             f"失败历史:\n{错误摘要}\n\n"
@@ -537,9 +621,10 @@ class 进化引擎类:
         if 结果 and 结果.get("动作") in ("继续", "导师介入", "排错员接管", "放弃"):
             return 结果
         # AI决策失败时的兜底逻辑
-        if 失败次数 >= 3 and not self._导师已介入:
+        介入状态 = self._读取介入状态()
+        if 失败次数 >= 3 and not 介入状态["导师已介入"]:
             return {"动作": "导师介入", "原因": "AI决策失败，默认3次后导师介入", "新思路": "请重新分析问题，尝试与之前不同的修复方向"}
-        if 失败次数 >= 6 and not self._排错员已介入:
+        if 失败次数 >= 6 and not 介入状态["排错员已介入"]:
             return {"动作": "排错员接管", "原因": "AI决策失败，默认6次后排错员接管"}
         if 失败次数 >= 8:
             return {"动作": "放弃", "原因": "失败次数过多，放弃此文件"}
@@ -547,7 +632,7 @@ class 进化引擎类:
 
     def _排错员修复(self, 文件, 代码, 问题列表):
         """排错员：直接给出修复方案，收拾战场"""
-        错误摘要 = "\n".join([f"- {e['原因']}" for e in self._错误历史[-5:]])
+        错误摘要 = "\n".join([f"- {e['原因']}" for e in self._读取错误历史(5)])
         提示 = (
             f"开发者连续修复失败{self._读取连续失败()}次，导师也已介入但未解决。"
             f"你是最后的排错员，请直接给出修复方案。\n\n"
@@ -634,6 +719,9 @@ class 进化引擎类:
                 continue
             if self._文件被禁止(修改文件):
                 continue
+            if not self._文件在允许范围(修改文件):
+                self._日志记录("开发者", f"{修改文件} 不在允许修改范围")
+                continue
 
             # 在当前代码中查找片段
             if 查找片段 not in 当前代码:
@@ -676,6 +764,7 @@ class 进化引擎类:
             except Exception as e:
                 self._日志记录("开发者", f"替换失败 {修改文件}: {e}")
                 临时路径.unlink(missing_ok=True)
+                self._git回滚未提交()
                 return [], {}, False
 
         if 修改详情:
@@ -697,6 +786,9 @@ class 进化引擎类:
             新代码 = 修改.get("完整代码", "")
             说明 = 修改.get("修改说明", "")
             if self._文件被禁止(修改文件):
+                continue
+            if not self._文件在允许范围(修改文件):
+                self._日志记录("开发者", f"{修改文件} 不在允许修改范围")
                 continue
             if not 新代码.strip():
                 self._日志记录("开发者", f"跳过空代码: {修改文件}")
@@ -795,8 +887,18 @@ class 进化引擎类:
             finally:
                 临时.unlink(missing_ok=True)
 
+        # 提取原始代码供审查员对比
+        原始代码 = ""
+        备份 = 消息.get("备份代码", {})
+        if 备份:
+            原始代码 = 备份.get(文件, "")
+        if not 原始代码:
+            原始代码 = self._读取文件(self.工作引擎目录.parent / 文件) if not 新代码 else ""
+
         回复 = self._调用LLM(self.审查员提示词,
-            f"文件: {文件}\n修改后代码:\n{self._截断代码(新代码, 6000)}\n\n"
+            f"文件: {文件}\n"
+            f"修改前代码:\n{self._截断代码(原始代码, 3000)}\n\n"
+            f"修改后代码:\n{self._截断代码(新代码, 6000)}\n\n"
             f"原始问题:\n{json.dumps(问题列表, ensure_ascii=False)}\n\n"
             f"修改说明:\n{json.dumps(修改详情, ensure_ascii=False)}")
 
@@ -804,7 +906,7 @@ class 进化引擎类:
         if 审查结果 and 审查结果.get("通过"):
             self._通过数 += 1
             self._重置连续失败()
-            self._错误历史 = []  # 审查通过后清空错误历史
+            self._清空错误历史()  # 审查通过后清空错误历史
             with self._状态锁:
                 self._文件打回次数.pop(文件, None)
             时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -900,19 +1002,20 @@ class 进化引擎类:
 
     def _随机选文件(self):
         候选文件 = []
+        跳过集合 = self._读取跳过文件()
         for f in self.工作引擎目录.rglob("*"):
             if not f.is_file():
                 continue
             if f.suffix not in (".py", ".json"):
                 continue
             相对 = self._转相对路径(f)
-            if 相对 in self._跳过文件:
+            if 相对 in 跳过集合:
                 continue
             if not self._文件被禁止(相对) and self._文件在允许范围(相对):
                 候选文件.append(f)
-        if not 候选文件 and self._跳过文件:
+        if not 候选文件 and 跳过集合:
             # 所有文件都被跳过→清空跳过列表重来
-            self._跳过文件.clear()
+            self._清空跳过文件()
             self._日志记录("系统", "所有文件已分析完，清空跳过列表重新开始")
             return self._随机选文件()
         return random.choice(候选文件) if 候选文件 else None
@@ -1019,7 +1122,7 @@ class 进化引擎类:
                 cwd=工作目录, capture_output=True, timeout=10
             )
             subprocess.run(
-                ["git", "clean", "-fd"],
+                ["git", "clean", "-fdx"],
                 cwd=工作目录, capture_output=True, timeout=10
             )
             self._日志记录("系统", "git已撤销未提交的改动（含未跟踪文件）")
@@ -1028,13 +1131,23 @@ class 进化引擎类:
 
     def _git撤销上次提交(self):
         """撤销最近一次commit（审查打回时调用）
-        
+
         git reset --hard HEAD~1 彻底回退到上次提交之前的状态。
-        无论打回多少次，每次都回退到「原始代码」的commit，
-        而不是上一个失败的修复版本。
+        如果只有初始commit（HEAD~1不存在），改用 git reset --hard HEAD + clean 回滚未提交改动。
         """
         工作目录 = str(self.工作引擎目录)
         try:
+            # 先检查commit数量，只有1个commit时HEAD~1不存在
+            log结果 = subprocess.run(
+                ["git", "rev-list", "--count", "HEAD"],
+                cwd=工作目录, capture_output=True, timeout=5
+            )
+            commit数 = int(log结果.stdout.decode("utf-8", errors="replace").strip() or "0")
+            if commit数 <= 1:
+                # 只有初始commit，无法HEAD~1，改用回滚未提交改动
+                self._git回滚未提交()
+                self._日志记录("系统", "只有初始commit，已回滚未提交改动")
+                return True
             结果 = subprocess.run(
                 ["git", "reset", "--hard", "HEAD~1"],
                 cwd=工作目录, capture_output=True, timeout=10
@@ -1109,12 +1222,21 @@ class 进化引擎类:
             return json.loads(文本)
         except Exception:
             pass
+        # 贪婪匹配会过度捕获，改为从外层花括号逐步尝试
         匹配 = re.search(r'\{[\s\S]*\}', 文本)
         if 匹配:
+            候选 = 匹配.group()
             try:
-                return json.loads(匹配.group())
+                return json.loads(候选)
             except Exception:
                 pass
+            # 贪婪匹配失败，从后往前缩短尝试
+            for i in range(len(候选) - 1, 0, -1):
+                if 候选[i] == '}':
+                    try:
+                        return json.loads(候选[:i+1])
+                    except Exception:
+                        continue
         return None
 
     def _日志记录(self, 发送者, 内容):
