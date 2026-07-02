@@ -384,12 +384,17 @@ pre:hover .code-copy-btn { opacity:1; }
 .diff-add { background:rgba(76,175,80,0.15); color:#69f0ae; border:1px solid rgba(76,175,80,0.3); }
 
 /* === Diff查看器页面 === */
+/* 内联diff卡片（对话流中） */
+.msg-diff { margin:8px 0; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.diff-inline-header { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--bg3); border-bottom:1px solid var(--border); font-size:12px; }
+.diff-inline-filename { font-family:Consolas,monospace; font-weight:600; color:var(--text1); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.diff-inline-body { max-height:400px; overflow:auto; background:var(--bg); font-family:Consolas,"Courier New",monospace; font-size:12px; line-height:1.5; }
+.diff-op-badge { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--bg); color:var(--text2); border:1px solid var(--border); flex-shrink:0; }
+.diff-stat-del { font-size:11px; color:#ff6b6b; font-weight:600; flex-shrink:0; }
+.diff-stat-add { font-size:11px; color:#69f0ae; font-weight:600; flex-shrink:0; }
 .diff-page-box { width:92%; max-width:1100px; height:88%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; display:flex; flex-direction:column; overflow:hidden; }
 .diff-page-header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--bg3); flex-shrink:0; }
 .diff-page-header #diffFileName { font-family:Consolas,monospace; font-size:13px; font-weight:600; color:var(--text1); }
-.diff-op-badge { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--bg); color:var(--text2); border:1px solid var(--border); }
-.diff-stat-del { font-size:11px; color:#ff6b6b; font-weight:600; }
-.diff-stat-add { font-size:11px; color:#69f0ae; font-weight:600; }
 .diff-page-header button { margin-left:auto; width:32px; height:32px; border-radius:50%; border:none; background:rgba(244,67,54,0.12); color:#f44336; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
 .diff-page-header button:hover { background:#f44336; color:#fff; }
 .diff-page-content { flex:1; overflow:auto; background:var(--bg); font-family:Consolas,"Courier New",monospace; font-size:13px; line-height:1.5; }
