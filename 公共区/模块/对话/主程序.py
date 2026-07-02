@@ -175,7 +175,12 @@ class 对话模块:
                         except Exception:
                             pass
                     import threading as _t
-                    _t.Thread(target=_异步保存经验, daemon=True).start()
+                    # 本地模型（Ollama等）时延迟执行后台任务，避免争抢GPU资源
+                    _是本地模型 = self._是本地模型()
+                    if _是本地模型:
+                        _t.Timer(3.0, _异步保存经验).start()
+                    else:
+                        _t.Thread(target=_异步保存经验, daemon=True).start()
 
             全局事件中心.发布("收到消息", {"角色": "助手", "内容": 推理结果.get("回复", "")})
 
@@ -330,6 +335,13 @@ class 对话模块:
                 except (json.JSONDecodeError, TypeError):
                     pass
         return False
+
+    def _是本地模型(self) -> bool:
+        """检测当前模型是否为本地部署（Ollama等），本地模型不支持并发请求"""
+        if not self.模型直连器:
+            return False
+        接口 = getattr(self.模型直连器, '接口地址', '')
+        return 'localhost' in 接口 or '127.0.0.1' in 接口
 
     def _执行规划模式(self, 用户消息: str) -> dict:
         """规划模式：生成结构化计划"""

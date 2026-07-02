@@ -236,6 +236,10 @@ class 意图解析器类:
         if '？' in 文本 or '?' in 文本:
             if not any(kw in 文本 for kw in self._生图关键词 + self._文件操作关键词 + self._查看关键词
                          + self._ComfyUI关键词 + self._排查关键词):
+                # 排除代码/文件操作相关问句（如"可以分成多个小文件吗?"）
+                _代码相关词 = ['文件', '代码', '分成', '拆分', '优化', '修改', '重构', '函数', '类', '方法', '变量', '模块', 'bug', '错误']
+                if any(kw in 文本.lower() for kw in _代码相关词):
+                    return min(置信度, 0.4)  # 降级，不走闲聊
                 置信度 = max(置信度, 0.6)
 
         return min(置信度, 1.0)
