@@ -1,29 +1,21 @@
 /**
- * Diff查看器 — 全屏行级代码对比页面
- * AI修改文件后弹出，展示新旧代码差异（红色删除+绿色新增）
+ * Diff查看器 — 对话内联行级代码对比
+ * AI每次修改文件后在对话流中插入diff卡片
  */
 
-// ============ Diff页面 ============
-
 function showDiffPage(文件名, 旧文本, 新文本, 操作类型) {
-    const overlay = document.getElementById("diffOverlay");
-    if (!overlay) return;
+    const msgList = document.getElementById("msgList");
+    if (!msgList) return;
 
     // 计算行级diff
     const diff行 = _计算行级Diff(旧文本 || "", 新文本 || "");
     const del数 = diff行.filter(r => r.type === "del").length;
     const add数 = diff行.filter(r => r.type === "add").length;
 
-    // 填充头部
-    document.getElementById("diffFileName").textContent = 文件名 || "未知文件";
+    // 操作标签
     const 操作标签 = {"替换": "✏️ 替换", "新建": "📄 新建", "追加": "➕ 追加", "删除": "🗑️ 删除"}[操作类型] || "修改";
-    document.getElementById("diffStats").innerHTML =
-        `<span class="diff-op-badge">${操作标签}</span>` +
-        `<span class="diff-stat-del">−${del数}行</span>` +
-        `<span class="diff-stat-add">+${add数}行</span>`;
 
-    // 渲染diff内容
-    const content = document.getElementById("diffContent");
+    // 构建 diff HTML
     let html = '<table class="diff-table"><tbody>';
     let 旧行号 = 1, 新行号 = 1;
 
@@ -53,13 +45,26 @@ function showDiffPage(文件名, 旧文本, 新文本, 操作类型) {
         }
     }
     html += '</tbody></table>';
-    content.innerHTML = html;
 
-    // 显示
-    overlay.style.display = "flex";
+    // 创建内联diff卡片并插入对话流
+    const card = document.createElement("div");
+    card.className = "msg-item msg-diff";
+    const 文件名short = (文件名 || "未知文件").split(/[\\/]/).pop();
+    card.innerHTML = `
+        <div class="diff-inline-header">
+            <span class="diff-op-badge">${操作标签}</span>
+            <span class="diff-inline-filename">${_转义HTML(文件名short)}</span>
+            <span class="diff-stat-del">−${del数}行</span>
+            <span class="diff-stat-add">+${add数}行</span>
+        </div>
+        <div class="diff-inline-body">${html}</div>
+    `;
+    msgList.appendChild(card);
+    msgList.scrollTop = msgList.scrollHeight;
 }
 
 function closeDiffPage() {
+    // 兼容旧调用，不再需要关闭overlay
     const overlay = document.getElementById("diffOverlay");
     if (overlay) overlay.style.display = "none";
 }
