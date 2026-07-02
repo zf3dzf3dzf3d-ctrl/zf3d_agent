@@ -398,13 +398,12 @@ pre:hover .code-copy-btn { opacity:1; }
 .diff-ln-old, .diff-ln-new { width:42px; min-width:42px; text-align:right; color:var(--text2); font-size:11px; user-select:none; border-right:1px solid var(--border); padding:0 6px; }
 .diff-row-same { background:transparent; }
 .diff-row-same .diff-code { color:var(--text2); }
-.diff-row-del { background:rgba(244,67,54,0.08); }
+.diff-row-del { background:rgba(244,67,54,0.12); }
 .diff-row-del .diff-code { color:#ff6b6b; }
 .diff-row-del .diff-ln-old { background:rgba(244,67,54,0.15); }
-.diff-row-add { background:rgba(76,175,80,0.08); }
+.diff-row-add { background:rgba(76,175,80,0.12); }
 .diff-row-add .diff-code { color:#69f0ae; }
 .diff-row-add .diff-ln-new { background:rgba(76,175,80,0.15); }
-.diff-sign { display:inline-block; width:16px; font-weight:bold; user-select:none; }
 
 /* === 状态栏 === */
 .statusbar { display:flex; gap:14px; background:#007ACC; color:white; padding:0 12px; font-size:11px; align-items:center; height:22px; flex-shrink:0; }

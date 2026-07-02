@@ -40,14 +40,14 @@ function showDiffPage(文件名, 旧文本, 新文本, 操作类型) {
             html += `<tr class="diff-row-del">
                 <td class="diff-ln-old">${旧行号}</td>
                 <td class="diff-ln-new"></td>
-                <td class="diff-code"><span class="diff-sign">−</span>${escaped}</td>
+                <td class="diff-code">${escaped}</td>
             </tr>`;
             旧行号++;
         } else if (行.type === "add") {
             html += `<tr class="diff-row-add">
                 <td class="diff-ln-old"></td>
                 <td class="diff-ln-new">${新行号}</td>
-                <td class="diff-code"><span class="diff-sign">+</span>${escaped}</td>
+                <td class="diff-code">${escaped}</td>
             </tr>`;
             新行号++;
         }
