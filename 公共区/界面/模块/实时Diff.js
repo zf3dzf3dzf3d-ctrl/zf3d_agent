@@ -69,6 +69,8 @@ async function refreshAllOpenFiles(force) {
                     }
                 }
                 f.dirty = true;
+                if (typeof markAIModified === 'function') markAIModified(i);
+                if (typeof updateChangeBadge === 'function') updateChangeBadge();
                 renderTabs();
             }
         } catch (e) {}
@@ -129,6 +131,8 @@ function applyLiveDiff(旧文本, 新文本) {
     // 更新openFiles
     openFiles[activeFileIdx].content = 新内容;
     openFiles[activeFileIdx].dirty = true;
+    if (typeof markAIModified === 'function') markAIModified(activeFileIdx);
+    if (typeof updateChangeBadge === 'function') updateChangeBadge();
     renderTabs();
 
     // 清除框选状态

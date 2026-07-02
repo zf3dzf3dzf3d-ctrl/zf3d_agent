@@ -1,11 +1,27 @@
 /**
- * 权限轮询 — 权限轮询+AI询问用户弹窗
- * 从 逻辑.js 拆分
+ * 权限轮询 — 智能轮询+AI询问用户弹窗
+ * 仅在AI执行任务期间轮询，空闲时停止
  */
 
 // ============ 权限轮询 ============
 let _shownPermPaths = new Set();
+let _permPollTimer = null;
+let _permActive = false;  // 是否在任务执行中
+
+function startPermPoll() {
+    if (_permPollTimer) return;
+    _permActive = true;
+    pollPending();
+}
+
+function stopPermPoll() {
+    _permActive = false;
+    if (_permPollTimer) { clearTimeout(_permPollTimer); _permPollTimer = null; }
+}
+
 async function pollPending() {
+    _permPollTimer = null;
+    if (!_permActive) return;
     try {
         const res = await fetch("/api/pending");
         const d = await res.json();
@@ -18,7 +34,10 @@ async function pollPending() {
             }
         }
     } catch (e) {}
-    setTimeout(pollPending, 5000);
+    // 仅在活跃状态下继续轮询，5秒间隔
+    if (_permActive) {
+        _permPollTimer = setTimeout(pollPending, 5000);
+    }
 }
 
 function showPermissionDialog(req) {

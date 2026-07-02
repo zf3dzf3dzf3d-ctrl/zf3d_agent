@@ -42,7 +42,7 @@ EXE名称 = "朱峰社区智能体"
     "PIL", "PIL.ImageGrab",
     "psutil",
     "docx", "docx.shared", "docx.enum.text", "docx.oxml.ns",
-    "openpyxl", "openpyxl.load_workbook",
+    "openpyxl",
     "olefile",
     "edge_tts",
     "pygame",

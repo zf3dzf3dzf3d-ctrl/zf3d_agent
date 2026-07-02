@@ -49,3 +49,4 @@ let diffMarkers = [];       // [{start, end, type:"add"|"del", text, timer}]
 let reasoningPollTimer = null;   // 推理流轮询定时器
 let reasoningIndex = 0;          // 推理流已读索引
 let voiceEnabled = localStorage.getItem("voiceEnabled") === "true"; // 语音播报开关
+let aiModifiedFiles = new Set();  // AI本轮修改过的文件路径集合（文件树高亮用）

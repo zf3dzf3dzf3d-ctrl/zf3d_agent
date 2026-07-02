@@ -16,6 +16,8 @@ function setThinkingState(thinking) {
         btn.classList.add("stop");
         if (indicator) indicator.classList.add("show");
         startThinkingAnim();
+        // AI任务期间启动权限轮询
+        if (typeof startPermPoll === 'function') startPermPoll();
     } else {
         input.disabled = false;
         input.placeholder = "输入消息... (Enter发送, Shift+Enter换行)";
@@ -25,6 +27,8 @@ function setThinkingState(thinking) {
         btn.classList.remove("stop");
         if (indicator) indicator.classList.remove("show");
         stopThinkingAnim();
+        // AI任务结束，停止权限轮询
+        if (typeof stopPermPoll === 'function') stopPermPoll();
         // 清理生成进度条
         const genBar = document.getElementById("genProgressBar");
         if (genBar) genBar.remove();
@@ -88,6 +92,8 @@ async function sendMessage() {
     input.value = "";
     isChatting = true;
     setThinkingState(true);
+    // 清空上一轮AI修改文件记录
+    if (typeof aiModifiedFiles !== 'undefined') aiModifiedFiles.clear();
     // 显示推理流容器（SSE模式下推理事件直接推送）
     showReasoningPanel();
     reasoningIndex = 0;
@@ -226,6 +232,12 @@ async function sendMessage() {
                 } else if (data.类型 === "完成") {
                     gotComplete = true;
                     const d = data.结果;
+                    // 提取本轮统计
+                    lastRoundStats = {
+                        步数: d.步数 || 0,
+                        调用次数: d.llm调用记录?.length || 0,
+                        耗时毫秒: d.llm调用记录?.reduce((s, r) => s + (r.耗时毫秒 || 0), 0) || 0
+                    };
                     if (d.成功) {
                         // 最终Markdown渲染：平滑过渡而非突然替换
                         if (streamEl && streamText) {
@@ -248,14 +260,31 @@ async function sendMessage() {
                             if (voiceEnabled) speakText(d.回复);
                         }
 
-                        // 处理推理过程中的文件修改操作（从完整结果补充检测）
-                        if (d.推理过程?.length > 0 && !hasFileChange) {
+                        // 处理推理过程中的文件修改操作（从完整结果补充检测+触发Diff查看器）
+                        if (d.推理过程?.length > 0) {
                             for (const s of d.推理过程) {
                                 if (s.类型 === "操作" && s.成功 && ["写入文件", "替换文本", "删除文件", "追加文件", "创建文件", "替换Word文本", "替换Excel文本", "追加Word段落", "插入Word段落", "删除Word段落", "新建Word文档", "多线程下载", "下载网页图片", "ComfyUI一键生图", "ComfyUI获取图片", "ComfyUI图片修改", "ComfyUI视频生成"].includes(s.操作)) {
                                     hasFileChange = true;
                                 }
+                                // 记录AI修改过的文件路径（文件树高亮用）
+                                if (s.成功 && s.参数 && s.参数["路径"]) {
+                                    const 文件修改操作 = ["写入文件", "替换文本", "创建文件", "追加文件"];
+                                    if (文件修改操作.includes(s.操作) && typeof aiModifiedFiles !== 'undefined') {
+                                        aiModifiedFiles.add(s.参数["路径"]);
+                                    }
+                                }
                                 if (s.操作 === "替换文本" && s.成功 && s.参数 && !liveDiffHandled) {
                                     applyLiveDiff(s.参数["旧文本"] || "", s.参数["新文本"] || "");
+                                }
+                                // 触发Diff查看器页面
+                                if (s.成功 && s.参数 && typeof showDiffPage === 'function') {
+                                    if (s.操作 === "替换文本") {
+                                        showDiffPage(s.参数["路径"] || "", s.参数["旧文本"] || "", s.参数["新文本"] || "", "替换");
+                                    } else if (s.操作 === "创建文件" || s.操作 === "写入文件") {
+                                        showDiffPage(s.参数["路径"] || "", "", s.参数["内容"] || "", "新建");
+                                    } else if (s.操作 === "追加文件") {
+                                        showDiffPage(s.参数["路径"] || "", "", s.参数["内容"] || "", "追加");
+                                    }
                                 }
                                 if (s.成功 && s.参数) {
                                     if (s.操作 === "替换Word文本" || s.操作 === "替换Excel文本") {
@@ -302,7 +331,29 @@ async function sendMessage() {
     isChatting = false;
     chatAbortController = null;
     setThinkingState(false);
+    // 显示本轮Token成本
+    if (lastRoundStats) showTokenCost(lastRoundStats);
     // 刷新对话列表（标题可能已自动更新）
     if (convListOpen) loadConvList();
+}
+
+// ============ Token成本显示 ============
+let lastRoundStats = null;
+
+function showTokenCost(stats) {
+    if (!stats) return;
+    const msgList = document.getElementById("msgList");
+    if (!msgList) return;
+    const bar = document.createElement("div");
+    bar.className = "token-cost-bar";
+    let html = `<span class="tc-steps">⚡ ${stats.步数 || 0}步</span>`;
+    if (stats.调用次数) html += `<span class="tc-calls">🤖 ${stats.调用次数}次调用</span>`;
+    if (stats.耗时毫秒) {
+        const 秒 = (stats.耗时毫秒 / 1000).toFixed(1);
+        html += `<span class="tc-time">⏱️ ${秒}s</span>`;
+    }
+    bar.innerHTML = html;
+    msgList.appendChild(bar);
+    msgList.scrollTop = msgList.scrollHeight;
 }
 

@@ -26,7 +26,7 @@ class 搜索代码(操作基类):
     }
 
     def 执行(self, 参数: dict) -> 操作结果:
-        关键词 = 参数.get("关键词", "") or 参数.get("pattern", "") or 参数.get("搜索词", "") or 参数.get("关键字", "")
+        关键词 = 参数.get("关键词", "") or 参数.get("keyword", "") or 参数.get("pattern", "") or 参数.get("搜索词", "") or 参数.get("关键字", "")
         if not 关键词:
             return 操作结果.失败("关键词为空")
         搜索路径 = 参数.get("路径", "./") or 参数.get("path", "./")
@@ -36,7 +36,7 @@ class 搜索代码(操作基类):
         上下文行数 = 参数.get("上下文行数", 0)
         输出模式 = 参数.get("输出模式", "content")
         offset = 参数.get("offset", 0)
-        maxResults = 参数.get("maxResults", 250)
+        maxResults = 参数.get("maxResults", 250) or 参数.get("max_results", 250)
 
         标志 = re.IGNORECASE if 忽略大小写 else 0
         try:
@@ -161,7 +161,7 @@ class Glob搜索(操作基类):
             return 操作结果.失败("pattern为空")
         搜索路径 = 参数.get("路径", "./")
         递归 = 参数.get("递归", True)
-        maxResults = 参数.get("maxResults", 100)
+        maxResults = 参数.get("maxResults", 100) or 参数.get("max_results", 100)
 
         try:
             if self.文件管理器:
@@ -215,7 +215,7 @@ class 符号搜索(操作基类):
             return 操作结果.失败("关键词为空")
         搜索路径 = 参数.get("路径", "./")
         符号类型 = 参数.get("符号类型", "全部")
-        maxResults = 参数.get("maxResults", 100)
+        maxResults = 参数.get("maxResults", 100) or 参数.get("max_results", 100)
 
         跳过目录 = {"__pycache__", ".git", "node_modules", ".venv", "venv", ".idea", ".vscode", ".codely-cli"}
         结果列表 = []

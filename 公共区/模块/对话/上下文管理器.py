@@ -21,7 +21,7 @@ from datetime import datetime
 class 上下文管理器类:
     """对话上下文管理器"""
 
-    def __init__(self, 最大历史数=50, 压缩阈值=30):
+    def __init__(self, 最大历史数=25, 压缩阈值=20):
         self.最大历史数 = 最大历史数
         self.压缩阈值 = 压缩阈值  # 消息条数兜底阈值（token检测优先）
         self.token预算 = 8000  # 默认token预算，可通过设置模型上下文窗口动态更新
@@ -64,7 +64,10 @@ class 上下文管理器类:
         消息列表 = []
 
         # 1. 添加对话历史（最近N轮）
-        历史窗口 = 对话历史[-self.最大历史数:] if len(对话历史) > self.最大历史数 else 对话历史
+        # 动态压缩历史窗口：轨迹消息越多，历史窗口越小（总量不超最大历史数）
+        轨迹消息数 = len(self.本轮轨迹) * 2  # 每步约2条消息
+        历史窗口大小 = max(6, self.最大历史数 - 轨迹消息数)
+        历史窗口 = 对话历史[-历史窗口大小:] if len(对话历史) > 历史窗口大小 else 对话历史
         for 消息 in 历史窗口:
             角色 = "user" if 消息.get("角色") == "用户" else "assistant"
             消息列表.append({"role": 角色, "content": 消息.get("内容", "")})
@@ -97,7 +100,7 @@ class 上下文管理器类:
 
         return 消息列表
 
-    def 遮蔽旧观察(self, 消息列表, 保留最近轮数=5):
+    def 遮蔽旧观察(self, 消息列表, 保留最近轮数=3):
         """Observation Masking：旧tool观察结果替换为单行摘要
 
         保留最近N轮的完整内容，更早的观察消息内容替换为单行摘要。
@@ -118,7 +121,7 @@ class 上下文管理器类:
                 content = 消息.get("content", "")
                 是观察 = (role == "tool" or
                          (role == "user" and content.startswith("观察:")))
-                if 是观察 and len(content) > 200:
+                if 是观察 and len(content) > 100:
                     消息副本 = dict(消息)
                     前缀 = content[:60].split("\n")[0] if "\n" in content else content[:60]
                     消息副本["content"] = f"[已折叠] {前缀}... (共{len(content)}字符)"
@@ -130,7 +133,7 @@ class 上下文管理器类:
     def _遮蔽tool消息(self, tool消息):
         """对单个tool消息应用observation masking，返回副本不修改原始"""
         内容 = tool消息.get("content", "")
-        if len(内容) <= 100:
+        if len(内容) <= 50:
             return tool消息
         import re
         操作匹配 = re.search(r'操作\[([^\]]+)\]', 内容)
@@ -163,7 +166,7 @@ class 上下文管理器类:
 
         # 从最早的历史消息开始裁剪（保留最后几轮+本轮轨迹）
         本轮长度 = len(self.本轮轨迹) * 2  # 粗略估计
-        保留数 = max(self.最大历史数 // 2, 本轮长度 + 6)
+        保留数 = max(self.最大历史数 // 2, 本轮长度 + 4)
 
         裁剪后 = 消息列表[-保留数:]
         while self._估算_列表_token(裁剪后) > self.token预算 and len(裁剪后) > 4:
@@ -209,7 +212,7 @@ class 上下文管理器类:
             角色 = 消息.get("角色", "")
             是观察 = (角色 == "用户" and 内容.startswith("观察:")) or \
                      (角色 == "用户" and "操作[" in 内容 and "执行结果:" in 内容)
-            if 是观察 and len(内容) > 200:
+            if 是观察 and len(内容) > 100:
                 前缀 = 内容[:60].split("\n")[0] if "\n" in 内容 else 内容[:60]
                 masked历史[i] = {**消息, "内容": f"[已折叠] {前缀}... (共{len(内容)}字符)"}
                 折叠数 += 1

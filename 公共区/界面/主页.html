@@ -7,7 +7,7 @@
     <title>朱峰社区智能体 v2.5.0</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260630p">
+    <link rel="stylesheet" href="样式.css?v=20260702d">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -71,6 +71,7 @@
                 <button class="toolbar-btn" onclick="reloadCurrentFile()" title="从磁盘重新加载当前文件">🔄 <span class="btn-text">刷新</span></button>
                 <div class="toolbar-sep"></div>
                 <span id="editorFilePath" class="toolbar-path"></span>
+                <span id="editorChangeBadge" class="change-badge" style="display:none;"></span>
             </div>
             <!-- 编辑器主体 -->
             <div class="editor-body" id="editorContainer">
@@ -368,6 +369,14 @@
                             <button class="dlg-btn" onclick="clearAuthToken()" style="white-space:nowrap;">🗑️ 清除</button>
                         </div>
                     </div>
+                    <div class="scard">
+                        <h3>💬 联系我们</h3>
+                        <div style="font-size:13px;line-height:1.8;">
+                            <p style="margin:4px 0;">🐧 <b>朱峰社区智能体QQ群</b></p>
+                            <p style="margin:4px 0;">群号：<span style="font-size:16px;font-weight:bold;color:var(--blue);">290939358</span></p>
+                            <p style="margin:4px 0;color:var(--text2);font-size:12px;">技术交流、问题反馈、功能建议、版本更新通知</p>
+                        </div>
+                    </div>
                     <div id="configContent"></div>
                 </div>
             </div>
@@ -406,25 +415,26 @@
     <script src="模块/面板布局.js?v=20260627b"></script>
     <script src="模块/语音播报.js?v=20260627b"></script>
     <script src="模块/语音输入.js?v=20260627b"></script>
-    <script src="模块/对话核心.js?v=20260630c"></script>
-    <script src="模块/推理流.js?v=20260630y"></script>
+    <script src="模块/对话核心.js?v=20260702c"></script>
+    <script src="模块/推理流.js?v=20260702a"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
     <script src="模块/录音.js?v=20260702b"></script>
     <script src="模块/实时Diff.js?v=20260627c"></script>
+    <script src="模块/Diff查看器.js?v=20260702a"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
     <script src="模块/模型配置.js?v=20260701a"></script>
     <script src="模块/设置面板.js?v=20260701h"></script>
-    <script src="模块/文件树.js?v=20260630a"></script>
+    <script src="模块/文件树.js?v=20260702a"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
-    <script src="模块/图片查看器.js?v=20260629a"></script>
-    <script src="模块/多标签编辑器.js?v=20260627e"></script>
+    <script src="模块/图片查看器.js?v=20260702a"></script>
+    <script src="模块/多标签编辑器.js?v=20260702b"></script>
     <script src="模块/文件框选.js?v=20260629g"></script>
-    <script src="模块/权限轮询.js?v=20260627e"></script>
+    <script src="模块/权限轮询.js?v=20260702a"></script>
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
-    <script src="模块/下载面板.js?v=20260701d"></script>
+    <script src="模块/下载面板.js?v=20260702a"></script>
     <script src="逻辑.js?v=20260627j"></script>
 
     <!-- 新建文件弹窗 -->
@@ -519,6 +529,18 @@
             <span class="dp-toggle" id="dpToggle">▼</span>
         </div>
         <div class="download-panel-body" id="downloadPanelBody"></div>
+    </div>
+
+    <!-- Diff查看器 -->
+    <div class="overlay" id="diffOverlay" style="display:none;">
+        <div class="diff-page-box">
+            <div class="diff-page-header">
+                <span id="diffFileName">文件名</span>
+                <span id="diffStats"></span>
+                <button onclick="closeDiffPage()" title="关闭">✖</button>
+            </div>
+            <div id="diffContent" class="diff-page-content"></div>
+        </div>
     </div>
 </body>
 </html>

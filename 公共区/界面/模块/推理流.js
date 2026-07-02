@@ -14,7 +14,7 @@ function showReasoningPanel() {
         panel = document.createElement("div");
         panel.id = "reasoningPanel";
         panel.className = "reasoning-panel";
-        panel.innerHTML = '<div class="reasoning-header">⚡ AI推理过程</div><div class="reasoning-body" id="reasoningBody"></div>';
+        panel.innerHTML = '<div class="reasoning-header"><span>⚡ AI推理过程</span><span class="rh-count" id="rhCount">0步</span></div><div class="reasoning-body" id="reasoningBody"></div>';
         chatMsg.parentNode.insertBefore(panel, chatMsg.nextSibling);
     }
     panel.style.display = "block";
@@ -57,17 +57,23 @@ function appendReasoningRecord(rec) {
     if (!body) return;
     const div = document.createElement("div");
     div.className = "reasoning-card";
+    let 详情数据 = null;  // 点击展开时显示的完整内容
+
     switch (rec.类型) {
         case "开始":
             div.className += " rc-start";
-            div.innerHTML = `<div class="rc-icon">💬</div><div class="rc-content"><span class="rc-label">开始</span> ${escapeHtml(rec.内容.消息 || "")}</div>`; break;
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content"><span class="rc-label">开始</span> ${escapeHtml(rec.内容.消息 || "")}</div>`;
+            break;
         case "思考":
             div.className += " rc-thinking";
-            div.innerHTML = `<div class="rc-icon">🤔</div><div class="rc-content"><span class="rc-label">步骤 ${rec.内容.步数}</span> 思考中...</div>`; break;
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content"><span class="rc-label">步骤 ${rec.内容.步数}</span> 思考中...</div>`;
+            break;
         case "操作调用":
             div.className += " rc-action";
             const p = Object.entries(rec.内容.参数||{}).map(([k,v])=>`<span class="rc-param">${escapeHtml(k)}=<span class="rc-val">${escapeHtml(String(v).substring(0,40))}</span></span>`).join(" ");
-            div.innerHTML = `<div class="rc-icon">🔧</div><div class="rc-content"><span class="rc-label rc-op-name">${escapeHtml(rec.内容.操作)}</span><div class="rc-params">${p}</div></div>`;
+            const 参数完整 = Object.entries(rec.内容.参数||{}).map(([k,v])=>`${k}: ${v}`).join("\n");
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content"><span class="rc-label rc-op-name">${escapeHtml(rec.内容.操作)}</span><div class="rc-params">${p}</div></div>`;
+            详情数据 = `操作: ${rec.内容.操作}\n\n参数:\n${参数完整}`;
             // 朗读操作时更新思考状态
             if (rec.内容.操作 === "普通话") {
                 _updateThinkingDisplay("朗读", "语音播报中...", 80);
@@ -85,7 +91,9 @@ function appendReasoningRecord(rec) {
                 _updateThinkingDisplay("思考", "继续推理...", 50);
             }
             const resultText = escapeHtml((rec.内容.结果||"").substring(0,200));
-            div.innerHTML = `<div class="rc-icon">${rec.内容.成功 ? "✅" : "❌"}</div><div class="rc-content">${resultText}</div>`;
+            const resultFull = rec.内容.结果 || "";
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content">${rec.内容.成功 ? "✅" : "❌"} ${escapeHtml(rec.内容.操作 || "")} — ${resultText}</div>`;
+            详情数据 = `操作: ${rec.内容.操作}\n成功: ${rec.内容.成功}\n\n结果:\n${resultFull}`;
             break;
         case "下载进度": {
             const p = rec.内容;
@@ -154,7 +162,9 @@ function appendReasoningRecord(rec) {
                 document.getElementById("genProgressBar").remove();
             }
             div.className += " rc-reply";
-            div.innerHTML = `<div class="rc-icon">💬</div><div class="rc-content">${escapeHtml((rec.内容.内容||"").substring(0,300))}</div>`;
+            const replyText = escapeHtml((rec.内容.内容||"").substring(0,300));
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content">💬 ${replyText}</div>`;
+            详情数据 = rec.内容.内容 || "";
             // 如果有下载进度条，启动轮询
             startDownloadPolling();
             break;
@@ -206,9 +216,24 @@ function appendReasoningRecord(rec) {
             return;
         }
         default:
-            div.innerHTML = `<div class="rc-icon">•</div><div class="rc-content">${escapeHtml(rec.类型)}: ${escapeHtml(JSON.stringify(rec.内容).substring(0,100))}</div>`;
+            div.innerHTML = `<div class="rc-icon"></div><div class="rc-content">${escapeHtml(rec.类型)}: ${escapeHtml(JSON.stringify(rec.内容).substring(0,100))}</div>`;
+    }
+    // 点击展开/收起详情（仅有详情数据的卡片）
+    if (详情数据) {
+        const detailDiv = document.createElement("div");
+        detailDiv.className = "rc-detail";
+        detailDiv.textContent = 详情数据;
+        div.appendChild(detailDiv);
+        div.addEventListener("click", (e) => {
+            // 进度条卡片不响应点击
+            if (div.classList.contains("rc-progress")) return;
+            div.classList.toggle("rc-expanded");
+        });
     }
     body.appendChild(div);
+    // 更新步数计数
+    const countEl = document.getElementById("rhCount");
+    if (countEl) countEl.textContent = `${body.children.length}步`;
     body.scrollTop = body.scrollHeight;
 }
 
