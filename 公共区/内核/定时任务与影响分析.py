@@ -195,22 +195,27 @@ class 定时任务调度器:
                 print(f"  ❌ 定时任务失败 [{任务['名称']}]: {e}")
 
     def _加载任务(self):
-        """从JSON加载任务列表"""
-        if self.任务文件路径.exists():
-            try:
-                with open(self.任务文件路径, "r", encoding="utf-8") as f:
-                    数据 = json.load(f)
+        """从存储引擎加载任务列表"""
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                数据 = 引擎.读取KV_JSON("定时任务列表", {"任务列表": []})
                 self.任务列表 = 数据.get("任务列表", [])
-            except Exception:
+            else:
                 self.任务列表 = []
-        else:
+        except Exception:
             self.任务列表 = []
 
     def _保存任务(self):
-        """保存任务列表到JSON"""
-        self.任务文件路径.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.任务文件路径, "w", encoding="utf-8") as f:
-            json.dump({"任务列表": self.任务列表}, f, ensure_ascii=False, indent=2)
+        """保存任务列表到存储引擎"""
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                引擎.写入KV_JSON("定时任务列表", {"任务列表": self.任务列表})
+        except Exception:
+            pass
 
 
 class 代码影响分析器:

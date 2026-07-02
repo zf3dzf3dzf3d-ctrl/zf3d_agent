@@ -17,7 +17,8 @@ import http.cookiejar
 _项目根 = Path(__file__).parent.parent.parent.parent
 _音乐库路径 = _项目根 / "音乐" / "音乐库.json"
 _音乐目录 = _项目根 / "音乐"
-_ffmpeg = r"C:\ffmpeg\bin\ffmpeg.exe"
+import shutil as _shutil
+_ffmpeg = _shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
 
 _ctx = ssl.create_default_context()
 _ctx.check_hostname = False
@@ -117,22 +118,27 @@ def _下载并转换(bvid, 保存文件名):
 
 
 def _加载音乐库():
-    """加载音乐库JSON，返回字典"""
-    if _音乐库路径.exists():
-        try:
-            with open(_音乐库路径, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    """加载音乐库，返回字典"""
+    try:
+        from 存储引擎 import 获取存储引擎
+        引擎 = 获取存储引擎()
+        if 引擎:
+            return 引擎.读取KV_JSON("音乐库", {"歌曲列表": [], "数量": 0})
+    except Exception:
+        pass
     return {"歌曲列表": [], "数量": 0}
 
 
 def _保存音乐库(库):
-    """保存音乐库JSON"""
+    """保存音乐库到存储引擎"""
     库["数量"] = len(库.get("歌曲列表", []))
-    _音乐目录.mkdir(parents=True, exist_ok=True)
-    with open(_音乐库路径, "w", encoding="utf-8") as f:
-        json.dump(库, f, ensure_ascii=False, indent=2)
+    try:
+        from 存储引擎 import 获取存储引擎
+        引擎 = 获取存储引擎()
+        if 引擎:
+            引擎.写入KV_JSON("音乐库", 库)
+    except Exception:
+        pass
 
 
 def _添加到音乐库(文件路径, 歌名, 歌手, bvid, 时长秒=0):

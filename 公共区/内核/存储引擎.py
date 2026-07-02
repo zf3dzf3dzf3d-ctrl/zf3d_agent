@@ -17,13 +17,22 @@ class 存储引擎类:
 
     def __init__(self, 路径: str):
         self._路径 = str(路径)
-        self._锁 = threading.Lock()
+        self._锁 = threading.Lock()  # 写锁
         父目录 = Path(路径).parent
         父目录.mkdir(parents=True, exist_ok=True)
-        self._连接 = sqlite3.connect(self._路径, check_same_thread=False)
+
+        # 写连接
+        self._连接 = sqlite3.connect(self._路径, check_same_thread=False, timeout=5)
         self._连接.row_factory = sqlite3.Row
         self._连接.execute("PRAGMA journal_mode=WAL")
         self._连接.execute("PRAGMA synchronous=NORMAL")
+        self._连接.execute("PRAGMA busy_timeout=5000")
+
+        # 读连接（WAL下读不阻塞写）
+        self._读连接 = sqlite3.connect(self._路径, check_same_thread=False, timeout=5)
+        self._读连接.row_factory = sqlite3.Row
+        self._读连接.execute("PRAGMA query_only=1")
+
         self._初始化表()
 
     def _初始化表(self):
@@ -223,6 +232,51 @@ class 存储引擎类:
             except Exception:
                 pass
 
+            # LLM调用日志表（替代JSONL文件，支持高效查询）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS LLM调用日志 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    时间 TEXT NOT NULL,
+                    模型 TEXT,
+                    成功 INTEGER DEFAULT 0,
+                    耗时毫秒 INTEGER,
+                    错误 TEXT,
+                    系统提示词长度 INTEGER,
+                    消息数量 INTEGER,
+                    原始请求 TEXT,
+                    原始响应 TEXT,
+                    回复内容 TEXT,
+                    工具调用 TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_LLM日志_时间 ON LLM调用日志(时间)")
+
+            # Bug库表（代码级bug追踪，自进化引擎和AI均可读写）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS Bug库 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    文件路径 TEXT NOT NULL,
+                    行号 INTEGER,
+                    问题描述 TEXT NOT NULL,
+                    严重程度 TEXT DEFAULT '中',
+                    状态 TEXT DEFAULT '未解决',
+                    发现时间 TEXT NOT NULL,
+                    修复时间 TEXT,
+                    修复说明 TEXT,
+                    发现来源 TEXT,
+                    修复代码 TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_Bug_状态 ON Bug库(状态)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_Bug_文件 ON Bug库(文件路径)")
+            try:
+                conn.execute("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS Bug搜索
+                    USING fts5(问题描述, 文件路径 UNINDEXED, 修复说明)
+                """)
+            except Exception:
+                pass
+
             conn.commit()
 
     def _执行(self, sql: str, 参数: list = None):
@@ -233,10 +287,9 @@ class 存储引擎类:
             return cursor
 
     def _查询(self, sql: str, 参数: list = None) -> list:
-        """执行查询，返回Row列表"""
-        with self._锁:
-            cursor = self._连接.execute(sql, 参数 or [])
-            return cursor.fetchall()
+        """执行查询，返回Row列表（读连接，不加锁，WAL下不阻塞写）"""
+        cursor = self._读连接.execute(sql, 参数 or [])
+        return cursor.fetchall()
 
     # ==================== 对话记录 ====================
 
@@ -940,7 +993,151 @@ class 存储引擎类:
     def 关闭(self):
         """关闭数据库连接"""
         with self._锁:
+            try:
+                self._读连接.close()
+            except Exception:
+                pass
             self._连接.close()
+
+    def 插入LLM日志(self, 条目: dict):
+        """插入一条LLM调用日志"""
+        with self._锁:
+            self._连接.execute("""
+                INSERT INTO LLM调用日志
+                (时间, 模型, 成功, 耗时毫秒, 错误, 系统提示词长度, 消息数量,
+                 原始请求, 原始响应, 回复内容, 工具调用)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                条目.get("时间", ""),
+                条目.get("模型", ""),
+                1 if 条目.get("成功") else 0,
+                条目.get("耗时毫秒", 0),
+                条目.get("错误", ""),
+                条目.get("系统提示词长度", 0),
+                条目.get("消息数量", 0),
+                json.dumps(条目.get("原始请求"), ensure_ascii=False) if 条目.get("原始请求") else "",
+                json.dumps(条目.get("原始响应"), ensure_ascii=False) if 条目.get("原始响应") else "",
+                条目.get("回复内容", ""),
+                json.dumps(条目.get("工具调用"), ensure_ascii=False) if 条目.get("工具调用") else ""
+            ))
+            self._连接.commit()
+
+    def 查询LLM日志(self, 页码=1, 每页=20, 关键词=""):
+        """查询LLM调用日志（分页，读连接不加锁）"""
+        offset = (页码 - 1) * 每页
+        if 关键词:
+            rows = self._读连接.execute("""
+                SELECT * FROM LLM调用日志
+                WHERE 回复内容 LIKE ? OR 错误 LIKE ? OR 原始请求 LIKE ?
+                ORDER BY id DESC LIMIT ? OFFSET ?
+            """, (f"%{关键词}%", f"%{关键词}%", f"%{关键词}%", 每页, offset)).fetchall()
+            总数 = self._读连接.execute(
+                "SELECT COUNT(*) FROM LLM调用日志 WHERE 回复内容 LIKE ? OR 错误 LIKE ? OR 原始请求 LIKE ?",
+                (f"%{关键词}%", f"%{关键词}%", f"%{关键词}%")
+            ).fetchone()[0]
+        else:
+            rows = self._读连接.execute(
+                "SELECT * FROM LLM调用日志 ORDER BY id DESC LIMIT ? OFFSET ?",
+                (每页, offset)).fetchall()
+            总数 = self._读连接.execute("SELECT COUNT(*) FROM LLM调用日志").fetchone()[0]
+        return {
+            "总数": 总数,
+            "页码": 页码,
+            "每页": 每页,
+            "记录": [dict(r) for r in rows]
+        }
+
+    # ==================== Bug库 ====================
+
+    def 插入Bug(self, 文件路径: str, 问题描述: str, 行号: int = 0,
+                严重程度: str = "中", 发现来源: str = "AI检查", 修复代码: str = "") -> int:
+        """插入一条Bug记录，返回Bug ID"""
+        from datetime import datetime
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor = self._执行(
+            """INSERT INTO Bug库 (文件路径, 行号, 问题描述, 严重程度, 状态, 发现时间, 发现来源, 修复代码)
+               VALUES (?, ?, ?, ?, '未解决', ?, ?, ?)""",
+            [文件路径, 行号, 问题描述, 严重程度, 时间, 发现来源, 修复代码]
+        )
+        bug_id = cursor.lastrowid
+        # 同步写入FTS5搜索索引
+        try:
+            self._执行(
+                "INSERT INTO Bug搜索 (问题描述, 文件路径, 修复说明) VALUES (?, ?, '')",
+                [问题描述, 文件路径]
+            )
+        except Exception:
+            pass
+        return bug_id
+
+    def 查询Bug(self, 未解决Only: bool = False, 文件路径: str = None, limit: int = 200) -> list:
+        """查询Bug列表"""
+        sql = "SELECT id, 文件路径, 行号, 问题描述, 严重程度, 状态, 发现时间, 修复时间, 修复说明, 发现来源 FROM Bug库 WHERE 1=1"
+        参数 = []
+        if 未解决Only:
+            sql += " AND 状态 = '未解决'"
+        if 文件路径:
+            sql += " AND 文件路径 LIKE ?"
+            参数.append(f"%{文件路径}%")
+        sql += " ORDER BY id DESC LIMIT ?"
+        参数.append(limit)
+        rows = self._查询(sql, 参数)
+        return [{
+            "id": r[0], "文件路径": r[1], "行号": r[2], "问题描述": r[3],
+            "严重程度": r[4], "状态": r[5], "发现时间": r[6],
+            "修复时间": r[7], "修复说明": r[8], "发现来源": r[9]
+        } for r in rows]
+
+    def 解决Bug(self, bug_id: int, 修复说明: str = "", 修复代码: str = "") -> bool:
+        """标记Bug为已解决"""
+        from datetime import datetime
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor = self._执行(
+            "UPDATE Bug库 SET 状态='已解决', 修复时间=?, 修复说明=?, 修复代码=? WHERE id=? AND 状态='未解决'",
+            [时间, 修复说明, 修复代码, bug_id]
+        )
+        # 更新FTS索引
+        try:
+            self._执行(
+                "UPDATE Bug搜索 SET 修复说明=? WHERE rowid IN (SELECT id FROM Bug库 WHERE id=?)",
+                [修复说明, bug_id]
+            )
+        except Exception:
+            pass
+        return cursor.rowcount > 0
+
+    def 搜索Bug(self, 关键词: str, limit: int = 20) -> list:
+        """全文搜索Bug"""
+        try:
+            rows = self._查询(
+                "SELECT id, 文件路径, 问题描述, 状态 FROM Bug搜索 WHERE 问题描述 MATCH ? ORDER BY rank LIMIT ?",
+                [关键词, limit]
+            )
+            if rows:
+                return [{"id": r[0], "文件路径": r[1], "问题描述": r[2], "状态": r[3]} for r in rows]
+        except Exception:
+            pass
+        rows = self._查询(
+            "SELECT id, 文件路径, 问题描述, 状态 FROM Bug库 WHERE 问题描述 LIKE ? OR 文件路径 LIKE ? ORDER BY id DESC LIMIT ?",
+            [f"%{关键词}%", f"%{关键词}%", limit]
+        )
+        return [{"id": r[0], "文件路径": r[1], "问题描述": r[2], "状态": r[3]} for r in rows]
+
+    def Bug统计(self) -> dict:
+        """Bug统计"""
+        rows = self._查询("SELECT 状态, COUNT(*) FROM Bug库 GROUP BY 状态")
+        统计 = {r[0]: r[1] for r in rows}
+        总数 = sum(统计.values())
+        return {
+            "总数": 总数,
+            "未解决": 统计.get("未解决", 0),
+            "已解决": 统计.get("已解决", 0)
+        }
+
+    def 删除Bug(self, bug_id: int) -> bool:
+        """删除一条Bug记录"""
+        cursor = self._执行("DELETE FROM Bug库 WHERE id = ?", [bug_id])
+        return cursor.rowcount > 0
 
 
 # 全局单例

@@ -52,17 +52,17 @@ class 记忆模块:
         self.用户画像路径 = 项目根目录 / "隐私区" / "我的记忆" / "用户画像.json"
         self.摘要索引路径 = 项目根目录 / "隐私区" / "我的记忆" / "摘要索引.json"
 
-        # 加载已有数据（优先SQLite KV，fallback到JSON文件）
+        # 加载已有数据（仅SQLite KV，无存储引擎时使用默认值）
         if self.存储引擎:
             self.记忆库 = self.存储引擎.读取KV_JSON("记忆库", {"事件列表": {}, "事件计数": 0})
             self.用户画像 = self.存储引擎.读取KV_JSON("用户画像", {})
             self.摘要索引 = self.存储引擎.读取KV_JSON("摘要索引", {"索引": []})
             self.索引数据 = self.存储引擎.读取KV_JSON("记忆索引数据", {"条目": {}, "标签索引": {}})
         else:
-            self.记忆库 = self._读取JSON(self.记忆库路径)
-            self.用户画像 = self._读取JSON(self.用户画像路径)
-            self.摘要索引 = self._读取JSON(self.摘要索引路径)
-            self.索引数据 = self._读取JSON(self.索引数据路径)
+            self.记忆库 = {"事件列表": {}, "事件计数": 0}
+            self.用户画像 = {}
+            self.摘要索引 = {"索引": []}
+            self.索引数据 = {"条目": {}, "标签索引": {}}
 
         if "条目" not in self.索引数据:
             self.索引数据["条目"] = {}
@@ -1016,33 +1016,16 @@ tags: [{', '.join(标签)}]
     def _写入记忆库到磁盘(self, 数据):
         if self.存储引擎:
             self.存储引擎.写入KV_JSON("记忆库", 数据)
-        elif self.记忆库路径:
-            self.记忆库路径.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.记忆库路径, "w", encoding="utf-8") as f:
-                json.dump(数据, f, ensure_ascii=False, indent=2)
 
     def _写入用户画像到磁盘(self, 数据):
         if self.存储引擎:
             self.存储引擎.写入KV_JSON("用户画像", 数据)
-        elif self.用户画像路径:
-            self.用户画像路径.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.用户画像路径, "w", encoding="utf-8") as f:
-                json.dump(数据, f, ensure_ascii=False, indent=2)
 
     def _写入摘要索引到磁盘(self, 数据):
         if self.存储引擎:
             self.存储引擎.写入KV_JSON("摘要索引", 数据)
-        elif self.摘要索引路径:
-            self.摘要索引路径.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.摘要索引路径, "w", encoding="utf-8") as f:
-                json.dump(数据, f, ensure_ascii=False, indent=2)
 
     def _写入索引数据到磁盘(self, 数据):
         if self.存储引擎:
             with self._索引锁:
                 self.存储引擎.写入KV_JSON("记忆索引数据", 数据)
-        elif self.索引数据路径:
-            self.索引数据路径.parent.mkdir(parents=True, exist_ok=True)
-            with self._索引锁:
-                with open(self.索引数据路径, "w", encoding="utf-8") as f:
-                    json.dump(数据, f, ensure_ascii=False, indent=2)

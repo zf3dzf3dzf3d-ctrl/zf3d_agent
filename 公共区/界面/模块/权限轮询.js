@@ -18,7 +18,7 @@ async function pollPending() {
             }
         }
     } catch (e) {}
-    setTimeout(pollPending, 2000);
+    setTimeout(pollPending, 5000);
 }
 
 function showPermissionDialog(req) {

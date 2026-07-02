@@ -20,19 +20,21 @@ async function loadModelConfig() {
         // 显示当前模型
         const curEl = document.getElementById("currentModelName");
         if (curEl) curEl.textContent = d.当前模型 || "未设置";
-        // 渲染模型列表（国内|国外 两列分区布局）
+        // 渲染模型列表（国内|国外|本地 三列分区布局）
         const list = document.getElementById("modelList");
         if (!list) return;
         list.innerHTML = "";
-        list.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;";
+        list.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;";
         const 国内模型 = ["DeepSeek(深度求索)", "通义千问(阿里云)", "智谱大模型(GLM)", "Kimi(月之暗面)", "豆包(火山大模型)"];
+        const 本地模型 = ["本地Qwen3(Ollama)"];
         const allModels = d.模型列表 || [];
-        // 左列：国内，右列：国外+自定义
+        // 左列：国内，中列：国外，右列：本地+自定义
         const 左列 = allModels.filter(m => 国内模型.includes(m.名称));
-        const 右列 = allModels.filter(m => !国内模型.includes(m.名称));
-        const maxRows = Math.max(左列.length, 右列.length);
+        const 右列 = allModels.filter(m => 本地模型.includes(m.名称));
+        const 中列 = allModels.filter(m => !国内模型.includes(m.名称) && !本地模型.includes(m.名称));
+        const maxRows = Math.max(左列.length, 中列.length, 右列.length);
         for (let i = 0; i < maxRows; i++) {
-            // 左列
+            // 左列（国内）
             if (i < 左列.length) {
                 const m = 左列[i];
                 const isCurrent = m.名称 === d.当前模型;
@@ -45,7 +47,20 @@ async function loadModelConfig() {
                 const ph = document.createElement("div");
                 list.appendChild(ph);
             }
-            // 右列
+            // 中列（国外）
+            if (i < 中列.length) {
+                const m = 中列[i];
+                const isCurrent = m.名称 === d.当前模型;
+                const el = document.createElement("div");
+                el.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border);" + (isCurrent ? "border-color:var(--blue);background:rgba(33,150,243,0.08);" : "");
+                el.innerHTML = `<span style="font-size:14px;">${isCurrent ? "✅" : "⚪"}</span><span style="font-weight:600;font-size:13px;">${m.名称}</span>`;
+                el.addEventListener("click", () => switchModel(m.名称));
+                list.appendChild(el);
+            } else {
+                const ph = document.createElement("div");
+                list.appendChild(ph);
+            }
+            // 右列（本地+自定义）
             if (i < 右列.length) {
                 const m = 右列[i];
                 const isCurrent = m.名称 === d.当前模型;

@@ -564,11 +564,8 @@ class 查Bug(操作基类):
         if not 注册中心:
             return 操作结果.失败("操作注册中心未就绪")
 
-        项目根 = Path(self.文件管理器.项目根目录) if hasattr(self, '文件管理器') and self.文件管理器 else Path.cwd()
-
         # 1. 收集对话记录
-        对话目录 = 项目根 / "隐私区" / "对话记录"
-        诊断报告 = self._收集诊断信息(对话目录, 条数, 项目根)
+        诊断报告 = self._收集诊断信息(条数)
 
         # 2. 启动reviewer子代理分析
         reviewer只读操作 = {"搜索代码", "Glob搜索", "读取文件", "列出目录", "符号搜索", "获取时间", "系统信息", "验证代码"}
@@ -617,51 +614,56 @@ class 查Bug(操作基类):
         except Exception as e:
             return 操作结果.失败(f"Bug检查异常: {e}")
 
-    def _收集诊断信息(self, 对话目录: Path, 条数: int, 项目根: Path) -> str:
-        """收集所有诊断信息到一处，避免子代理多处翻找"""
+    def _收集诊断信息(self, 条数: int) -> str:
+        """收集所有诊断信息到一处，避免子代理多处翻找（SQLite查询版）"""
         报告片段 = []
+
+        # 获取存储引擎
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if not 引擎:
+                报告片段.append("  (存储引擎未初始化)")
+                return "\n".join(报告片段)
+        except Exception as e:
+            报告片段.append(f"  (存储引擎不可用: {e})")
+            return "\n".join(报告片段)
 
         # 1. 对话记录
         报告片段.append("=" * 50)
         报告片段.append(f"📋 最近{条数}条对话记录")
         报告片段.append("=" * 50)
         try:
-            索引文件 = 对话目录 / "_索引.json"
-            if 索引文件.exists():
-                with open(索引文件, "r", encoding="utf-8") as f:
-                    索引 = json.load(f)
-                对话列表 = 索引 if isinstance(索引, list) else 索引.get("列表", [])
-                # 取最近N个
-                最近对话 = 对话列表[-条数:] if len(对话列表) >= 条数 else 对话列表
-                for i, 对话信息 in enumerate(最近对话):
-                    对话ID = 对话信息.get("id", "")
-                    对话文件 = 对话目录 / f"{对话ID}.json"
-                    if not 对话文件.exists():
-                        continue
-                    with open(对话文件, "r", encoding="utf-8") as f:
-                        对话数据 = json.load(f)
-                    报告片段.append(f"\n--- 对话{i+1}: {对话ID} ---")
-                    推理日志 = 对话数据.get("推理日志", [])
-                    for j, 日志 in enumerate(推理日志):
-                        报告片段.append(f"\n  [推理日志{j+1}]")
-                        报告片段.append(f"  用户消息: {日志.get('用户消息', '')[:200]}")
-                        报告片段.append(f"  助手回复: {日志.get('助手回复', '')[:200]}")
-                        报告片段.append(f"  成功: {日志.get('成功', True)} 错误: {日志.get('错误', '')}")
-                        报告片段.append(f"  步数: {日志.get('步数', 0)}")
-                        # 提取推理过程中的操作和结果
-                        推理过程 = 日志.get("推理过程", [])
-                        for 步 in 推理过程:
-                            if 步.get("类型") == "操作":
-                                报告片段.append(f"    步{步.get('步骤','?')}: {步.get('操作','')} → {'✅' if 步.get('成功', True) else '❌'} {str(步.get('结果',''))[:150]}")
-                            elif 步.get("类型") == "回复":
-                                报告片段.append(f"    步{步.get('步骤','?')}: 最终回复")
-                        # 提取LLM调用记录中的错误
-                        llm记录 = 日志.get("llm调用记录", [])
-                        for k, llm in enumerate(llm记录):
-                            if not llm.get("成功", True):
-                                报告片段.append(f"    LLM调用{k+1}失败: {llm.get('错误', '')[:200]}")
-            else:
-                报告片段.append("  (对话记录索引不存在)")
+            # 查询对话索引（已按更新时间降序排列）
+            对话列表 = 引擎.查询对话索引()
+            if not 对话列表:
+                报告片段.append("  (无对话记录)")
+            最近对话 = 对话列表[:条数] if len(对话列表) >= 条数 else 对话列表
+            for i, 对话信息 in enumerate(最近对话):
+                对话ID = 对话信息.get("id", "")
+                # 查询该对话的推理日志
+                推理日志 = 引擎.查询推理日志(对话ID)
+                if not 推理日志:
+                    continue
+                报告片段.append(f"\n--- 对话{i+1}: {对话ID} ---")
+                for j, 日志 in enumerate(推理日志):
+                    报告片段.append(f"\n  [推理日志{j+1}]")
+                    报告片段.append(f"  用户消息: {日志.get('用户消息', '')[:200]}")
+                    报告片段.append(f"  助手回复: {日志.get('助手回复', '')[:200]}")
+                    报告片段.append(f"  成功: {日志.get('成功', True)} 错误: {日志.get('错误', '')}")
+                    报告片段.append(f"  步数: {日志.get('步数', 0)}")
+                    # 提取推理过程中的操作和结果
+                    推理过程 = 日志.get("推理过程", [])
+                    for 步 in 推理过程:
+                        if 步.get("类型") == "操作":
+                            报告片段.append(f"    步{步.get('步骤','?')}: {步.get('操作','')} → {'✅' if 步.get('成功', True) else '❌'} {str(步.get('结果',''))[:150]}")
+                        elif 步.get("类型") == "回复":
+                            报告片段.append(f"    步{步.get('步骤','?')}: 最终回复")
+                    # 提取LLM调用记录中的错误
+                    llm记录 = 日志.get("llm调用记录", [])
+                    for k, llm in enumerate(llm记录):
+                        if not llm.get("成功", True):
+                            报告片段.append(f"    LLM调用{k+1}失败: {llm.get('错误', '')[:200]}")
         except Exception as e:
             报告片段.append(f"  (读取对话记录异常: {e})")
 
@@ -670,21 +672,14 @@ class 查Bug(操作基类):
         报告片段.append("🔬 运行诊断错误")
         报告片段.append("=" * 50)
         try:
-            诊断文件 = 项目根 / "隐私区" / "我的日志" / "运行诊断.json"
-            if 诊断文件.exists():
-                with open(诊断文件, "r", encoding="utf-8") as f:
-                    诊断 = json.load(f)
-                错误列表 = 诊断.get("错误列表", [])
-                未解决 = [e for e in 错误列表 if not e.get("已解决", False)]
-                if 未解决:
-                    for err in 未解决:
-                        报告片段.append(f"\n  [{err.get('级别','')}] {err.get('来源','')}: {err.get('异常类型','')}")
-                        报告片段.append(f"  信息: {err.get('异常信息','')[:300]}")
-                        报告片段.append(f"  时间: {err.get('时间','')}")
-                else:
-                    报告片段.append("  (无未解决错误)")
+            未解决 = 引擎.查询诊断记录(未解决Only=True)
+            if 未解决:
+                for err in 未解决:
+                    报告片段.append(f"\n  [{err.get('级别','')}] {err.get('来源','')}: {err.get('异常类型','')}")
+                    报告片段.append(f"  信息: {err.get('异常信息','')[:300]}")
+                    报告片段.append(f"  时间: {err.get('时间','')}")
             else:
-                报告片段.append("  (运行诊断文件不存在)")
+                报告片段.append("  (无未解决错误)")
         except Exception as e:
             报告片段.append(f"  (读取运行诊断异常: {e})")
 
@@ -693,26 +688,20 @@ class 查Bug(操作基类):
         报告片段.append("📝 LLM调用日志（最后5条）")
         报告片段.append("=" * 50)
         try:
-            日志文件 = 项目根 / "隐私区" / "我的日志" / "LLM调用日志.jsonl"
-            if 日志文件.exists():
-                with open(日志文件, "r", encoding="utf-8") as f:
-                    行列表 = f.readlines()
-                最后几条 = 行列表[-5:] if len(行列表) >= 5 else 行列表
-                for 行 in 最后几条:
-                    try:
-                        条目 = json.loads(行.strip())
-                        成功 = 条目.get("成功", False)
-                        报告片段.append(f"\n  时间: {条目.get('时间','')} 模型: {条目.get('模型','')}")
-                        报告片段.append(f"  成功: {成功} 耗时: {条目.get('耗时毫秒',0)}ms")
-                        if not 成功:
-                            报告片段.append(f"  错误: {条目.get('错误','')[:300]}")
-                        消息数 = 条目.get("消息数量", 0)
-                        提示词长度 = 条目.get("系统提示词长度", 0)
-                        报告片段.append(f"  消息数: {消息数} 提示词长度: {提示词长度}")
-                    except json.JSONDecodeError:
-                        continue
+            结果 = 引擎.查询LLM日志(页码=1, 每页=5)
+            记录列表 = 结果.get("记录", []) if isinstance(结果, dict) else []
+            if 记录列表:
+                for 条目 in 记录列表:
+                    成功 = bool(条目.get("成功", 0))
+                    报告片段.append(f"\n  时间: {条目.get('时间','')} 模型: {条目.get('模型','')}")
+                    报告片段.append(f"  成功: {成功} 耗时: {条目.get('耗时毫秒',0)}ms")
+                    if not 成功:
+                        报告片段.append(f"  错误: {条目.get('错误','')[:300]}")
+                    消息数 = 条目.get("消息数量", 0)
+                    提示词长度 = 条目.get("系统提示词长度", 0)
+                    报告片段.append(f"  消息数: {消息数} 提示词长度: {提示词长度}")
             else:
-                报告片段.append("  (LLM调用日志不存在)")
+                报告片段.append("  (LLM调用日志为空)")
         except Exception as e:
             报告片段.append(f"  (读取LLM日志异常: {e})")
 

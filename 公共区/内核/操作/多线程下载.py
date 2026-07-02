@@ -63,7 +63,7 @@ class 多线程下载(操作基类):
     支持后台下载模式：参数 后台=true 时立即返回，下载在独立线程完成
     """
     名称 = "多线程下载"
-    描述 = "多线程断点续传下载文件。后台执行不阻塞，进度条自动显示在界面右下角。优先使用aria2c加速，未安装时回退纯Python多线程。支持断点续传、自动重试。参数别名：下载地址也可用「网址/url/URL」，保存路径也可用「保存到/路径」"
+    描述 = "多线程断点续传下载文件。后台执行不阻塞，进度条自动显示在界面左上角。优先使用aria2c加速，未安装时回退纯Python多线程。支持断点续传、自动重试。参数别名：下载地址也可用「网址/url/URL」，保存路径也可用「保存到/路径」"
     参数结构 = {
         "下载地址": {"类型": "字符串", "必填": True, "说明": "文件下载URL（也可用参数名：网址、url、URL）"},
         "保存路径": {"类型": "字符串", "必填": True, "说明": "文件保存完整路径（含文件名）（也可用参数名：保存到、路径）"},
@@ -87,6 +87,13 @@ class 多线程下载(操作基类):
     _下载进度表 = {}  # 下载ID -> {文件名, 百分比, 已下载MB, 总大小MB, 速度MB每秒, ETA, 状态}
     _下载进度锁 = threading.Lock()
 
+    # 用户主动取消标记（下载ID -> True）
+    _取消标记 = {}
+    _取消标记锁 = threading.Lock()
+    # 下载任务持久化（重启后自动恢复未取消的下载）
+    _任务记录路径 = None
+    _任务记录锁 = threading.Lock()
+
     def _安全推送进度(self, 类型, 数据):
         """推送进度到回调，SSE流关闭后不会崩溃"""
         if not self.进度回调:
@@ -95,6 +102,205 @@ class 多线程下载(操作基类):
             self.进度回调(类型, 数据)
         except Exception:
             pass
+
+    # ============ 取消机制 ============
+
+    @classmethod
+    def 取消下载(cls, 下载ID):
+        """用户取消指定下载，设置标记后下载线程轮询自行退出"""
+        with cls._取消标记锁:
+            cls._取消标记[下载ID] = True
+        cls._标记取消(下载ID)
+
+    @classmethod
+    def _检查取消(cls, 下载ID):
+        with cls._取消标记锁:
+            return cls._取消标记.get(下载ID, False)
+
+    # ============ 任务持久化 ============
+
+    @classmethod
+    def _获取任务记录路径(cls):
+        if cls._任务记录路径 is None:
+            cls._任务记录路径 = Path(__file__).parent.parent.parent.parent / "下载任务记录.json"
+        return cls._任务记录路径
+
+    @classmethod
+    def _保存任务(cls, 下载ID, 任务信息):
+        """保存/更新单个下载任务到存储引擎"""
+        with cls._任务记录锁:
+            try:
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                if not 引擎:
+                    return
+                记录 = 引擎.读取KV_JSON("下载记录", {})
+                记录[str(下载ID)] = 任务信息
+                引擎.写入KV_JSON("下载记录", 记录)
+            except Exception:
+                pass
+
+    @classmethod
+    def _移除任务(cls, 下载ID):
+        """下载完成或失败后从存储引擎移除"""
+        with cls._任务记录锁:
+            try:
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                if not 引擎:
+                    return
+                记录 = 引擎.读取KV_JSON("下载记录", {})
+                记录.pop(str(下载ID), None)
+                if 记录:
+                    引擎.写入KV_JSON("下载记录", 记录)
+                else:
+                    引擎.删除KV("下载记录")
+            except Exception:
+                return
+
+    @classmethod
+    def _标记取消(cls, 下载ID):
+        """标记任务为用户取消（重启后不自动恢复）"""
+        with cls._任务记录锁:
+            try:
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                if not 引擎:
+                    return
+                记录 = 引擎.读取KV_JSON("下载记录", {})
+                if str(下载ID) in 记录:
+                    记录[str(下载ID)]["已取消"] = True
+                    引擎.写入KV_JSON("下载记录", 记录)
+            except Exception:
+                return
+
+    @classmethod
+    def 恢复未完成任务(cls):
+        """应用启动时调用，恢复所有未取消的下载任务"""
+        with cls._任务记录锁:
+            try:
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                if not 引擎:
+                    return
+                记录 = 引擎.读取KV_JSON("下载记录", {})
+            except Exception:
+                return
+            if not 记录:
+                return
+            # 过滤掉已取消的
+            待恢复 = {k: v for k, v in 记录.items() if not v.get("已取消", False)}
+            已取消ID = [k for k, v in 记录.items() if v.get("已取消", False)]
+
+        if 已取消ID:
+            # 清理已取消任务的残留文件
+            for 旧ID in 已取消ID:
+                任务 = 记录[旧ID]
+                保存路径 = Path(任务.get("保存路径", ""))
+                if 保存路径.exists():
+                    try:
+                        保存路径.unlink()
+                    except Exception:
+                        pass
+                # 清理aria2控制文件
+                aria2控制 = 保存路径.parent / f"{保存路径.name}.aria2"
+                if aria2控制.exists():
+                    try:
+                        aria2控制.unlink()
+                    except Exception:
+                        pass
+                # 清理dlmeta和parts
+                元数据路径 = 保存路径.parent / f".{保存路径.name}.dlmeta"
+                临时目录 = 保存路径.parent / f".{保存路径.name}.parts"
+                for p in [元数据路径, 临时目录]:
+                    if p.exists():
+                        try:
+                            if p.is_dir():
+                                shutil.rmtree(p)
+                            else:
+                                p.unlink()
+                        except Exception:
+                            pass
+
+        # 清理已取消任务的记录
+        if 已取消ID:
+            with cls._任务记录锁:
+                for 旧ID in 已取消ID:
+                    记录.pop(旧ID, None)
+                try:
+                    from 存储引擎 import 获取存储引擎
+                    引擎2 = 获取存储引擎()
+                    if 引擎2:
+                        if 记录:
+                            引擎2.写入KV_JSON("下载记录", 记录)
+                        else:
+                            引擎2.删除KV("下载记录")
+                except Exception:
+                    pass
+
+        if not 待恢复:
+            return
+
+        print(f"📥 恢复 {len(待恢复)} 个未完成的下载任务...")
+
+        for 旧ID, 任务 in 待恢复.items():
+            下载地址 = 任务.get("下载地址", "")
+            保存路径 = 任务.get("保存路径", "")
+            线程数 = 任务.get("线程数", 32)
+            重试次数 = 任务.get("重试次数", 5)
+            if not 下载地址 or not 保存路径:
+                continue
+
+            # 分配新下载ID
+            with cls._下载计数锁:
+                cls._下载计数器 += 1
+                新下载ID = cls._下载计数器
+
+            文件名 = Path(保存路径).name
+
+            # 初始化进度记录
+            with cls._下载进度锁:
+                cls._下载进度表[新下载ID] = {
+                    "文件名": 文件名, "百分比": 0, "已下载MB": 0,
+                    "总大小MB": 0, "速度MB每秒": 0, "ETA": "", "状态": "启动中"
+                }
+
+            # 更新持久化记录中的ID
+            cls._移除任务(int(旧ID))
+            cls._保存任务(新下载ID, {
+                "下载地址": 下载地址,
+                "保存路径": 保存路径,
+                "线程数": 线程数,
+                "重试次数": 重试次数,
+                "已取消": False,
+                "启动时间": time.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+
+            def _恢复执行(下载地址, 保存路径, 线程数, 重试次数, 下载ID, 文件名):
+                实例 = cls()
+                实例.进度回调 = None
+                实例.取消检查 = None
+                结果 = 实例._执行下载(下载地址, Path(保存路径), 线程数, 重试次数, 下载ID, 文件名)
+                # 更新状态
+                with cls._下载进度锁:
+                    if 下载ID in cls._下载进度表:
+                        cls._下载进度表[下载ID]["状态"] = "完成" if 结果.成功 else "失败"
+                # 移除持久化记录
+                cls._移除任务(下载ID)
+                # 延迟清理进度表
+                def _延迟清理():
+                    time.sleep(10)
+                    with cls._下载进度锁:
+                        cls._下载进度表.pop(下载ID, None)
+                threading.Thread(target=_延迟清理, daemon=True).start()
+
+            t = threading.Thread(
+                target=_恢复执行,
+                args=(下载地址, 保存路径, 线程数, 重试次数, 新下载ID, 文件名),
+                daemon=True
+            )
+            t.start()
+            print(f"   ✅ 恢复下载: {文件名} (新ID={新下载ID})")
 
     def _校验文件(self, 保存路径, url, 下载ID, 文件名):
         """下载完成后自动校验文件完整性。
@@ -216,6 +422,9 @@ class 多线程下载(操作基类):
                 if 下载ID in 多线程下载._下载进度表:
                     多线程下载._下载进度表[下载ID]["状态"] = "完成" if 结果.成功 else "失败"
 
+            # 从持久化记录移除
+            多线程下载._移除任务(下载ID)
+
             def _延迟清理():
                 time.sleep(10)
                 with 多线程下载._下载进度锁:
@@ -224,6 +433,15 @@ class 多线程下载(操作基类):
 
         t = threading.Thread(target=_后台执行, daemon=True)
         t.start()
+        # 持久化任务（重启后自动恢复）
+        多线程下载._保存任务(下载ID, {
+            "下载地址": 下载地址,
+            "保存路径": str(保存路径),
+            "线程数": 线程数,
+            "重试次数": 重试次数,
+            "已取消": False,
+            "启动时间": time.strftime("%Y-%m-%d %H:%M:%S"),
+        })
         return 操作结果.成功(
             f"下载已启动: {文件名}\n进度条实时显示，完成后自动通知",
             元数据={"操作类型": "多线程下载", "模式": "后台", "下载ID": 下载ID, "保存路径": str(保存路径)}
@@ -337,12 +555,15 @@ class 多线程下载(操作基类):
                 line = line.strip()
 
                 # 检查取消标志
-                if self.取消检查 and self.取消检查():
+                if (self.取消检查 and self.取消检查()) or 多线程下载._检查取消(下载ID):
                     proc.terminate()
                     try:
                         proc.wait(timeout=5)
                     except Exception:
                         proc.kill()
+                    with 多线程下载._下载进度锁:
+                        if 下载ID in 多线程下载._下载进度表:
+                            多线程下载._下载进度表[下载ID]["状态"] = "失败"
                     return 操作结果.失败(
                         f"下载已取消（aria2c）\n可重新执行此操作继续断点续传",
                         元数据={"操作类型": "多线程下载", "模式": "aria2c", "已取消": True}
@@ -517,8 +738,11 @@ class 多线程下载(操作基类):
                 with open(保存路径, 'wb') as f:
                     while True:
                         # 检查取消标志
-                        if self.取消检查 and self.取消检查():
+                        if (self.取消检查 and self.取消检查()) or 多线程下载._检查取消(下载ID):
                             响应.close()
+                            with 多线程下载._下载进度锁:
+                                if 下载ID in 多线程下载._下载进度表:
+                                    多线程下载._下载进度表[下载ID]["状态"] = "失败"
                             return 操作结果.失败(
                                 f"下载已取消\n已下载: {已下载}/{总大小} bytes",
                                 元数据={"操作类型": "多线程下载", "模式": "单线程", "已取消": True}
@@ -659,7 +883,7 @@ class 多线程下载(操作基类):
             for 尝试 in range(重试次数 + 1):
                 try:
                     # 检查取消标志
-                    if self.取消检查 and self.取消检查():
+                    if (self.取消检查 and self.取消检查()) or 多线程下载._检查取消(下载ID):
                         return False
 
                     当前位置 = 块["start"] + 非局部["已下载"]
@@ -678,7 +902,7 @@ class 多线程下载(操作基类):
                     with open(part文件, 模式) as f:
                         while True:
                             # 检查取消标志
-                            if self.取消检查 and self.取消检查():
+                            if (self.取消检查 and self.取消检查()) or 多线程下载._检查取消(下载ID):
                                 响应.close()
                                 块["已下载"] = 非局部["已下载"]
                                 _保存元数据()
@@ -746,8 +970,11 @@ class 多线程下载(操作基类):
         while any(t.is_alive() for t in 线程列表):
             time.sleep(1)
             # 检查取消标志
-            if self.取消检查 and self.取消检查():
+            if (self.取消检查 and self.取消检查()) or 多线程下载._检查取消(下载ID):
                 用户取消 = True
+                with 多线程下载._下载进度锁:
+                    if 下载ID in 多线程下载._下载进度表:
+                        多线程下载._下载进度表[下载ID]["状态"] = "失败"
                 break
             with 进度锁:
                 已完成字节数 = sum(块["已下载"] for 块 in 分块列表)

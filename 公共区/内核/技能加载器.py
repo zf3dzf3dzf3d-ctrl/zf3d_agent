@@ -350,24 +350,24 @@ class 技能加载器类:
     # ========== 生命周期管理 ==========
 
     def _加载使用记录(self):
-        """从磁盘加载使用记录"""
-        if not self.技能目录:
-            return
-        self._使用记录路径 = self.技能目录 / ".使用记录.json"
-        if self._使用记录路径.exists():
-            try:
-                with open(self._使用记录路径, "r", encoding="utf-8") as f:
-                    self._使用记录 = json.load(f)
-            except Exception:
+        """从存储引擎加载使用记录"""
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                self._使用记录 = 引擎.读取KV_JSON("技能使用记录", {})
+            else:
                 self._使用记录 = {}
+        except Exception:
+            self._使用记录 = {}
 
     def _保存使用记录(self):
-        """保存使用记录到磁盘"""
-        if not self._使用记录路径:
-            return
+        """保存使用记录到存储引擎"""
         try:
-            with open(self._使用记录路径, "w", encoding="utf-8") as f:
-                json.dump(self._使用记录, f, ensure_ascii=False, indent=2)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                引擎.写入KV_JSON("技能使用记录", self._使用记录)
         except Exception:
             pass
 

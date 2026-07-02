@@ -39,24 +39,27 @@ class 经验师类:
         print(f"  ✅ 经验师就绪（已管理 {len(self.索引['经验列表'])} 条经验）")
 
     def _加载索引(self):
-        """从磁盘加载经验索引"""
-        if self.索引路径 and self.索引路径.exists():
-            try:
-                with open(self.索引路径, "r", encoding="utf-8") as f:
-                    self.索引 = json.load(f)
-                # 补全字段
-                self.索引.setdefault("经验列表", [])
-                self.索引.setdefault("标签索引", {})
-            except Exception:
+        """从存储引擎加载经验索引"""
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                self.索引 = 引擎.读取KV_JSON("经验索引", {"版本": "1.0", "经验列表": [], "标签索引": {}})
+            else:
                 self.索引 = {"版本": "1.0", "经验列表": [], "标签索引": {}}
+            # 补全字段
+            self.索引.setdefault("经验列表", [])
+            self.索引.setdefault("标签索引", {})
+        except Exception:
+            self.索引 = {"版本": "1.0", "经验列表": [], "标签索引": {}}
 
     def _保存索引(self):
-        """保存经验索引到磁盘"""
-        if not self.索引路径:
-            return
+        """保存经验索引到存储引擎"""
         try:
-            with open(self.索引路径, "w", encoding="utf-8") as f:
-                json.dump(self.索引, f, ensure_ascii=False, indent=2)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎:
+                引擎.写入KV_JSON("经验索引", self.索引)
         except Exception as e:
             print(f"  ⚠️ 经验索引保存失败: {e}")
 

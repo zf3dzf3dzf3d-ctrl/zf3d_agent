@@ -158,25 +158,24 @@ class 对话模块:
                 self._新对话标志 = False
                 return {"成功": False, "错误": 错误信息, "回复": 错误信息}
 
-            # 反思
-            if self.配置.get("任务反思", True) and 推理结果.get("步数", 0) > 2:
+            # 反思（仅复杂任务触发，简单任务跳过省token）
+            if self.配置.get("任务反思", True) and 推理结果.get("步数", 0) > 4:
                 反思内容 = self.反思评估器.评估(用户消息, 推理结果, self.模型直连器)
                 if 反思内容:
                     self.对话历史.append({"角色": "系统", "内容": f"💡 【任务反思】{反思内容}",
                                            "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                # 生成经验卡片并存入SQLite
+                # 生成经验卡片并存入SQLite（异步，不阻塞用户回复）
                 if hasattr(self, '存储引擎') and self.存储引擎:
-                    经验卡片 = self.反思评估器.生成经验卡片(用户消息, 推理结果, self.模型直连器)
-                    if 经验卡片:
+                    def _异步保存经验():
                         try:
-                            self.存储引擎.插入任务经验(经验卡片)
+                            经验卡片 = self.反思评估器.生成经验卡片(用户消息, 推理结果, self.模型直连器)
+                            if 经验卡片:
+                                self.存储引擎.插入任务经验(经验卡片)
+                            self.经验师.沉淀经验(用户消息, 推理结果)
                         except Exception:
                             pass
-                # 经验师沉淀经验文档
-                try:
-                    self.经验师.沉淀经验(用户消息, 推理结果)
-                except Exception:
-                    pass
+                    import threading as _t
+                    _t.Thread(target=_异步保存经验, daemon=True).start()
 
             全局事件中心.发布("收到消息", {"角色": "助手", "内容": 推理结果.get("回复", "")})
 
@@ -410,7 +409,10 @@ class 对话模块:
                 文件结果 = self.操作注册中心.执行("读取文件", {"路径": 框选文件路径})
                 if 文件结果.get("成功"):
                     文件内容 = 文件结果.get("data", 文件结果.get("数据", ""))
-                    if 框选原文 not in 文件内容 and 框选原文.strip() not in 文件内容:
+                    # 规范化换行符后再比较，避免\r\n vs \n导致匹配失败
+                    文件内容_norm = 文件内容.replace("\r\n", "\n").replace("\r", "\n")
+                    框选_norm = 框选原文.replace("\r\n", "\n").replace("\r", "\n")
+                    if 框选_norm not in 文件内容_norm and 框选_norm.strip() not in 文件内容_norm:
                         return {"成功": True,
                                 "回复": f"⚠️ 选中「{框选原文[:30]}...」在文件中未找到。请先Ctrl+S保存文件再操作。"}
             except:
@@ -609,21 +611,25 @@ class 对话模块:
         pass
 
     def _加载永久记忆(self):
-        路径 = self._永久记忆路径()
-        if 路径.exists():
-            try:
-                with open(路径, "r", encoding="utf-8") as f:
-                    self.永久记忆 = json.load(f)
-            except:
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎 is None:
                 self.永久记忆 = []
-        else:
+            else:
+                数据 = 引擎.读取KV_JSON("永久记忆", 默认值=[])
+                self.永久记忆 = 数据 if isinstance(数据, list) else []
+        except Exception:
             self.永久记忆 = []
 
     def _保存永久记忆(self):
-        路径 = self._永久记忆路径()
-        路径.parent.mkdir(parents=True, exist_ok=True)
-        with open(路径, "w", encoding="utf-8") as f:
-            json.dump(self.永久记忆, f, ensure_ascii=False, indent=2)
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎 is not None:
+                引擎.写入KV_JSON("永久记忆", self.永久记忆)
+        except Exception as e:
+            print(f"  ⚠️ 保存永久记忆失败: {e}")
 
     def _保存当前对话(self):
         """增量保存：只保存未保存的新消息和新推理日志 → SQLite"""
@@ -830,34 +836,38 @@ class 对话模块:
             "时间": datetime.now().isoformat()
         }
         try:
-            文件路径 = self._检查点文件()
-            with open(文件路径, "w", encoding="utf-8") as f:
-                json.dump(self.检查点, f, ensure_ascii=False, indent=2)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎 is not None:
+                引擎.写入KV_JSON(f"检查点_{self.当前对话ID}", self.检查点)
         except Exception as e:
             print(f"  ⚠️ 保存检查点失败: {e}")
 
     def _加载检查点(self):
         if not self.当前对话ID:
             return {"有检查点": False}
-        文件路径 = self._检查点文件()
-        if not 文件路径.exists():
-            return {"有检查点": False}
         try:
-            with open(文件路径, "r", encoding="utf-8") as f:
-                数据 = json.load(f)
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎 is None:
+                return {"有检查点": False}
+            数据 = 引擎.读取KV_JSON(f"检查点_{self.当前对话ID}", 默认值=None)
+            if 数据 is None:
+                return {"有检查点": False}
             return {"有检查点": True, "检查点": 数据}
-        except:
+        except Exception:
             return {"有检查点": False}
 
     def _清除检查点(self):
         if not self.当前对话ID:
             return
-        文件路径 = self._检查点文件()
-        if 文件路径.exists():
-            try:
-                文件路径.unlink()
-            except:
-                pass
+        try:
+            from 存储引擎 import 获取存储引擎
+            引擎 = 获取存储引擎()
+            if 引擎 is not None:
+                引擎.删除KV(f"检查点_{self.当前对话ID}")
+        except Exception:
+            pass
         self.检查点 = None
 
     def 续跑检查点(self):

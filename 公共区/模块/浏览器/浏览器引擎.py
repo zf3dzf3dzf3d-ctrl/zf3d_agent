@@ -105,6 +105,35 @@ class 浏览器引擎类:
         标题 = self._页面.title()
         return {"标题": 标题, "URL": self._页面.url}
 
+    def _cdp树转嵌套(self, cdp树):
+        """CDP扁平节点列表 → Playwright嵌套树格式"""
+        节点列表 = cdp_tree.get("nodes", []) if isinstance(cdp_tree, dict) else []
+        if not 节点列表:
+            return {}
+        # 构建id→节点映射
+        节点映射 = {}
+        for n in 节点列表:
+            nid = n.get("nodeId", "")
+            role = n.get("role", {})
+            name = n.get("name", {})
+            value = n.get("value", {})
+            节点映射[nid] = {
+                "role": role.get("value", "") if isinstance(role, dict) else str(role),
+                "name": name.get("value", "") if isinstance(name, dict) else str(name),
+                "value": value.get("value", "") if isinstance(value, dict) else str(value),
+                "children": []
+            }
+        # 构建父子关系
+        根节点 = None
+        for n in 节点列表:
+            nid = n.get("nodeId", "")
+            pid = n.get("parentId", "")
+            if pid and pid in 节点映射:
+                节点映射[pid]["children"].append(节点映射[nid])
+            elif not pid:
+                根节点 = 节点映射[nid]
+        return 根节点 or {}
+
     def 提取无障碍树(self) -> dict:
         """提取页面的无障碍树（精简版）
 
@@ -121,7 +150,9 @@ class 浏览器引擎类:
         截断长度 = 树设置.get("文本截断长度", 200)
         忽略空节点 = 树设置.get("忽略空节点", True)
 
-        原始树 = self._页面.accessibility.snapshot()
+        # CDP返回扁平节点列表，需转为嵌套树（兼容旧accessibility.snapshot格式）
+        cdp树 = self._页面.context.new_cdp_session(self._页面).send("Accessibility.getFullAXTree")
+        原始树 = self._cdp树转嵌套(cdp树)
 
         节点计数 = [0]
 

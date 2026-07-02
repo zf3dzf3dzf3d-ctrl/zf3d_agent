@@ -1907,7 +1907,7 @@ class ComfyUI诊断(操作基类):
             "操作类型": "ComfyUI诊断",
             "问题数": len(问题列表),
             "问题列表": 问题列表,
-            "ComfyUI运行中": 成功 if '成功' in dir() else False
+            "ComfyUI运行中": 成功
         })
 
 

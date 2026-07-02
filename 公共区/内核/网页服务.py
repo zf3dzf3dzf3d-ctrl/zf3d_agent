@@ -1746,6 +1746,21 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 else:
                     self._返回JSON({"成功": False, "错误": "进化引擎未运行"})
                 return
+            if 动作 == "重置工作引擎":
+                if hasattr(启动器, '进化引擎'):
+                    启动器.进化引擎.重置工作引擎()
+                    del 启动器.进化引擎
+                    self._返回JSON({"成功": True, "消息": "工作引擎已重置，从主引擎重新同步完成"})
+                else:
+                    # 引擎未运行，直接创建临时实例执行重置
+                    if hasattr(启动器, '_进化引擎类'):
+                        进化配置 = getattr(启动器, '_进化配置', {})
+                        临时引擎 = 启动器._进化引擎类(启动器.模型直连器, 启动器.项目根目录, 进化配置)
+                        临时引擎.重置工作引擎()
+                        self._返回JSON({"成功": True, "消息": "工作引擎已重置，从主引擎重新同步完成"})
+                    else:
+                        self._返回JSON({"成功": False, "错误": "进化引擎类未预加载"})
+                return
             if not hasattr(启动器, '进化引擎'):
                 self._返回JSON({"成功": False, "错误": "进化引擎未启动"})
                 return
@@ -1765,6 +1780,44 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "消息": f"对话测试模式: {'开启' if 启用 else '关闭'}"})
             else:
                 self._返回JSON({"成功": False, "错误": f"未知动作: {动作}"})
+        elif 路径 == "/api/record-start":
+            """开始录制系统音频"""
+            保存目录 = 数据.get("保存目录", "")
+            if not 保存目录:
+                保存目录 = str(Path.home() / "Desktop")
+            try:
+                from 录音器 import 录音器
+                结果 = 录音器.开始录制(保存目录)
+                self._返回JSON(结果)
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/record-stop":
+            """停止录制并保存"""
+            try:
+                from 录音器 import 录音器
+                结果 = 录音器.停止录制()
+                self._返回JSON(结果)
+                # 保存后打开文件夹
+                if 结果.get("成功") and 结果.get("保存路径"):
+                    保存目录 = os.path.dirname(结果["保存路径"])
+                    try:
+                        if sys.platform == "win32":
+                            os.startfile(保存目录)
+                        elif sys.platform == "darwin":
+                            subprocess.Popen(["open", 保存目录])
+                        else:
+                            subprocess.Popen(["xdg-open", 保存目录])
+                    except Exception:
+                        pass
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/record-status":
+            """查询录音状态"""
+            try:
+                from 录音器 import 录音器
+                self._返回JSON(录音器.查询状态())
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         else:
             print(f"  ❌ 未知POST API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
@@ -2017,6 +2070,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
                 # 发送最终结果
                 _SSE写入({"类型": "完成", "结果": 结果})
+                return
             elif self.模型直连器:
                 消息列表 = [{"role": "user", "content": 消息}]
                 系统提示词 = 数据.get("系统提示词", "")
@@ -2864,7 +2918,21 @@ class 网页服务类:
         if 模型直连器:
             网页请求处理器.当前模型名 = 模型直连器.当前模型名
 
-        self.服务器 = ThreadingHTTPServer(("0.0.0.0", self.端口), 网页请求处理器)
+        # 自定义线程服务器：客户端断开不崩溃
+        class _健壮HTTPServer(ThreadingHTTPServer):
+            daemon_threads = True  # 守护线程，主进程退出时自动清理
+            allow_reuse_address = True
+
+            def handle_error(self, request, client_address):
+                """覆盖默认错误处理，防止连接异常打印到stderr导致误判"""
+                import sys
+                exc = sys.exc_info()[1]
+                if isinstance(exc, (ConnectionAbortedError, ConnectionResetError,
+                                    BrokenPipeError, OSError)):
+                    return  # 客户端断开，静默忽略
+                super().handle_error(request, client_address)
+
+        self.服务器 = _健壮HTTPServer(("0.0.0.0", self.端口), 网页请求处理器)
         print(f"🌐 Web服务已启动: http://localhost:{self.端口}")
         self.服务器.serve_forever()
 
