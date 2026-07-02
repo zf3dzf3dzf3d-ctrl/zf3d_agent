@@ -224,6 +224,12 @@ function appendReasoningRecord(rec) {
         detailDiv.className = "rc-detail";
         detailDiv.textContent = 详情数据;
         div.appendChild(detailDiv);
+        // 运行命令和替换文本默认展开
+        const 默认展开操作 = ["运行命令", "替换文本"];
+        const 操作名 = rec.内容?.操作 || "";
+        if (默认展开操作.includes(操作名)) {
+            div.classList.add("rc-expanded");
+        }
         div.addEventListener("click", (e) => {
             // 进度条卡片不响应点击
             if (div.classList.contains("rc-progress")) return;
