@@ -298,6 +298,10 @@ function buildTreeNode(node, path) {
         item.dataset.date = node.创建时间 || "";
         item.dataset.ext = node.后缀 || "";
         item.innerHTML = `<span class="arr"> </span><span class="ico">${fileIcon(node.后缀 || "")}</span><span class="nm">${_esc(node.名称)}</span><button class="del-btn" title="删除此文件">🗑️</button>`;
+        // AI修改过的文件高亮
+        if (typeof aiModifiedFiles !== 'undefined' && aiModifiedFiles.has(fullPath)) {
+            item.classList.add("ti-ai-modified");
+        }
         attachFileTooltip(item, {名称: node.名称, 类型: "文件", 大小: node.大小, 创建时间: node.创建时间, 后缀: node.后缀, 路径: fullPath});
         item.addEventListener("click", e => {
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, false); return; }

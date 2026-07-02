@@ -47,4 +47,6 @@ if %errorlevel% neq 0 (
     echo   2. Run server_deploy.bat to install dependencies
     echo.
     pause
+) else (
+    exit
 )

@@ -1,6 +1,6 @@
 /**
  * 独立下载面板 — 唯一的下载进度展示入口
- * 固定左上角，下载期间始终可见，1秒刷新一次
+ * 有下载时3秒轮询，无下载时完全停止
  */
 let _dpPollTimer = null;
 let _dpCollapsed = false;
@@ -8,17 +8,17 @@ let _dpCompletedTimers = {}; // 记录已完成项的移除定时器
 let _dpCancelling = new Set(); // 记录正在取消的下载ID
 
 function initDownloadPanel() {
-    if (_dpPollTimer) clearInterval(_dpPollTimer);
-    _dpPollTimer = setInterval(pollDownloadPanel, 3000);
-    // 延迟首次查询，等页面完全加载
+    // 启动时查一次，有下载才继续轮询
     setTimeout(pollDownloadPanel, 500);
 }
-let _dpIdleMode = false;
-function _dpSwitchInterval(空闲) {
-    if (空闲 === _dpIdleMode) return;
-    _dpIdleMode = 空闲;
-    if (_dpPollTimer) clearInterval(_dpPollTimer);
-    _dpPollTimer = setInterval(pollDownloadPanel, 空闲 ? 10000 : 3000);
+
+function _dpStartPolling() {
+    if (_dpPollTimer) return;
+    _dpPollTimer = setInterval(pollDownloadPanel, 3000);
+}
+
+function _dpStopPolling() {
+    if (_dpPollTimer) { clearInterval(_dpPollTimer); _dpPollTimer = null; }
 }
 
 function toggleDownloadPanel() {
@@ -37,10 +37,10 @@ function pollDownloadPanel() {
 
             if (entries.length === 0) {
                 hideDownloadPanel();
-                _dpSwitchInterval(true);
+                _dpStopPolling();
                 return;
             }
-            _dpSwitchInterval(false);
+            _dpStartPolling();
 
             const body = document.getElementById("downloadPanelBody");
             if (!body) return;
@@ -250,6 +250,8 @@ function cancelDownload(dlId) {
 function showDownloadPanel() {
     const panel = document.getElementById("downloadPanel");
     if (panel) panel.style.display = "block";
+    // 显示面板时确保轮询在运行
+    _dpStartPolling();
 }
 
 function hideDownloadPanel() {

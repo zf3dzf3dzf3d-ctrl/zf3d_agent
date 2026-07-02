@@ -97,6 +97,9 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .toolbar-btn:disabled:hover { background:none; color:var(--text2); border-color:transparent; }
 .toolbar-sep { width:1px; height:16px; background:var(--border); margin:0 4px; }
 .toolbar-path { color:var(--text2); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.change-badge { font-size:11px; font-family:Consolas,monospace; white-space:nowrap; flex-shrink:0; }
+.change-badge .cb-add { color:#69f0ae; font-weight:bold; }
+.change-badge .cb-del { color:#ff6b6b; font-weight:bold; margin-left:4px; }
 
 /* Tab栏 */
 .tab-bar { display:flex; background:var(--bg3); border-bottom:1px solid var(--border); min-height:32px; overflow-x:auto; flex-shrink:0; scrollbar-width:thin; }
@@ -109,6 +112,8 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .tab.active { background:var(--bg); color:var(--text); border-bottom:2px solid var(--blue); }
 .tab .close { font-size:11px; color:#555; cursor:pointer; padding:0 2px; border-radius:2px; }
 .tab .close:hover { background:rgba(255,0,0,0.3); color:#fff; }
+.tab .tab-rollback { font-size:13px; color:var(--orange); cursor:pointer; padding:0 2px; border-radius:2px; transition:all 0.2s; }
+.tab .tab-rollback:hover { color:#fff; background:var(--orange); transform:scale(1.2); }
 .tab .dirty { color:var(--orange); font-size:16px; line-height:1; }
 
 /* 窄面板隐藏tab文件名和提示 */
@@ -137,6 +142,8 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .ti.selected { background:rgba(0,122,204,0.18); box-shadow:inset 3px 0 0 var(--blue); }
 .ti.drag-hover-add { background:rgba(0,122,204,0.12); }
 .ti.drag-hover-remove { background:rgba(244,67,54,0.12); }
+.ti.ti-ai-modified .nm { color:var(--orange); font-weight:600; }
+.ti.ti-ai-modified::after { content:"●"; color:var(--orange); font-size:8px; margin-left:2px; }
 .gallery-drag-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:6px 14px; font-size:12px; color:var(--text); z-index:9999; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
 .gallery-thumb { width:100%; height:100px; object-fit:cover; display:flex; align-items:center; justify-content:center; font-size:40px; background:var(--bg4); position:relative; overflow:hidden; }
 .gallery-thumb img { width:100%; height:100%; object-fit:cover; }
@@ -248,6 +255,10 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 /* === 右侧对话 === */
 .chat-panel { width:340px; flex-shrink:0; background:var(--bg2); border-left:1px solid var(--border); }
 .msg-list { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.token-cost-bar { display:flex; gap:12px; padding:4px 12px; font-size:10px; color:var(--text2); background:rgba(255,255,255,0.02); border-radius:4px; margin:0 4px; align-self:center; }
+.token-cost-bar .tc-steps { color:var(--orange); }
+.token-cost-bar .tc-calls { color:var(--blue); }
+.token-cost-bar .tc-time { color:var(--text3); }
 .msg { padding:8px 12px; border-radius:8px; max-width:90%; line-height:1.6; word-break:break-word; font-size:13px; }
 .msg-body { white-space: normal; }
 .msg-body p { margin:4px 0; }
@@ -372,6 +383,29 @@ pre:hover .code-copy-btn { opacity:1; }
 .diff-del { background:rgba(244,67,54,0.15); color:#ff6b6b; border:1px solid rgba(244,67,54,0.3); }
 .diff-add { background:rgba(76,175,80,0.15); color:#69f0ae; border:1px solid rgba(76,175,80,0.3); }
 
+/* === Diff查看器页面 === */
+.diff-page-box { width:92%; max-width:1100px; height:88%; background:var(--bg2); border:1px solid var(--border); border-radius:8px; display:flex; flex-direction:column; overflow:hidden; }
+.diff-page-header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--bg3); flex-shrink:0; }
+.diff-page-header #diffFileName { font-family:Consolas,monospace; font-size:13px; font-weight:600; color:var(--text1); }
+.diff-op-badge { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--bg); color:var(--text2); border:1px solid var(--border); }
+.diff-stat-del { font-size:11px; color:#ff6b6b; font-weight:600; }
+.diff-stat-add { font-size:11px; color:#69f0ae; font-weight:600; }
+.diff-page-header button { margin-left:auto; width:32px; height:32px; border-radius:50%; border:none; background:rgba(244,67,54,0.12); color:#f44336; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+.diff-page-header button:hover { background:#f44336; color:#fff; }
+.diff-page-content { flex:1; overflow:auto; background:var(--bg); font-family:Consolas,"Courier New",monospace; font-size:13px; line-height:1.5; }
+.diff-table { width:100%; border-collapse:collapse; }
+.diff-table td { padding:0 8px; white-space:pre-wrap; word-break:break-all; vertical-align:top; }
+.diff-ln-old, .diff-ln-new { width:42px; min-width:42px; text-align:right; color:var(--text2); font-size:11px; user-select:none; border-right:1px solid var(--border); padding:0 6px; }
+.diff-row-same { background:transparent; }
+.diff-row-same .diff-code { color:var(--text2); }
+.diff-row-del { background:rgba(244,67,54,0.08); }
+.diff-row-del .diff-code { color:#ff6b6b; }
+.diff-row-del .diff-ln-old { background:rgba(244,67,54,0.15); }
+.diff-row-add { background:rgba(76,175,80,0.08); }
+.diff-row-add .diff-code { color:#69f0ae; }
+.diff-row-add .diff-ln-new { background:rgba(76,175,80,0.15); }
+.diff-sign { display:inline-block; width:16px; font-weight:bold; user-select:none; }
+
 /* === 状态栏 === */
 .statusbar { display:flex; gap:14px; background:#007ACC; color:white; padding:0 12px; font-size:11px; align-items:center; height:22px; flex-shrink:0; }
 .statusbar .dot { width:6px; height:6px; border-radius:50%; display:inline-block; margin-right:3px; }
@@ -476,14 +510,22 @@ pre:hover .code-copy-btn { opacity:1; }
 .doc-modified-banner .banner-close:hover { color:#000; }
 
 /* ============ 实时推理流面板 ============ */
-.reasoning-panel { display:none; border-top:1px solid var(--border); background:var(--bg4); max-height:200px; overflow:hidden; flex-shrink:0; }
-.reasoning-header { padding:4px 10px; font-size:11px; color:var(--orange); background:var(--bg2); border-bottom:1px solid var(--border); font-weight:bold; }
-.reasoning-body { padding:4px 10px; overflow-y:auto; max-height:170px; display:flex; flex-direction:column; gap:3px; }
+.reasoning-panel { display:none; border-top:1px solid var(--border); background:var(--bg4); max-height:240px; overflow:hidden; flex-shrink:0; }
+.reasoning-header { padding:4px 10px; font-size:11px; color:var(--orange); background:var(--bg2); border-bottom:1px solid var(--border); font-weight:bold; display:flex; align-items:center; justify-content:space-between; }
+.reasoning-header .rh-count { font-size:10px; color:var(--text2); font-weight:normal; }
+.reasoning-body { padding:2px 0; overflow-y:auto; max-height:210px; }
 
-/* === 推理卡片（工具调用可视化） === */
-.reasoning-card { display:flex; align-items:flex-start; gap:6px; padding:4px 8px; border-radius:4px; font-size:11px; line-height:1.5; border-left:3px solid transparent; }
-.reasoning-card .rc-icon { flex-shrink:0; font-size:12px; line-height:1.5; }
-.reasoning-card .rc-content { flex:1; min-width:0; word-break:break-word; }
+/* === 推理卡片（紧凑列表风格，点击展开详情） === */
+.reasoning-card { display:flex; align-items:flex-start; gap:6px; padding:3px 10px; font-size:11px; line-height:1.4; cursor:pointer; transition:background 0.15s; border-left:3px solid transparent; }
+.reasoning-card:hover { background:rgba(255,255,255,0.04); }
+.reasoning-card .rc-icon { flex-shrink:0; width:8px; height:8px; border-radius:50%; margin-top:4px; background:var(--text3); }
+.reasoning-card.rc-success .rc-icon { background:#4CAF50; }
+.reasoning-card.rc-fail .rc-icon { background:#f44336; }
+.reasoning-card.rc-action .rc-icon { background:var(--orange); }
+.reasoning-card.rc-thinking .rc-icon { background:var(--blue); }
+.reasoning-card.rc-reply .rc-icon { background:var(--green); }
+.reasoning-card.rc-start .rc-icon { background:var(--text3); }
+.reasoning-card .rc-content { flex:1; min-width:0; word-break:break-word; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .reasoning-card .rc-label { font-weight:bold; margin-right:4px; }
 .reasoning-card .rc-op-name { color:var(--orange); }
 .reasoning-card .rc-params { margin-top:2px; display:flex; flex-wrap:wrap; gap:2px; }
@@ -491,14 +533,19 @@ pre:hover .code-copy-btn { opacity:1; }
 .reasoning-card .rc-param .rc-val { color:var(--text2); }
 
 .reasoning-card.rc-start { border-color:var(--text3); color:var(--text); }
-.reasoning-card.rc-thinking { border-color:var(--blue); background:rgba(33,150,243,0.05); }
+.reasoning-card.rc-thinking { border-color:var(--blue); }
 .reasoning-card.rc-thinking .rc-label { color:var(--blue); }
-.reasoning-card.rc-action { border-color:var(--orange); background:rgba(255,152,0,0.05); }
+.reasoning-card.rc-action { border-color:var(--orange); }
 .reasoning-card.rc-result { border-color:var(--text2); }
-.reasoning-card.rc-success { border-color:#4CAF50; background:rgba(76,175,80,0.04); color:var(--text2); }
-.reasoning-card.rc-fail { border-color:#f44336; background:rgba(244,67,54,0.06); color:#ef9a9a; }
-.reasoning-card.rc-reply { border-color:var(--green); background:rgba(76,175,80,0.04); color:var(--green); }
-.reasoning-card.rc-progress { padding:4px 8px; }
+.reasoning-card.rc-success { border-color:#4CAF50; }
+.reasoning-card.rc-fail { border-color:#f44336; color:#ef9a9a; }
+.reasoning-card.rc-reply { border-color:var(--green); color:var(--green); }
+.reasoning-card.rc-progress { padding:4px 8px; cursor:default; }
+/* 展开详情 */
+.reasoning-card.rc-expanded { background:rgba(255,255,255,0.03); }
+.reasoning-card .rc-detail { display:none; margin-top:4px; padding:6px 8px; background:var(--bg); border-radius:4px; font-size:10px; white-space:pre-wrap; word-break:break-all; max-height:200px; overflow-y:auto; line-height:1.5; }
+.reasoning-card.rc-expanded .rc-detail { display:block; }
+.reasoning-card.rc-expanded .rc-content { white-space:normal; overflow:visible; }
 
 /* 旧样式兼容 */
 .reasoning-item { font-size:11px; line-height:1.5; padding:1px 0; border-bottom:1px solid rgba(255,255,255,0.03); }

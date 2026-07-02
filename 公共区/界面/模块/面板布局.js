@@ -18,7 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // 每次打开页面都自动新建对话，不恢复上次对话
     loadConvList();
     newConversation();
-    pollPending();
+    // 权限轮询改为AI任务期间启动（setThinkingState中调用startPermPoll）
+    // 此处不再无条件启动pollPending
     const savedRoot = localStorage.getItem("lastFolder");
     // 验证保存的路径是否有效（盘符必须有:\后缀）
     let initPath = "./";

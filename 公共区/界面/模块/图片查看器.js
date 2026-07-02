@@ -291,7 +291,7 @@ async function openFileInEditor(path, name) {
         const res = await fetch("/api/file-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: fullPath }) });
         const d = await res.json();
         if (d.成功) {
-            openFiles.push({ path: fullPath, name, content: d.内容, dirty: false, type: 'code', selection: null });
+            openFiles.push({ path: fullPath, name, content: d.内容, dirty: false, type: 'code', selection: null, 原始内容: d.内容 });
             switchTab(openFiles.length - 1);
             renderTabs();
         } else {

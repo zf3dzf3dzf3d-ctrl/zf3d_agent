@@ -11,9 +11,14 @@ function renderTabs() {
         const tab = document.createElement("div");
         tab.className = `tab${i === activeFileIdx ? " active" : ""}`;
         const icon = f.type === 'document' ? '📄 ' : '';
-        tab.innerHTML = `<span class="tab-name">${f.dirty ? "● " : ""}${icon}${f.name}</span><span class="close" data-idx="${i}" title="关闭此文件标签">✕</span>`;
+        const dirtyDot = f.dirty ? "● " : "";
+        // AI修改回滚按钮：有AI修改且当前内容与AI修改前不同时显示
+        const rollbackBtn = (f.aiModified && f.原始内容 && editorInstance && f.content !== f.原始内容)
+            ? `<span class="tab-rollback" data-idx="${i}" title="撤销AI的修改，恢复到修改前">↶</span>` : "";
+        tab.innerHTML = `<span class="tab-name">${dirtyDot}${icon}${f.name}</span>${rollbackBtn}<span class="close" data-idx="${i}" title="关闭此文件标签">✕</span>`;
         tab.addEventListener("click", (e) => {
             if (e.target.classList.contains("close")) { closeTab(parseInt(e.target.dataset.idx)); return; }
+            if (e.target.classList.contains("tab-rollback")) { rollbackAIChange(parseInt(e.target.dataset.idx)); return; }
             switchTab(i);
         });
         bar.appendChild(tab);
@@ -121,11 +126,75 @@ async function saveEditorContent() {
     f.content = editorInstance.获取内容();
     await fetch("/api/file-write", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: f.path, 内容: f.content }) });
     f.dirty = false;
+    f.原始内容 = f.content;  // 保存后重置变更基线
+    updateChangeBadge();
     renderTabs();
 }
 
 function editorUndo2() {} // 已移至上方自定义实现
 function editorRedo2() {} // 已移至上方自定义实现
+
+// ============ AI修改回滚 ============
+function rollbackAIChange(idx) {
+    const f = openFiles[idx];
+    if (!f || !f.原始内容) return;
+    if (editorInstance && idx === activeFileIdx) {
+        editorInstance.设置内容(f.原始内容);
+    }
+    f.content = f.原始内容;
+    f.dirty = false;
+    f.aiModified = false;
+    if (typeof updateChangeBadge === 'function') updateChangeBadge();
+    renderTabs();
+    showToast("success", "↶ 已回滚", `${f.name} 已恢复到AI修改前的内容`);
+}
+
+// 标记文件被AI修改（供实时Diff调用）
+function markAIModified(idx) {
+    if (idx >= 0 && idx < openFiles.length) {
+        openFiles[idx].aiModified = true;
+        renderTabs();
+    }
+}
+
+// ============ 变更统计徽章 ============
+function updateChangeBadge() {
+    const badge = document.getElementById("editorChangeBadge");
+    if (!badge) return;
+    if (activeFileIdx < 0 || !openFiles[activeFileIdx]) {
+        badge.style.display = "none";
+        return;
+    }
+    const f = openFiles[activeFileIdx];
+    if (f.type === 'document' || !f.原始内容) {
+        badge.style.display = "none";
+        return;
+    }
+    const 当前内容 = editorInstance ? editorInstance.获取内容() : f.content;
+    if (当前内容 === f.原始内容) {
+        badge.style.display = "none";
+        f.dirty = false;
+        return;
+    }
+    // 计算行级增删
+    const 旧行 = f.原始内容.split("\n");
+    const 新行 = 当前内容.split("\n");
+    const 旧集 = new Set(旧行);
+    const 新集 = new Set(新行);
+    let add数 = 0, del数 = 0;
+    for (const line of 新行) { if (!旧集.has(line)) add数++; }
+    for (const line of 旧行) { if (!新集.has(line)) del数++; }
+    if (add数 === 0 && del数 === 0) {
+        badge.style.display = "none";
+        return;
+    }
+    let html = "";
+    if (add数 > 0) html += `<span class="cb-add">+${add数}</span>`;
+    if (del数 > 0) html += `<span class="cb-del">-${del数}</span>`;
+    badge.innerHTML = html;
+    badge.style.display = "";
+}
+
 async function reloadCurrentFile() {
     if (activeFileIdx < 0) return;
     const f = openFiles[activeFileIdx];
@@ -135,6 +204,11 @@ async function reloadCurrentFile() {
         return;
     }
     await refreshAllOpenFiles();
+    // 刷新后重置变更基线
+    if (openFiles[activeFileIdx]) {
+        openFiles[activeFileIdx].原始内容 = openFiles[activeFileIdx].content;
+        updateChangeBadge();
+    }
     showToast("info", "🔄 已刷新", `${openFiles[activeFileIdx]?.name || ""} 已重新读取`);
 }
 
@@ -151,6 +225,7 @@ function initEditor() {
             setTimeout(() => {
                 if (activeFileIdx >= 0 && openFiles[activeFileIdx]) {
                     openFiles[activeFileIdx].dirty = true;
+                    updateChangeBadge();
                     renderTabs();
                 }
             }, 50);

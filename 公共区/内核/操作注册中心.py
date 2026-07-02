@@ -1016,7 +1016,10 @@ class 操作注册中心类:
         return "\n\n".join(说明)
 
     def 获取紧凑工具定义(self, 已选集=None) -> list:
-        """紧凑FC工具定义：只有名称+描述，参数为空对象（首步已展示完整参数）"""
+        """紧凑FC工具定义：名称+描述+参数名+必填标记（不含冗长说明，节省token但让LLM知道参数名）"""
+        类型映射 = {
+            "字符串": "string", "整数": "integer", "数字": "number", "布尔": "boolean", "列表": "array"
+        }
         if 已选集:
             启用集 = 已选集
         else:
@@ -1026,12 +1029,26 @@ class 操作注册中心类:
             if 名称 not in 启用集:
                 continue
             英文名 = self._英文名映射.get(名称, 名称)
+            属性 = {}
+            必填列表 = []
+            for 参数名, 规则 in 操作.参数结构.items():
+                英文参数名 = self._参数名映射.get(参数名, 参数名)
+                属性[英文参数名] = {
+                    "type": 类型映射.get(规则.get("类型", "字符串"), "string"),
+                    "description": 规则.get("说明", "")
+                }
+                if 规则.get("必填", False):
+                    必填列表.append(英文参数名)
             工具列表.append({
                 "type": "function",
                 "function": {
                     "name": 英文名,
                     "description": f"{名称} — {操作.描述}",
-                    "parameters": {"type": "object", "properties": {}}
+                    "parameters": {
+                        "type": "object",
+                        "properties": 属性,
+                        "required": 必填列表
+                    }
                 }
             })
         return 工具列表
