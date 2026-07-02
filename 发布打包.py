@@ -2,6 +2,11 @@
 发布打包 - 只打公共区，隐私区完全排除
 打包前自动扫描隐私泄露（公共区 + 根目录打包文件）
 """
+import sys
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 import json
 import shutil
 import zipfile
