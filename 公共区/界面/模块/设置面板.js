@@ -19,6 +19,7 @@ function initSettings() {
             else if (_evoPollTimer) { clearTimeout(_evoPollTimer); _evoPollTimer = null; }
             if (item.dataset.tab === "tokenstats") loadTokenStats();
             if (item.dataset.tab === "config") loadConfig();
+            if (item.dataset.tab === "wheel") loadWheelConfig();
         });
     });
 }
@@ -321,4 +322,142 @@ async function evoReset() {
         if (d.成功) { showToast("info","🧬 进化引擎",d.消息); loadEvolutionStatus(); }
         else { showToast("error","❌ 操作失败",d.错误); }
     } catch(e) { showToast("error","❌ 请求失败",e.message); }
+}
+
+// ============ 轮盘配置 ============
+let _wheelConfig = null;
+async function loadWheelConfig() {
+    try {
+        const res = await fetch("/api/wheel-config");
+        const d = await res.json();
+        if (!d.成功) { showToast("error", "❌ 加载失败", d.错误); return; }
+        _wheelConfig = d.配置;
+        const c = _wheelConfig;
+        document.getElementById("wcTrigger").value = c.触发方式 || "Ctrl+~";
+        document.getElementById("wcRadius").value = c.轮盘半径 || 70;
+        document.getElementById("wcCenterRadius").value = c.中心圆半径 || 28;
+        document.getElementById("wcFontSize").value = c.字体大小 || 12;
+        document.getElementById("wcAlpha").value = c.透明度 || 0.85;
+        document.getElementById("wcAnimMs").value = c.展开动画毫秒 || 120;
+        document.getElementById("wcBgColor").value = c.背景色 || "#1a1a2e";
+        document.getElementById("wcSectorColor").value = c.扇区默认色 || "#1c1c28";
+        document.getElementById("wcHoverColor").value = c.扇区hover色 || "#3a3a52";
+        document.getElementById("wcBorderColor").value = c.边框色 || "#444466";
+        document.getElementById("wcTextColor").value = c.文字色 || "#aaaacc";
+        document.getElementById("wcTextHoverColor").value = c.文字hover色 || "#ffffff";
+        renderWheelSectors(c.扇区 || []);
+    } catch(e) { showToast("error", "❌ 加载失败", e.message); }
+}
+function renderWheelSectors(sectors) {
+    const container = document.getElementById("wheelSectors");
+    container.innerHTML = sectors.map((s, i) => `
+        <div style="display:flex;gap:6px;align-items:center;padding:6px;border:1px solid var(--border);border-radius:4px;">
+            <input type="text" value="${s.名称||''}" placeholder="名称" data-sector-name="${i}" class="dialog-input" style="width:80px;font-size:12px;">
+            <input type="color" value="${s.颜色||'#333333'}" data-sector-color="${i}" style="width:28px;height:24px;border:none;background:none;cursor:pointer;">
+            <input type="text" value="${s.说明||''}" placeholder="说明" data-sector-desc="${i}" class="dialog-input" style="flex:1;font-size:12px;">
+            <button class="dlg-btn" onclick="moveWheelSector(${i},-1)" style="font-size:11px;padding:2px 6px;">↑</button>
+            <button class="dlg-btn" onclick="moveWheelSector(${i},1)" style="font-size:11px;padding:2px 6px;">↓</button>
+            <button class="dlg-btn" onclick="removeWheelSector(${i})" style="font-size:11px;padding:2px 6px;color:#f44336;">✕</button>
+        </div>`).join("");
+}
+function addWheelSector() {
+    if (!_wheelConfig) return;
+    _wheelConfig.扇区 = _wheelConfig.扇区 || [];
+    _wheelConfig.扇区.push({"名称": "空", "颜色": "", "说明": ""});
+    renderWheelSectors(_wheelConfig.扇区);
+}
+function removeWheelSector(idx) {
+    if (!_wheelConfig || !_wheelConfig.扇区) return;
+    _wheelConfig.扇区.splice(idx, 1);
+    renderWheelSectors(_wheelConfig.扇区);
+}
+function moveWheelSector(idx, dir) {
+    if (!_wheelConfig || !_wheelConfig.扇区) return;
+    const arr = _wheelConfig.扇区;
+    const ni = idx + dir;
+    if (ni < 0 || ni >= arr.length) return;
+    [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
+    renderWheelSectors(arr);
+}
+async function saveWheelConfig() {
+    if (!_wheelConfig) return;
+    const sectors = [];
+    document.querySelectorAll("[data-sector-name]").forEach(inp => {
+        const i = inp.dataset.sectorName;
+        sectors.push({
+            "名称": inp.value,
+            "颜色": document.querySelector(`[data-sector-color="${i}"]`).value,
+            "说明": document.querySelector(`[data-sector-desc="${i}"]`).value
+        });
+    });
+    _wheelConfig.扇区 = sectors;
+    _wheelConfig.触发方式 = document.getElementById("wcTrigger").value;
+    _wheelConfig.轮盘半径 = parseInt(document.getElementById("wcRadius").value) || 70;
+    _wheelConfig.中心圆半径 = parseInt(document.getElementById("wcCenterRadius").value) || 28;
+    _wheelConfig.字体大小 = parseInt(document.getElementById("wcFontSize").value) || 12;
+    _wheelConfig.透明度 = parseFloat(document.getElementById("wcAlpha").value) || 0.85;
+    _wheelConfig.展开动画毫秒 = parseInt(document.getElementById("wcAnimMs").value) || 120;
+    _wheelConfig.背景色 = document.getElementById("wcBgColor").value;
+    _wheelConfig.扇区默认色 = document.getElementById("wcSectorColor").value;
+    _wheelConfig.扇区hover色 = document.getElementById("wcHoverColor").value;
+    _wheelConfig.边框色 = document.getElementById("wcBorderColor").value;
+    _wheelConfig.文字色 = document.getElementById("wcTextColor").value;
+    _wheelConfig.文字hover色 = document.getElementById("wcTextHoverColor").value;
+    try {
+        const res = await fetch("/api/wheel-config", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(_wheelConfig)
+        });
+        const d = await res.json();
+        if (d.成功) showToast("success", "✅ 轮盘配置已保存", "下次呼出轮盘即生效");
+        else showToast("error", "❌ 保存失败", d.错误);
+    } catch(e) { showToast("error", "❌ 保存失败", e.message); }
+}
+function resetWheelConfig() {
+    _wheelConfig = {
+        "启用": true,
+        "触发方式": "Ctrl+~",
+        "双击间隔毫秒": 400,
+        "轮盘半径": 70,
+        "中心圆半径": 28,
+        "展开动画毫秒": 120,
+        "透明度": 0.85,
+        "自动朗读": false,
+        "背景色": "#1a1a2e",
+        "字体大小": 12,
+        "扇区默认色": "#1c1c28",
+        "扇区hover色": "#3a3a52",
+        "边框色": "#444466",
+        "中心圆色": "#15151c",
+        "中心圆hover色": "#2a2a3a",
+        "文字色": "#aaaacc",
+        "文字hover色": "#ffffff",
+        "扇区": [
+            {"名称": "翻译", "颜色": "#4a9eff", "说明": "选中文本翻译"},
+            {"名称": "问答", "颜色": "#9b59b6", "说明": "快速提问，带上下文"},
+            {"名称": "空", "颜色": "", "说明": ""},
+            {"名称": "空", "颜色": "", "说明": ""},
+            {"名称": "朗读", "颜色": "#f39c12", "说明": "选中文本语音朗读"},
+            {"名称": "截图", "颜色": "#50c878", "说明": "框选区域截图"}
+        ],
+        "记忆": {"注入用户画像": true, "快速对话缓冲轮数": 5},
+        "系统提示词": "你是快速助手，简洁回答。以下是对话历史和用户画像，自行判断是否参考。"
+    };
+    // 填充表单
+    const c = _wheelConfig;
+    document.getElementById("wcTrigger").value = c.触发方式;
+    document.getElementById("wcRadius").value = c.轮盘半径;
+    document.getElementById("wcCenterRadius").value = c.中心圆半径;
+    document.getElementById("wcFontSize").value = c.字体大小;
+    document.getElementById("wcAlpha").value = c.透明度;
+    document.getElementById("wcAnimMs").value = c.展开动画毫秒;
+    document.getElementById("wcBgColor").value = c.背景色;
+    document.getElementById("wcSectorColor").value = c.扇区默认色;
+    document.getElementById("wcHoverColor").value = c.扇区hover色;
+    document.getElementById("wcBorderColor").value = c.边框色;
+    document.getElementById("wcTextColor").value = c.文字色;
+    document.getElementById("wcTextHoverColor").value = c.文字hover色;
+    renderWheelSectors(c.扇区);
+    showToast("info", "↩️ 已恢复默认", "点击保存按钮写入配置");
 }

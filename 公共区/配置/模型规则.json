@@ -20,7 +20,8 @@
       "环境变量": {
         "API密钥": "LLM_API_KEY",
         "模型名称": "LLM_MODEL"
-      }
+      },
+      "支持vision": false
     },
     {
       "名称": "通义千问(阿里云)",
@@ -41,7 +42,8 @@
       "环境变量": {
         "API密钥": "DASHSCOPE_API_KEY",
         "模型名称": "DASHSCOPE_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "智谱大模型(GLM)",
@@ -62,7 +64,8 @@
       "环境变量": {
         "API密钥": "ZHIPU_API_KEY",
         "模型名称": "ZHIPU_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "Kimi(月之暗面)",
@@ -83,7 +86,8 @@
       "环境变量": {
         "API密钥": "KIMI_API_KEY",
         "模型名称": "KIMI_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "豆包(火山大模型)",
@@ -104,7 +108,8 @@
       "环境变量": {
         "API密钥": "ARK_API_KEY",
         "模型名称": "ARK_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "OpenAI(ChatGPT)",
@@ -125,7 +130,8 @@
       "环境变量": {
         "API密钥": "OPENAI_API_KEY",
         "模型名称": "OPENAI_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "Claude(Anthropic)",
@@ -146,7 +152,8 @@
       "环境变量": {
         "API密钥": "ANTHROPIC_API_KEY",
         "模型名称": "ANTHROPIC_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "Gemini(Google)",
@@ -167,7 +174,8 @@
       "环境变量": {
         "API密钥": "GEMINI_API_KEY",
         "模型名称": "GEMINI_MODEL"
-      }
+      },
+      "支持vision": true
     },
     {
       "名称": "本地Qwen3(Ollama)",
