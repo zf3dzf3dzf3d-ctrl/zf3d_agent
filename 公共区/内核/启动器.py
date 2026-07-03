@@ -241,7 +241,35 @@ class 启动器类:
                         except Exception as e:
                             print(f"⚠️ TTS回调失败: {e}")
 
-                    self.快速浮窗 = 快速浮窗(快速配置, self.模型直连器, 获取画像, TTS回调)
+                    # 获取主对话历史的回调（快速浮窗问答注入上下文）
+                    def 获取对话历史():
+                        对话模块 = self.模块注册.get("对话")
+                        if 对话模块:
+                            try:
+                                return 对话模块.获取历史()
+                            except Exception:
+                                return []
+                        return []
+
+                    # 追加问答到主对话的回调（双向连通）
+                    def 追加到对话(用户消息, 助手回复):
+                        对话模块 = self.模块注册.get("对话")
+                        if not 对话模块:
+                            return
+                        try:
+                            from datetime import datetime
+                            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            with 对话模块._锁:
+                                对话模块.对话历史.append(
+                                    {"角色": "用户", "内容": f"[快速问答] {用户消息}", "时间": now})
+                                对话模块.对话历史.append(
+                                    {"角色": "助手", "内容": 助手回复, "时间": now})
+                            对话模块._保存当前对话()
+                        except Exception as e:
+                            print(f"⚠️ 快速问答回写主对话失败: {e}")
+
+                    self.快速浮窗 = 快速浮窗(快速配置, self.模型直连器, 获取画像, TTS回调,
+                                        获取对话历史, 追加到对话)
                     self.快速浮窗.启动()
 
                     def 呼出回调(鼠标坐标, 窗口标题, 选中文本):

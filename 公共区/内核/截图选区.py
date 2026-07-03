@@ -83,6 +83,11 @@ class 截图选区:
             return
         try:
             from PIL import ImageGrab
+            # 先隐藏遮罩再截图，否则遮罩覆盖了顶层窗口
+            self._遮罩.withdraw()
+            self._遮罩.update()
+            import time
+            time.sleep(0.15)
             img = ImageGrab.grab(bbox=(x1, y1, x2, y2))
             buf = io.BytesIO()
             img.save(buf, format="PNG")

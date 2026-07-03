@@ -294,6 +294,7 @@
                 <div class="snav-item" data-tab="engine" title="查看引擎状态和合并历史">⚙️ 引擎</div>
                 <div class="snav-item" data-tab="tokenstats" title="查看Token用量统计">📊 Token</div>
                 <div class="snav-item" data-tab="config" title="查看系统配置">🔧 配置</div>
+                <div class="snav-item" data-tab="wheel" title="轮盘快捷呼出设置">🎛️ 轮盘</div>
             </div>
             <div class="settings-body">
                 <div class="stab active" id="tab_memory">
@@ -378,6 +379,65 @@
                         </div>
                     </div>
                     <div id="configContent"></div>
+                </div>
+                <div class="stab" id="tab_wheel">
+                    <div class="scard">
+                        <h3>🎛️ 轮盘设置</h3>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">修改后点击保存，轮盘立即生效（无需重启）</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">快捷键</label>
+                                <input type="text" id="wcTrigger" class="dialog-input" placeholder="Ctrl+~" style="width:100%;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">轮盘半径 (px)</label>
+                                <input type="number" id="wcRadius" class="dialog-input" min="40" max="200" style="width:100%;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">中心圆半径 (px)</label>
+                                <input type="number" id="wcCenterRadius" class="dialog-input" min="10" max="80" style="width:100%;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">字体大小</label>
+                                <input type="number" id="wcFontSize" class="dialog-input" min="4" max="30" style="width:100%;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">透明度 (0-1)</label>
+                                <input type="number" id="wcAlpha" class="dialog-input" min="0.1" max="1" step="0.05" style="width:100%;margin-top:4px;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px;color:var(--text2);">展开动画 (ms)</label>
+                                <input type="number" id="wcAnimMs" class="dialog-input" min="0" max="500" style="width:100%;margin-top:4px;">
+                            </div>
+                        </div>
+                        <div style="margin-top:12px;">
+                            <label style="font-size:12px;color:var(--text2);">背景色</label>
+                            <input type="color" id="wcBgColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                            <label style="font-size:12px;color:var(--text2);margin-left:16px;">扇区默认色</label>
+                            <input type="color" id="wcSectorColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                            <label style="font-size:12px;color:var(--text2);margin-left:16px;">扇区悬停色</label>
+                            <input type="color" id="wcHoverColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                        </div>
+                        <div style="margin-top:8px;">
+                            <label style="font-size:12px;color:var(--text2);">边框色</label>
+                            <input type="color" id="wcBorderColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                            <label style="font-size:12px;color:var(--text2);margin-left:16px;">文字色</label>
+                            <input type="color" id="wcTextColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                            <label style="font-size:12px;color:var(--text2);margin-left:16px;">文字悬停色</label>
+                            <input type="color" id="wcTextHoverColor" style="width:40px;height:24px;margin-left:8px;vertical-align:middle;border:none;background:none;cursor:pointer;">
+                        </div>
+                        <div style="margin-top:12px;display:flex;gap:8px;">
+                            <button class="dlg-btn primary" onclick="saveWheelConfig()">💾 保存</button>
+                            <button class="dlg-btn" onclick="loadWheelConfig()">🔄 重新加载</button>
+                            <button class="dlg-btn" onclick="resetWheelConfig()" style="color:#f39c12;">↩️ 恢复默认</button>
+                        </div>
+                    </div>
+                    <div class="scard">
+                        <h3>🎯 扇区管理</h3>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">添加、删除、排序扇区功能。扇区名称支持：翻译/问答/朗读/截图/空</div>
+                        <div id="wheelSectors" style="display:flex;flex-direction:column;gap:6px;"></div>
+                        <button class="dlg-btn" onclick="addWheelSector()" style="margin-top:8px;">➕ 添加扇区</button>
+                    </div>
                 </div>
             </div>
         </div>

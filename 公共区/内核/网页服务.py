@@ -321,6 +321,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     _tts停止标志 = False  # TTS停止标志
     _tts_speaker = None  # SAPI SpVoice实例引用
     _tts_process = None  # powershell进程引用
+    _tts播放中 = False  # TTS是否正在播放
 
     def do_GET(self):
         try:
@@ -844,6 +845,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 "当前模型": 当前模型,
                 "操作数": len(self.操作注册中心.列出所有操作()) if self.操作注册中心 else 0
             })
+        elif 路径 == "/api/tts-status":
+            self._返回JSON({"正在播放": 网页请求处理器._tts播放中})
         elif 路径 == "/api/actions":
             if self.操作注册中心:
                 self._返回JSON({"操作": self.操作注册中心.获取操作JSON描述()})
@@ -1165,6 +1168,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "记录": 记录列表})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wheel-config":
+            """GET：读取快速呼出配置"""
+            try:
+                配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "快速呼出配置.json"
+                with open(配置路径, "r", encoding="utf-8") as f:
+                    配置 = json.load(f)
+                self._返回JSON({"成功": True, "配置": 配置})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         else:
             print(f"  ❌ 未知GET API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
@@ -1378,6 +1390,30 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 数据.get("区域", "公共区")
             )
             self._返回JSON({"成功": True})
+        elif 路径 == "/api/wheel-config":
+            """POST：保存快速呼出配置"""
+            配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "快速呼出配置.json"
+            try:
+                with open(配置路径, "w", encoding="utf-8") as f:
+                    json.dump(数据, f, ensure_ascii=False, indent=2)
+                # 热更新：如果有快速浮窗实例，更新其配置
+                启动器 = getattr(self, '启动器实例', None)
+                if 启动器 and hasattr(启动器, '快速浮窗'):
+                    启动器.快速浮窗.配置 = 数据
+                    启动器.快速浮窗.半径 = 数据.get("轮盘半径", 72)
+                    启动器.快速浮窗.中心圆半径 = 数据.get("中心圆半径", 26)
+                    启动器.快速浮窗.透明度 = 数据.get("透明度", 0.88)
+                    启动器.快速浮窗.字体大小 = max(4, 数据.get("字体大小", 12))
+                    启动器.快速浮窗.扇区默认色 = 数据.get("扇区默认色", "#1c1c28")
+                    启动器.快速浮窗.扇区hover色 = 数据.get("扇区hover色", "#3a3a52")
+                    启动器.快速浮窗.边框色 = 数据.get("边框色", "#444466")
+                    启动器.快速浮窗.中心圆色 = 数据.get("中心圆色", "#15151c")
+                    启动器.快速浮窗.中心圆hover色 = 数据.get("中心圆hover色", "#2a2a3a")
+                    启动器.快速浮窗.文字色 = 数据.get("文字色", "#aaaacc")
+                    启动器.快速浮窗.文字hover色 = 数据.get("文字hover色", "#ffffff")
+                self._返回JSON({"成功": True})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/reload-config":
             self.配置加载器.重载配置()
             self._返回JSON({"成功": True})
@@ -1475,8 +1511,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             网页请求处理器._tts停止标志 = False
             网页请求处理器._tts_speaker = None
             网页请求处理器._tts_process = None
+            网页请求处理器._tts播放中 = True
             def _tts播放(待播文本):
-                # 方案1: edge-tts 神经语音（晓晓，语速+30%，音量+100%，需联网）
                 try:
                     import asyncio
                     import edge_tts
@@ -1534,12 +1570,17 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         cmd = f'powershell -Command "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak(\'{干净文本}\')"'
                         proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         网页请求处理器._tts_process = proc
+                        proc.wait()
+                        网页请求处理器._tts_process = None
+                finally:
+                    网页请求处理器._tts播放中 = False
             t = threading.Thread(target=_tts播放, args=(文本,), daemon=True)
             t.start()
             self._返回JSON({"成功": True})
         elif 路径 == "/api/tts-stop":
             """停止当前TTS播放"""
             网页请求处理器._tts停止标志 = True
+            网页请求处理器._tts播放中 = False
             def _tts停止():
                 # 停止 pygame 播放
                 try:
