@@ -190,14 +190,10 @@ def _获取连接() -> Blender连接类:
     if _检查Blender进程是否运行():
         raise ConnectionError(
             "检测到Blender进程正在运行，但端口9876未就绪或连接失败。\n"
-            "可能原因：BlenderMCP插件未加载。\n"
-            "请关闭当前Blender后让我重新启动，或在Blender中手动加载插件。"
+            "BlenderMCP插件未加载。请调用「Blender启动」操作来自动安装插件并连接。"
         )
     raise ConnectionError(
-        "无法连接Blender。请确认：\n"
-        "1. Blender已打开\n"
-        "2. BlenderMCP插件已自动加载（通过Blender启动操作启动）\n"
-        "3. 端口9876未被占用"
+        "无法连接Blender。请调用「Blender启动」操作来启动Blender并自动加载插件。"
     )
 
 
@@ -535,10 +531,8 @@ def _永久安装addon(blender路径: str, addon源路径: str) -> tuple:
 class Blender启动(操作基类):
     名称 = "Blender启动"
     描述 = (
-        "自动查找并启动Blender，附带加载BlenderMCP插件（无需手动安装），启动后端口9876自动就绪。"
-        "【重要】如果Blender已经在运行且已连接（之前操作过Blender），不要重复调用此操作！"
-        "直接使用Blender执行代码/Blender场景信息等操作即可。"
-        "仅在首次使用Blender或Blender未运行时才需要调用。"
+        "连接Blender。会自动检测：已连接则跳过，Blender已运行但插件未加载则自动安装插件，Blender未运行则自动启动。"
+        "当用户说'我已经打开了Blender'或'连接Blender'时，直接调用此操作，不要问用户是否需要重启。"
     )
     参数结构 = {
         "Blender路径": {
@@ -604,17 +598,16 @@ class Blender启动(操作基类):
                         return 操作结果.失败(
                             f"检测到Blender正在运行但插件未加载。已自动安装插件到Blender。\n"
                             f"{消息}\n"
-                            f"请关闭并重新打开Blender，插件将自动加载，然后再次让我连接。"
+                            f"请关闭并重新打开Blender，插件将自动加载，然后再次调用此操作连接。"
                         )
                     else:
                         return 操作结果.失败(
                             f"检测到Blender正在运行但插件未加载。自动安装失败: {消息}\n"
-                            f"请关闭当前Blender后让我重新启动。"
+                            f"请关闭当前Blender，然后再次调用此操作来启动新的Blender。"
                         )
                 return 操作结果.失败(
                     "检测到Blender进程正在运行，但端口9876未就绪。\n"
-                    "可能原因：BlenderMCP插件未加载。\n"
-                    "请关闭当前Blender后让我重新启动。"
+                    "请关闭当前Blender，然后再次调用此操作来启动新的Blender。"
                 )
 
             # 4. 没有Blender运行，启动新的
