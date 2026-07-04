@@ -277,6 +277,20 @@ class 存储引擎类:
             except Exception:
                 pass
 
+            # 录屏日志表（录屏全流程追踪）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 录屏日志 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    会话ID TEXT NOT NULL,
+                    步骤 TEXT NOT NULL,
+                    状态 TEXT NOT NULL,
+                    详情 TEXT,
+                    ffmpeg输出 TEXT,
+                    时间 TEXT NOT NULL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_录屏日志_会话 ON 录屏日志(会话ID)")
+
             conn.commit()
 
     def _执行(self, sql: str, 参数: list = None):
@@ -1138,6 +1152,42 @@ class 存储引擎类:
         """删除一条Bug记录"""
         cursor = self._执行("DELETE FROM Bug库 WHERE id = ?", [bug_id])
         return cursor.rowcount > 0
+
+    # ==================== 录屏日志 ====================
+
+    def 写录屏日志(self, 会话ID: str, 步骤: str, 状态: str, 详情: str = "", ffmpeg输出: str = "") -> int:
+        """写入一条录屏日志"""
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        cursor = self._执行(
+            """INSERT INTO 录屏日志 (会话ID, 步骤, 状态, 详情, ffmpeg输出, 时间)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            [会话ID, 步骤, 状态, 详情, ffmpeg输出, 时间]
+        )
+        return cursor.lastrowid
+
+    def 查询录屏日志(self, 会话ID: str = None, limit: int = 500) -> list:
+        """查询录屏日志"""
+        if 会话ID:
+            rows = self._查询(
+                "SELECT id, 会话ID, 步骤, 状态, 详情, ffmpeg输出, 时间 FROM 录屏日志 WHERE 会话ID=? ORDER BY id ASC",
+                [会话ID]
+            )
+        else:
+            rows = self._查询(
+                "SELECT id, 会话ID, 步骤, 状态, 详情, ffmpeg输出, 时间 FROM 录屏日志 ORDER BY id DESC LIMIT ?",
+                [limit]
+            )
+        return [{
+            "id": r[0], "会话ID": r[1], "步骤": r[2], "状态": r[3],
+            "详情": r[4], "ffmpeg输出": r[5], "时间": r[6]
+        } for r in rows]
+
+    def 查询最新录屏会话(self) -> str:
+        """查询最新的录屏会话ID"""
+        rows = self._查询("SELECT 会话ID FROM 录屏日志 ORDER BY id DESC LIMIT 1")
+        if rows:
+            return rows[0][0]
+        return None
 
 
 # 全局单例

@@ -1,6 +1,33 @@
 # 更新日志
 
-## v2.9.0 (2026-07-03)
+## v3.0.0 (2026-07-04)
+
+### 新增
+- **Houdini 深度对接** — Bridge 架构连接 Houdini，AI 可直接创建/删除/连接节点、设置参数、写 VEX 代码、执行 Python、查询网络结构和几何信息、搜索节点类型、撤销重做、管理 NetworkBox 分组，共 10 个操作
+- **Houdini 自动安装桥接** — AI 可自动检测电脑上的 Houdini 版本并安装 Bridge，支持热重载（无需重启 Houdini）
+- **面板状态记忆** — 关闭/打开的文件面板、编辑器面板、缩略图面板状态自动保存，下次打开恢复
+- **TTS 音量调节** — 右键 🔊 弹出音量滑块（0-100%），拖动实时保存，后端三层播放全部应用
+- **录屏音量持久化** — 麦克风/系统音量滑块拖动时实时保存到 localStorage
+
+### 修复
+- `hou.undos.beginGroup/endGroup` 在 Houdini 20.0 不存在 — 新增 `_undo_group` 兼容层
+- `execute_python` 不捕获 print 输出 — 用 `redirect_stdout` 捕获返回给 AI
+- `execute_python` traceback 显示无关代码行 — 全局命名空间加 `__file__`，过滤内部帧
+- `connect_nodes` 参数名语义反了导致连接方向错误 — 改为 `源节点路径/目标节点路径`
+- `parameters` 传成 JSON 字符串而非 dict — `_auto_parse_args` 自动解析
+- `hou.nodeTypeAll()` / `geo.vertices()` / `isBypassed()` 在 Houdini 20.0 不存在 — 全部加兼容回退
+- `create_node` 失败只报 Invalid type — 新增可用类型列表帮助 AI 自我修正
+- TTS 报错 `cannot access local variable 'threading'` — 删除局部 `import threading`
+- 关闭面板后右侧空白 — 剩余面板自动扩展
+- 浏览器缩窄到 500px 面板不收缩 — 降低 `min-width`，`flex-shrink:1`
+- `showGallery()` 强制打开编辑器面板覆盖记忆 — 检查保存的状态
+- 快速浮窗问答/翻译弹窗上方文本无法 Ctrl+C — 显式绑定复制和全选
+- Houdini 插件 f-string 中文引号导致 SyntaxError — 插件加载失败
+
+### 优化
+- 删除不可用的 `Houdini视口截图` 操作，避免 AI 反复尝试
+- 浏览器最小宽度从 ~788px 降到 ~428px
+- `create_nodes_batch` 兼容中文键名（类型/名称/参数）
 
 ### 新增
 - **快速浮窗翻译弹窗** — 选中文字Ctrl+~呼出轮盘选翻译，弹窗显示原文/译文/介绍/造句，流式输出+TTS朗读+拖拽

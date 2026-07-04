@@ -830,14 +830,30 @@ class 快速浮窗:
             from PIL import Image
             pil_img = Image.open(io.BytesIO(b64mod.b64decode(图片b64)))
             pil_img.load()
-            output = io.BytesIO()
-            pil_img.save(output, "BMP")
-            data = output.getvalue()[14:]
-            output.close()
-            ctypes.windll.user32.OpenClipboard(0)
-            ctypes.windll.user32.EmptyClipboard()
-            ctypes.windll.user32.SetClipboardData(8, data)
-            ctypes.windll.user32.CloseClipboard()
+
+            # 准备BMP DIB数据（去掉14字节BMP文件头）
+            bmp_buf = io.BytesIO()
+            pil_img.save(bmp_buf, "BMP")
+            dib_data = bmp_buf.getvalue()[14:]
+            bmp_buf.close()
+
+            # 准备PNG数据
+            png_buf = io.BytesIO()
+            pil_img.save(png_buf, "PNG")
+            png_data = png_buf.getvalue()
+            png_buf.close()
+
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            # CF_DIB (8)
+            win32clipboard.SetClipboardData(win32clipboard.CF_DIB, dib_data)
+            # PNG (自定义格式，QQ/微信优先读这个)
+            png_fmt = win32clipboard.RegisterClipboardFormat("PNG")
+            win32clipboard.SetClipboardData(png_fmt, png_data)
+            win32clipboard.CloseClipboard()
+        except Exception as e:
+            print(f"复制图片到剪贴板失败: {e}")
         except Exception as e:
             print(f"复制图片到剪贴板失败: {e}")
 
@@ -1025,6 +1041,23 @@ class 快速浮窗:
             padx=14, pady=10, highlightthickness=0, borderwidth=0,
             spacing1=4, spacing3=4)
         self._翻译结果文本.pack(side="left", fill="both", expand=True)
+
+        # 绑定 Ctrl+C 复制和 Ctrl+A 全选
+        def _翻译复制(e):
+            try:
+                选中 = self._翻译结果文本.get("sel.first", "sel.last")
+                self._弹窗.clipboard_clear()
+                self._弹窗.clipboard_append(选中)
+            except tk.TclError:
+                pass
+            return "break"
+        def _翻译全选(e):
+            self._翻译结果文本.tag_add("sel", "1.0", "end")
+            return "break"
+        self._翻译结果文本.bind("<Control-c>", _翻译复制)
+        self._翻译结果文本.bind("<Control-C>", _翻译复制)
+        self._翻译结果文本.bind("<Control-a>", _翻译全选)
+        self._翻译结果文本.bind("<Control-A>", _翻译全选)
 
         滚动条 = tk.Scrollbar(内容frame, command=self._翻译结果文本.yview,
             bg="#1c1c28", troughcolor="#0d0d14", activebackground="#333355",
@@ -1323,11 +1356,13 @@ class 快速浮窗:
         # 复制按钮
         def 复制():
             try:
-                文本 = self._回答文本.get("1.0", "end")
+                文本 = self._回答文本.get("1.0", "end-1c")
                 self._弹窗.clipboard_clear()
+                self._弹窗.update()  # 确保clipboard操作生效
                 self._弹窗.clipboard_append(文本)
-            except Exception:
-                pass
+                self._弹窗.update()
+            except Exception as e:
+                print(f"复制文本失败: {e}")
         复制按钮 = tk.Button(
             self._画布, text="复制", command=复制,
             bg="#1c1c28", fg="#666688", font=("Microsoft YaHei UI", 7),
@@ -1353,7 +1388,7 @@ class 快速浮窗:
             font=("Microsoft YaHei UI", 10), wrap="word",
             padx=12, pady=8, highlightthickness=0, borderwidth=0,
             spacing1=4, spacing3=4, insertbackground="#ccccdd", insertwidth=2,
-            state="disabled"
+            state="normal", cursor="arrow"
         )
         self._回答文本.pack(side="left", fill="both", expand=True)
         滚动条 = tk.Scrollbar(回复frame, command=self._回答文本.yview,
@@ -1361,6 +1396,36 @@ class 快速浮窗:
             highlightthickness=0, bd=0, width=8)
         滚动条.pack(side="right", fill="y")
         self._回答文本.config(yscrollcommand=滚动条.set)
+
+        # 禁止编辑但允许选择和复制
+        def _拦截输入(e):
+            # 允许的快捷键：Ctrl+C(复制), Ctrl+A(全选)
+            if e.state & 0x4:  # Ctrl
+                return None
+            # 允许导航键
+            允许 = ("Left", "Right", "Up", "Down", "Home", "End",
+                    "Prior", "Next", "Shift_L", "Shift_R", "Control_L", "Control_R")
+            if e.keysym in 允许:
+                return None
+            return "break"  # 拦截其他所有按键
+        self._回答文本.bind("<Key>", _拦截输入)
+
+        # 显式绑定 Ctrl+C 复制和 Ctrl+A 全选
+        def _复制选中(e):
+            try:
+                选中 = self._回答文本.get("sel.first", "sel.last")
+                self._弹窗.clipboard_clear()
+                self._弹窗.clipboard_append(选中)
+            except tk.TclError:
+                pass
+            return "break"
+        def _全选(e):
+            self._回答文本.tag_add("sel", "1.0", "end")
+            return "break"
+        self._回答文本.bind("<Control-c>", _复制选中)
+        self._回答文本.bind("<Control-C>", _复制选中)
+        self._回答文本.bind("<Control-a>", _全选)
+        self._回答文本.bind("<Control-A>", _全选)
 
         # 多轮对话标签样式：用户亮蓝靠右有背景，机器人白色靠左有背景
         self._回答文本.tag_config("user", foreground="#aaccff",
@@ -1372,9 +1437,7 @@ class 快速浮窗:
             background="#1a1a28")
 
         if 初始文本:
-            self._回答文本.config(state="normal")
             self._回答文本.insert("end", 初始文本)
-            self._回答文本.config(state="disabled")
 
         # 滚轮：回复区上下滚动（不调窗口高度）
         self._回答文本.bind("<MouseWheel>", lambda e: self._回答文本.yview_scroll(int(-e.delta/120), "units"))
@@ -1407,14 +1470,12 @@ class 快速浮窗:
             消息 = [{"role": "user", "content": f"{上下文}\n{文本}"}]
             提示词 = self.配置.get("系统提示词", "你是快速助手，简洁回答。")
             # 追加到回复区而非清空，支持多轮对话
-            self._回答文本.config(state="normal")
             当前内容 = self._回答文本.get("1.0", "end").strip()
             if 当前内容:
                 self._回答文本.insert("end", f"\n👤 {文本}\n", "user")
             else:
                 self._回答文本.insert("end", f"👤 {文本}\n", "user")
             self._回答文本.insert("end", "🤖 ", "bot")
-            self._回答文本.config(state="disabled")
             self._回答文本.see("end")
             输入框.delete("1.0", "end")
             self._启动LLM(消息, 提示词, 是问答=True, 问答原文=文本)
@@ -1524,9 +1585,7 @@ class 快速浮窗:
 
     def _追加文本(self, 片段):
         try:
-            self._回答文本.config(state="normal")
             self._回答文本.insert("end", 片段, "bot")
-            self._回答文本.config(state="disabled")
             self._回答文本.see("end")
         except Exception:
             pass

@@ -261,7 +261,8 @@ function hideDownloadPanel() {
 
 // 兼容旧代码调用（推理流.js和对话核心.js中可能调用）
 function startDownloadPolling() {
-    // 已由initDownloadPanel接管，此函数保留为空避免报错
+    _dpStartPolling();
+    pollDownloadPanel();
 }
 
 document.addEventListener("DOMContentLoaded", initDownloadPanel);

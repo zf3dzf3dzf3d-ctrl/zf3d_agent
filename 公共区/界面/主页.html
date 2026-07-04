@@ -7,7 +7,7 @@
     <title>朱峰社区智能体 v2.5.0</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260702d">
+    <link rel="stylesheet" href="样式.css?v=20260704k">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -26,7 +26,95 @@
         <div class="topbar-right">
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
+            <div class="tts-volume-popup" id="ttsVolumePopup" style="display:none;">
+                <div class="tts-volume-header">🔊 音量</div>
+                <input type="range" id="ttsVolumeSlider" min="0" max="100" value="100" class="tts-volume-slider" />
+                <div class="tts-volume-value"><span id="ttsVolumeValue">100</span>%</div>
+            </div>
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
+            <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openDonate()" style="font-size:15px;">❤️</button>
+        </div>
+    </div>
+
+    <!-- 捐赠/介绍弹窗 -->
+    <div class="overlay" id="donateOverlay" style="display:none;">
+        <div class="donate-box">
+            <button class="settings-close-btn" onclick="closeDonate()" title="关闭">✖</button>
+            <div class="donate-scroll">
+                <!-- 顶部banner -->
+                <div class="donate-banner">
+                    <div class="donate-banner-bg"></div>
+                    <div class="donate-banner-content">
+                        <div class="donate-logo">朱峰社区智能体</div>
+                        <div class="donate-slogan">让每一位创作者都拥有AI助手</div>
+                    </div>
+                </div>
+                <!-- 正文 -->
+                <div class="donate-body">
+                    <div class="donate-section">
+                        <h3 class="donate-h3">🏫 关于朱峰社区</h3>
+                        <p class="donate-p"><b>朱峰社区（zf3d.com）</b> 创立于2006年，至今已运营 <b>20年</b>。20年来始终坚持原创视频教程，覆盖 Maya、3ds Max、Houdini、ZBrush、Unity、ComfyUI 等主流软件，从建模材质到特效动画，从游戏开发到AIGC前沿，紧跟行业最新趋势。</p>
+                        <p class="donate-p">社区拥有完整的教程体系、模型库、材质库、论坛和求职招聘板块，陪伴了无数3D创作者从入门到入行。</p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <div class="donate-section">
+                        <h3 class="donate-h3">📌 这是什么</h3>
+                        <p class="donate-p">面向 <b>3D建模师、2D原画师、特效师、AIGC创作者、游戏开发者</b> 的全功能AI智能体框架。不是聊天框，是能真正动手干活的助手。</p>
+                        <p class="donate-p">文件管理、网页操控、ComfyUI生图、Office文档、图片处理、多模型切换、记忆系统、Ctrl+~快捷轮盘，<b>120+内置操作</b>，说一句话就能完成任务，把繁琐的重复劳动交给AI。</p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <div class="donate-section">
+                        <h3 class="donate-h3">💡 为什么做</h3>
+                        <p class="donate-p">太多美工和特效师技术一流，却困在批量改名、整理文件、查文档、调参数里，吃掉了创作的时间。太多学习者想入门AIGC，却被复杂的工具链和英文文档挡在门外。</p>
+                        <p class="donate-p">所以我们做了一个简单的东西：<b>你说中文，它帮你干活。</b>不收钱，不设门槛，复制即用。</p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <div class="donate-section">
+                        <h3 class="donate-h3">🔧 开发历程</h3>
+                        <p class="donate-p">从一行代码开始，逐步成长为 <b>23,000+行代码、60+源文件、120+操作、10种AI模型、165+测试用例</b> 的完整框架。纯Python标准库，零外部依赖，所有功能从零实现——这个决定让开发难度翻了数倍。</p>
+                        <p class="donate-p">没有团队，没有融资，一个人写代码、测Bug、写文档，从早7点写到半夜12点。但我们坚持下来了，因为我们相信：<b>好的工具不该只有买得起的人才能用。</b></p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <div class="donate-section">
+                        <h3 class="donate-h3">🚀 这只是开始</h3>
+                        <p class="donate-p">我们不会停在这里。Houdini深度对接、双引擎自我进化、插件生态、MCP协议、Blender与Unreal Engine对接……我们会持续打磨每一个功能，让这个工具成为创作者真正的得力助手。</p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <div class="donate-section">
+                        <h3 class="donate-h3">🤝 企业合作</h3>
+                        <p class="donate-p">欢迎 <b>游戏公司、影视特效工作室、高校院系、培训机构、AI研究团队</b> 参与冠名合作、联合开发、教学合作或技术赞助。合作伙伴名称将展示在项目致谢页与发布说明中。</p>
+                        <p class="donate-p">合作意向请通过QQ群 <b>290939358</b> 联系我们，或访问 <b>zf3d.com</b> 了解更多。</p>
+                    </div>
+                    <div class="donate-divider"></div>
+                    <!-- 捐赠通道 -->
+                    <div class="donate-section donate-channel">
+                        <h3 class="donate-h3">❤️ 支持我们</h3>
+                        <p class="donate-p">如果你觉得这个工具帮到了你，欢迎请作者喝杯咖啡。</p>
+                        <p class="donate-p donate-amount">一杯咖啡 15元 · 一顿外卖 30元 · 一本教程 50元</p>
+                        <p class="donate-p donate-thanks">你的每一份支持，都让我们能继续开发下去。</p>
+                        <div class="donate-tabs">
+                            <div class="donate-tab active" id="donateTabWechat" onclick="switchDonateTab('wechat')">💚 微信</div>
+                            <div class="donate-tab" id="donateTabAlipay" onclick="switchDonateTab('alipay')">💙 支付宝</div>
+                        </div>
+                        <div class="donate-qr-area">
+                            <div class="donate-qr-wrap active" id="donateQrWechat">
+                                <img src="捐赠_微信.gif" alt="微信捐赠二维码" />
+                                <div class="donate-qr-label">微信扫一扫 → 向朱峰社区转账</div>
+                            </div>
+                            <div class="donate-qr-wrap" id="donateQrAlipay">
+                                <img src="捐赠_支付宝.gif" alt="支付宝捐赠二维码" />
+                                <div class="donate-qr-label">支付宝扫一扫 → 向朱峰社区转账</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 底部 -->
+                <div class="donate-footer">
+                    <div class="donate-qq">🐧 技术交流QQ群：290939358</div>
+                    <span> zf3d.com · 朱峰社区</span>
+                    <span>MIT 开源协议 · 永久免费 · 感谢你的支持</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -92,7 +180,8 @@
                     </div>
                     <div class="gallery-selection-bar">
                         <button class="bar-btn" id="toggleSelectAllBtn" onclick="toggleSelectAll()" title="全选/取消选择 (Ctrl+A / Ctrl+D)">☑️ <span class="btn-text">全选</span></button>
-                        <button class="bar-btn" id="recordBtn" title="录制系统音频">🔴</button>
+                        <button class="bar-btn" id="recordBtn" title="录制系统音频（右键选择录音设备）">🔴</button>
+                        <button class="bar-btn" id="screenRecordBtn" title="录制屏幕视频（右键设置）">🎬</button>
                         <button class="bar-btn" id="batchDeleteBtn" onclick="batchDeleteSelected()" title="删除选中项" style="display:none;">🗑️</button>
                         <button class="bar-btn" id="batchMoveBtn" onclick="batchMoveSelected()" title="移动选中项" style="display:none;">📦</button>
                         <button class="bar-btn" id="batchCopyBtn" onclick="batchCopySelected()" title="复制选中项" style="display:none;">📋</button>
@@ -472,20 +561,21 @@
     <script src="模块/撤销重做.js?v=20260627a"></script>
     <script src="模块/Toast通知.js?v=20260624a"></script>
     <script src="模块/自动更新.js?v=20260627b"></script>
-    <script src="模块/面板布局.js?v=20260627b"></script>
-    <script src="模块/语音播报.js?v=20260627b"></script>
+    <script src="模块/面板布局.js?v=20260704b"></script>
+    <script src="模块/语音播报.js?v=20260704a"></script>
     <script src="模块/语音输入.js?v=20260627b"></script>
     <script src="模块/对话核心.js?v=20260702c"></script>
-    <script src="模块/推理流.js?v=20260702b"></script>
+    <script src="模块/推理流.js?v=20260704a"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
-    <script src="模块/录音.js?v=20260702b"></script>
+    <script src="模块/录音.js?v=20260704h"></script>
+    <script src="模块/录屏.js?v=20260704z"></script>
     <script src="模块/实时Diff.js?v=20260627c"></script>
     <script src="模块/Diff查看器.js?v=20260702c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
     <script src="模块/模型配置.js?v=20260701a"></script>
     <script src="模块/设置面板.js?v=20260701h"></script>
-    <script src="模块/文件树.js?v=20260702a"></script>
+    <script src="模块/文件树.js?v=20260704b"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
     <script src="模块/图片查看器.js?v=20260702a"></script>
@@ -494,8 +584,25 @@
     <script src="模块/权限轮询.js?v=20260702a"></script>
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
-    <script src="模块/下载面板.js?v=20260702a"></script>
+    <script src="模块/下载面板.js?v=20260704a"></script>
     <script src="逻辑.js?v=20260627j"></script>
+
+    <script>
+    function openDonate(){document.getElementById('donateOverlay').style.display='flex';switchDonateTab('wechat');}
+    function closeDonate(){document.getElementById('donateOverlay').style.display='none';}
+    function switchDonateTab(tab){
+        document.querySelectorAll('.donate-tab').forEach(function(t){t.classList.remove('active');});
+        document.querySelectorAll('.donate-qr-wrap').forEach(function(w){w.classList.remove('active');});
+        if(tab==='wechat'){
+            document.getElementById('donateTabWechat').classList.add('active');
+            document.getElementById('donateQrWechat').classList.add('active');
+        }else{
+            document.getElementById('donateTabAlipay').classList.add('active');
+            document.getElementById('donateQrAlipay').classList.add('active');
+        }
+    }
+    document.getElementById('donateOverlay').addEventListener('click',function(e){if(e.target===this)closeDonate();});
+    </script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
@@ -602,5 +709,22 @@
             <div id="diffContent" class="diff-page-content"></div>
         </div>
     </div>
+    <script>
+    // 录屏停止后恢复按钮的保险逻辑（不依赖外部JS缓存）
+    // 每3秒检查一次，如果录屏不在录制中且不在转码中，确保按钮恢复
+    setInterval(() => {
+        if (typeof screenStopping !== 'undefined' && typeof screenRecordState !== 'undefined') {
+            if (!screenRecordState && !screenStopping) {
+                const b = document.getElementById('screenRecordBtn');
+                if (b && (b.textContent === '⏳' || b.textContent === '⏹')) {
+                    b.textContent = '🎬';
+                    b.title = '录制屏幕视频（右键设置）';
+                    b.classList.remove('recording');
+                    b.style.pointerEvents = '';
+                }
+            }
+        }
+    }, 3000);
+    </script>
 </body>
 </html>
