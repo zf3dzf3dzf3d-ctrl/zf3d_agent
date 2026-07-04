@@ -97,6 +97,9 @@ function appendReasoningRecord(rec) {
             break;
         case "下载进度": {
             const p = rec.内容;
+            // 重启下载面板轮询（页面加载后轮询已停止，收到进度事件时恢复）
+            if (typeof _dpStartPolling === 'function') _dpStartPolling();
+            if (typeof pollDownloadPanel === 'function') pollDownloadPanel();
             const dlId = p.下载ID || 'default';
             const barId = `dlBar_${dlId}`;
             let progBar = document.getElementById(barId);
@@ -224,12 +227,6 @@ function appendReasoningRecord(rec) {
         detailDiv.className = "rc-detail";
         detailDiv.textContent = 详情数据;
         div.appendChild(detailDiv);
-        // 运行命令和替换文本默认展开
-        const 默认展开操作 = ["运行命令", "替换文本"];
-        const 操作名 = rec.内容?.操作 || "";
-        if (默认展开操作.includes(操作名)) {
-            div.classList.add("rc-expanded");
-        }
         div.addEventListener("click", (e) => {
             // 进度条卡片不响应点击
             if (div.classList.contains("rc-progress")) return;
@@ -248,7 +245,9 @@ function appendReasoningRecord(rec) {
 let _downloadPollTimer = null;
 
 function startDownloadPolling() {
-    // 下载面板.js 已独立处理轮询，此处不再重复
+    // 重启下载面板轮询（最终回复后SSE关闭，靠轮询继续追踪后台下载）
+    if (typeof _dpStartPolling === 'function') _dpStartPolling();
+    if (typeof pollDownloadPanel === 'function') pollDownloadPanel();
 }
 
 function pollDownloadStatus() {

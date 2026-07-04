@@ -146,8 +146,9 @@ class 全局呼出器:
                                 self._上次触发 = now
                                 鼠标坐标 = self._获取鼠标坐标()
                                 窗口标题 = self._获取前台窗口标题()
-                                # 在弹窗抢焦点前，先抓取选中文本
+                                # 在钩子线程同步获取选中文本（剪贴板需要消息队列所在线程）
                                 选中文本 = 全局呼出器.获取选中文本()
+                                print(f"[呼出器] 选中文本长度={len(选中文本)} 内容={选中文本[:50]!r}")
                                 if self._回调:
                                     threading.Thread(
                                         target=self._回调,
@@ -193,16 +194,41 @@ class 全局呼出器:
     @staticmethod
     def 获取选中文本():
         """模拟Ctrl+C获取当前选中文本"""
-        旧内容 = 全局呼出器.读取剪贴板()
+        # 先清空剪贴板，这样复制后能确认是否真的有新内容
+        全局呼出器.清空剪贴板()
+        # 释放Ctrl键（因为Ctrl+~触发时Ctrl还按着）
+        user32.keybd_event(0x11, 0, 2, 0)   # Ctrl up
+        time.sleep(0.08)
+        # 模拟Ctrl+C
         user32.keybd_event(0x11, 0, 0, 0)   # Ctrl down
         user32.keybd_event(0x43, 0, 0, 0)   # C down
+        time.sleep(0.03)
         user32.keybd_event(0x43, 0, 2, 0)   # C up
         user32.keybd_event(0x11, 0, 2, 0)   # Ctrl up
-        time.sleep(0.1)
-        新内容 = 全局呼出器.读取剪贴板()
-        if 新内容 and 新内容 != 旧内容:
-            return 新内容
-        return ""
+        time.sleep(0.2)
+        结果 = 全局呼出器.读取剪贴板()
+        # 如果没取到，重试一次
+        if not 结果:
+            time.sleep(0.1)
+            user32.keybd_event(0x11, 0, 0, 0)
+            user32.keybd_event(0x43, 0, 0, 0)
+            time.sleep(0.03)
+            user32.keybd_event(0x43, 0, 2, 0)
+            user32.keybd_event(0x11, 0, 2, 0)
+            time.sleep(0.2)
+            结果 = 全局呼出器.读取剪贴板()
+        return 结果
+
+    @staticmethod
+    def 清空剪贴板():
+        if not user32.OpenClipboard(None):
+            return
+        try:
+            user32.EmptyClipboard()
+        except Exception:
+            pass
+        finally:
+            user32.CloseClipboard()
 
     @staticmethod
     def 读取剪贴板():

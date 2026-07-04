@@ -1506,13 +1506,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"错误": "文本为空"})
                 return
             文本 = 文本[:500]
+            tts音量 = 数据.get("音量", 100)
+            tts音量 = max(0, min(100, int(tts音量)))
             网页请求处理器._tts停止标志 = True  # 先停止之前的播放
             import time as _time; _time.sleep(0.1)  # 等待旧线程退出
             网页请求处理器._tts停止标志 = False
             网页请求处理器._tts_speaker = None
             网页请求处理器._tts_process = None
             网页请求处理器._tts播放中 = True
-            def _tts播放(待播文本):
+            def _tts播放(待播文本, 播放音量):
                 try:
                     import asyncio
                     import edge_tts
@@ -1529,7 +1531,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                             待播文本,
                             'zh-CN-XiaoxiaoNeural',
                             rate='+30%',
-                            volume='+100%'
+                            volume=f'{播放音量}%'
                         )
                         tmp = os.path.join(tempfile.gettempdir(), 'zf3d_tts.mp3')
                         await asyncio.wait_for(communicate.save(tmp), timeout=30.0)
@@ -1538,6 +1540,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     if 网页请求处理器._tts停止标志:
                         return
                     pygame.mixer.music.load(音频文件)
+                    pygame.mixer.music.set_volume(播放音量 / 100.0)
                     pygame.mixer.music.play()
                     while pygame.mixer.music.get_busy():
                         if 网页请求处理器._tts停止标志:
@@ -1560,7 +1563,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                             网页请求处理器._tts_speaker = speaker
                             speaker.Speak("", 3)
                             speaker.Rate = 3
-                            speaker.Volume = 100
+                            speaker.Volume = 播放音量
                             speaker.Speak(待播文本, 0)
                         finally:
                             pythoncom.CoUninitialize()
@@ -1574,7 +1577,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         网页请求处理器._tts_process = None
                 finally:
                     网页请求处理器._tts播放中 = False
-            t = threading.Thread(target=_tts播放, args=(文本,), daemon=True)
+            t = threading.Thread(target=_tts播放, args=(文本, tts音量), daemon=True)
             t.start()
             self._返回JSON({"成功": True})
         elif 路径 == "/api/tts-stop":
@@ -1821,14 +1824,22 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "消息": f"对话测试模式: {'开启' if 启用 else '关闭'}"})
             else:
                 self._返回JSON({"成功": False, "错误": f"未知动作: {动作}"})
+        elif 路径 == "/api/record-devices":
+            """列出可用录音设备"""
+            try:
+                from 录音器 import 录音器
+                self._返回JSON(录音器.列出设备())
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/record-start":
             """开始录制系统音频"""
             保存目录 = 数据.get("保存目录", "")
             if not 保存目录:
                 保存目录 = str(Path.home() / "Desktop")
+            设备索引 = 数据.get("设备索引", None)
             try:
                 from 录音器 import 录音器
-                结果 = 录音器.开始录制(保存目录)
+                结果 = 录音器.开始录制(保存目录, 设备索引)
                 self._返回JSON(结果)
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
@@ -1836,20 +1847,23 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """停止录制并保存"""
             try:
                 from 录音器 import 录音器
-                结果 = 录音器.停止录制()
+                音量倍数 = 数据.get("音量倍数", 1.0)
+                结果 = 录音器.停止录制(音量倍数)
+                # 先发响应，再后台打开文件夹（避免阻塞响应导致JSON解析错误）
                 self._返回JSON(结果)
-                # 保存后打开文件夹
                 if 结果.get("成功") and 结果.get("保存路径"):
                     保存目录 = os.path.dirname(结果["保存路径"])
-                    try:
-                        if sys.platform == "win32":
-                            os.startfile(保存目录)
-                        elif sys.platform == "darwin":
-                            subprocess.Popen(["open", 保存目录])
-                        else:
-                            subprocess.Popen(["xdg-open", 保存目录])
-                    except Exception:
-                        pass
+                    def _打开文件夹():
+                        try:
+                            if sys.platform == "win32":
+                                os.startfile(保存目录)
+                            elif sys.platform == "darwin":
+                                subprocess.Popen(["open", 保存目录])
+                            else:
+                                subprocess.Popen(["xdg-open", 保存目录])
+                        except Exception:
+                            pass
+                    threading.Thread(target=_打开文件夹, daemon=True).start()
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/record-status":
@@ -1857,6 +1871,158 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             try:
                 from 录音器 import 录音器
                 self._返回JSON(录音器.查询状态())
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-devices":
+            """列出录屏可用的 dshow 音频设备"""
+            try:
+                from 录屏器 import 录屏器
+                self._返回JSON(录屏器.列出dshow设备())
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-select-area":
+            """弹出区域选择遮罩，返回选区坐标"""
+            try:
+                import tkinter as tk
+                from 区域选择 import 区域选择
+                root = tk.Tk()
+                root.withdraw()
+                选择器 = 区域选择(root)
+                结果 = 选择器.弹出()
+                root.destroy()
+                if 结果:
+                    self._返回JSON({"成功": True, "区域": 结果})
+                else:
+                    self._返回JSON({"成功": False, "错误": "用户取消了区域选择"})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-start":
+            """开始录制屏幕"""
+            保存目录 = 数据.get("保存目录", "")
+            if not 保存目录:
+                保存目录 = str(Path.home() / "Desktop")
+            x = 数据.get("x", 0)
+            y = 数据.get("y", 0)
+            w = 数据.get("w", 0)
+            h = 数据.get("h", 0)
+            帧率 = 数据.get("帧率", 30)
+            音频模式 = 数据.get("音频模式", "mic")
+            dshow设备名 = 数据.get("dshow设备名", "")
+            麦克风音量 = 数据.get("麦克风音量", 1.0)
+            麦克风静音 = 数据.get("麦克风静音", False)
+            系统音量 = 数据.get("系统音量", 1.0)
+            系统静音 = 数据.get("系统静音", False)
+            点击效果 = 数据.get("点击效果", False)
+            点击音效 = 数据.get("点击音效", False)
+            音效音量 = 数据.get("音效音量", 50)
+            try:
+                from 录屏器 import 录屏器
+                结果 = 录屏器.开始录制(保存目录, x, y, w, h, 帧率, 音频模式, dshow设备名,
+                                     麦克风音量, 麦克风静音, 系统音量, 系统静音,
+                                     点击效果, 点击音效, 音效音量)
+                self._返回JSON(结果)
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-stop":
+            """停止录屏（同步等待转码完成，直接返回结果）"""
+            try:
+                from 录屏器 import 录屏器, _写日志
+                _写日志("API:screenrecord-stop", "信息", "前端调用停止录屏API")
+                结果 = 录屏器.停止并等待完成(超时秒=300)
+                _写日志("API:screenrecord-stop响应", "信息",
+                        f"成功={结果.get('成功')} 保存路径={结果.get('保存路径', '')}")
+                self._返回JSON(结果)
+                # 打开文件夹
+                if 结果.get("成功") and 结果.get("保存路径"):
+                    保存目录 = os.path.dirname(结果["保存路径"])
+                    def _打开文件夹():
+                        try:
+                            if sys.platform == "win32":
+                                os.startfile(保存目录)
+                            elif sys.platform == "darwin":
+                                subprocess.Popen(["open", 保存目录])
+                            else:
+                                subprocess.Popen(["xdg-open", 保存目录])
+                        except Exception:
+                            pass
+                    threading.Thread(target=_打开文件夹, daemon=True).start()
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-status":
+            """查询录屏状态"""
+            try:
+                from 录屏器 import 录屏器, _写日志
+                状态 = 录屏器.查询状态()
+                _写日志("API:screenrecord-status", "信息",
+                        f"转码中={状态.get('转码中')} 转码完成={状态.get('转码完成')} "
+                        f"录制中={状态.get('录制中')}")
+                # 转码完成时，自动打开文件夹
+                if 状态.get("转码完成") and 状态.get("结果", {}).get("成功"):
+                    保存路径 = 状态["结果"].get("保存路径", "")
+                    if 保存路径:
+                        保存目录 = os.path.dirname(保存路径)
+                        def _打开文件夹2():
+                            try:
+                                if sys.platform == "win32":
+                                    os.startfile(保存目录)
+                                elif sys.platform == "darwin":
+                                    subprocess.Popen(["open", 保存目录])
+                                else:
+                                    subprocess.Popen(["xdg-open", 保存目录])
+                            except Exception:
+                                pass
+                        threading.Thread(target=_打开文件夹2, daemon=True).start()
+                self._返回JSON(状态)
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-logs":
+            """查询录屏日志"""
+            try:
+                from 录屏器 import 录屏器
+                会话ID = 数据.get("会话ID", "")
+                结果 = 录屏器.查询录屏日志(会话ID if 会话ID else None)
+                self._返回JSON(结果)
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-log":
+            """前端发来的日志"""
+            try:
+                from 录屏器 import _写日志
+                消息 = 数据.get("消息", "")
+                _写日志("前端日志", "信息", 消息)
+                self._返回JSON({"成功": True})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-test-volume":
+            """试听音量：用系统声音文件按当前音量倍数直接播放"""
+            try:
+                import tempfile
+                音量倍数 = 数据.get("音量倍数", 1.0)
+                _ffmpeg_path = shutil.which("ffmpeg") or r"C:\ffmpeg\bin\ffmpeg.exe"
+                源音频 = r"C:\Windows\Media\chord.wav"
+                if not os.path.exists(源音频):
+                    源音频 = r"C:\Windows\Media\ding.wav"
+                临时wav = os.path.join(tempfile.gettempdir(), f"_sr_test_{int(time.time()*1000)}.wav")
+                vol = max(0, 音量倍数)
+                cmd = [_ffmpeg_path, "-y", "-i", 源音频,
+                       "-af", f"volume={vol}",
+                       "-ar", "44100", "-ac", "2", 临时wav]
+                subprocess.run(cmd, capture_output=True, timeout=10,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+                if os.path.exists(临时wav) and os.path.getsize(临时wav) > 100:
+                    # 直接用系统命令播放wav
+                    def _播放():
+                        try:
+                            if sys.platform == "win32":
+                                import winsound
+                                winsound.PlaySound(临时wav, winsound.SND_FILENAME)
+                                os.remove(临时wav)
+                        except Exception:
+                            pass
+                    threading.Thread(target=_播放, daemon=True).start()
+                    self._返回JSON({"成功": True})
+                else:
+                    self._返回JSON({"成功": False, "错误": "音频生成失败"})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         else:
@@ -2288,11 +2454,13 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
     def _返回JSON(self, 数据: dict, 状态码: int = 200):
         try:
+            响应体 = json.dumps(数据, ensure_ascii=False).encode("utf-8")
             self.send_response(状态码)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(响应体)))
             self.send_header("Access-Control-Allow-Origin", "http://localhost:8765")
             self.end_headers()
-            self.wfile.write(json.dumps(数据, ensure_ascii=False).encode("utf-8"))
+            self.wfile.write(响应体)
         except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
             pass  # 客户端已断开（如用户点停止），无需记录
 

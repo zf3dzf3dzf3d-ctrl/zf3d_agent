@@ -4,11 +4,20 @@
  */
 
 // ============ 语音播报 ============
+let ttsVolume = parseInt(localStorage.getItem("ttsVolume") || "100");
+
 function initTTS() {
     const btn = document.getElementById("ttsToggleBtn");
     if (!btn) return;
     更新语音按钮();
-    btn.addEventListener("click", () => {
+
+    // 左键：切换开关/关弹窗；右键：弹音量
+    btn.addEventListener("click", (e) => {
+        const popup = document.getElementById("ttsVolumePopup");
+        if (popup.style.display === "flex") {
+            popup.style.display = "none";
+            return;
+        }
         voiceEnabled = !voiceEnabled;
         localStorage.setItem("voiceEnabled", voiceEnabled ? "true" : "false");
         更新语音按钮();
@@ -16,6 +25,33 @@ function initTTS() {
             fetch("/api/tts-stop", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
         }
         showToast("info", voiceEnabled ? "🔊 语音播报已开启" : "🔇 语音播报已关闭", voiceEnabled ? "AI回复后将朗读结果" : "已停止语音播报");
+    });
+
+    btn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const popup = document.getElementById("ttsVolumePopup");
+        popup.style.display = popup.style.display === "flex" ? "none" : "flex";
+    });
+
+    // 音量滑块
+    const slider = document.getElementById("ttsVolumeSlider");
+    const valSpan = document.getElementById("ttsVolumeValue");
+    if (slider) {
+        slider.value = ttsVolume;
+        valSpan.textContent = ttsVolume;
+        slider.addEventListener("input", () => {
+            ttsVolume = parseInt(slider.value);
+            valSpan.textContent = ttsVolume;
+            localStorage.setItem("ttsVolume", String(ttsVolume));
+        });
+    }
+
+    // 点击弹窗外关闭
+    document.addEventListener("click", (e) => {
+        const popup = document.getElementById("ttsVolumePopup");
+        if (popup && popup.style.display === "flex" && !popup.contains(e.target) && e.target !== btn) {
+            popup.style.display = "none";
+        }
     });
 }
 
@@ -46,7 +82,7 @@ function speakText(text) {
         .replace(/\n{2,}/g, '\n')
         .trim();
     if (纯文本.length < 2) return;
-    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 文本: 纯文本 }) }).catch(() => {});
+    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 文本: 纯文本, 音量: ttsVolume }) }).catch(() => {});
 }
 
 function stopTTS() {

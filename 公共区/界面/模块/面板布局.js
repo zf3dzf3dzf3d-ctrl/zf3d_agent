@@ -63,7 +63,36 @@ function initPanels() {
     document.getElementById("toggleFiles").addEventListener("click", () => togglePanel("filesPanel", "toggleFiles"));
     document.getElementById("toggleEditor").addEventListener("click", () => togglePanel("editorPanel", "toggleEditor"));
     document.getElementById("toggleChat").addEventListener("click", () => togglePanel("chatPanel", "toggleChat"));
-    ["toggleFiles", "toggleEditor", "toggleChat"].forEach(id => document.getElementById(id).classList.add("active"));
+    // 从 localStorage 恢复上次的面板状态
+    const saved = JSON.parse(localStorage.getItem("panelState") || "{}");
+    const panels = [
+        { id: "filesPanel", btn: "toggleFiles" },
+        { id: "editorPanel", btn: "toggleEditor" },
+        { id: "chatPanel", btn: "toggleChat" },
+    ];
+    panels.forEach(({ id, btn }) => {
+        const isHidden = saved[id] === false;
+        const el = document.getElementById(id);
+        const btnEl = document.getElementById(btn);
+        if (isHidden) {
+            el.classList.add("hidden");
+            btnEl.classList.remove("active");
+        } else {
+            el.classList.remove("hidden");
+            btnEl.classList.add("active");
+        }
+    });
+    updateDividers();
+    setTimeout(checkPanelNarrow, 50);
+}
+
+function _savePanelState() {
+    const state = {
+        filesPanel: !document.getElementById("filesPanel").classList.contains("hidden"),
+        editorPanel: !document.getElementById("editorPanel").classList.contains("hidden"),
+        chatPanel: !document.getElementById("chatPanel").classList.contains("hidden"),
+    };
+    localStorage.setItem("panelState", JSON.stringify(state));
 }
 
 function togglePanel(panelId, btnId) {
@@ -73,6 +102,7 @@ function togglePanel(panelId, btnId) {
     document.getElementById(btnId).classList.toggle("active");
     updateDividers();
     setTimeout(checkPanelNarrow, 50);
+    _savePanelState();
 }
 
 function updateDividers() {
@@ -81,6 +111,18 @@ function updateDividers() {
         const rH = document.getElementById(d.dataset.right)?.classList.contains("hidden");
         d.style.display = (lH || rH) ? "none" : "";
     });
+    // 当编辑器面板隐藏时，让剩余可见面板自动扩展填充空间
+    const editor = document.getElementById("editorPanel");
+    const files = document.getElementById("filesPanel");
+    const chat = document.getElementById("chatPanel");
+    const editorHidden = editor.classList.contains("hidden");
+    if (editorHidden) {
+        if (!files.classList.contains("hidden")) files.style.flex = "1 0 auto";
+        if (!chat.classList.contains("hidden")) chat.style.flex = "1 0 auto";
+    } else {
+        files.style.flex = "";
+        chat.style.flex = "";
+    }
 }
 
 // ============ 分隔线拖拽 ============
@@ -128,6 +170,7 @@ function collapsePanel(panelId, otherId) {
     const btnId = btnMap[panelId];
     if (btnId) document.getElementById(btnId).classList.remove("active");
     updateDividers();
+    _savePanelState();
 }
 
 // ============ 对话初始化 ============
