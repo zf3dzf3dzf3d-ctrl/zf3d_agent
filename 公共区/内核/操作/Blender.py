@@ -589,25 +589,19 @@ class Blender启动(操作基类):
 
             # 3. 端口未开 — 检查是否有Blender进程在运行（addon未加载）
             if _检查Blender进程是否运行():
-                # 尝试永久安装addon到用户的Blender
+                # Blender在运行但addon没加载，尝试安装addon
                 blender路径 = 参数.get("Blender路径", "") or _查找Blender路径()
                 addon路径 = _查找addon路径()
                 if blender路径 and addon路径:
                     成功, 消息 = _永久安装addon(blender路径, addon路径)
                     if 成功:
                         return 操作结果.失败(
-                            f"检测到Blender正在运行但插件未加载。已自动安装插件到Blender。\n"
-                            f"{消息}\n"
-                            f"请关闭并重新打开Blender，插件将自动加载，然后再次调用此操作连接。"
-                        )
-                    else:
-                        return 操作结果.失败(
-                            f"检测到Blender正在运行但插件未加载。自动安装失败: {消息}\n"
-                            f"请关闭当前Blender，然后再次调用此操作来启动新的Blender。"
+                            f"检测到Blender已打开，但连接插件未加载。已自动安装插件。\n"
+                            f"请关闭Blender再重新打开，插件就会自动生效，然后告诉我连接。"
                         )
                 return 操作结果.失败(
-                    "检测到Blender进程正在运行，但端口9876未就绪。\n"
-                    "请关闭当前Blender，然后再次调用此操作来启动新的Blender。"
+                    "检测到Blender已打开，但连接插件未加载。\n"
+                    "请关闭Blender再重新打开，然后告诉我连接。"
                 )
 
             # 4. 没有Blender运行，启动新的
