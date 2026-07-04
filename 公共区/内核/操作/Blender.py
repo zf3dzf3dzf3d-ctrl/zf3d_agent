@@ -8,6 +8,7 @@ import json
 import logging
 import tempfile
 import os
+import re
 import subprocess
 import shutil
 import glob as glob_mod
@@ -475,6 +476,95 @@ def _查找addon路径() -> str:
     return ""
 
 
+def _获取Blender版本(blender路径: str) -> str:
+    """运行 blender --version 获取版本号（如 '5.1'）"""
+    try:
+        result = subprocess.run(
+            [blender路径, "--version"],
+            capture_output=True, text=True, timeout=15,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        match = re.search(r'Blender\s+(\d+\.\d+)', result.stdout)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return ""
+
+
+def _获取Blender用户目录(blender版本: str = "") -> str:
+    """获取Blender用户配置目录（addons放在其下scripts/addons/）"""
+    if os.name == 'nt':
+        appdata = os.environ.get('APPDATA', '')
+        if not appdata:
+            return ""
+        base = os.path.join(appdata, 'Blender Foundation', 'Blender')
+    else:
+        base = os.path.join(os.path.expanduser('~'), '.config', 'blender')
+    if not os.path.isdir(base):
+        return ""
+    # 优先使用指定版本
+    if blender版本:
+        p = os.path.join(base, blender版本)
+        if os.path.isdir(p):
+            return p
+    # 找最新版本目录
+    versions = sorted(
+        [d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))],
+        reverse=True
+    )
+    for v in versions:
+        return os.path.join(base, v)
+    return ""
+
+
+def _永久安装addon(blender路径: str, addon源路径: str) -> tuple:
+    """将addon.py安装到Blender用户目录并启用，返回(成功bool, 消息str)"""
+    # 1. 获取Blender版本
+    版本 = _获取Blender版本(blender路径)
+    if not 版本:
+        return False, "无法获取Blender版本"
+
+    # 2. 获取用户目录
+    用户目录 = _获取Blender用户目录(版本)
+    if not 用户目录:
+        return False, f"无法找到Blender用户目录（版本 {版本}）"
+
+    # 3. 复制addon文件到scripts/addons/
+    addons目录 = os.path.join(用户目录, 'scripts', 'addons')
+    os.makedirs(addons目录, exist_ok=True)
+    目标路径 = os.path.join(addons目录, 'blendermcp.py')
+    try:
+        shutil.copy2(addon源路径, 目标路径)
+    except Exception as e:
+        return False, f"复制addon失败: {e}"
+
+    # 4. 通过Blender命令行启用addon并保存偏好设置
+    启用脚本 = (
+        "import bpy\n"
+        "try:\n"
+        "    bpy.ops.preferences.addon_enable(module='blendermcp')\n"
+        "    bpy.ops.wm.save_userpref()\n"
+        "    print('ADDON_ENABLED_OK')\n"
+        "except Exception as e:\n"
+        "    print(f'ADDON_ENABLE_FAIL: {e}')\n"
+    )
+    try:
+        result = subprocess.run(
+            [blender路径, '--background', '--python-expr', 启用脚本],
+            capture_output=True, text=True, timeout=20,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+        if 'ADDON_ENABLED_OK' in result.stdout:
+            return True, f"已安装到 {目标路径} 并已启用"
+        # 检查是否已经启用
+        if 'addon_enable' in result.stderr and 'already' in result.stderr.lower():
+            return True, f"addon已安装到 {目标路径}（之前已启用）"
+        return False, f"安装但启用失败: {result.stdout[:300]}"
+    except Exception as e:
+        return False, f"启用addon失败: {e}"
+
+
 class Blender启动(操作基类):
     名称 = "Blender启动"
     描述 = (
@@ -538,11 +628,26 @@ class Blender启动(操作基类):
 
             # 3. 端口未开 — 检查是否有Blender进程在运行（addon未加载）
             if _检查Blender进程是否运行():
+                # 尝试永久安装addon到用户的Blender
+                blender路径 = 参数.get("Blender路径", "") or _查找Blender路径()
+                addon路径 = _查找addon路径()
+                if blender路径 and addon路径:
+                    成功, 消息 = _永久安装addon(blender路径, addon路径)
+                    if 成功:
+                        return 操作结果.失败(
+                            f"检测到Blender正在运行但插件未加载。已自动安装插件到Blender。\n"
+                            f"{消息}\n"
+                            f"请关闭并重新打开Blender，插件将自动加载，然后再次让我连接。"
+                        )
+                    else:
+                        return 操作结果.失败(
+                            f"检测到Blender正在运行但插件未加载。自动安装失败: {消息}\n"
+                            f"请关闭当前Blender后让我重新启动。"
+                        )
                 return 操作结果.失败(
                     "检测到Blender进程正在运行，但端口9876未就绪。\n"
                     "可能原因：BlenderMCP插件未加载。\n"
-                    "请在Blender中按N键打开侧栏 → BlenderMCP面板 → 点击Connect，\n"
-                    "或关闭当前Blender后让我重新启动。"
+                    "请关闭当前Blender后让我重新启动。"
                 )
 
             # 4. 没有Blender运行，启动新的
@@ -556,6 +661,15 @@ class Blender启动(操作基类):
             addon路径 = _查找addon路径()
             if not addon路径:
                 return 操作结果.失败("未找到addon.py插件文件，请确认研究_BlenderMCP目录存在")
+
+            # 顺带永久安装addon，这样以后用户手动打开Blender也能自动加载
+            安装消息 = ""
+            try:
+                成功, 消息 = _永久安装addon(blender路径, addon路径)
+                if 成功:
+                    安装消息 = f"\n(已永久安装插件: {消息})"
+            except Exception:
+                pass
 
             # 用 --python 参数启动Blender，addon.py会自动执行register()
             命令 = [blender路径, "--python", addon路径]
@@ -574,7 +688,7 @@ class Blender启动(操作基类):
                 f"路径: {blender路径}\n"
                 f"插件: {addon路径}\n"
                 f"端口: 9876（约3-5秒后就绪）\n"
-                f"启动后可直接对话操控Blender。",
+                f"启动后可直接对话操控Blender。{安装消息}",
                 元数据={"操作类型": "Blender启动"}
             )
         except Exception as e:
