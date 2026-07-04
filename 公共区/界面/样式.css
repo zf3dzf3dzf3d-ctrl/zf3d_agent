@@ -875,9 +875,9 @@ pre:hover .code-copy-btn { opacity:1; }
 .file-tooltip .ft-row { display: flex; gap: 6px; }
 .file-tooltip .ft-label { color: var(--text2); min-width: 48px; text-align: right; }
 
-/* === 底部音乐播放栏（浮空在中间区域底部） === */
+/* === 底部音乐播放栏（固定在屏幕底部，不受面板隐藏影响） === */
 .music-bar {
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 100;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
     display: flex; align-items: center; gap: 10px; padding: 6px 12px;
     background: rgba(30,30,30,0.95); backdrop-filter: blur(8px);
     border-top: 1px solid var(--border);
@@ -909,7 +909,7 @@ pre:hover .code-copy-btn { opacity:1; }
 
 /* 播放列表面板 */
 .mb-playlist-panel {
-    position: absolute; bottom: 50px; right: 16px; z-index: 201;
+    position: fixed; bottom: 50px; right: 16px; z-index: 1001;
     width: 300px; max-height: 360px; display: flex; flex-direction: column;
     background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
