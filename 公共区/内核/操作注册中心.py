@@ -75,6 +75,10 @@ from 操作.浏览器操作 import (
 from 操作.Bug操作 import (
     记录Bug操作, 解决Bug操作, 查询Bug列表, 搜索Bug操作,
 )
+from 操作.Blender import (
+    Blender场景信息, Blender物体信息, Blender执行代码,
+    BlenderPolyHaven状态, Blender搜索资产, Blender下载资产, Blender断开, Blender启动,
+)
 
 
 class 操作注册中心类:
@@ -94,6 +98,9 @@ class 操作注册中心类:
         self._调用历史 = []  # 最近100条调用记录
         self._统计锁 = threading.Lock()  # 统计数据线程安全锁
         self.子代理最大步数 = 30  # 子代理迭代预算（可被推理引擎覆盖）
+        # 软件锁定：一旦用户在某个软件中操作，锁定该软件工具组，排除其他软件组
+        self._软件锁定组 = None  # 当前锁定的组名（如"Blender"/"浏览器"等）
+        self._软件锁定计数 = 0  # 锁定后经过的对话轮数
         # 中文名→英文名映射（API function name必须为[a-zA-Z0-9_-]）
         self._英文名映射 = {
             "打开程序": "open_program", "运行命令": "run_command",
@@ -191,6 +198,14 @@ class 操作注册中心类:
                     "图片调整": "adjust_image", "图片裁剪": "crop_image",
                     "图片缩放": "scale_image", "图片模糊": "blur_image",
                     "图片灰度化": "grayscale_image", "图片旋转": "rotate_image",
+                "Blender场景信息": "blender_scene_info",
+                "Blender物体信息": "blender_object_info",
+                "Blender执行代码": "blender_execute_code",
+                "Blender PolyHaven状态": "blender_polyhaven_status",
+                "Blender搜索资产": "blender_search_assets",
+                "Blender下载资产": "blender_download_asset",
+                "Blender断开": "blender_disconnect",
+                "Blender启动": "blender_start",
                     "多线程下载": "multithread_download",
                 }
         self._英文反查 = {v: k for k, v in self._英文名映射.items()}
@@ -409,6 +424,16 @@ class 操作注册中心类:
                 "关键词": ["导出对话", "导出markdown", "创建工具", "生成工具"],
                 "始终启用": False,
             },
+            "Blender": {
+                "操作": [
+                    "Blender场景信息", "Blender物体信息", "Blender执行代码",
+                    "Blender PolyHaven状态", "Blender搜索资产", "Blender下载资产", "Blender断开",
+                    "Blender启动",
+                ],
+                "关键词": ["blender", "3d建模", "建模", "渲染", "bpy", "3d模型", "场景信息",
+                           "材质", "网格", "polyhaven", "3d对象", "blender截图"],
+                "始终启用": False,
+            },
         }
 
     def 设置文件管理器(self, 文件管理器):
@@ -444,6 +469,11 @@ class 操作注册中心类:
         self._进度回调 = 回调
         for 操作实例 in self._操作表.values():
             操作实例.进度回调 = 回调
+
+    def 重置软件锁定(self):
+        """重置软件锁定状态（新对话开始时调用）"""
+        self._软件锁定组 = None
+        self._软件锁定计数 = 0
 
     def 设置取消检查(self, 检查函数):
         """注入取消检查函数，使操作类可检测用户取消"""
@@ -515,6 +545,9 @@ class 操作注册中心类:
             播放视频(), 搜索视频(),
             图片去水印(), 图片去杂物(), 图片调整(), 图片裁剪(),
             图片缩放(), 图片模糊(), 图片灰度化(), 图片旋转(),
+            Blender场景信息(), Blender物体信息(), Blender执行代码(),
+            BlenderPolyHaven状态(), Blender搜索资产(), Blender下载资产(), Blender断开(),
+            Blender启动(),
         ]
         for 操作 in 内置操作列表:
             self.注册(操作)
@@ -599,6 +632,14 @@ class 操作注册中心类:
             "移除剧本": "删除剧本",
             "导出": "导出对话", "导出Markdown": "导出对话", "导出记录": "导出对话",
             "AI写配置": "创建工具", "自动创建工具": "创建工具", "生成工具": "创建工具",
+            "blender": "Blender场景信息", "Blender": "Blender场景信息",
+            "3d建模": "Blender执行代码", "blender代码": "Blender执行代码",
+            "blender场景": "Blender场景信息", "场景信息": "Blender场景信息",
+            "blender物体": "Blender物体信息", "物体信息": "Blender物体信息",
+            "搜索3d资产": "Blender搜索资产", "搜索资产": "Blender搜索资产",
+            "下载3d模型": "Blender下载资产", "下载资产": "Blender下载资产",
+            "polyhaven": "Blender PolyHaven状态", "polyhaven状态": "Blender PolyHaven状态",
+            "启动blender": "Blender启动", "打开blender": "Blender启动", "启动Blender": "Blender启动",
         }
         for 别名, 正名 in 别名映射.items():
             self.注册别名(别名, 正名)
@@ -689,6 +730,15 @@ class 操作注册中心类:
                 "成功": 成功,
                 "耗时毫秒": 耗时
             })
+
+        # 软件锁定：操作成功执行时，检查是否属于某软件组并锁定
+        if 成功:
+            for 组名, 组信息 in self._操作分组.items():
+                if 组名 in self._软件组 and 实际名称 in 组信息["操作"]:
+                    if self._软件锁定组 != 组名:
+                        self._软件锁定组 = 组名
+                        self._软件锁定计数 = 0
+                    break
             if len(self._调用历史) > 100:
                 self._调用历史 = self._调用历史[-100:]
 
@@ -818,15 +868,47 @@ class 操作注册中心类:
             说明.append(f"### {名称}\n{操作.描述}\n{参数说明}")
         return "\n\n".join(说明)
 
+    # 软件类分组：这些组互斥，一旦锁定一个就排除其他
+    _软件组 = {"Blender", "ComfyUI", "浏览器", "Git", "Word", "Excel", "图片处理",
+               "知识库", "剧本", "下载", "压缩", "股票", "导出", "诊断", "记忆", "任务", "Job"}
+
     def _获取匹配操作集(self, 用户消息: str, 当前观察: str = "") -> set:
         """根据用户消息和当前观察的关键词，返回应启用的操作名称集合"""
         匹配文本 = (用户消息 + " " + (当前观察 or "")[:2000]).lower()
         启用集合 = set()
+
+        # 检测用户消息中是否切换了软件
+        新锁定组 = None
+        for 组名, 组信息 in self._操作分组.items():
+            if 组名 in self._软件组 and not 组信息["始终启用"]:
+                if any(kw in 用户消息.lower() for kw in 组信息["关键词"]):
+                    新锁定组 = 组名
+                    break
+
+        if 新锁定组:
+            # 用户明确提到了新软件，切换锁定
+            self._软件锁定组 = 新锁定组
+            self._软件锁定计数 = 0
+        elif self._软件锁定组:
+            # 没有明确切换，保持当前锁定
+            self._软件锁定计数 += 1
+            # 超过5轮无操作则自动解锁
+            if self._软件锁定计数 > 5:
+                self._软件锁定组 = None
+
         for 组名, 组信息 in self._操作分组.items():
             if 组信息["始终启用"]:
                 启用集合.update(组信息["操作"])
             elif any(kw in 匹配文本 for kw in 组信息["关键词"]):
+                # 如果已锁定某软件组，且当前组是其他软件组，则跳过
+                if self._软件锁定组 and 组名 in self._软件组 and 组名 != self._软件锁定组:
+                    continue
                 启用集合.update(组信息["操作"])
+
+        # 如果有锁定组，确保锁定组的工具始终包含
+        if self._软件锁定组 and self._软件锁定组 in self._操作分组:
+            启用集合.update(self._操作分组[self._软件锁定组]["操作"])
+
         # 不在任何分组中的操作（动态工具/插件/技能/MCP）始终包含
         已分组 = set()
         for 组 in self._操作分组.values():
