@@ -17,6 +17,7 @@ from pathlib import Path
 ]
 排除后缀 = [".log", ".db", ".db-shm", ".db-wal", ".pyc", ".pyo", ".zip", ".spec"]
 排除文件名前缀 = ["_test", "_parse", "_read", "_查看", "测试key"]
+排除文件名 = ["开发日志.md", "说明.md"]
 隐私扫描白名单 = ["highlight.min.js", "marked.min.js", "katex.min.js",
                 "katex-auto-render.min.js", "pdf.min.js", "pdf.worker.min.js",
                 "xlsx.full.min.js", "mammoth.browser.min.js"]
@@ -31,6 +32,8 @@ def 应排除(路径):
     for p in 排除文件名前缀:
         if 路径.name.startswith(p):
             return True
+    if 路径.name in 排除文件名:
+        return True
     return False
 
 def 扫描隐私(文件):

@@ -83,7 +83,8 @@ def 扫描隐私泄露():
 
     # 跳过第三方库文件（不可能含用户隐私）
     跳过文件 = {"highlight.min.js", "marked.min.js", "katex.min.js", "katex-auto-render.min.js",
-                "xlsx.full.min.js", "mammoth.browser.min.js", "pdf.min.js", "pdf.worker.min.js"}
+                "xlsx.full.min.js", "mammoth.browser.min.js", "pdf.min.js", "pdf.worker.min.js",
+                "多线程下载.py", "Houdini插件说明.md", "安装Houdini桥接.py", "安装汉化.py"}
 
     发现 = False
     for 文件 in 公共区.rglob("*"):

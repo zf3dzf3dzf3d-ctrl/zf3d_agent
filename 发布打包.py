@@ -29,6 +29,9 @@ from pathlib import Path
 # 打包时排除的文件名前缀（临时测试文件）
 排除文件名前缀 = ["_test", "_parse", "_read", "_查看", "测试key"]
 
+# 打包时排除的文件名（完整文件名匹配）
+排除文件名 = ["开发日志.md", "说明.md"]
+
 # 隐私扫描白名单（第三方库等误报）
 隐私扫描白名单 = ["highlight.min.js", "marked.min.js"]
 
@@ -94,6 +97,9 @@ def 应排除(路径: Path) -> bool:
     for 前缀 in 排除文件名前缀:
         if 路径.name.startswith(前缀):
             return True
+    # 排除指定文件名
+    if 路径.name in 排除文件名:
+        return True
     return False
 
 def 收集打包文件(项目根目录, 公共区, 引擎管理) -> list:
