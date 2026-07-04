@@ -266,39 +266,6 @@ class Blender执行代码(操作基类):
             return 操作结果.失败(str(e))
 
 
-class Blender截图(操作基类):
-    名称 = "Blender截图"
-    描述 = "截取Blender 3D视口截图，保存为图片文件"
-    参数结构 = {
-        "保存路径": {"类型": "字符串", "必填": False, "说明": "截图保存路径，默认临时文件"}
-    }
-
-    def 执行(self, 参数: dict, 上下文: dict = None) -> 操作结果:
-        try:
-            连接 = _获取连接()
-            保存路径 = 参数.get("保存路径", "")
-            if not 保存路径:
-                保存路径 = os.path.join(
-                    tempfile.gettempdir(),
-                    f"blender截图_{int(__import__('time').time())}.png"
-                )
-            结果 = 连接.发送命令("get_viewport_screenshot", {
-                "max_size": 1000,
-                "filepath": 保存路径,
-                "format": "png"
-            })
-            if "error" in 结果:
-                return 操作结果.失败(结果["error"])
-            if os.path.exists(保存路径):
-                return 操作结果.成功(f"截图已保存: {保存路径}", 元数据={
-                    "操作类型": "Blender截图",
-                    "文件路径": 保存路径
-                })
-            return 操作结果.失败("截图文件未生成")
-        except Exception as e:
-            return 操作结果.失败(str(e))
-
-
 class BlenderPolyHaven状态(操作基类):
     名称 = "Blender PolyHaven状态"
     描述 = "检查Blender中Poly Haven集成是否已启用（免费模型/贴图/HDRI资产库）"
