@@ -7,6 +7,19 @@ let mbPlaylist = [];        // [{路径, 歌名, 歌手, 封面, 来源}]
 let mbCurrentIdx = -1;      // 当前播放索引
 let mbSeeking = false;      // 是否在拖拽进度条
 
+function _确保编辑器面板可见() {
+    const ep = document.getElementById("editorPanel");
+    if (ep && ep.classList.contains("hidden")) {
+        const btn = document.getElementById("toggleEditor");
+        if (btn) btn.click();
+    }
+}
+
+function _显示播放器() {
+    _确保编辑器面板可见();
+    document.getElementById("musicBar").style.display = "flex";
+}
+
 function initMusicBar() {
     const audio = document.getElementById("mbAudio");
     const progress = document.getElementById("mbProgress");
@@ -105,7 +118,7 @@ function mbPlay() {
         audio.play().catch(() => {
             showToast("info", "🎵 点击播放", "浏览器限制了自动播放，请点击播放按钮▶");
         });
-        document.getElementById("musicBar").style.display = "flex";
+        _显示播放器();
         mbRenderPlaylist();
         mbUpdateNavBtns();
         return;
@@ -134,7 +147,7 @@ function mbPlay() {
                 document.getElementById("mbArtist").textContent = "❌ 下载失败";
                 showToast("error", "❌ 下载失败", String(e));
             });
-        document.getElementById("musicBar").style.display = "flex";
+        _显示播放器();
         mbRenderPlaylist();
         mbUpdateNavBtns();
         return;
