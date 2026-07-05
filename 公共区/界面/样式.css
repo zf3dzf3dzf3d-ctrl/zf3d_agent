@@ -904,10 +904,10 @@ pre:hover .code-copy-btn { opacity:1; }
 .mb-progress-handle { position: absolute; top: 50%; width: 12px; height: 12px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); left: 0%; opacity: 0; transition: opacity 0.15s; }
 .mb-progress:hover .mb-progress-handle { opacity: 1; }
 .mb-volume { position: relative; }
-.mb-vol-popup { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 18px 12px 12px; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-.mb-vol-slider { -webkit-appearance: none; appearance: none; width: 80px; height: 6px; background: var(--bg4); border-radius: 3px; outline: none; cursor: pointer; transform: rotate(-90deg); transform-origin: 40px 40px; }
-.mb-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; }
-.mb-vol-slider::-moz-range-thumb { width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; border: none; }
+.mb-vol-popup { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.mb-vol-track { width: 6px; height: 80px; background: var(--bg4); border-radius: 3px; position: relative; cursor: pointer; }
+.mb-vol-fill { width: 100%; background: linear-gradient(to top, var(--blue), #00E5FF); border-radius: 3px; position: absolute; bottom: 0; height: 100%; }
+.mb-vol-handle { width: 14px; height: 14px; background: #fff; border-radius: 50%; position: absolute; left: 50%; bottom: 100%; transform: translate(-50%, 50%); cursor: grab; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 
 /* 播放列表面板 */
 .mb-playlist-panel {
