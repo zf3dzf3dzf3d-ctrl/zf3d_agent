@@ -53,10 +53,18 @@ function initMusicBar() {
     document.addEventListener("mousemove", (e) => { if (dragging) seekTo(e); });
     document.addEventListener("mouseup", () => { if (dragging) { dragging = false; mbSeeking = false; } });
 
-    // 音量：循环档位 100→50→20→0→100
-    const volBtn = document.getElementById("mbVolIcon");
-    if (volBtn) {
-        volBtn.addEventListener("click", mbCycleVolume);
+    // 音量滑块
+    const volSlider = document.getElementById("mbVolSlider");
+    if (volSlider) {
+        volSlider.addEventListener("input", () => {
+            const audio = document.getElementById("mbAudio");
+            const v = volSlider.value / 100;
+            audio.volume = v;
+            const icon = document.getElementById("mbVolIcon");
+            const pct = Math.round(v * 100);
+            icon.textContent = pct == 0 ? "🔇" : (pct < 50 ? "🔉" : "🔊");
+            icon.title = `音量: ${pct}%`;
+        });
     }
 
     // 键盘空格
@@ -174,36 +182,31 @@ function mbNext() {
     mbPlay();
 }
 
-function mbVolumeUp() {
-    const audio = document.getElementById("mbAudio");
-    mbSetVolume(audio.volume + 0.1);
-}
-
-function mbVolumeDown() {
-    const audio = document.getElementById("mbAudio");
-    mbSetVolume(audio.volume - 0.1);
-}
-
-function mbCycleVolume() {
-    const audio = document.getElementById("mbAudio");
-    const levels = [1.0, 0.5, 0.2, 0];
-    const idx = levels.indexOf(audio.volume);
-    const next = idx >= 0 && idx < levels.length - 1 ? levels[idx + 1] : levels[0];
-    mbSetVolume(next);
+function mbToggleVolumePopup() {
+    const popup = document.getElementById("mbVolPopup");
+    popup.style.display = popup.style.display === "none" ? "block" : "none";
 }
 
 function mbSetVolume(v) {
     const audio = document.getElementById("mbAudio");
     const icon = document.getElementById("mbVolIcon");
+    const slider = document.getElementById("mbVolSlider");
     v = Math.max(0, Math.min(1, v));
     audio.volume = v;
+    if (slider) slider.value = Math.round(v * 100);
     const pct = Math.round(v * 100);
     icon.textContent = pct == 0 ? "🔇" : (pct < 50 ? "🔉" : "🔊");
     icon.title = `音量: ${pct}%`;
 }
 
 function mbToggleMute() {
-    mbCycleVolume();
+    const audio = document.getElementById("mbAudio");
+    if (audio.volume > 0) {
+        audio._lastVolume = audio.volume;
+        mbSetVolume(0);
+    } else {
+        mbSetVolume(audio._lastVolume || 1);
+    }
 }
 
 function mbUpdateNavBtns() {
