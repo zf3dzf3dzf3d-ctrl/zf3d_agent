@@ -1,30 +1,52 @@
 # ZF3D Agent v2
 
-> 全能桌面AI助手 — 管理文件、浏览网页、编辑文档、AI生图/视频、图片加工、自动化任务，120+内置操作，ReAct推理引擎，语义记忆，Tavily智能搜索，纯Python零依赖
+> 全能桌面AI助手 — 管理文件、浏览网页、编辑文档、AI生图/视频、图片加工、3D软件整合（3ds Max/Houdini/Blender）、自动化任务，276+操作，ReAct推理引擎，语义记忆，绕路师避坑学习，纯Python零依赖
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![零依赖](https://img.shields.io/badge/依赖-零-brightgreen.svg)](#)
-[![操作数](https://img.shields.io/badge/内置操作-120+-blue.svg)](#)
-[![模型支持](https://img.shields.io/badge/模型支持-9+-orange.svg)](#)
-[![Tavily](https://img.shields.io/badge/搜索-Tavily-purple.svg)](https://tavily.com)
+[![操作数](https://img.shields.io/badge/总操作-276+-blue.svg)](#)
+[![模型支持](https://img.shields.io/badge/模型支持-10+-orange.svg)](#)
+[![3D软件](https://img.shields.io/badge/3D软件-3dsMax%7CHoudini%7CBlender-purple.svg)](#)
 
 一个帮你管理文件夹、图片、视频等所有文件的AI智能体。系统做手脚（调度、执行），大模型做大脑（思考、决策）。你只需写JSON配置，不改代码，一切行为由配置驱动。
 
 ---
 
+## 🎮 3D软件整合（v3.1新增）
+
+| 软件 | 接入方式 | 操作数 | 说明 |
+|------|---------|--------|------|
+| **3ds Max** | MCP（117工具） | 117 | 说"连接3dmax"自动安装连接，创建物体/材质/修改器/动画/渲染/tyFlow |
+| **Houdini** | Bridge插件（10操作） | 10 | 创建/删除/连接节点、VEX、Python、查询网络、搜索节点、NetworkBox |
+| **Blender** | TCP Socket（8操作） | 8 | 场景/物体信息、执行代码、PolyHaven资产、启动/断开 |
+
+三个软件互斥锁定，不会互相打架。按需连接，不用的不加载。
+
+## 🛡️ 绕路师（v3.1新增）
+
+AI失败教训自动学习系统：
+- 任务失败时自动分析失败模式，LLM提炼绕路方案，存入SQLite
+- 下次同类任务自动注入"避坑指南"到提示词，AI不再踩同样的坑
+- 高频失败（≥3次）自动写入Bug库，方便开发者定位修复
+- 聊得越多越聪明
+
 ## 🧠 核心引擎
 
 | 引擎 | 能力 |
 |------|------|
-| **ReAct推理引擎** | 状态机驱动的思考→行动→观察→校验→终止循环，Function Calling + 文本双模式智能降级，批量任务进度拦截（不让AI半途而废） |
+| **ReAct推理引擎** | 状态机驱动的思考→行动→观察→校验→终止循环，Function Calling + 文本双模式智能降级，批量任务进度拦截 |
 | **模型直连器** | 纯HTTP直连，不依赖任何SDK，自定义请求模板适配任意API，密钥XOR+机器码加密存储，响应缓存+Token统计+流式输出 |
-| **操作注册中心** | 120+内置操作统一注册调度，中英文别名映射，模糊匹配，调用统计与历史，依赖注入 |
+| **操作注册中心** | 276+操作统一注册调度，中英文别名映射，模糊匹配，调用统计与历史，依赖注入 |
 | **存储引擎** | SQLite + FTS5全文搜索，对话记录结构化存储与检索 |
-| **安全计算器** | AST安全求值，零eval注入风险 |
-| **运行诊断器** | 运行错误自动记录，监控规则引擎（按模块/函数/异常类型/关键字匹配） |
+| **绕路师** | 失败教训自动记录+避坑指南注入+高频Bug自动追踪 |
 
-## ⚡ 内置操作（120+）
+## ⚡ 操作总览（276+）
+
+### 🎮 3D软件（3ds Max 117 + Houdini 10 + Blender 8）
+3ds Max MCP：创建物体/材质/修改器/控制器/动画关键帧/渲染/视口截图/tyFlow粒子等117个工具
+Houdini：节点创建/删除/连接/参数/VEX/Python/网络查询/搜索节点/NetworkBox/撤销重做
+Blender：场景/物体信息、执行bpy代码、PolyHaven资产搜索下载、启动/断开
 
 ### 🎨 AI生成（ComfyUI集成）
 文生图、图生图、文生视频、图生视频、prompt反推、工作流提交/查询/管理、模型列表、队列控制、图片上传
@@ -60,7 +82,7 @@ Word读取/修改/创建/段落操作、Excel文本替换、docx带格式HTML预
 | **声明式工具** | 写JSON即加工具 | 查天气、查IP、汇率查询、倒数日、计算器 |
 | **插件** | 放Python文件到插件目录 | 示例插件 |
 | **技能** | 放技能包到技能目录 | PDF编辑器（含SKILL.md+脚本） |
-| **MCP服务** | 配置MCP服务端连接 | filesystem、github、sqlite |
+| **MCP服务** | 配置MCP服务端连接 | **3ds Max（117工具）**、filesystem、github、sqlite |
 
 ## 🧠 记忆系统
 
@@ -70,6 +92,7 @@ Word读取/修改/创建/段落操作、Excel文本替换、docx带格式HTML预
 - **检查点续跑**：长任务中断后可从检查点恢复
 - **反思评估器**：任务执行后自动反思，错误分类 + 自动恢复
 - **经验师**：任务成功后自动提炼可复用经验文档，任务开始前召回匹配经验注入提示词
+- **绕路师**：任务失败后自动记录失败教训，下次同类任务注入"避坑指南"，高频失败自动写入Bug库
 
 ## 💬 对话模块
 
@@ -80,7 +103,7 @@ Word读取/修改/创建/段落操作、Excel文本替换、docx带格式HTML预
 - **流式输出**：SSE实时推送token
 - **框选编辑**：框选文本直接让AI改写，自动区分Word/Excel/纯文本
 
-## 🔧 支持的模型（9+）
+## 🔧 支持的模型（10+）
 
 纯HTTP直连，不绑定任何SDK：
 
