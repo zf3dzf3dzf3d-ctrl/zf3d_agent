@@ -903,9 +903,11 @@ pre:hover .code-copy-btn { opacity:1; }
 .mb-progress-fill { height: 100%; background: linear-gradient(90deg, var(--blue), #00E5FF); border-radius: 3px; width: 0%; transition: width 0.1s linear; }
 .mb-progress-handle { position: absolute; top: 50%; width: 12px; height: 12px; background: #fff; border-radius: 50%; transform: translate(-50%, -50%); left: 0%; opacity: 0; transition: opacity 0.15s; }
 .mb-progress:hover .mb-progress-handle { opacity: 1; }
-.mb-volume { display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0; }
-.mb-vol-btn { background: none; border: none; color: var(--text2); font-size: 10px; cursor: pointer; padding: 1px 4px; line-height: 1; border-radius: 3px; transition: all 0.1s; }
-.mb-vol-btn:hover { background: var(--hover); color: var(--blue); }
+.mb-volume { position: relative; }
+.mb-vol-popup { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 6px; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.mb-vol-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; writing-mode: bt-lr; width: 6px; height: 80px; background: var(--bg4); border-radius: 3px; outline: none; cursor: pointer; }
+.mb-vol-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; }
+.mb-vol-slider::-moz-range-thumb { width: 14px; height: 14px; background: var(--blue); border-radius: 50%; cursor: pointer; border: none; }
 
 /* 播放列表面板 */
 .mb-playlist-panel {

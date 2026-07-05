@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com; font-src 'self'; worker-src 'self'">
-    <title>朱峰社区智能体 v2.5.0</title>
+    <title>朱峰社区智能体</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
     <link rel="stylesheet" href="样式.css?v=20260704k">
@@ -279,10 +279,11 @@
                     </div>
                     <span class="mb-time" id="mbTotalTime">0:00</span>
                 </div>
-                <div class="mb-volume" style="display:flex;flex-direction:column;align-items:center;gap:0;flex-shrink:0;">
-                    <button class="mb-vol-btn" onclick="mbVolumeUp()" title="音量+">▲</button>
-                    <span id="mbVolIcon" style="font-size:11px;cursor:pointer;user-select:none;" onclick="mbCycleVolume()" title="点击循环音量">🔊</span>
-                    <button class="mb-vol-btn" onclick="mbVolumeDown()" title="音量-">▼</button>
+                <div class="mb-volume" style="flex-shrink:0;position:relative;">
+                    <span id="mbVolIcon" style="font-size:16px;cursor:pointer;user-select:none;line-height:36px;" onclick="mbToggleVolumePopup()" title="点击调节音量">🔊</span>
+                    <div class="mb-vol-popup" id="mbVolPopup" style="display:none;">
+                        <input type="range" class="mb-vol-slider" id="mbVolSlider" min="0" max="100" value="100" orient="vertical" />
+                    </div>
                 </div>
                 <button class="mb-ctrl-btn" onclick="mbTogglePlaylist()" title="播放列表">📋</button>
                 <button class="mb-ctrl-btn" onclick="mbClose()" title="关闭播放器">✕</button>
