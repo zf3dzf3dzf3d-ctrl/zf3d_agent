@@ -76,7 +76,9 @@ class Houdini节点创建(操作基类):
     描述 = """在 Houdini 中创建节点。命令：
 - "创建节点": 创建单个节点。参数：类型(如box/sphere/grid/attribwrangle)、名称(可选)、父路径(可选,默认/obj/geo1)、参数(可选,JSON)
 - "创建Wrangle": 创建VEX Wrangle节点并设置代码。参数：VEX代码、名称(可选)、运行类型(可选,Points/Primitives/Vertex/Detail/Cycle,默认Points)、父路径(可选)
-- "批量创建": 批量创建多个节点并自动连接。参数：计划(JSON,格式:[{类型,名称,参数},...],连接:[[0,1],[1,2],...])、父路径(可选)"""
+- "批量创建": 批量创建多个节点并自动连接。参数：计划(JSON,格式:[{类型,名称,参数},...],连接:[[0,1],[1,2],...])、父路径(可选)
+
+【重要】复杂效果（如动画、VEX逻辑）应一次性写完整代码，不要分步创建-修改-再连接。用"批量创建"一次搞定节点拓扑，用"创建Wrangle"一次写完整VEX代码，避免反复修改导致循环。"""
     参数结构 = {
         "命令": {"类型": "字符串", "必填": True, "说明": "创建节点/创建Wrangle/批量创建"},
         "类型": {"类型": "字符串", "必填": False, "说明": "节点类型(创建节点时必填), 如 box, sphere, attribwrangle"},
@@ -301,6 +303,8 @@ class Houdini执行代码(操作基类):
     描述 = """在 Houdini 环境中执行代码。命令：
 - "Python": 在 Houdini Python Shell 中执行代码(可使用hou模块)。参数：代码、超时(可选,默认30秒)
 - "Shell": 执行系统命令(pip/git/ffmpeg等)。参数：命令、超时(可选,默认120秒)
+
+【重要】一次性写完整Python脚本完成所有操作（创建节点+连接+设置参数+写VEX），不要分步执行多次代码。避免反复调用导致循环。
 
 危险操作会被拦截：Python禁止os.remove/shutil.rmtree/os.system/__import__等；Shell禁止rm -rf/format/shutdown等。"""
     参数结构 = {

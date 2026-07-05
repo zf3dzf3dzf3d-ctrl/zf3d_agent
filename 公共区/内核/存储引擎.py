@@ -232,6 +232,27 @@ class 存储引擎类:
             except Exception:
                 pass
 
+            # 绕路记录表（任务失败时自动记录避坑教训）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 绕路记录 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    触发关键词 TEXT NOT NULL,
+                    失败操作 TEXT NOT NULL,
+                    失败原因 TEXT,
+                    绕路方案 TEXT,
+                    出现次数 INTEGER DEFAULT 1,
+                    创建时间 TEXT,
+                    最后命中 TEXT
+                )
+            """)
+            try:
+                conn.execute("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS 绕路搜索
+                    USING fts5(触发关键词, 失败操作, 失败原因, 绕路方案)
+                """)
+            except Exception:
+                pass
+
             # LLM调用日志表（替代JSONL文件，支持高效查询）
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS LLM调用日志 (
@@ -940,6 +961,65 @@ class 存储引擎类:
         return [{
             "任务描述": r[0], "任务类型": r[1], "有效方法": r[2],
             "无效方法": r[3], "下次建议": r[4], "成功": bool(r[5])
+        } for r in rows]
+
+    # ==================== 绕路记录 ====================
+
+    def 记录绕路(self, 触发关键词: str, 失败操作: str, 失败原因: str, 绕路方案: str):
+        """记录一条绕路（避坑）教训。关键词+操作相同则次数+1"""
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # 检查是否已有相同记录
+        existing = self._查询(
+            "SELECT id, 出现次数 FROM 绕路记录 WHERE 触发关键词=? AND 失败操作=?",
+            [触发关键词, 失败操作]
+        )
+        if existing:
+            新次数 = existing[0][1] + 1
+            self._执行(
+                "UPDATE 绕路记录 SET 出现次数=?, 最后命中=?, 失败原因=?, 绕路方案=? WHERE id=?",
+                [新次数, 时间, 失败原因, 绕路方案, existing[0][0]]
+            )
+        else:
+            self._执行(
+                """INSERT INTO 绕路记录 (触发关键词, 失败操作, 失败原因, 绕路方案, 出现次数, 创建时间, 最后命中)
+                   VALUES (?, ?, ?, ?, 1, ?, ?)""",
+                [触发关键词, 失败操作, 失败原因, 绕路方案, 时间, 时间]
+            )
+        # 同步写入FTS5搜索索引
+        try:
+            self._执行(
+                "INSERT INTO 绕路搜索 (触发关键词, 失败操作, 失败原因, 绕路方案) VALUES (?, ?, ?, ?)",
+                [触发关键词, 失败操作, 失败原因, 绕路方案]
+            )
+        except Exception:
+            pass
+
+    def 搜索绕路(self, 关键词: str, limit: int = 3) -> list:
+        """搜索匹配的绕路（避坑）记录"""
+        try:
+            rows = self._查询(
+                "SELECT 触发关键词, 失败操作, 失败原因, 绕路方案, 出现次数 FROM 绕路搜索 "
+                "WHERE 触发关键词 MATCH ? OR 失败操作 MATCH ? OR 绕路方案 MATCH ? "
+                "ORDER BY rank LIMIT ?",
+                [关键词, 关键词, 关键词, limit]
+            )
+            if rows:
+                return [{
+                    "触发关键词": r[0], "失败操作": r[1], "失败原因": r[2],
+                    "绕路方案": r[3], "出现次数": r[4]
+                } for r in rows]
+        except Exception:
+            pass
+        # 回退LIKE查询
+        rows = self._查询(
+            "SELECT 触发关键词, 失败操作, 失败原因, 绕路方案, 出现次数 FROM 绕路记录 "
+            "WHERE 触发关键词 LIKE ? OR 失败操作 LIKE ? OR 绕路方案 LIKE ? "
+            "ORDER BY 出现次数 DESC, id DESC LIMIT ?",
+            [f"%{关键词}%", f"%{关键词}%", f"%{关键词}%", limit]
+        )
+        return [{
+            "触发关键词": r[0], "失败操作": r[1], "失败原因": r[2],
+            "绕路方案": r[3], "出现次数": r[4]
         } for r in rows]
 
     # ==================== 迁移 ====================

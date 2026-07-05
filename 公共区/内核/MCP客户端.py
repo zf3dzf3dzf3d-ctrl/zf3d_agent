@@ -12,6 +12,7 @@ import json
 import subprocess
 import threading
 import time
+import sys
 from pathlib import Path
 
 
@@ -44,6 +45,12 @@ class MCP客户端类:
             参数 = self.配置.get("参数", [])
             环境变量 = dict(__import__("os").environ)
             环境变量.update(self.配置.get("环境变量", {}))
+            # 确保命令中可执行文件所在目录在PATH中
+            if 命令:
+                import os as _os
+                命令目录 = _os.path.dirname(_os.path.abspath(命令[0]))
+                if 命令目录 not in 环境变量.get("PATH", ""):
+                    环境变量["PATH"] = 命令目录 + _os.pathsep + 环境变量.get("PATH", "")
 
             完整命令 = list(命令) + list(参数)
 
@@ -249,8 +256,13 @@ class MCP工具操作:
     """将 MCP 工具包装为操作基类子类的动态工厂"""
 
     @staticmethod
-    def 创建(服务名: str, 工具定义: dict, 客户端: MCP客户端类, 操作注册中心=None):
-        """从 MCP 工具定义创建操作基类子类实例"""
+    def 创建(服务名: str, 工具定义: dict, 客户端: MCP客户端类, 操作注册中心=None, 软件组: str = None):
+        """从 MCP 工具定义创建操作基类子类实例
+
+        参数:
+            软件组: 若指定（如"3dsMax"/"Houdini"），工具将加入该软件互斥组，
+                    一旦调用即锁定该组，排除其他3D软件工具，避免打架。
+        """
         from 操作基类 import 操作基类, 操作结果
 
         工具名 = 工具定义.get("name", "unknown")
@@ -283,9 +295,106 @@ class MCP工具操作:
         包装操作.描述 = f"[MCP:{服务名}] {描述}"
         包装操作.参数结构 = 参数结构
 
+        # 中文→英文参数名映射（AI可能用中文参数名调用MCP工具）
+        # 覆盖3ds Max / Houdini / Blender / 通用MCP工具的所有常见参数
+        _中英映射 = {
+            # 通用
+            "操作": "action", "名称": "name", "类型": "type",
+            "路径": "path", "目标": "target", "值": "value",
+            "时间": "time", "代码": "code", "命令": "command",
+            "参数": "params", "结果": "result", "数据": "data",
+            "描述": "description", "启用": "enabled", "状态": "status",
+            "数量": "count", "索引": "index", "关键词": "keyword",
+            "文件": "file", "文件名": "filename", "目录": "directory",
+            "脚本": "code", "备注": "note", "标签": "label",
+            "选项": "option", "模式": "mode", "级别": "level",
+            # 3D场景 - 物体
+            "物体名": "name", "物体": "name", "名称列表": "names",
+            "选择": "selection", "选中": "selection", "选择集": "selection",
+            "父级": "parent", "子级": "children", "层级": "hierarchy",
+            "实例": "instance", "依赖": "dependencies",
+            # 3D场景 - 变换
+            "位置": "position", "旋转": "rotation", "缩放": "scale",
+            "坐标": "pos", "偏移": "offset", "角度": "angle",
+            "方向": "direction", "轴向": "axis",
+            # 3D场景 - 材质纹理
+            "颜色": "color", "材质": "material", "材质名": "material_name",
+            "纹理": "texture", "贴图": "texture", "UV": "uv",
+            "粗糙度": "roughness", "金属度": "metalness",
+            "高光": "specular", "反射": "reflection", "折射": "refraction",
+            "透明度": "opacity", "发光": "emission",
+            "槽位": "slot", "子材质": "sub_material",
+            # 3D场景 - 修改器
+            "修改器": "modifier", "修改器名": "modifier_name",
+            "属性": "property", "属性名": "property_name",
+            "参数值": "value", "启用状态": "enabled",
+            # 3D场景 - 动画关键帧
+            "轨道": "tracks", "帧": "frame", "帧时间": "time",
+            "关键帧": "keyframe", "时间线": "timeline",
+            "开始帧": "start_frame", "结束帧": "end_frame",
+            "起始": "start", "终止": "end",
+            # 3D场景 - 渲染
+            "宽度": "width", "高度": "height",
+            "分辨率": "resolution", "输出": "output",
+            "输出路径": "output_path", "输出文件": "output_file",
+            "渲染器": "renderer", "采样": "samples",
+            "相机": "camera", "灯光": "light",
+            # 3D场景 - 视口截图
+            "截图": "capture", "视口": "viewport",
+            "最大宽度": "max_width", "最大高度": "max_height",
+            # 3D场景 - 图层/组
+            "图层": "layer", "图层名": "layer_name",
+            "组": "group", "组名": "group_name",
+            # 3D场景 - 控制器
+            "控制器": "controller", "控制器类型": "controller_type",
+            "轨道视图": "track_view",
+            # 3D场景 - 插件
+            "插件": "plugin", "插件名": "plugin_name",
+            "类名": "class_name", "类": "class",
+            # 3D场景 - 文件
+            "文件路径": "filepath", "保存路径": "save_path",
+            "合并": "merge", "搜索": "search",
+            "最大数": "max_results", "最大数量": "max_results",
+            "最大项": "max_items", "最近数": "max_results",
+            # 3D场景 - 查询
+            "过滤": "filter", "概览": "overview",
+            "变化": "delta", "查询": "query",
+            # 3D场景 - 其他
+            "半径": "radius", "半径1": "radius1", "半径2": "radius2",
+            "长度": "length", "宽度_": "width", "深度": "depth",
+            "分段": "segments", "平滑": "smooth",
+            "圆角": "fillet", "盖高度": "capheight",
+            "布尔": "boolean", "镜像": "mirror",
+            "法线": "normal", "切线": "tangent",
+            "顶点": "vertex", "顶点数": "num_verts",
+            "面": "face", "面数": "num_faces",
+            "边": "edge", "边界": "border",
+            # Houdini 特有
+            "节点": "node", "节点名": "node_name", "节点路径": "node_path",
+            "网络": "network", "参数名": "parm_name",
+            "几何体": "geometry", "体积": "volume",
+            "粒子": "particles", "模拟": "simulation",
+            "缓存": "cache", "渲染输出": "render_output",
+            # 复合/多词
+            "目标物体": "target", "源物体": "source",
+            "起始位置": "start_pos", "结束位置": "end_pos",
+            "颜色列表": "colors", "名称数组": "names",
+            "时间列表": "times", "值列表": "values",
+            "轨道列表": "tracks", "参数字典": "params",
+        }
+
         def 执行(self, 参数: dict) -> 操作结果:
-            # 清理参数中的空值
-            干净参数 = {k: v for k, v in 参数.items() if v is not None}
+            # 参数名自动映射：中文→英文
+            干净参数 = {}
+            for k, v in 参数.items():
+                if v is None:
+                    continue
+                if k in 参数结构:
+                    干净参数[k] = v
+                elif k in _中英映射 and _中英映射[k] in 参数结构:
+                    干净参数[_中英映射[k]] = v
+                else:
+                    干净参数[k] = v  # 未知参数原样传递
             结果 = 客户端.调用工具(工具名, 干净参数)
             if 结果.get("成功"):
                 return 操作结果.成功(
@@ -304,6 +413,9 @@ class MCP工具操作:
             英文名 = f"mcp_{服务名}_{工具名}".replace("-", "_").lower()
             操作注册中心._英文名映射[操作名] = 英文名
             操作注册中心._英文反查[英文名] = 操作名
+            # 加入软件互斥组（如3dsMax），实现Blender/3dsMax/Houdini互斥
+            if 软件组:
+                操作注册中心.添加到软件组(软件组, 操作名)
 
         return 实例
 
@@ -315,8 +427,187 @@ class MCP管理器类:
         self.客户端列表 = {}  # 名称 → MCP客户端类实例
         self.总工具数 = 0
 
+    def _自动安装环境(self, 服务: dict) -> bool:
+        """检查并自动安装 MCP Server 所需的运行环境
+
+        通用检查项：
+        1. uv 包管理器 → pip install uv
+        2. 项目依赖 → uv sync（若配置了"项目目录"且该目录有pyproject.toml）
+        3. 安装脚本 → 执行"安装命令"（如3ds Max插件部署）
+
+        返回 True 表示环境就绪或无需安装，False 表示安装失败
+        """
+        import shutil
+        import os
+
+        自动安装 = 服务.get("自动安装", False)
+        if not 自动安装:
+            return True
+
+        名称 = 服务.get("名称", "?")
+        项目目录 = 服务.get("项目目录", "")
+
+        # ① 检查 uv
+        uv路径 = shutil.which("uv")
+        if not uv路径:
+            print(f"   🔧 MCP [{名称}] uv未安装，正在自动安装...")
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "uv"],
+                    capture_output=True, text=True, timeout=120,
+                    encoding="utf-8", errors="replace"
+                )
+                if result.returncode != 0:
+                    print(f"   ❌ MCP [{名称}] uv安装失败: {result.stderr[:300]}")
+                    return False
+                uv路径 = shutil.which("uv")
+                if not uv路径:
+                    # uv可能装到了Scripts目录但PATH未刷新
+                    import site
+                    脚本目录 = os.path.join(os.path.dirname(sys.executable), "Scripts")
+                    候选 = os.path.join(脚本目录, "uv.exe")
+                    if os.path.exists(候选):
+                        uv路径 = 候选
+                    else:
+                        for p in site.getsitepackages():
+                            候选2 = os.path.join(os.path.dirname(p), "Scripts", "uv.exe")
+                            if os.path.exists(候选2):
+                                uv路径 = 候选2
+                                break
+                if not uv路径:
+                    print(f"   ❌ MCP [{名称}] uv安装后仍找不到可执行文件")
+                    return False
+                print(f"   ✅ MCP [{名称}] uv已安装: {uv路径}")
+            except Exception as e:
+                print(f"   ❌ MCP [{名称}] uv安装异常: {e}")
+                return False
+
+        # 关键修复：用完整路径替换配置中的 "uv" 命令，解决PATH不生效问题
+        # 安装命令中的 uv → 完整路径
+        安装命令 = 服务.get("安装命令", [])
+        if 安装命令 and 安装命令[0] == "uv":
+            服务["安装命令"] = [uv路径] + 安装命令[1:]
+
+        # MCP Server启动命令中的 uv → 完整路径
+        启动命令 = 服务.get("命令", [])
+        if 启动命令 and 启动命令[0] == "uv":
+            服务["命令"] = [uv路径] + 启动命令[1:]
+            print(f"   ℹ️ MCP [{名称}] 命令路径已修正: {uv路径}")
+
+        # 检查是否已安装（安装标记存在 = 插件已部署，跳过所有安装步骤）
+        安装标记 = 服务.get("安装标记", "")
+        已安装 = False
+        if 安装标记:
+            已安装 = Path(安装标记).exists()
+
+        if 已安装:
+            print(f"   ✅ MCP [{名称}] 已安装，跳过安装步骤")
+        else:
+            # ② 检查项目依赖
+            if 项目目录:
+                项目路径 = Path(项目目录)
+                锁文件 = 项目路径 / "uv.lock"
+                虚拟环境 = 项目路径 / ".venv"
+
+                if (项目路径 / "pyproject.toml").exists() and not (虚拟环境.exists() and 锁文件.exists()):
+                    print(f"   🔧 MCP [{名称}] 正在安装项目依赖 (uv sync)...")
+                    try:
+                        result = subprocess.run(
+                            [uv路径, "sync"],
+                            cwd=str(项目路径),
+                            capture_output=True, text=True, timeout=300,
+                            encoding="utf-8", errors="replace"
+                        )
+                        if result.returncode != 0:
+                            print(f"   ❌ MCP [{名称}] 依赖安装失败: {result.stderr[:300]}")
+                            return False
+                        print(f"   ✅ MCP [{名称}] 项目依赖已安装")
+                    except Exception as e:
+                        print(f"   ❌ MCP [{名称}] 依赖安装异常: {e}")
+                        return False
+
+            # ③ 复制gup插件和MAXScript（避免install.py的交互输入和UAC弹窗）
+            if 项目目录:
+                项目路径 = Path(项目目录)
+                print(f"   🔧 MCP [{名称}] 正在部署插件...")
+                try:
+                    gup源 = 项目路径 / "native" / "bin" / "mcp_bridge_2026.gup"
+                    if not gup源.exists():
+                        for year in range(2027, 2022, -1):
+                            候选 = 项目路径 / "native" / "bin" / f"mcp_bridge_{year}.gup"
+                            if 候选.exists():
+                                gup源 = 候选
+                                break
+
+                    if gup源.exists():
+                        max_plugins = Path(r"C:\Program Files\Autodesk")
+                        if max_plugins.exists():
+                            for d in max_plugins.iterdir():
+                                if d.name.startswith("3ds Max") and d.is_dir():
+                                    plugins_dir = d / "plugins"
+                                    目标gup = plugins_dir / "mcp_bridge.gup"
+                                    if not 目标gup.exists():
+                                        try:
+                                            import shutil as _shutil
+                                            _shutil.copy2(str(gup源), str(目标gup))
+                                            print(f"   ✅ MCP [{名称}] gup插件已复制到 {目标gup}")
+                                        except PermissionError:
+                                            subprocess.run(
+                                                ["powershell", "-Command",
+                                                 f'Start-Process -FilePath cmd.exe -ArgumentList \'/c copy /Y "{gup源}" "{目标gup}"\' -Verb RunAs -Wait'],
+                                                capture_output=True, timeout=30,
+                                                encoding="utf-8", errors="replace"
+                                            )
+                                            if 目标gup.exists():
+                                                print(f"   ✅ MCP [{名称}] gup插件已复制(管理员)")
+                                            else:
+                                                print(f"   ⚠️ MCP [{名称}] gup复制失败，可能需要手动以管理员身份运行install.py")
+                                    else:
+                                        print(f"   ℹ️ MCP [{名称}] gup插件已存在")
+
+                                    # 复制MAXScript
+                                    ms源 = 项目路径 / "maxscript" / "mcp_server.ms"
+                                    ms目标 = d / "scripts" / "mcp" / "mcp_server.ms"
+                                    autostart源 = 项目路径 / "maxscript" / "startup" / "mcp_autostart.ms"
+                                    autostart目标 = d / "scripts" / "startup" / "mcp_autostart.ms"
+
+                                    for src, dst in [(ms源, ms目标), (autostart源, autostart目标)]:
+                                        if src.exists() and not dst.exists():
+                                            try:
+                                                dst.parent.mkdir(parents=True, exist_ok=True)
+                                                import shutil as _shutil
+                                                _shutil.copy2(str(src), str(dst))
+                                            except PermissionError:
+                                                subprocess.run(
+                                                    ["powershell", "-Command",
+                                                     f'Start-Process -FilePath cmd.exe -ArgumentList \'/c copy /Y "{src}" "{dst}"\' -Verb RunAs -Wait'],
+                                                    capture_output=True, timeout=30,
+                                                    encoding="utf-8", errors="replace"
+                                                )
+
+                                    # 复制配置文件
+                                    配置目录 = Path(os.environ.get("LOCALAPPDATA", "")) / "3dsmax-mcp"
+                                    配置目录.mkdir(parents=True, exist_ok=True)
+                                    配置文件 = 配置目录 / "mcp_config.ini"
+                                    if not 配置文件.exists():
+                                        配置源 = 项目路径 / "mcp_config.ini"
+                                        if 配置源.exists():
+                                            import shutil as _shutil
+                                            _shutil.copy2(str(配置源), str(配置文件))
+
+                                    break
+                    else:
+                        print(f"   ⚠️ MCP [{名称}] 未找到gup插件文件")
+                except Exception as e:
+                    print(f"   ⚠️ MCP [{名称}] 插件安装异常: {e}")
+
+        return True
+
     def 从配置加载(self, 配置路径: str, 注册目标=None) -> int:
         """从 JSON 配置文件加载所有 MCP Server
+
+        自动安装服务（"自动安装": true）在启动时跳过，
+        由用户通过"连接MCP服务"操作按需触发安装和连接。
 
         参数:
             配置路径: MCP服务.json 路径
@@ -345,6 +636,11 @@ class MCP管理器类:
             print("   ℹ️ MCP服务列表为空")
             return 0
 
+        # 存储配置路径和注册目标供 按名称连接 使用
+        self._配置路径 = 配置路径
+        self._配置 = 配置
+        self._注册目标 = 注册目标
+
         总工具数 = 0
 
         for 服务 in 服务列表:
@@ -355,38 +651,93 @@ class MCP管理器类:
             if not 名称:
                 continue
 
-            print(f"   🔗 连接 MCP Server [{名称}]...")
-            客户端 = MCP客户端类(名称, 服务)
+            # 自动安装服务跳过启动时连接，等用户按需触发
+            if 服务.get("自动安装", False):
+                安装标记 = 服务.get("安装标记", "")
+                已就绪 = Path(安装标记).exists() if 安装标记 else False
+                if not 已就绪:
+                    print(f"   ⏳ MCP [{名称}] 待连接（用户说\"连接{名称}\"后自动安装）")
+                    continue
+                # 标记存在说明已安装过，正常连接
 
-            if not 客户端.连接():
-                continue
-
-            工具列表 = 客户端.发现工具()
-
-            if not 工具列表:
-                print(f"   ⚠️ MCP [{名称}] 未发现工具")
-                客户端.断开()
-                continue
-
-            self.客户端列表[名称] = 客户端
-
-            # 包装每个工具为操作
-            工具数 = 0
-            for 工具定义 in 工具列表:
-                实例 = MCP工具操作.创建(名称, 工具定义, 客户端, 注册目标)
-                if 实例:
-                    工具数 += 1
-
+            工具数 = self.连接单个服务(服务, 注册目标)
             总工具数 += 工具数
-            print(f"   ✅ MCP [{名称}] 发现 {工具数} 个工具: {', '.join(t['name'] for t in 工具列表[:5])}")
 
         self.总工具数 = 总工具数
         if 总工具数 > 0:
             print(f"   ✅ MCP服务加载完成: 共 {总工具数} 个工具")
         else:
-            print(f"   ℹ️ MCP服务无可加载工具")
+            print(f"   ℹ️ MCP服务暂无可加载工具（自动安装服务待用户触发）")
 
         return 总工具数
+
+    def 连接单个服务(self, 服务: dict, 注册目标=None) -> int:
+        """安装环境并连接单个 MCP Server，注册其工具为操作
+
+        由"连接MCP服务"操作调用，实现按需懒加载。
+        返回注册的工具数（0表示失败）
+        """
+        名称 = 服务.get("名称", "")
+        if not 名称:
+            return 0
+
+        # 已连接则跳过
+        if 名称 in self.客户端列表:
+            print(f"   ℹ️ MCP [{名称}] 已连接")
+            return 0
+
+        软件组 = 服务.get("软件组", None)
+
+        # 自动安装运行环境（uv、依赖、插件等）
+        if 服务.get("自动安装", False):
+            if not self._自动安装环境(服务):
+                print(f"   ❌ MCP [{名称}] 环境安装失败")
+                return 0
+
+        print(f"   🔗 连接 MCP Server [{名称}]...")
+        客户端 = MCP客户端类(名称, 服务)
+
+        if not 客户端.连接():
+            return 0
+
+        工具列表 = 客户端.发现工具()
+
+        if not 工具列表:
+            print(f"   ⚠️ MCP [{名称}] 未发现工具")
+            客户端.断开()
+            return 0
+
+        self.客户端列表[名称] = 客户端
+
+        # 包装每个工具为操作
+        工具数 = 0
+        for 工具定义 in 工具列表:
+            实例 = MCP工具操作.创建(名称, 工具定义, 客户端, 注册目标, 软件组=软件组)
+            if 实例:
+                工具数 += 1
+
+        组提示 = f"（软件组: {软件组}）" if 软件组 else ""
+        print(f"   ✅ MCP [{名称}] 发现 {工具数} 个工具{组提示}: {', '.join(t['name'] for t in 工具列表[:5])}")
+
+        return 工具数
+
+    def 按名称连接(self, 服务名: str, 注册目标=None) -> int:
+        """按服务名称从配置查找并连接单个MCP服务
+
+        供"连接MCP服务"操作调用。返回注册工具数，-1表示未找到服务。
+        """
+        配置 = getattr(self, "_配置", None)
+        if not 配置:
+            return -1
+
+        # 优先使用传入的注册目标，其次使用从配置加载时存储的
+        目标 = 注册目标 or getattr(self, "_注册目标", None)
+
+        for 服务 in 配置.get("服务列表", []):
+            if 服务.get("名称", "") == 服务名:
+                return self.连接单个服务(服务, 目标)
+
+        return -1
 
     def 断开全部(self):
         """关闭所有 MCP Server 连接"""

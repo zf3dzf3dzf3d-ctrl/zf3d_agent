@@ -32,10 +32,11 @@ class 反思评估器类:
         if not 模型直连器:
             return ""
         try:
+            推理过程 = 推理结果.get("完整推理过程", 推理结果.get("推理过程", []))
             推理过程摘要 = "\n".join(
                 f"步{s.get('步骤', '?')}: {s.get('操作', '回复')} → "
                 f"{'✅' if s.get('成功', True) else '❌'} {s.get('结果', '')[:100]}"
-                for s in 推理结果.get("推理过程", [])
+                for s in 推理过程
                 if s.get("类型") == "操作"
             )[:1500]
             反思提示 = (
@@ -72,7 +73,7 @@ class 反思评估器类:
             return None
         try:
             import json as _json
-            推理过程 = 推理结果.get("推理过程", 推理结果.get("完整推理过程", []))
+            推理过程 = 推理结果.get("完整推理过程", 推理结果.get("推理过程", []))
             步骤摘要 = "\n".join(
                 f"步{s.get('步骤', '?')}: {s.get('操作', '回复')} -> "
                 f"{'OK' if s.get('成功', True) else 'FAIL'} {s.get('结果', '')[:80]}"

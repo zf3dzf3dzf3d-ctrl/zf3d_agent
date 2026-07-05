@@ -130,7 +130,7 @@ class 快速浮窗:
                 req = urllib.request.Request(f"http://localhost:{端口}/api/tts-status")
                 resp = urllib.request.urlopen(req, timeout=2)
                 data = json.loads(resp.read().decode("utf-8"))
-                状态 = data.get("正在播放", False)
+                状态 = data.get("轮盘播放", False)
                 if self._根窗口:
                     self._根窗口.after(0, lambda: self._更新朗读显示(状态))
             except Exception:
@@ -138,18 +138,22 @@ class 快速浮窗:
         threading.Thread(target=查询, daemon=True).start()
 
     def _更新朗读显示(self, 状态):
-        """更新朗读状态，仅轮盘模式生效"""
+        """更新朗读状态，仅轮盘模式生效。不全量重绘，避免与展开动画冲突。"""
         if getattr(self, '_弹窗模式', '') != '轮盘':
             return
         旧状态 = self._正在朗读
         self._正在朗读 = 状态
         if 旧状态 != 状态 and self._弹窗 and self._画布:
-            旧hover = self._当前hover
-            self._画布.delete("all")
-            self._绘制轮盘()
-            if 旧hover >= 0:
-                self._高亮扇区(旧hover)
-                self._当前hover = 旧hover
+            # 只更新朗读扇区的颜色和文字，不delete/all重绘
+            for 扇区 in self._扇区列表:
+                原名 = 扇区["配置"].get("名称", "")
+                if 原名 == "朗读":
+                    if 状态:
+                        self._画布.itemconfig(扇区["arc_id"], fill=self.朗读激活色)
+                        self._画布.itemconfig(扇区["文字id"], text="停读")
+                    else:
+                        self._画布.itemconfig(扇区["arc_id"], fill=self.扇区默认色)
+                        self._画布.itemconfig(扇区["文字id"], text="朗读")
 
     def _创建弹窗(self):
         if self._弹窗:
@@ -1284,7 +1288,7 @@ class 快速浮窗:
         try:
             端口 = self.配置.get("网页端口", 8765)
             req = urllib.request.Request(
-                f"http://localhost:{端口}/api/tts-stop",
+                f"http://localhost:{端口}/api/wheel-tts-stop",
                 data=b"{}",
                 headers={"Content-Type": "application/json"},
                 method="POST"
@@ -1303,7 +1307,7 @@ class 快速浮窗:
                 req = urllib.request.Request(f"http://localhost:{端口}/api/tts-status")
                 resp = urllib.request.urlopen(req, timeout=2)
                 data = json.loads(resp.read().decode("utf-8"))
-                状态 = data.get("正在播放", False)
+                状态 = data.get("轮盘播放", False)
                 if self._根窗口:
                     self._根窗口.after(0, lambda: self._更新朗读显示(状态))
             except Exception:
@@ -1388,7 +1392,7 @@ class 快速浮窗:
             font=("Microsoft YaHei UI", 10), wrap="word",
             padx=12, pady=8, highlightthickness=0, borderwidth=0,
             spacing1=4, spacing3=4, insertbackground="#ccccdd", insertwidth=2,
-            state="normal", cursor="arrow"
+            state="normal", cursor="xterm"
         )
         self._回答文本.pack(side="left", fill="both", expand=True)
         滚动条 = tk.Scrollbar(回复frame, command=self._回答文本.yview,
@@ -1482,7 +1486,7 @@ class 快速浮窗:
 
         发送按钮 = tk.Button(
             按钮区, text="发送", command=提交,
-            bg="#2a4a6a", fg="#ddeeff", font=("Microsoft YaHei UI", 7, "bold"),
+            bg="#2a4a6a", fg="#ddeeff", font=("Microsoft YaHei UI", 11, "bold"),
             bd=0, highlightthickness=0, activebackground="#3a5a8a",
             activeforeground="white", cursor="hand2"
         )

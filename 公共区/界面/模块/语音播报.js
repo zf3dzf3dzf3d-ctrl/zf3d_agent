@@ -4,7 +4,7 @@
  */
 
 // ============ 语音播报 ============
-let ttsVolume = parseInt(localStorage.getItem("ttsVolume") || "100");
+let ttsVolume = Math.min(100, parseInt(localStorage.getItem("ttsVolume") || "100"));
 
 function initTTS() {
     const btn = document.getElementById("ttsToggleBtn");

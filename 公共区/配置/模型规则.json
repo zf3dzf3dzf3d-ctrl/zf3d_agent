@@ -195,6 +195,31 @@
       "环境变量": {}
     },
     {
+      "名称": "OpenRouter(路由器)",
+      "上下文窗口": 131072,
+      "接口地址": "https://openrouter.ai/api/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}",
+        "HTTP-Referer": "https://zf3d.com",
+        "X-Title": "ZF3D Agent"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 8192
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "OPENROUTER_API_KEY",
+        "模型名称": "OPENROUTER_MODEL"
+      },
+      "支持vision": true,
+      "说明": "OpenRouter路由器，一个密钥访问400+模型。模型名称格式如 deepseek/deepseek-chat、anthropic/claude-3.5-sonnet、google/gemini-flash-1.5、meta-llama/llama-3.1-70b-instruct 等"
+    },
+    {
       "名称": "自定义模型",
       "上下文窗口": 32768,
       "接口地址": "",
@@ -214,6 +239,29 @@
         "API密钥": "CUSTOM_API_KEY",
         "模型名称": "CUSTOM_MODEL"
       }
+    },
+    {
+      "名称": "硅基流动(国内聚合)",
+      "上下文窗口": 131072,
+      "接口地址": "https://api.siliconflow.cn/v1/chat/completions",
+      "请求方法": "POST",
+      "请求头": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${API密钥}"
+      },
+      "请求模板": {
+        "model": "${模型名称}",
+        "messages": "${消息列表}",
+        "temperature": 0.7,
+        "max_tokens": 8192
+      },
+      "响应路径": "$.choices[0].message.content",
+      "环境变量": {
+        "API密钥": "SILICONFLOW_API_KEY",
+        "模型名称": "SILICONFLOW_MODEL"
+      },
+      "支持vision": true,
+      "说明": "硅基流动，国内聚合API，注册即用。支持DeepSeek/Qwen/GLM/Llama等开源模型，国内访问速度快。模型名如 deepseek-ai/DeepSeek-V3、Qwen/Qwen2.5-72B-Instruct、THUDM/glm-4-9b-chat"
     }
   ],
   "请求方法": "POST",
