@@ -53,18 +53,19 @@ function initMusicBar() {
     document.addEventListener("mousemove", (e) => { if (dragging) seekTo(e); });
     document.addEventListener("mouseup", () => { if (dragging) { dragging = false; mbSeeking = false; } });
 
-    // 音量滑块
-    const volSlider = document.getElementById("mbVolSlider");
-    if (volSlider) {
-        volSlider.addEventListener("input", () => {
-            const audio = document.getElementById("mbAudio");
-            const v = volSlider.value / 100;
-            audio.volume = v;
-            const icon = document.getElementById("mbVolIcon");
-            const pct = Math.round(v * 100);
-            icon.textContent = pct == 0 ? "🔇" : (pct < 50 ? "🔉" : "🔊");
-            icon.title = `音量: ${pct}%`;
-        });
+    // 音量竖向滑块（自定义div拖拽）
+    const volTrack = document.getElementById("mbVolTrack");
+    if (volTrack) {
+        let volDragging = false;
+        function volSeek(e) {
+            const rect = volTrack.getBoundingClientRect();
+            const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+            const pct = 1 - (y / rect.height);
+            mbSetVolume(pct);
+        }
+        volTrack.addEventListener("mousedown", (e) => { volDragging = true; volSeek(e); e.preventDefault(); });
+        document.addEventListener("mousemove", (e) => { if (volDragging) volSeek(e); });
+        document.addEventListener("mouseup", () => { volDragging = false; });
     }
 
     // 键盘空格
@@ -190,13 +191,15 @@ function mbToggleVolumePopup() {
 function mbSetVolume(v) {
     const audio = document.getElementById("mbAudio");
     const icon = document.getElementById("mbVolIcon");
-    const slider = document.getElementById("mbVolSlider");
     v = Math.max(0, Math.min(1, v));
     audio.volume = v;
-    if (slider) slider.value = Math.round(v * 100);
     const pct = Math.round(v * 100);
     icon.textContent = pct == 0 ? "🔇" : (pct < 50 ? "🔉" : "🔊");
     icon.title = `音量: ${pct}%`;
+    const fill = document.getElementById("mbVolFill");
+    const handle = document.getElementById("mbVolHandle");
+    if (fill) fill.style.height = pct + "%";
+    if (handle) handle.style.bottom = pct + "%";
 }
 
 function mbToggleMute() {

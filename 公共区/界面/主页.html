@@ -282,7 +282,10 @@
                 <div class="mb-volume" style="flex-shrink:0;position:relative;">
                     <span id="mbVolIcon" style="font-size:16px;cursor:pointer;user-select:none;line-height:36px;" onclick="mbToggleVolumePopup()" title="点击调节音量">🔊</span>
                     <div class="mb-vol-popup" id="mbVolPopup" style="display:none;">
-                        <input type="range" class="mb-vol-slider" id="mbVolSlider" min="0" max="100" value="100" />
+                        <div class="mb-vol-track" id="mbVolTrack">
+                            <div class="mb-vol-fill" id="mbVolFill"></div>
+                            <div class="mb-vol-handle" id="mbVolHandle"></div>
+                        </div>
                     </div>
                 </div>
                 <button class="mb-ctrl-btn" onclick="mbTogglePlaylist()" title="播放列表">📋</button>
