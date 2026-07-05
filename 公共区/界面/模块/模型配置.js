@@ -213,6 +213,12 @@ async function loadSystemStatus() {
     try {
         const res = await fetch("/api/status"); const s = await res.json();
         document.getElementById("statusInfo").textContent = `模式: ${s.对话?.工作模式 || "商量"} | 模型: ${s.当前模型 || "默认"}`;
+        // 同步版本号到标题
+        if (s.版本 && s.版本 !== "未知") {
+            document.title = `朱峰社区智能体 v${s.版本}`;
+            const titleEl = document.querySelector(".topbar-title");
+            if (titleEl) titleEl.innerHTML = titleEl.innerHTML.replace(/朱峰社区智能体( v[\d.]+)?/, `朱峰社区智能体 v${s.版本}`);
+        }
     } catch (e) {}
 }
 

@@ -318,10 +318,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     操作注册中心 = None
     运行诊断器 = None  # 运行诊断器实例
     当前模型名 = None  # 当前对话使用的模型名
-    _tts停止标志 = False  # TTS停止标志
-    _tts_speaker = None  # SAPI SpVoice实例引用
-    _tts_process = None  # powershell进程引用
-    _tts播放中 = False  # TTS是否正在播放
+    _tts主界面状态 = {"播放中": False, "代次": 0}  # 主界面语音播报状态
+    _tts轮盘状态 = {"播放中": False, "代次": 0}    # 轮盘朗读状态
 
     def do_GET(self):
         try:
@@ -839,14 +837,25 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             当前模型 = "默认"
             if self.模型直连器:
                 当前模型 = self.模型直连器.当前模型名 or "默认"
+            # 从系统配置读取版本号（唯一版本源）
+            系统版本 = "未知"
+            try:
+                if self.配置加载器:
+                    系统配置 = self.配置加载器.获取配置("系统配置")
+                    系统版本 = 系统配置.get("版本", "未知")
+            except Exception:
+                pass
             self._返回JSON({
-                "状态": "运行中", "版本": "2.0.0",
+                "状态": "运行中", "版本": 系统版本,
                 "对话": 对话状态,
                 "当前模型": 当前模型,
                 "操作数": len(self.操作注册中心.列出所有操作()) if self.操作注册中心 else 0
             })
         elif 路径 == "/api/tts-status":
-            self._返回JSON({"正在播放": 网页请求处理器._tts播放中})
+            self._返回JSON({
+                "正在播放": 网页请求处理器._tts主界面状态["播放中"],
+                "轮盘播放": 网页请求处理器._tts轮盘状态["播放中"]
+            })
         elif 路径 == "/api/actions":
             if self.操作注册中心:
                 self._返回JSON({"操作": self.操作注册中心.获取操作JSON描述()})
@@ -1499,8 +1508,12 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True})
             else:
                 self._返回JSON({"错误": "对话模块未加载"})
-        elif 路径 == "/api/tts":
-            """TTS语音合成 - 优先edge-tts神经语音(晓晓)，失败回退SAPI"""
+        elif 路径 == "/api/tts" or 路径 == "/api/wheel-tts":
+            """TTS语音合成 - pygame双Channel独立播放，edge-tts优先，SAPI回退"""
+            是轮盘 = (路径 == "/api/wheel-tts")
+            状态dict = 网页请求处理器._tts轮盘状态 if 是轮盘 else 网页请求处理器._tts主界面状态
+            通道号 = 1 if 是轮盘 else 0
+            文件后缀 = "wheel" if 是轮盘 else "main"
             文本 = 数据.get("文本", "")
             if not 文本:
                 self._返回JSON({"错误": "文本为空"})
@@ -1508,13 +1521,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             文本 = 文本[:500]
             tts音量 = 数据.get("音量", 100)
             tts音量 = max(0, min(100, int(tts音量)))
-            网页请求处理器._tts停止标志 = True  # 先停止之前的播放
-            import time as _time; _time.sleep(0.1)  # 等待旧线程退出
-            网页请求处理器._tts停止标志 = False
-            网页请求处理器._tts_speaker = None
-            网页请求处理器._tts_process = None
-            网页请求处理器._tts播放中 = True
-            def _tts播放(待播文本, 播放音量):
+            状态dict["代次"] += 1
+            本次代次 = 状态dict["代次"]
+            状态dict["播放中"] = True
+            def _tts播放(待播文本, 播放音量, 状态, 代次, 通道, 后缀):
                 try:
                     import asyncio
                     import edge_tts
@@ -1524,98 +1534,85 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
                     import pygame
                     if not pygame.mixer.get_init():
-                        pygame.mixer.init()
-                    pygame.mixer.music.stop()
-                    async def _生成():
-                        communicate = edge_tts.Communicate(
-                            待播文本,
-                            'zh-CN-XiaoxiaoNeural',
-                            rate='+30%',
-                            volume=f'{播放音量}%'
-                        )
-                        tmp = os.path.join(tempfile.gettempdir(), 'zf3d_tts.mp3')
-                        await asyncio.wait_for(communicate.save(tmp), timeout=30.0)
-                        return tmp
-                    音频文件 = asyncio.run(_生成())
-                    if 网页请求处理器._tts停止标志:
-                        return
-                    pygame.mixer.music.load(音频文件)
-                    pygame.mixer.music.set_volume(播放音量 / 100.0)
-                    pygame.mixer.music.play()
-                    while pygame.mixer.music.get_busy():
-                        if 网页请求处理器._tts停止标志:
-                            pygame.mixer.music.stop()
-                            break
-                        time.sleep(0.1)
-                    pygame.mixer.music.unload()
+                        pygame.mixer.init(frequency=44100, size=-16, channels=2)
+                    # 停止该通道之前的播放
                     try:
-                        os.remove(音频文件)
+                        pygame.mixer.Channel(通道).stop()
                     except Exception:
                         pass
+                    # 1. edge-tts生成MP3（带音量参数，+200%增益弥补TTS输出偏小）
+                    async def _生成():
+                        communicate = edge_tts.Communicate(
+                            待播文本, 'zh-CN-XiaoxiaoNeural',
+                            rate='+30%',
+                            volume='+100%'
+                        )
+                        mp3 = os.path.join(tempfile.gettempdir(), f'zf3d_tts_{后缀}.mp3')
+                        await asyncio.wait_for(communicate.save(mp3), timeout=30.0)
+                        return mp3
+                    mp3文件 = asyncio.run(_生成())
+                    if 状态["代次"] != 代次:
+                        try: os.remove(mp3文件)
+                        except: pass
+                        return
+                    # 2. pygame播放MP3（滑块控制最终音量：0=静音，100=满音量）
+                    音频 = pygame.mixer.Sound(mp3文件)
+                    ch = pygame.mixer.Channel(通道)
+                    ch.set_volume(播放音量 / 100.0)
+                    ch.play(音频)
+                    # 3. 等待播放完成
+                    while ch.get_busy():
+                        if 状态["代次"] != 代次:
+                            ch.stop()
+                            break
+                        time.sleep(0.1)
+                    try: os.remove(mp3文件)
+                    except: pass
                 except Exception:
-                    # 方案2: 回退到 SAPI SpVoice（离线）
+                    # 回退：SAPI SpVoice（离线）
                     try:
                         import pythoncom
                         import win32com.client
                         pythoncom.CoInitialize()
                         try:
                             speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                            网页请求处理器._tts_speaker = speaker
-                            speaker.Speak("", 3)
                             speaker.Rate = 3
                             speaker.Volume = 播放音量
-                            speaker.Speak(待播文本, 0)
+                            if 状态["代次"] == 代次:
+                                speaker.Speak(待播文本, 0)
                         finally:
                             pythoncom.CoUninitialize()
                     except Exception:
+                        # 最终回退：PowerShell
                         import subprocess
                         干净文本 = 待播文本.replace("'", "''").replace('"', '')
                         cmd = f'powershell -Command "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak(\'{干净文本}\')"'
-                        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        网页请求处理器._tts_process = proc
-                        proc.wait()
-                        网页请求处理器._tts_process = None
+                        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+                        if 状态["代次"] == 代次:
+                            proc.wait()
+                        else:
+                            proc.kill()
                 finally:
-                    网页请求处理器._tts播放中 = False
-            t = threading.Thread(target=_tts播放, args=(文本, tts音量), daemon=True)
+                    if 状态["代次"] == 代次:
+                        状态["播放中"] = False
+            t = threading.Thread(target=_tts播放, args=(文本, tts音量, 状态dict, 本次代次, 通道号, 文件后缀), daemon=True)
             t.start()
             self._返回JSON({"成功": True})
-        elif 路径 == "/api/tts-stop":
-            """停止当前TTS播放"""
-            网页请求处理器._tts停止标志 = True
-            网页请求处理器._tts播放中 = False
-            def _tts停止():
-                # 停止 pygame 播放
-                try:
-                    os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
-                    import pygame
-                    if pygame.mixer.get_init():
-                        pygame.mixer.music.stop()
-                except Exception:
-                    pass
-                # 停止 SAPI 播放（用同一个实例）
-                sp = 网页请求处理器._tts_speaker
-                if sp:
-                    try:
-                        import pythoncom
-                        pythoncom.CoInitialize()
-                        try:
-                            sp.Speak("", 3)
-                        finally:
-                            pythoncom.CoUninitialize()
-                    except Exception:
-                        pass
-                    网页请求处理器._tts_speaker = None
-                # 杀掉 powershell 进程
-                proc = 网页请求处理器._tts_process
-                if proc:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
-                    网页请求处理器._tts_process = None
-            t = threading.Thread(target=_tts停止, daemon=True)
-            t.start()
+        elif 路径 == "/api/tts-stop" or 路径 == "/api/wheel-tts-stop":
+            """停止TTS播放（各自独立停止）"""
+            是轮盘 = (路径 == "/api/wheel-tts-stop")
+            状态dict = 网页请求处理器._tts轮盘状态 if 是轮盘 else 网页请求处理器._tts主界面状态
+            通道号 = 1 if 是轮盘 else 0
+            状态dict["代次"] += 1
+            状态dict["播放中"] = False
+            try:
+                os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+                import pygame
+                if pygame.mixer.get_init():
+                    pygame.mixer.Channel(通道号).stop()
+            except Exception:
+                pass
             self._返回JSON({"成功": True})
         elif 路径 == "/api/conversation-new":
             if self.模块注册 and "对话" in self.模块注册:

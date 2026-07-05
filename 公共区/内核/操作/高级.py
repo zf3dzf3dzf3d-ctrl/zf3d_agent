@@ -705,6 +705,28 @@ class 查Bug(操作基类):
         except Exception as e:
             报告片段.append(f"  (读取LLM日志异常: {e})")
 
+        # 4. 绕路师记录（失败教训）
+        报告片段.append("\n" + "=" * 50)
+        报告片段.append("🛡️ 绕路师记录（高频失败模式）")
+        报告片段.append("=" * 50)
+        try:
+            绕路记录 = 引擎._查询(
+                "SELECT 触发关键词, 失败操作, 失败原因, 绕路方案, 出现次数 FROM 绕路记录 "
+                "ORDER BY 出现次数 DESC, id DESC LIMIT 20"
+            )
+            if 绕路记录:
+                for r in 绕路记录:
+                    频次 = r[4]
+                    标记 = "🔴" if 频次 >= 3 else "🟡" if 频次 >= 2 else "⚪"
+                    报告片段.append(f"\n  {标记} [{频次}次] {r[1]}")
+                    报告片段.append(f"     触发: {r[0]}")
+                    报告片段.append(f"     原因: {r[2][:200] if r[2] else '未知'}")
+                    报告片段.append(f"     绕路: {r[3][:200] if r[3] else '无方案'}")
+            else:
+                报告片段.append("  (无绕路记录)")
+        except Exception as e:
+            报告片段.append(f"  (读取绕路记录异常: {e})")
+
         return "\n".join(报告片段)
 
 

@@ -73,12 +73,13 @@ from 操作.浏览器操作 import (
     分析网页操作,
 )
 from 操作.Bug操作 import (
-    记录Bug操作, 解决Bug操作, 查询Bug列表, 搜索Bug操作,
+    记录Bug操作, 解决Bug操作, 查询Bug列表, 搜索Bug操作, 查询绕路记录,
 )
 from 操作.Blender import (
     Blender场景信息, Blender物体信息, Blender执行代码,
     BlenderPolyHaven状态, Blender搜索资产, Blender下载资产, Blender断开, Blender启动,
 )
+from 操作.MCP操作 import 连接MCP服务
 
 
 class 操作注册中心类:
@@ -130,6 +131,7 @@ class 操作注册中心类:
             "搜索操作结果": "search_op_results",
             "记录Bug": "record_bug", "解决Bug": "resolve_bug",
             "查询Bug列表": "list_bugs", "搜索Bug": "search_bugs",
+            "查询绕路记录": "list_detours",
             "读取Word": "read_word", "替换Word文本": "replace_word_text",
             "追加Word段落": "append_word_para", "插入Word段落": "insert_word_para",
             "删除Word段落": "delete_word_para", "新建Word文档": "create_word_doc",
@@ -206,6 +208,7 @@ class 操作注册中心类:
                 "Blender下载资产": "blender_download_asset",
                 "Blender断开": "blender_disconnect",
                 "Blender启动": "blender_start",
+                "连接MCP服务": "connect_mcp_service",
                     "多线程下载": "multithread_download",
                 }
         self._英文反查 = {v: k for k, v in self._英文名映射.items()}
@@ -293,6 +296,7 @@ class 操作注册中心类:
                     "读取文件", "写入文件", "创建文件", "追加文件", "替换文本",
                     "删除文件", "批量编辑", "列出目录", "列出回收站", "恢复文件", "清空回收站",
                     "运行命令", "获取时间", "等待", "询问用户", "搜索操作结果",
+                    "连接MCP服务",
                 ],
                 "关键词": [],
                 "始终启用": True,
@@ -387,8 +391,8 @@ class 操作注册中心类:
             "诊断": {
                 "操作": ["查询运行错误", "解决运行错误", "清除已解决错误",
                           "添加监控规则", "查询监控规则", "删除监控规则",
-                          "记录Bug", "解决Bug", "查询Bug列表", "搜索Bug"],
-                "关键词": ["运行错误", "监控规则", "诊断错误", "bug", "Bug", "BUG"],
+                          "记录Bug", "解决Bug", "查询Bug列表", "搜索Bug", "查询绕路记录"],
+                "关键词": ["运行错误", "监控规则", "诊断错误", "bug", "Bug", "BUG", "绕路", "避坑", "失败教训"],
                 "始终启用": False,
             },
             "记忆": {
@@ -422,6 +426,19 @@ class 操作注册中心类:
             "导出": {
                 "操作": ["导出对话", "创建工具"],
                 "关键词": ["导出对话", "导出markdown", "创建工具", "生成工具"],
+                "始终启用": False,
+            },
+            "3dsMax": {
+                "操作": [],  # MCP工具动态注册时填充
+                "关键词": ["3dsmax", "3ds max", "3dmax", "maxscript", "vray", "arnold",
+                           "tyflow", "forest pack", "railclone", "corona渲染", "vray渲染",
+                           "3ds max截图", "max脚本", "可编辑多边形max", "修改器max"],
+                "始终启用": False,
+            },
+            "Houdini": {
+                "操作": [],  # 未来Houdini MCP接入时动态填充
+                "关键词": ["houdini", "vex", "pyro模拟", "flip模拟", "karma渲染",
+                           "mantra渲染", "sop节点", "dop网络", "houdini截图"],
                 "始终启用": False,
             },
             "Blender": {
@@ -481,6 +498,12 @@ class 操作注册中心类:
         for 操作实例 in self._操作表.values():
             操作实例.取消检查 = 检查函数
 
+    def 设置MCP管理器(self, MCP管理器):
+        """注入MCP管理器，使"连接MCP服务"操作可按需连接"""
+        self._MCP管理器 = MCP管理器
+        for 操作实例 in self._操作表.values():
+            操作实例.MCP管理器 = MCP管理器
+
     def 注册(self, 操作实例: 操作基类):
         """注册一个操作"""
         self._操作表[操作实例.名称] = 操作实例
@@ -491,6 +514,18 @@ class 操作注册中心类:
             英文名 = f"dynamic_tool_{哈希}"
             self._英文名映射[操作实例.名称] = 英文名
             self._英文反查[英文名] = 操作实例.名称
+
+    def 添加到软件组(self, 组名: str, 操作名: str):
+        """将动态注册的操作（如MCP工具）添加到软件互斥组
+
+        用于让MCP工具参与软件锁定机制，避免不同3D软件工具互相打架。
+        如3dsMax的MCP工具注册后添加到"3dsMax"组，一旦调用就锁定该组，
+        排除Blender/Houdini等其他3D软件组的工具。
+        """
+        if 组名 not in self._操作分组:
+            return
+        if 操作名 not in self._操作分组[组名]["操作"]:
+            self._操作分组[组名]["操作"].append(操作名)
 
     def 注册别名(self, 别名: str, 正式名称: str):
         """注册操作别名"""
@@ -521,7 +556,7 @@ class 操作注册中心类:
             查Bug(), 编程循环(),
             查询运行错误(), 解决运行错误(), 清除已解决错误(),
             添加监控规则(), 查询监控规则(), 删除监控规则(), 搜索操作结果(),
-            记录Bug操作(), 解决Bug操作(), 查询Bug列表(), 搜索Bug操作(),
+            记录Bug操作(), 解决Bug操作(), 查询Bug列表(), 搜索Bug操作(), 查询绕路记录(),
             读取Word(), 替换Word文本(), 追加Word段落(), 插入Word段落(), 删除Word段落(), 新建Word文档(),
             替换Excel文本(),
             下载网页图片(),
@@ -548,6 +583,7 @@ class 操作注册中心类:
             Blender场景信息(), Blender物体信息(), Blender执行代码(),
             BlenderPolyHaven状态(), Blender搜索资产(), Blender下载资产(), Blender断开(),
             Blender启动(),
+            连接MCP服务(),
         ]
         for 操作 in 内置操作列表:
             self.注册(操作)
@@ -593,6 +629,8 @@ class 操作注册中心类:
             "解决bug": "解决Bug", "修复bug": "解决Bug", "标记bug解决": "解决Bug",
             "查bug列表": "查询Bug列表", "bug列表": "查询Bug列表", "所有bug": "查询Bug列表",
             "搜bug": "搜索Bug", "查找bug": "搜索Bug",
+            "查询绕路": "查询绕路记录", "绕路记录": "查询绕路记录", "避坑记录": "查询绕路记录",
+            "查绕路": "查询绕路记录", "失败教训": "查询绕路记录",
             "读Word": "读取Word", "读word": "读取Word",
             "改Word": "替换Word文本", "替换Word": "替换Word文本",
             "加Word段落": "追加Word段落", "追加Word": "追加Word段落",
@@ -640,6 +678,26 @@ class 操作注册中心类:
             "下载3d模型": "Blender下载资产", "下载资产": "Blender下载资产",
             "polyhaven": "Blender PolyHaven状态", "polyhaven状态": "Blender PolyHaven状态",
             "启动blender": "Blender启动", "打开blender": "Blender启动", "启动Blender": "Blender启动",
+            # 3ds Max 同义词（用户可能叫各种名字）
+            "连接3dsmax": "连接MCP服务", "连接3dmax": "连接MCP服务", "连接3ds max": "连接MCP服务",
+            "连接3ds Max": "连接MCP服务", "连接3DS MAX": "连接MCP服务", "连接3DSMAX": "连接MCP服务",
+            "连接3DMAX": "连接MCP服务", "连接max": "连接MCP服务", "连接Max": "连接MCP服务",
+            "连接3ds": "连接MCP服务", "连接3D": "连接MCP服务", "连接三维max": "连接MCP服务",
+            "使用3dsmax": "连接MCP服务", "使用3dmax": "连接MCP服务", "使用3ds max": "连接MCP服务",
+            "使用3ds Max": "连接MCP服务", "启动3dsmax": "连接MCP服务", "启动3dmax": "连接MCP服务",
+            "启动3ds max": "连接MCP服务", "启动3ds Max": "连接MCP服务",
+            "打开3dsmax": "连接MCP服务", "打开3dmax": "连接MCP服务", "打开3ds max": "连接MCP服务",
+            "打开3ds Max": "连接MCP服务",
+            "安装3dsmax": "连接MCP服务", "安装3dmax": "连接MCP服务", "安装3ds max": "连接MCP服务",
+            "安装3ds Max": "连接MCP服务",
+            # Houdini 同义词
+            "连接houdini": "连接MCP服务", "连接Houdini": "连接MCP服务", "连接HOUDINI": "连接MCP服务",
+            "使用houdini": "连接MCP服务", "使用Houdini": "连接MCP服务",
+            "启动houdini": "连接MCP服务", "启动Houdini": "连接MCP服务",
+            "打开houdini": "连接MCP服务", "打开Houdini": "连接MCP服务",
+            "安装houdini": "连接MCP服务", "安装Houdini": "连接MCP服务",
+            # 通用
+            "连接mcp": "连接MCP服务", "连接MCP": "连接MCP服务",
         }
         for 别名, 正名 in 别名映射.items():
             self.注册别名(别名, 正名)
@@ -869,7 +927,7 @@ class 操作注册中心类:
         return "\n\n".join(说明)
 
     # 软件类分组：这些组互斥，一旦锁定一个就排除其他
-    _软件组 = {"Blender", "ComfyUI", "浏览器", "Git", "Word", "Excel", "图片处理",
+    _软件组 = {"Blender", "3dsMax", "Houdini", "ComfyUI", "浏览器", "Git", "Word", "Excel", "图片处理",
                "知识库", "剧本", "下载", "压缩", "股票", "导出", "诊断", "记忆", "任务", "Job"}
 
     def _获取匹配操作集(self, 用户消息: str, 当前观察: str = "") -> set:

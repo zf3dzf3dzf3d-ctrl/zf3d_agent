@@ -34,6 +34,7 @@ from 提示词构建器 import 提示词构建器类
 from 推理引擎 import 推理引擎类
 from 反思评估器 import 反思评估器类
 from 经验师 import 经验师类
+from 绕路师 import 绕路师类
 
 
 def text_only(消息: str) -> str:
@@ -79,6 +80,7 @@ class 对话模块:
         self.推理引擎 = 推理引擎类()
         self.反思评估器 = 反思评估器类()
         self.经验师 = 经验师类()
+        self.绕路师 = 绕路师类()
 
     def 初始化(self, 配置: dict):
         """初始化对话模块"""
@@ -105,6 +107,8 @@ class 对话模块:
         self.检查点目录.mkdir(parents=True, exist_ok=True)
         # 经验师初始化
         self.经验师.初始化(self.模型直连器, str(项目根))
+        # 绕路师初始化
+        self.绕路师.初始化(self.模型直连器, str(项目根))
         # 多对话管理
         try:
             self._初始化对话管理()
@@ -183,12 +187,33 @@ class 对话模块:
                     else:
                         _t.Thread(target=_异步保存经验, daemon=True).start()
 
+                # 绕路师：任务失败时记录绕路教训（异步，不阻塞用户回复）
+                if not 推理结果.get("成功", True) and 推理结果.get("步数", 0) > 5:
+                    def _异步记录绕路():
+                        try:
+                            self.绕路师.记录失败(用户消息, 推理结果)
+                        except Exception:
+                            pass
+                    if _是本地模型:
+                        _t.Timer(3.0, _异步记录绕路).start()
+                    else:
+                        _t.Thread(target=_异步记录绕路, daemon=True).start()
+
             全局事件中心.发布("收到消息", {"角色": "助手", "内容": 推理结果.get("回复", "")})
 
             # 安全检查：确保推理引擎的助手回复已追加到对话历史
-            if 推理结果.get("回复") and (not self.对话历史 or self.对话历史[-1].get("角色") != "助手"):
-                self.对话历史.append({"角色": "助手", "内容": 推理结果["回复"],
-                                       "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+            # 往回找最近一条非系统消息，检查是否已是助手回复（反思系统消息可能插在中间）
+            _已有助手回复 = False
+            if 推理结果.get("回复"):
+                for msg in reversed(self.对话历史):
+                    if msg.get("角色") == "系统":
+                        continue
+                    if msg.get("角色") == "助手":
+                        _已有助手回复 = True
+                    break
+                if not _已有助手回复:
+                    self.对话历史.append({"角色": "助手", "内容": 推理结果["回复"],
+                                           "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
             # 保存推理日志
             用户消息时间 = self.对话历史[-2].get("时间", "") if len(self.对话历史) >= 2 else ""
@@ -756,6 +781,9 @@ class 对话模块:
         self._已保存消息数 = 0
         self._已保存日志数 = 0
         self._新对话标志 = True
+        # 重置软件锁定（新对话不应继承上一对话的软件锁定）
+        if self.操作注册中心:
+            self.操作注册中心.重置软件锁定()
         全局事件中心.发布("话题切换", {"标题": f"对话_{对话ID}"})
         return 对话信息
 

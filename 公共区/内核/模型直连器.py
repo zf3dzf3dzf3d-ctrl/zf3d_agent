@@ -133,6 +133,7 @@ class 模型直连器类:
         模型直连器类._缓存最大条目 = self.缓存最大条目
         self.规则 = 配置.get("规则", {})
         self.超时秒数 = self.规则.get("超时秒数", 30)
+        self._API不可用 = False  # 余额不足/密钥过期等不可恢复错误标记
 
     def _应用模型配置(self, 模型名: str):
         """从模型配置列表中加载指定模型的配置"""
@@ -144,6 +145,7 @@ class 模型直连器类:
         self.响应路径 = self.配置.get("响应路径", "$.choices[0].message.content")
         self.环境变量 = self.配置.get("环境变量", {})
         self.上下文窗口 = self.配置.get("上下文窗口", 32768)  # 默认32K
+        self.支持vision = self.配置.get("支持vision", False)
         # 从模型配置列表中覆盖
         已匹配 = False
         for m in self.模型配置列表:
@@ -155,6 +157,7 @@ class 模型直连器类:
                 self.响应路径 = m.get("响应路径", self.响应路径)
                 self.环境变量 = m.get("环境变量", self.环境变量)
                 self.上下文窗口 = m.get("上下文窗口", self.上下文窗口)
+                self.支持vision = m.get("支持vision", False)
                 self.当前模型名 = 模型名
                 已匹配 = True
                 break
@@ -169,6 +172,7 @@ class 模型直连器类:
                     self.响应路径 = m.get("响应路径", self.响应路径)
                     self.环境变量 = m.get("环境变量", self.环境变量)
                     self.上下文窗口 = m.get("上下文窗口", self.上下文窗口)
+                    self.支持vision = m.get("支持vision", False)
                     self.当前模型名 = m.get("名称", "")
                     break
 
@@ -179,6 +183,8 @@ class 模型直连器类:
         if not 存在 and self.模型配置列表:
             return {"成功": False, "错误": f"模型 '{模型名}' 不存在"}
         self._应用模型配置(模型名)
+        # 切换模型时重置API不可用标记（新模型可能余额正常）
+        self._API不可用 = False
         # 清空缓存（不同模型的缓存不通用）
         self.清空缓存()
         return {"成功": True, "当前模型": 模型名}
@@ -284,6 +290,19 @@ class 模型直连器类:
         """
         if not self.接口地址:
             return {"错误": "未配置模型接口地址"}
+
+        # API不可用标记：余额不足/密钥过期时跳过HTTP请求
+        if self._API不可用:
+            return {"错误": "API不可用（余额不足/密钥过期），请在设置中检查后切换模型或充值"}
+
+        # vision支持检查：如果消息含image_url但模型不支持vision，提前拦截
+        if not self.支持vision:
+            for 消息 in 消息列表:
+                内容 = 消息.get("content")
+                if isinstance(内容, list):
+                    for 片段 in 内容:
+                        if isinstance(片段, dict) and 片段.get("type") == "image_url":
+                            return {"错误": f"当前模型「{self.当前模型名}」不支持图片分析(vision)，请切换到支持vision的模型"}
 
         请求头 = self._构建请求头()
         完整消息 = []
@@ -455,6 +474,10 @@ class 模型直连器类:
                 "原始响应": 错误详情,
                 "耗时毫秒": int((time.time() - 开始时间) * 1000)
             }
+            # 401/402/403是不可恢复错误，标记API不可用避免疯狂重试
+            if e.code in (401, 402, 403):
+                self._API不可用 = True
+                print(f"  🚫 API不可用(HTTP {e.code})，已标记停止重试，需切换模型或充值后恢复")
             self._记录LLM调用日志(错误结果, 系统提示词, 消息列表)
             return 错误结果
         except Exception as e:
@@ -479,6 +502,19 @@ class 模型直连器类:
         """
         if not self.接口地址:
             return {"错误": "未配置模型接口地址", "原始请求": None, "原始响应": None}
+
+        # API不可用标记：余额不足/密钥过期时跳过HTTP请求
+        if self._API不可用:
+            return {"错误": "API不可用（余额不足/密钥过期），请在设置中检查后切换模型或充值", "原始请求": None, "原始响应": None}
+
+        # vision支持检查：如果消息含image_url但模型不支持vision，提前拦截
+        if not self.支持vision:
+            for 消息 in 消息列表:
+                内容 = 消息.get("content")
+                if isinstance(内容, list):
+                    for 片段 in 内容:
+                        if isinstance(片段, dict) and 片段.get("type") == "image_url":
+                            return {"错误": f"当前模型「{self.当前模型名}」不支持图片分析(vision)，请切换到支持vision的模型", "原始请求": None, "原始响应": None}
 
         # v2.1: 缓存检查
         if self.缓存启用:
@@ -607,6 +643,10 @@ class 模型直连器类:
                     pass
                 # 4xx错误不重试（客户端错误），5xx重试
                 if 400 <= e.code < 500 and e.code != 429:
+                    # 401/402/403是不可恢复错误，标记API不可用
+                    if e.code in (401, 402, 403):
+                        self._API不可用 = True
+                        print(f"  🚫 API不可用(HTTP {e.code})，已标记停止重试")
                     最后错误 = {
                         "成功": False,
                         "错误": f"HTTP {e.code}: {错误详情[:500]}" if 错误详情 else f"HTTP错误: {e.code}",
