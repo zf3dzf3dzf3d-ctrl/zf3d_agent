@@ -20,7 +20,8 @@ from pathlib import Path
 排除文件名 = ["开发日志.md", "说明.md"]
 隐私扫描白名单 = ["highlight.min.js", "marked.min.js", "katex.min.js",
                 "katex-auto-render.min.js", "pdf.min.js", "pdf.worker.min.js",
-                "xlsx.full.min.js", "mammoth.browser.min.js"]
+                "xlsx.full.min.js", "mammoth.browser.min.js",
+                "ts.worker", "editor.worker", "json.worker", "css.worker", "html.worker"]
 
 def 应排除(路径):
     s = str(路径)
@@ -37,8 +38,9 @@ def 应排除(路径):
     return False
 
 def 扫描隐私(文件):
-    if 文件.name in 隐私扫描白名单:
-        return []
+    for 白名单词 in 隐私扫描白名单:
+        if 白名单词 in 文件.name:
+            return []
     if 文件.suffix not in [".py", ".json", ".js", ".html", ".css", ".md", ".bat", ".sh"]:
         return []
     try:

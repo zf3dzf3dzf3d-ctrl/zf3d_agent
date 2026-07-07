@@ -33,7 +33,7 @@ from pathlib import Path
 排除文件名 = ["开发日志.md", "说明.md"]
 
 # 隐私扫描白名单（第三方库等误报）
-隐私扫描白名单 = ["highlight.min.js", "marked.min.js"]
+隐私扫描白名单 = ["highlight.min.js", "marked.min.js", "ts.worker", "editor.worker", "json.worker", "css.worker", "html.worker"]
 
 def 打包发布():
     项目根目录 = Path(__file__).parent
@@ -137,9 +137,10 @@ def 扫描隐私泄露(文件: Path) -> list:
     泄露 = []
     if 文件.suffix not in [".py", ".json", ".js", ".html", ".css", ".md", ".bat", ".sh"]:
         return 泄露
-    # 第三方库白名单
-    if 文件.name in 隐私扫描白名单:
-        return 泄露
+    # 第三方库白名单（文件名包含即跳过）
+    for 白名单词 in 隐私扫描白名单:
+        if 白名单词 in 文件.name:
+            return 泄露
     敏感模式 = [
         (r'sk-[a-zA-Z0-9]{20,}', "API Key (sk-开头)"),
         (r'key\s*[:=]\s*["\'][\w-]{10,}["\']', "疑似密钥"),
