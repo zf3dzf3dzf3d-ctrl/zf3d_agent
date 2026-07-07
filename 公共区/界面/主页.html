@@ -7,12 +7,29 @@
     <title>朱峰社区智能体</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260704k">
-    <link rel="stylesheet" href="编辑器/编辑器.css?v=20260620p">
+    <link rel="stylesheet" href="样式.css?v=20260707d">
+    <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
+    <link rel="stylesheet" href="员工浮窗.css?v=20260707b1">
 </head>
 <body>
+    <!-- 启动动画 -->
+    <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s">
+        <div style="position:relative;width:80px;height:80px;margin-bottom:24px">
+            <div style="position:absolute;inset:0;border:3px solid var(--border);border-radius:50%"></div>
+            <div id="bootSpinner" style="position:absolute;inset:0;border:3px solid transparent;border-top-color:var(--blue);border-radius:50%;animation:boot-spin 0.8s linear infinite"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><img src="favicon.png?v=1" style="width:40px;height:40px"></div>
+        </div>
+        <div style="font-size:16px;font-weight:bold;color:var(--blue);margin-bottom:8px;text-shadow:0 0 12px rgba(0,122,204,0.3)">朱峰社区智能体</div>
+        <div id="bootStatus" style="font-size:12px;color:var(--text2);min-height:16px">正在启动...</div>
+        <div style="width:200px;height:3px;background:var(--border);border-radius:2px;margin-top:16px;overflow:hidden">
+            <div id="bootProgress" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:2px;transition:width 0.3s"></div>
+        </div>
+    </div>
+    <style>
+        @keyframes boot-spin { to { transform: rotate(360deg); } }
+    </style>
     <!-- 顶部栏 -->
     <div class="topbar">
         <div class="topbar-left">
@@ -26,11 +43,6 @@
         <div class="topbar-right">
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
-            <div class="tts-volume-popup" id="ttsVolumePopup" style="display:none;">
-                <div class="tts-volume-header">🔊 音量</div>
-                <input type="range" id="ttsVolumeSlider" min="0" max="100" value="100" class="tts-volume-slider" />
-                <div class="tts-volume-value"><span id="ttsVolumeValue">100</span>%</div>
-            </div>
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
             <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openDonate()" style="font-size:15px;">❤️</button>
         </div>
@@ -388,6 +400,7 @@
                 <div class="snav-item" data-tab="tokenstats" title="查看Token用量统计">📊 Token</div>
                 <div class="snav-item" data-tab="config" title="查看系统配置">🔧 配置</div>
                 <div class="snav-item" data-tab="wheel" title="轮盘快捷呼出设置">🎛️ 轮盘</div>
+                <div class="snav-item" data-tab="voice" title="语音输入设置">🎤 语音</div>
             </div>
             <div class="settings-body">
                 <div class="stab active" id="tab_memory">
@@ -527,9 +540,19 @@
                     </div>
                     <div class="scard">
                         <h3>🎯 扇区管理</h3>
-                        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">添加、删除、排序扇区功能。扇区名称支持：翻译/问答/朗读/截图/空</div>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">添加、删除、排序扇区功能。扇区名称支持：翻译/问答/朗读/录音/录屏/截图/空</div>
                         <div id="wheelSectors" style="display:flex;flex-direction:column;gap:6px;"></div>
                         <button class="dlg-btn" onclick="addWheelSector()" style="margin-top:8px;">➕ 添加扇区</button>
+                    </div>
+                </div>
+                <div class="stab" id="tab_voice">
+                    <div class="scard">
+                        <h3>🎤 语音输入</h3>
+                        <div id="voiceConfigPanel">加载中...</div>
+                    </div>
+                    <div class="scard" style="margin-top:16px">
+                        <h3>🔊 语音输出（TTS朗读）</h3>
+                        <div id="ttsConfigPanel">加载中...</div>
                     </div>
                 </div>
             </div>
@@ -559,36 +582,38 @@
     <script src="xlsx.full.min.js?v=1" defer></script>
     <script src="mammoth.browser.min.js?v=1" defer></script>
     <script src="pdf.min.js?v=1" defer></script>
-    <script src="编辑器/编辑器.js?v=20260620u"></script>
-    <script src="模块/全局状态.js?v=20260629c"></script>
+    <!-- Monaco Editor (AMD loader, 本地离线) -->
+    <script src="/monaco/vs/loader.js"></script>
+    <script src="编辑器/编辑器.js?v=20260707c"></script>
+    <script src="模块/全局状态.js?v=20260706a"></script>
     <script src="模块/路径工具.js?v=20260627a"></script>
-    <script src="模块/撤销重做.js?v=20260627a"></script>
-    <script src="模块/Toast通知.js?v=20260624a"></script>
+    <script src="模块/撤销重做.js?v=20260707b"></script>
+    <script src="模块/Toast通知.js?v=20260707a"></script>
     <script src="模块/自动更新.js?v=20260627b"></script>
     <script src="模块/面板布局.js?v=20260704b"></script>
-    <script src="模块/语音播报.js?v=20260704a"></script>
-    <script src="模块/语音输入.js?v=20260627b"></script>
-    <script src="模块/对话核心.js?v=20260702c"></script>
-    <script src="模块/推理流.js?v=20260704a"></script>
+    <script src="模块/语音播报.js?v=20260706c"></script>
+    <script src="模块/语音输入.js?v=20260706g"></script>
+    <script src="模块/对话核心.js?v=20260707e"></script>
+    <script src="模块/推理流.js?v=20260707a"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
     <script src="模块/录音.js?v=20260704h"></script>
     <script src="模块/录屏.js?v=20260704z"></script>
-    <script src="模块/实时Diff.js?v=20260627c"></script>
+    <script src="模块/实时Diff.js?v=20260707e"></script>
     <script src="模块/Diff查看器.js?v=20260702c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
-    <script src="模块/模型配置.js?v=20260701a"></script>
-    <script src="模块/设置面板.js?v=20260701h"></script>
+    <script src="模块/模型配置.js?v=20260706d"></script>
+    <script src="模块/设置面板.js?v=20260706j"></script>
     <script src="模块/文件树.js?v=20260704b"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
-    <script src="模块/图片查看器.js?v=20260702a"></script>
-    <script src="模块/多标签编辑器.js?v=20260702b"></script>
-    <script src="模块/文件框选.js?v=20260629g"></script>
+    <script src="模块/图片查看器.js?v=20260707a"></script>
+    <script src="模块/多标签编辑器.js?v=20260707b"></script>
+    <script src="模块/文件框选.js?v=20260707a"></script>
     <script src="模块/权限轮询.js?v=20260702a"></script>
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
-    <script src="模块/下载面板.js?v=20260704a"></script>
+    <script src="模块/下载面板.js?v=20260706b"></script>
     <script src="逻辑.js?v=20260627j"></script>
 
     <script>
@@ -729,6 +754,36 @@
             }
         }
     }, 3000);
+    </script>
+    <script src="员工浮窗.js?v=20260707b1"></script>
+    <script>
+    // 启动动画控制
+    (function(){
+        var steps = ['正在加载配置...', '正在连接模型...', '正在加载员工...', '正在初始化界面...'];
+        var step = 0;
+        var prog = 0;
+        var bar = document.getElementById('bootProgress');
+        var status = document.getElementById('bootStatus');
+        var timer = setInterval(function(){
+            step = Math.min(step + 1, steps.length - 1);
+            prog = Math.min(prog + 25, 100);
+            if (status) status.textContent = steps[step];
+            if (bar) bar.style.width = prog + '%';
+        }, 800);
+        function bootDone(){
+            clearInterval(timer);
+            if (bar) bar.style.width = '100%';
+            if (status) status.textContent = '启动完成';
+            var ov = document.getElementById('bootOverlay');
+            if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 500); }
+        }
+        // 页面加载完成后延迟2秒关闭（确保界面渲染完毕）
+        if (document.readyState === 'complete') {
+            setTimeout(bootDone, 2500);
+        } else {
+            window.addEventListener('load', function(){ setTimeout(bootDone, 2500); });
+        }
+    })();
     </script>
 </body>
 </html>

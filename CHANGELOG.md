@@ -1,5 +1,22 @@
 # 更新日志
 
+## v3.0.1 (2026-07-07)
+
+### 修复
+- **工具员工执行报错** — 网页服务.py中`发送消息()`传了`工具=`而非`工具列表=`，导致工具员工（如备份员）调用LLM时报`unexpected keyword argument '工具'`
+- **节点详情弹窗显示HTML源码** — showWfPopup对已是HTML的content二次执行`marked.parse()`，导致`<div>`标签被转义为纯文本显示
+- **节点详情文字无法框选复制** — wf-popup-body缺少`user-select: text`，被父级`user-select: none`覆盖
+- **节点工作流面板resize手柄不可拖拽** — 面板`overflow: hidden`裁剪了手柄，且手柄z-index遮挡画布导致员工/文件拖入失败。改为8方向手柄(左/右/上/下/四角)，面板去掉overflow:hidden，header/footer单独加圆角
+
+### 优化
+- **节点工作流面板8方向resize** — 新增顶部/左上/右上3个resize手柄，现在支持全部8方向自由调整面板大小
+- **静态资源版本号更新** — 员工浮窗CSS/JS版本号更新为20260707b1，确保浏览器加载最新代码
+
+### 清理
+- 删除15个过时/冗余文件：升级路线工作计划.md、待开发功能设计方案.md、Houdini-Agent调研报告.md、test_bubble.py、test_fibonacci.py、test_tts.py、test.txt、hello.py、TTS测试.py、测试工作流.py、大理石房子.blend、2个旧linux包、CLAUDE.md、deploy.bat
+
+---
+
 ## v3.1.0 (2026-07-05)
 
 ### 新增

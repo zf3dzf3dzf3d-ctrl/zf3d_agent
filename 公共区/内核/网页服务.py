@@ -308,6 +308,184 @@ def _提取doc文本(文件路径):
     return '\n'.join(html_parts) if html_parts else '<p>（空文档或无法读取）</p>'
 
 
+def _获取英文模型目录():
+    """获取纯英文路径用于存放sherpa-onnx模型（C++底层不支持中文路径）
+    优先级：Python安装目录 → 系统Temp → C盘根目录
+    """
+    import tempfile, sys
+    # 候选路径，确保纯ASCII
+    候选 = [
+        Path(sys.executable).parent / "zf3d_voice_model",   # Python安装目录旁边
+        Path(tempfile.gettempdir()) / "zf3d_voice_model",    # 系统Temp
+        Path("C:/zf3d_voice_model"),                          # C盘根目录（兜底）
+    ]
+    for 路径 in 候选:
+        try:
+            路径_str = str(路径)
+            # 检测路径是否纯ASCII
+            路径_str.encode('ascii')
+            路径.mkdir(parents=True, exist_ok=True)
+            return 路径
+        except (UnicodeEncodeError, OSError, PermissionError):
+            continue
+    # 所有候选都失败，最后用Temp（即使有中文也比没有强）
+    路径 = Path(tempfile.gettempdir()) / "zf3d_voice_model"
+    路径.mkdir(parents=True, exist_ok=True)
+    return 路径
+
+
+# Kokoro TTS 说话人列表（v1_1，103个）
+_KOKORO说话人 = [
+    {"sid": 0, "名称": "艾洛伊", "性别": "女", "语言": "美式英语", "头像": "👩"},
+    {"sid": 1, "名称": "奥黛", "性别": "女", "语言": "美式英语", "头像": "👩"},
+    {"sid": 2, "名称": "贝拉", "性别": "女", "语言": "美式英语", "头像": "👩‍🦰"},
+    {"sid": 3, "名称": "赫特", "性别": "女", "语言": "美式英语", "头像": "💕"},
+    {"sid": 4, "名称": "杰西卡", "性别": "女", "语言": "美式英语", "头像": "👩‍💼"},
+    {"sid": 5, "名称": "科瑞", "性别": "女", "语言": "美式英语", "头像": "🌱"},
+    {"sid": 6, "名称": "妮可", "性别": "女", "语言": "美式英语", "头像": "👩‍🔬"},
+    {"sid": 7, "名称": "诺娃", "性别": "女", "语言": "美式英语", "头像": "✨"},
+    {"sid": 8, "名称": "丽芙", "性别": "女", "语言": "美式英语", "头像": "🌿"},
+    {"sid": 9, "名称": "莎拉", "性别": "女", "语言": "美式英语", "头像": "👩‍🏫"},
+    {"sid": 10, "名称": "斯凯", "性别": "女", "语言": "美式英语", "头像": "☁️"},
+    {"sid": 11, "名称": "亚当", "性别": "男", "语言": "美式英语", "头像": "👨"},
+    {"sid": 12, "名称": "埃科", "性别": "男", "语言": "美式英语", "头像": "🔊"},
+    {"sid": 13, "名称": "埃里克", "性别": "男", "语言": "美式英语", "头像": "👨‍💻"},
+    {"sid": 14, "名称": "芬里尔", "性别": "男", "语言": "美式英语", "头像": "🐺"},
+    {"sid": 15, "名称": "利亚姆", "性别": "男", "语言": "美式英语", "头像": "👦"},
+    {"sid": 16, "名称": "迈克尔", "性别": "男", "语言": "美式英语", "头像": "🎸"},
+    {"sid": 17, "名称": "奥尼克斯", "性别": "男", "语言": "美式英语", "头像": "💎"},
+    {"sid": 18, "名称": "帕克", "性别": "男", "语言": "美式英语", "头像": "🃏"},
+    {"sid": 19, "名称": "圣诞老人", "性别": "男", "语言": "美式英语", "头像": "🎅"},
+    {"sid": 20, "名称": "爱丽丝", "性别": "女", "语言": "英式英语", "头像": "👸"},
+    {"sid": 21, "名称": "艾玛", "性别": "女", "语言": "英式英语", "头像": "👒"},
+    {"sid": 22, "名称": "伊莎贝拉", "性别": "女", "语言": "英式英语", "头像": "💃"},
+    {"sid": 23, "名称": "莉莉", "性别": "女", "语言": "英式英语", "头像": "🌷"},
+    {"sid": 24, "名称": "丹尼尔", "性别": "男", "语言": "英式英语", "头像": "🦁"},
+    {"sid": 25, "名称": "费布尔", "性别": "男", "语言": "英式英语", "头像": "📖"},
+    {"sid": 26, "名称": "乔治", "性别": "男", "语言": "英式英语", "头像": "🐉"},
+    {"sid": 27, "名称": "刘易斯", "性别": "男", "语言": "英式英语", "头像": "🎩"},
+    {"sid": 28, "名称": "朵拉", "性别": "女", "语言": "英语", "头像": "🧭"},
+    {"sid": 29, "名称": "亚历克斯", "性别": "男", "语言": "英语", "头像": "🧑"},
+    {"sid": 30, "名称": "西维斯", "性别": "女", "语言": "法语", "头像": "🇫🇷"},
+    {"sid": 31, "名称": "阿尔法", "性别": "女", "语言": "印地语", "头像": "α"},
+    {"sid": 32, "名称": "贝塔", "性别": "女", "语言": "印地语", "头像": "β"},
+    {"sid": 33, "名称": "欧米伽", "性别": "男", "语言": "印地语", "头像": "Ω"},
+    {"sid": 34, "名称": "普西", "性别": "男", "语言": "印地语", "头像": "ψ"},
+    {"sid": 35, "名称": "萨拉", "性别": "女", "语言": "意大利语", "头像": "🍝"},
+    {"sid": 36, "名称": "尼古拉", "性别": "男", "语言": "意大利语", "头像": "🍕"},
+    {"sid": 37, "名称": "阿尔法", "性别": "女", "语言": "日语", "头像": "🌸"},
+    {"sid": 38, "名称": "权狐", "性别": "女", "语言": "日语", "头像": "🦊"},
+    {"sid": 39, "名称": "鼠", "性别": "女", "语言": "日语", "头像": "🐭"},
+    {"sid": 40, "名称": "手袋", "性别": "女", "语言": "日语", "头像": "👜"},
+    {"sid": 41, "名称": "蜘蛛", "性别": "男", "语言": "日语", "头像": "🕷️"},
+    {"sid": 42, "名称": "朵拉", "性别": "女", "语言": "葡萄牙语", "头像": "🇧🇷"},
+    {"sid": 43, "名称": "圣诞老人", "性别": "男", "语言": "葡萄牙语", "头像": "🎁"},
+    {"sid": 44, "名称": "小贝", "性别": "女", "语言": "中文", "头像": "👧"},
+    {"sid": 45, "名称": "小妮", "性别": "女", "语言": "中文", "头像": "🧒"},
+    {"sid": 46, "名称": "晓晓", "性别": "女", "语言": "中文", "头像": "👩"},
+    {"sid": 47, "名称": "晓伊", "性别": "女", "语言": "中文", "头像": "💁‍♀️"},
+    {"sid": 48, "名称": "云健", "性别": "男", "语言": "中文", "头像": "💪"},
+    {"sid": 49, "名称": "云希", "性别": "男", "语言": "中文", "头像": "👨"},
+    {"sid": 50, "名称": "云夏", "性别": "男", "语言": "中文", "头像": "👦"},
+    {"sid": 51, "名称": "云扬", "性别": "男", "语言": "中文", "头像": "🎙️"},
+]
+# v1.1新增的50个中文说话人（sid 52-102，来自LongMaoData数据集）
+_中文音色名 = [
+    "嘉怡","子轩","雨桐","浩然","思琪","俊杰","梦瑶","天宇","欣怡","志强",
+    "雅婷","博文","若曦","子墨","佳琪","明轩","诗涵","宇辰","雨欣","健豪",
+    "淑芬","伟杰","美玲","家豪","秀英","建国","丽华","国庆","玉兰","建军",
+    "晓燕","德明","春梅","学东","红梅","永强","翠兰","建军","秋菊","国华",
+    "丽君","文博","静雯","子涵","雨泽","思源","博文","佳豪","若彤","梓萱"
+]
+_中文头像池 = ["👩","👨","👧","👦","🧑","👱‍♀️","👱‍♂️","👩‍🦰","👨‍🦰","👩‍🦱","👨‍🦱","👩‍🦳","👨‍🦳","👩‍💼","👨‍💼","👩‍🏫","👨‍🏫","👩‍🔬","👨‍🔬","👩‍💻","👨‍💻","👩‍🎨","👨‍🎨","👩‍🔧","👨‍🔧","🧑‍🌾","🧑‍🍳","🧑‍🎤","🧑‍🎤","🧑‍🏭","🧑‍💼","🧑‍🏫","🧑‍🔬","🧑‍💻","🧑‍🎨","🧑‍🔧","👷‍♀️","👷‍♂️","👮‍♀️","👮‍♂️","🕵️‍♀️","🕵️‍♂️","💂‍♀️","💂‍♂️","🤴","👸","👳‍♀️","👳‍♂️","🧕"]
+for _i in range(52, 103):
+    _idx = _i - 52
+    _KOKORO说话人.append({"sid": _i, "名称": _中文音色名[_idx % len(_中文音色名)], "性别": "女" if _idx % 2 == 0 else "男", "语言": "中文", "头像": _中文头像池[_idx % len(_中文头像池)]})
+
+
+def _获取KokoroTTS引擎():
+    """懒加载Kokoro TTS引擎，返回 sherpa_onnx.OfflineTts 实例或 None"""
+    if 网页请求处理器._kokoroTTS引擎 is not None:
+        return 网页请求处理器._kokoroTTS引擎
+    try:
+        import sherpa_onnx
+    except ImportError:
+        return None
+    模型目录 = _获取英文模型目录() / "kokoro-tts"
+    # 兼容 int8 和非 int8 版本的模型文件名
+    模型文件 = 模型目录 / "model.onnx"
+    if not 模型文件.exists():
+        模型文件 = 模型目录 / "model.int8.onnx"
+    if not 模型文件.exists():
+        return None
+    try:
+        tts_config = sherpa_onnx.OfflineTtsConfig(
+            model=sherpa_onnx.OfflineTtsModelConfig(
+                kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
+                    model=str(模型文件),
+                    voices=str(模型目录 / "voices.bin"),
+                    tokens=str(模型目录 / "tokens.txt"),
+                    data_dir=str(模型目录 / "espeak-ng-data"),
+                    lexicon=f"{模型目录 / 'lexicon-us-en.txt'},{模型目录 / 'lexicon-zh.txt'}",
+                ),
+                provider="cpu",
+                num_threads=2,
+            ),
+            max_num_sentences=1,
+        )
+        if not tts_config.validate():
+            return None
+        网页请求处理器._kokoroTTS引擎 = sherpa_onnx.OfflineTts(tts_config)
+        return 网页请求处理器._kokoroTTS引擎
+    except Exception as e:
+        print(f"  ⚠️ Kokoro TTS引擎加载失败: {e}")
+        return None
+
+
+def _获取当前员工语音配置(员工名):
+    """从员工配置或系统配置获取语音设置"""
+    默认 = {"引擎": "本地", "说话人ID": 47, "语速": 1.0, "edge音色": "zh-CN-XiaoxiaoNeural"}
+    try:
+        系统配置 = 网页请求处理器.配置加载器.配置缓存.get("系统配置", {})
+        系统语音 = 系统配置.get("语音输出", {})
+        if 系统语音:
+            默认.update(系统语音)
+    except Exception:
+        pass
+    if not 员工名 or 员工名 == "母体":
+        return 默认
+    try:
+        员工配置 = 网页请求处理器.配置加载器.配置缓存.get("员工配置", {})
+        for 员工 in 员工配置.get("员工列表", []):
+            if 员工.get("姓名") == 员工名:
+                语音 = 员工.get("语音")
+                if 语音:
+                    默认.update(语音)
+                break
+    except Exception:
+        pass
+    return 默认
+
+
+def _float32转WAV(samples, sample_rate):
+    """将 sherpa-onnx 输出的 float32 采样转为 WAV 临时文件，返回文件路径"""
+    import wave, tempfile, numpy as np
+    samples_int16 = (np.asarray(samples, dtype=np.float32) * 32767).astype(np.int16)
+    wav路径 = os.path.join(tempfile.gettempdir(), f'zf3d_kokoro_{threading.get_ident()}.wav')
+    with wave.open(wav路径, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(samples_int16.tobytes())
+    return wav路径
+
+
+def _检查KokoroTTS模型存在():
+    """检查Kokoro TTS模型是否已下载"""
+    模型目录 = _获取英文模型目录() / "kokoro-tts"
+    return (模型目录 / "model.onnx").exists() or (模型目录 / "model.int8.onnx").exists()
+
+
 class 网页请求处理器(BaseHTTPRequestHandler):
     """HTTP请求处理器"""
     界面目录 = None
@@ -320,12 +498,26 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     当前模型名 = None  # 当前对话使用的模型名
     _tts主界面状态 = {"播放中": False, "代次": 0}  # 主界面语音播报状态
     _tts轮盘状态 = {"播放中": False, "代次": 0}    # 轮盘朗读状态
+    _sherpa识别器 = None  # sherpa-onnx 离线语音识别器（懒加载）
+    _sherpa流式识别器 = None  # sherpa-onnx 流式语音识别器（懒加载）
+    _语音安装状态 = {"步骤": "", "进度": 0, "完成": False, "错误": ""}  # 安装进度
+    _kokoroTTS引擎 = None  # sherpa-onnx Kokoro TTS引擎（懒加载）
+    _tts安装状态 = {"步骤": "", "进度": 0, "完成": False, "错误": ""}  # TTS模型安装进度
+    _最后打开的文件夹 = None  # 前端最后打开的文件夹（录音/录屏默认保存位置）
+    _录屏设置 = {"点击效果": False, "点击音效": False, "音效音量": 50, "帧率": 30, "音频模式": "system",
+                  "麦克风音量": 1.0, "麦克风静音": False, "系统音量": 1.0, "系统静音": False,
+                  "dshow设备名": ""}
 
     def do_GET(self):
         try:
             解析结果 = urlparse(self.path)
             路径 = unquote(解析结果.path)
             查询串 = 解析结果.query or ""
+
+            # WebSocket升级检测
+            if 路径 == "/api/voice-stream" and self.headers.get("Upgrade", "").lower() == "websocket":
+                self._处理WebSocket语音()
+                return
 
             if 路径 == "/" or 路径 == "/index.html":
                 self._返回文件(self.界面目录 / "主页.html", "text/html", 查询串)
@@ -338,6 +530,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回文件(self.界面目录 / 路径.lstrip("/"), "text/css", 查询串)
             elif 路径.endswith(".js"):
                 self._返回文件(self.界面目录 / 路径.lstrip("/"), "application/javascript", 查询串)
+            elif 路径.startswith("/monaco/"):
+                # Monaco Editor 静态文件（JS/CSS/字体等）
+                文件路径 = self.界面目录 / 路径.lstrip("/")
+                文件类型 = self._猜测类型(路径)
+                if 路径.endswith(".js"):
+                    文件类型 = "application/javascript"
+                elif 路径.endswith(".css"):
+                    文件类型 = "text/css"
+                self._返回文件(文件路径, 文件类型, 查询串)
             elif 路径.startswith("/api/"):
                 self._处理API_GET(路径, 解析结果)
             else:
@@ -428,6 +629,9 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             参数 = parse_qs(解析结果.query)
             目录 = 参数.get("path", ["./"])[0]
             深度 = int(参数.get("depth", ["3"])[0])
+            # 记录最后打开的文件夹（轮盘录音/录屏默认保存位置）
+            if 目录 and 目录 != "./":
+                网页请求处理器._最后打开的文件夹 = 目录
             结果 = self.文件管理器.目录树(目录, 深度)
             self._返回JSON(结果)
         elif 路径 == "/api/folder-size":
@@ -1186,9 +1390,259 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "配置": 配置})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/voice-status":
+            """检查语音输入引擎状态"""
+            系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+            语音配置 = 系统配置.get("语音输入", {})
+            引擎 = 语音配置.get("引擎", "浏览器")
+            模型 = 语音配置.get("本地模型", "paraformer-zh-int8")
+            已安装 = False
+            try:
+                import sherpa_onnx
+                已安装 = True
+            except ImportError:
+                pass
+            # 检查模型文件是否存在（纯英文路径，sherpa-onnx不支持中文路径）
+            流式目录 = _获取英文模型目录() / "paraformer-streaming"
+            流式存在 = (流式目录 / "encoder.int8.onnx").exists() and (流式目录 / "decoder.int8.onnx").exists() and (流式目录 / "tokens.txt").exists()
+            self._返回JSON({"成功": True, "已安装": 已安装, "模型存在": 流式存在, "引擎": 引擎, "模型": 模型})
+        elif 路径 == "/api/employee-list":
+            """获取员工列表"""
+            if self.模块注册 and "员工管理" in self.模块注册:
+                self._返回JSON(self.模块注册["员工管理"].获取员工列表())
+            else:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+        elif 路径 == "/api/employee-tree":
+            """获取员工树形结构"""
+            if self.模块注册 and "员工管理" in self.模块注册:
+                self._返回JSON(self.模块注册["员工管理"].获取员工树())
+            else:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+        elif 路径 == "/api/employee-notify":
+            """获取员工定时提醒"""
+            提醒列表 = []
+            for 姓名, 信息 in 网页请求处理器._员工提醒队列.items():
+                if 信息["待发送"]:
+                    提醒列表.append({
+                        "姓名": 姓名,
+                        "头像": 信息["头像"],
+                        "消息": 信息["待发送"],
+                        "时间": datetime.now().strftime("%H:%M"),
+                        "弹窗时长秒": 信息.get("弹窗时长秒", 30),
+                    })
+                    信息["待发送"] = None
+            self._返回JSON({"成功": True, "数据": 提醒列表})
+        elif 路径.startswith("/api/employee-history"):
+            """获取员工对话历史"""
+            参数 = parse_qs(解析结果.query)
+            姓名 = 参数.get("姓名", [""])[0]
+            历史 = 网页请求处理器._员工对话历史.get(姓名, [])
+            # 内存为空时从记忆文件加载
+            if not 历史 and self.模块注册 and "员工管理" in self.模块注册:
+                运行时结果 = self.模块注册["员工管理"].获取运行时配置(姓名)
+                if 运行时结果.get("成功"):
+                    记忆路径 = 运行时结果["数据"].get("记忆路径")
+                    if 记忆路径:
+                        try:
+                            import json as _json
+                            from pathlib import Path as _P
+                            绝对路径 = self.配置加载器.项目根目录 / 记忆路径.lstrip("./")
+                            if 绝对路径.exists():
+                                记忆数据 = _json.loads(绝对路径.read_text(encoding="utf-8"))
+                                for m in 记忆数据:
+                                    if m.get("用户"):
+                                        历史.append({"role": "user", "content": m["用户"]})
+                                    if m.get("助手"):
+                                        历史.append({"role": "assistant", "content": m["助手"]})
+                                网页请求处理器._员工对话历史[姓名] = 历史
+                        except Exception:
+                            pass
+            self._返回JSON({"成功": True, "数据": 历史})
+        elif 路径 == "/api/employee-current":
+            """获取当前活跃员工"""
+            if self.模块注册 and "员工管理" in self.模块注册:
+                self._返回JSON(self.模块注册["员工管理"].获取当前员工())
+            else:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+        elif 路径.startswith("/api/employee-config?") or 路径 == "/api/employee-config":
+            """获取员工运行时配置"""
+            if self.模块注册 and "员工管理" in self.模块注册:
+                参数 = parse_qs(解析结果.query)
+                姓名 = 参数.get("姓名", [""])[0]
+                self._返回JSON(self.模块注册["员工管理"].获取运行时配置(姓名))
+            else:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+        elif 路径 == "/api/tts-voices":
+            """获取Kokoro TTS可用说话人列表"""
+            self._返回JSON({"成功": True, "数据": _KOKORO说话人})
+        elif 路径 == "/api/tts-config":
+            """获取TTS输出配置"""
+            try:
+                系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                语音输出 = 系统配置.get("语音输出", {})
+                已安装 = False
+                模型存在 = False
+                try:
+                    import sherpa_onnx
+                    已安装 = True
+                except ImportError:
+                    pass
+                模型存在 = _检查KokoroTTS模型存在()
+                self._返回JSON({"成功": True, "配置": 语音输出, "已安装": 已安装, "模型存在": 模型存在})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/tts-install-status":
+            """查询TTS模型安装进度"""
+            self._返回JSON({"成功": True, "状态": 网页请求处理器._tts安装状态})
         else:
             print(f"  ❌ 未知GET API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
+
+    # ============ WebSocket 流式语音识别 ============
+    def _处理WebSocket语音(self):
+        """处理WebSocket升级请求，建立流式语音识别连接"""
+        import hashlib, base64 as _b64
+        ws_key = self.headers.get("Sec-WebSocket-Key", "")
+        if not ws_key:
+            self.send_response(400)
+            self.end_headers()
+            return
+        magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        accept = _b64.b64encode(hashlib.sha1((ws_key + magic).encode()).digest()).decode()
+        self.send_response(101)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept)
+        self.end_headers()
+        try:
+            import sherpa_onnx
+        except ImportError:
+            self._ws发送JSON({"类型": "错误", "错误": "sherpa-onnx未安装"})
+            self._ws关闭(1000)
+            return
+        if not hasattr(网页请求处理器, '_sherpa流式识别器') or 网页请求处理器._sherpa流式识别器 is None:
+            模型目录 = _获取英文模型目录() / "paraformer-streaming"
+            if not (模型目录 / "encoder.int8.onnx").exists():
+                self._ws发送JSON({"类型": "错误", "错误": "流式模型未安装，请在设置→语音中安装"})
+                self._ws关闭(1000)
+                return
+            try:
+                网页请求处理器._sherpa流式识别器 = sherpa_onnx.OnlineRecognizer.from_paraformer(
+                    encoder=str(模型目录 / "encoder.int8.onnx"),
+                    decoder=str(模型目录 / "decoder.int8.onnx"),
+                    tokens=str(模型目录 / "tokens.txt"),
+                    num_threads=2,
+                    enable_endpoint_detection=True,
+                    rule1_min_trailing_silence=2.4,
+                    rule2_min_trailing_silence=1.2,
+                    rule3_min_utterance_length=20.0,
+                )
+            except Exception as e:
+                self._ws发送JSON({"类型": "错误", "错误": f"流式模型加载失败: {e}"})
+                self._ws关闭(1000)
+                return
+        识别器 = 网页请求处理器._sherpa流式识别器
+        流 = 识别器.create_stream()
+        已确认文字 = ""
+        while True:
+            try:
+                帧 = self._ws读取帧()
+                if 帧 is None:
+                    break
+                opcode, payload = 帧
+                if opcode == 0x8:
+                    break
+                if opcode == 0x1:
+                    消息 = payload.decode("utf-8", errors="replace")
+                    if 消息 == "end":
+                        识别器.decode_stream(流)
+                        文字 = 识别器.get_result(流).strip()
+                        if 文字:
+                            文字 += "。"  # 结束时加句号
+                            已确认文字 += 文字
+                            self._ws发送JSON({"类型": "增量", "文字": 文字})
+                        self._ws发送JSON({"类型": "最终", "文字": 已确认文字})
+                        break
+                    continue
+                if opcode == 0x2:
+                    import numpy as np
+                    samples = np.frombuffer(payload, dtype=np.float32)
+                    if len(samples) > 0:
+                        流.accept_waveform(16000, samples)
+                        if 识别器.is_ready(流):
+                            识别器.decode_stream(流)
+                            部分文字 = 识别器.get_result(流).strip()
+                            if 部分文字:
+                                self._ws发送JSON({"类型": "部分", "文字": 部分文字})
+                        if 识别器.is_endpoint(流):
+                            识别器.reset(流)
+                            if 部分文字:
+                                # 断句时加句号
+                                部分文字 += "。"
+                                已确认文字 += 部分文字
+                                self._ws发送JSON({"类型": "增量", "文字": 部分文字})
+            except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, OSError):
+                break
+            except Exception as e:
+                print(f"  ⚠️ WebSocket语音错误: {e}")
+                break
+        self._ws关闭(1000)
+
+    def _ws发送JSON(self, 数据: dict):
+        payload = json.dumps(数据, ensure_ascii=False).encode("utf-8")
+        self._ws发送帧(0x1, payload)
+
+    def _ws发送帧(self, opcode: int, payload: bytes):
+        header = bytearray()
+        header.append(0x80 | opcode)
+        长度 = len(payload)
+        if 长度 < 126:
+            header.append(长度)
+        elif 长度 < 65536:
+            header.append(126)
+            header.extend(长度.to_bytes(2, "big"))
+        else:
+            header.append(127)
+            header.extend(长度.to_bytes(8, "big"))
+        self.wfile.write(header + payload)
+        self.wfile.flush()
+
+    def _ws读取帧(self):
+        try:
+            头 = self.rfile.read(2)
+            if len(头) < 2:
+                return None
+            b1, b2 = 头[0], 头[1]
+            opcode = b1 & 0x0F
+            masked = (b2 & 0x80) != 0
+            长度 = b2 & 0x7F
+            if 长度 == 126:
+                长度 = int.from_bytes(self.rfile.read(2), "big")
+            elif 长度 == 127:
+                长度 = int.from_bytes(self.rfile.read(8), "big")
+            mask_key = self.rfile.read(4) if masked else b""
+            # 循环读取完整payload（rfile.read可能返回不完整）
+            payload = b""
+            remaining = 长度
+            while remaining > 0:
+                chunk = self.rfile.read(remaining)
+                if not chunk:
+                    break
+                payload += chunk
+                remaining -= len(chunk)
+            if masked and payload:
+                payload = bytes(payload[i] ^ mask_key[i % 4] for i in range(len(payload)))
+            if opcode == 0x8:
+                return (0x8, payload)
+            return (opcode, payload)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, OSError):
+            return None
+
+    def _ws关闭(self, code: int = 1000):
+        try:
+            self._ws发送帧(0x8, code.to_bytes(2, "big"))
+        except Exception:
+            pass
 
     def _处理API_POST(self, 路径: str, 数据: dict):
         if not self._检查鉴权():
@@ -1196,6 +1650,183 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             return
         if 路径 == "/api/chat":
             self._处理对话(数据)
+        elif 路径 == "/api/employee-chat":
+            self._处理员工对话(数据)
+        elif 路径 == "/api/employee-task":
+            self._处理员工任务(数据)
+        elif 路径 == "/api/employee-workflow":
+            self._处理员工工作流(数据)
+        elif 路径 == "/api/wf-save":
+            """保存节点图到文件"""
+            import os as _os
+            目录 = self.配置加载器.项目根目录 / "节点图"
+            目录.mkdir(parents=True, exist_ok=True)
+            文件名 = 数据.get("文件名", "未命名")
+            安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or "未命名"
+            路径文件 = 目录 / (安全名 + ".json")
+            try:
+                路径文件.write_text(json.dumps(数据.get("图", {}), ensure_ascii=False, indent=2), encoding="utf-8")
+                self._返回JSON({"成功": True, "路径": str(路径文件)})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-load":
+            """从文件载入节点图"""
+            import os as _os
+            目录 = self.配置加载器.项目根目录 / "节点图"
+            if not 目录.exists():
+                self._返回JSON({"成功": True, "列表": [], "图": None})
+                return
+            文件名 = 数据.get("文件名", "")
+            if 文件名:
+                路径文件 = 目录 / (文件名 + ".json")
+                try:
+                    图 = json.loads(路径文件.read_text(encoding="utf-8"))
+                    self._返回JSON({"成功": True, "图": 图})
+                except Exception as e:
+                    self._返回JSON({"成功": False, "错误": str(e)})
+            else:
+                列表 = [f.stem for f in 目录.glob("*.json")]
+                self._返回JSON({"成功": True, "列表": 列表})
+        elif 路径 == "/api/wf-delete":
+            """删除节点图文件"""
+            目录 = self.配置加载器.项目根目录 / "节点图"
+            文件名 = 数据.get("文件名", "")
+            安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or "未命名"
+            路径文件 = 目录 / (安全名 + ".json")
+            try:
+                路径文件.unlink(missing_ok=True)
+                self._返回JSON({"成功": True})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-logs":
+            """查询工作流执行日志"""
+            try:
+                from 存储引擎 import 获取存储引擎
+                存 = 获取存储引擎()
+                会话ID = 数据.get("会话ID", "")
+                日志 = 存.查询工作流日志(会话ID if 会话ID else None)
+                self._返回JSON({"成功": True, "日志": 日志})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-auto-design":
+            """AI自动设计工作流节点图"""
+            try:
+                需求 = 数据.get("需求", "")
+                员工列表 = 数据.get("员工列表", [])
+                if not 需求:
+                    self._返回JSON({"成功": False, "错误": "缺少需求描述"})
+                    return
+                if not self.模型直连器:
+                    self._返回JSON({"成功": False, "错误": "模型直连器未就绪"})
+                    return
+
+                # 构建员工信息
+                员工信息 = "\n".join([f"- {e['姓名']}（{e.get('角色','')}）" for e in 员工列表])
+
+                提示词 = f"""你是工作流设计专家。根据用户需求，设计一个节点工作流图。
+
+## 可用员工
+{员工信息}
+
+## 设计原则
+1. 优先使用已有员工
+2. 如果需要新能力，创建自定义员工（取一个简洁的中文名，如"审稿员""润色师"）
+3. 每个员工只做一件事，职责单一明确
+4. 工作流要有清晰的流水线：上游产出→下游消费
+5. 不要创建多余的节点，每个节点都要有实际用途
+
+## 输出格式
+只输出JSON，不要任何其他文字。格式：
+{{
+  "nodes": [
+    {{"id": "n1", "type": "employee", "name": "员工名", "config": {{"员工名": "已有员工名", "指令": "具体告诉该员工做什么"}}}},
+    {{"id": "n2", "type": "employee", "name": "自定义员工名", "config": {{"员工名": "自定义员工名", "角色": "精确描述该员工的能力和职责", "指令": "具体告诉该员工做什么"}}}}
+  ],
+  "conns": [
+    {{"from": "n1", "to": "n2"}}
+  ],
+  "frame": {{"text": "分组名称（概括这个工作流的用途）", "color": "#4EC9B0"}}
+}}
+
+## 规则
+1. 所有节点都是employee类型
+2. 已有员工：config只需"员工名"和"指令"
+3. 新员工：config需要"员工名"+"角色"（描述能力）+"指令"（具体任务）
+4. "指令"必须具体明确，如"请审查文章的语法错误并逐条列出"
+5. 连线决定执行顺序：from的输出传给to的输入
+6. 一个节点可以连多个下游（并行），也可以多个上游汇入（合并输入）
+7. id用n1,n2,n3...递增
+8. frame用于把所有节点归入一个分组，text概括工作流用途
+
+## 用户需求
+{需求}
+"""
+
+                结果 = self.模型直连器.发送消息(
+                    [{"role": "user", "content": 提示词}],
+                    "你是工作流设计专家，只输出JSON。",
+                    跳过缓存=True
+                )
+                if not 结果.get("成功"):
+                    self._返回JSON({"成功": False, "错误": "AI生成失败: " + 结果.get("错误", "")})
+                    return
+
+                回复 = 结果.get("回复内容", "").strip()
+                # 提取JSON
+                import re as _re
+                json匹配 = _re.search(r'\{[\s\S]*\}', 回复)
+                if not json匹配:
+                    self._返回JSON({"成功": False, "错误": "AI输出格式错误，未找到JSON"})
+                    return
+                try:
+                    图 = json.loads(json匹配.group())
+                except Exception:
+                    self._返回JSON({"成功": False, "错误": "AI输出的JSON解析失败"})
+                    return
+
+                # 自动创建不存在的员工
+                已有员工 = set(e.get("姓名", "") for e in 员工列表)
+                新建员工 = []
+                for node in 图.get("nodes", []):
+                    cfg = node.get("config", {})
+                    员工名 = cfg.get("员工名", "")
+                    if 员工名 and 员工名 not in 已有员工:
+                        角色 = cfg.get("角色", 员工名)
+                        指令 = cfg.get("指令", "")
+                        # 用AI生成人设
+                        人设提示 = f"请为数字员工「{员工名}」生成系统提示词。角色：{角色}。要求：1.开头写'你的名字叫{员工名}' 2.描述角色专长和限制 3.当用户问你是谁时回答你是{员工名} 4.控制在100字以内 5.只输出提示词内容，不要多余解释"
+                        人设追加 = f"你的名字叫{员工名}。{角色}。"
+                        try:
+                            人设结果 = self.模型直连器.发送消息(
+                                [{"role": "user", "content": 人设提示}],
+                                "你是一个人设生成助手，简洁输出。",
+                                跳过缓存=True
+                            )
+                            if 人设结果.get("成功"):
+                                人设追加 = 人设结果.get("回复内容", "").strip()
+                        except Exception:
+                            pass
+                        # 随机选头像
+                        import random as _rand
+                        头像列表 = ['👨‍💻','👩‍💻','📝','🎨','🔬','📊','📷','🎵','🛠️','⚙️','📋','🧮','💡','🔧','🚀','🏆','🤖','🧑‍💼','👩‍💼','👨‍🔧','🧑‍🎨','🧑‍🔬','🧑‍🏫','🧑‍🌾']
+                        头像 = _rand.choice(头像列表)
+                        # 创建员工
+                        if "员工管理" in self.模块注册:
+                            self.模块注册["员工管理"].创建员工({
+                                "姓名": 员工名,
+                                "头像": 头像,
+                                "角色": 角色,
+                                "目标": 角色,
+                                "人设追加": 人设追加,
+                                "独立记忆": True,
+                                "状态": "在岗"
+                            })
+                            已有员工.add(员工名)
+                            新建员工.append(员工名)
+
+                self._返回JSON({"成功": True, "图": 图, "新建员工": 新建员工})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/resume-checkpoint":
             """从检查点续跑"""
             if self.模块注册 and "对话" in self.模块注册:
@@ -1271,7 +1902,6 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 import base64
                 字节 = base64.b64decode(图片数据)
                 # 确保目录存在
-                import os
                 目录 = os.path.dirname(保存路径)
                 if 目录 and not os.path.exists(目录):
                     os.makedirs(目录, exist_ok=True)
@@ -1509,7 +2139,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             else:
                 self._返回JSON({"错误": "对话模块未加载"})
         elif 路径 == "/api/tts" or 路径 == "/api/wheel-tts":
-            """TTS语音合成 - pygame双Channel独立播放，edge-tts优先，SAPI回退"""
+            """TTS语音合成 - 三引擎：本地Kokoro(优先) → edge-tts → SAPI回退"""
             是轮盘 = (路径 == "/api/wheel-tts")
             状态dict = 网页请求处理器._tts轮盘状态 if 是轮盘 else 网页请求处理器._tts主界面状态
             通道号 = 1 if 是轮盘 else 0
@@ -1521,69 +2151,127 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             文本 = 文本[:500]
             tts音量 = 数据.get("音量", 100)
             tts音量 = max(0, min(100, int(tts音量)))
+            员工名 = 数据.get("员工名", "")
+            语音配置 = _获取当前员工语音配置(员工名)
+            # 试听时直接用前端传的语音配置覆盖
+            if 数据.get("语音配置"):
+                语音配置.update(数据["语音配置"])
             状态dict["代次"] += 1
             本次代次 = 状态dict["代次"]
             状态dict["播放中"] = True
-            def _tts播放(待播文本, 播放音量, 状态, 代次, 通道, 后缀):
+
+            def _tts播放(待播文本, 播放音量, 状态, 代次, 通道, 后缀, 语音cfg):
                 try:
-                    import asyncio
-                    import edge_tts
-                    import os
-                    import tempfile
                     import time
                     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
                     import pygame
                     if not pygame.mixer.get_init():
-                        pygame.mixer.init(frequency=44100, size=-16, channels=2)
-                    # 停止该通道之前的播放
+                        pygame.mixer.init(frequency=24000, size=-16, channels=1)
                     try:
                         pygame.mixer.Channel(通道).stop()
                     except Exception:
                         pass
-                    # 1. edge-tts生成MP3（带音量参数，+200%增益弥补TTS输出偏小）
-                    async def _生成():
-                        communicate = edge_tts.Communicate(
-                            待播文本, 'zh-CN-XiaoxiaoNeural',
-                            rate='+30%',
-                            volume='+100%'
-                        )
-                        mp3 = os.path.join(tempfile.gettempdir(), f'zf3d_tts_{后缀}.mp3')
-                        await asyncio.wait_for(communicate.save(mp3), timeout=30.0)
-                        return mp3
-                    mp3文件 = asyncio.run(_生成())
-                    if 状态["代次"] != 代次:
-                        try: os.remove(mp3文件)
-                        except: pass
-                        return
-                    # 2. pygame播放MP3（滑块控制最终音量：0=静音，100=满音量）
-                    音频 = pygame.mixer.Sound(mp3文件)
-                    ch = pygame.mixer.Channel(通道)
-                    ch.set_volume(播放音量 / 100.0)
-                    ch.play(音频)
-                    # 3. 等待播放完成
-                    while ch.get_busy():
-                        if 状态["代次"] != 代次:
-                            ch.stop()
-                            break
-                        time.sleep(0.1)
-                    try: os.remove(mp3文件)
-                    except: pass
-                except Exception:
-                    # 回退：SAPI SpVoice（离线）
-                    try:
-                        import pythoncom
-                        import win32com.client
-                        pythoncom.CoInitialize()
+
+                    引擎 = 语音cfg.get("引擎", "本地")
+                    已播放 = False
+
+                    # ① 本地Kokoro TTS（离线，高质量）
+                    if 引擎 == "本地" and not 已播放:
                         try:
-                            speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                            speaker.Rate = 3
-                            speaker.Volume = 播放音量
-                            if 状态["代次"] == 代次:
-                                speaker.Speak(待播文本, 0)
-                        finally:
-                            pythoncom.CoUninitialize()
-                    except Exception:
-                        # 最终回退：PowerShell
+                            tts = _获取KokoroTTS引擎()
+                            if tts is not None:
+                                import sherpa_onnx, numpy as np
+                                gen_config = sherpa_onnx.GenerationConfig()
+                                gen_config.sid = int(语音cfg.get("说话人ID", 47))
+                                gen_config.speed = float(语音cfg.get("语速", 1.0))
+                                audio = tts.generate(待播文本, gen_config)
+                                if len(audio.samples) > 0:
+                                    # 峰值归一化到0.9（Kokoro输出振幅不一，统一放大到可用范围）
+                                    samples_arr = np.asarray(audio.samples, dtype=np.float32)
+                                    峰值 = np.max(np.abs(samples_arr))
+                                    if 峰值 > 1e-8:
+                                        samples_arr = samples_arr * (0.9 / 峰值)
+                                    增益后 = np.clip(samples_arr, -1.0, 1.0)
+                                    wav文件 = _float32转WAV(增益后, audio.sample_rate)
+                                    if 状态["代次"] != 代次:
+                                        try: os.remove(wav文件)
+                                        except: pass
+                                        return
+                                    # pygame播放（支持音量滑块控制）
+                                    try:
+                                        pygame.mixer.quit()
+                                        pygame.mixer.init(frequency=audio.sample_rate, size=-16, channels=1)
+                                    except Exception:
+                                        pass
+                                    音频obj = pygame.mixer.Sound(wav文件)
+                                    ch = pygame.mixer.Channel(通道)
+                                    ch.set_volume(播放音量 / 100.0)
+                                    ch.play(音频obj)
+                                    while ch.get_busy():
+                                        if 状态["代次"] != 代次:
+                                            ch.stop()
+                                            break
+                                        time.sleep(0.05)
+                                    try: os.remove(wav文件)
+                                    except: pass
+                                    已播放 = True
+                            else:
+                                print("  ⚠️ Kokoro引擎未加载，回退到edge-tts")
+                        except Exception as e:
+                            print(f"  ⚠️ Kokoro TTS异常: {e}")
+
+                    # ② edge-tts（在线，高质量）
+                    if not 已播放:
+                        try:
+                            import asyncio, edge_tts, tempfile
+                            async def _生成():
+                                edge音色 = 语音cfg.get("edge音色", "zh-CN-XiaoxiaoNeural")
+                                communicate = edge_tts.Communicate(
+                                    待播文本, edge音色,
+                                    rate='+30%', volume='+100%'
+                                )
+                                mp3 = os.path.join(tempfile.gettempdir(), f'zf3d_tts_{后缀}.mp3')
+                                await asyncio.wait_for(communicate.save(mp3), timeout=30.0)
+                                return mp3
+                            mp3文件 = asyncio.run(_生成())
+                            if 状态["代次"] != 代次:
+                                try: os.remove(mp3文件)
+                                except: pass
+                                return
+                            音频 = pygame.mixer.Sound(mp3文件)
+                            ch = pygame.mixer.Channel(通道)
+                            ch.set_volume(播放音量 / 100.0)
+                            ch.play(音频)
+                            while ch.get_busy():
+                                if 状态["代次"] != 代次:
+                                    ch.stop()
+                                    break
+                                time.sleep(0.1)
+                            try: os.remove(mp3文件)
+                            except: pass
+                            已播放 = True
+                        except Exception:
+                            pass
+
+                    # ③ SAPI SpVoice（离线回退）
+                    if not 已播放:
+                        try:
+                            import pythoncom, win32com.client
+                            pythoncom.CoInitialize()
+                            try:
+                                speaker = win32com.client.Dispatch("SAPI.SpVoice")
+                                speaker.Rate = 3
+                                speaker.Volume = 播放音量
+                                if 状态["代次"] == 代次:
+                                    speaker.Speak(待播文本, 0)
+                            finally:
+                                pythoncom.CoUninitialize()
+                            已播放 = True
+                        except Exception:
+                            pass
+
+                    # ④ PowerShell最终回退
+                    if not 已播放:
                         import subprocess
                         干净文本 = 待播文本.replace("'", "''").replace('"', '')
                         cmd = f'powershell -Command "Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak(\'{干净文本}\')"'
@@ -1596,7 +2284,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 finally:
                     if 状态["代次"] == 代次:
                         状态["播放中"] = False
-            t = threading.Thread(target=_tts播放, args=(文本, tts音量, 状态dict, 本次代次, 通道号, 文件后缀), daemon=True)
+            t = threading.Thread(target=_tts播放, args=(文本, tts音量, 状态dict, 本次代次, 通道号, 文件后缀, 语音配置), daemon=True)
             t.start()
             self._返回JSON({"成功": True})
         elif 路径 == "/api/tts-stop" or 路径 == "/api/wheel-tts-stop":
@@ -1832,7 +2520,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """开始录制系统音频"""
             保存目录 = 数据.get("保存目录", "")
             if not 保存目录:
-                保存目录 = str(Path.home() / "Desktop")
+                保存目录 = 网页请求处理器._最后打开的文件夹 or str(Path.home() / "Desktop")
             设备索引 = 数据.get("设备索引", None)
             try:
                 from 录音器 import 录音器
@@ -1846,21 +2534,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 from 录音器 import 录音器
                 音量倍数 = 数据.get("音量倍数", 1.0)
                 结果 = 录音器.停止录制(音量倍数)
-                # 先发响应，再后台打开文件夹（避免阻塞响应导致JSON解析错误）
                 self._返回JSON(结果)
-                if 结果.get("成功") and 结果.get("保存路径"):
-                    保存目录 = os.path.dirname(结果["保存路径"])
-                    def _打开文件夹():
-                        try:
-                            if sys.platform == "win32":
-                                os.startfile(保存目录)
-                            elif sys.platform == "darwin":
-                                subprocess.Popen(["open", 保存目录])
-                            else:
-                                subprocess.Popen(["xdg-open", 保存目录])
-                        except Exception:
-                            pass
-                    threading.Thread(target=_打开文件夹, daemon=True).start()
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/record-status":
@@ -1897,7 +2571,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """开始录制屏幕"""
             保存目录 = 数据.get("保存目录", "")
             if not 保存目录:
-                保存目录 = str(Path.home() / "Desktop")
+                保存目录 = 网页请求处理器._最后打开的文件夹 or str(Path.home() / "Desktop")
             x = 数据.get("x", 0)
             y = 数据.get("y", 0)
             w = 数据.get("w", 0)
@@ -1912,6 +2586,13 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             点击效果 = 数据.get("点击效果", False)
             点击音效 = 数据.get("点击音效", False)
             音效音量 = 数据.get("音效音量", 50)
+            # 保存设置到服务器（供轮盘快捷录屏复用）
+            网页请求处理器._录屏设置.update({
+                "帧率": 帧率, "音频模式": 音频模式, "dshow设备名": dshow设备名,
+                "麦克风音量": 麦克风音量, "麦克风静音": 麦克风静音,
+                "系统音量": 系统音量, "系统静音": 系统静音,
+                "点击效果": 点击效果, "点击音效": 点击音效, "音效音量": 音效音量,
+            })
             try:
                 from 录屏器 import 录屏器
                 结果 = 录屏器.开始录制(保存目录, x, y, w, h, 帧率, 音频模式, dshow设备名,
@@ -1929,20 +2610,6 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 _写日志("API:screenrecord-stop响应", "信息",
                         f"成功={结果.get('成功')} 保存路径={结果.get('保存路径', '')}")
                 self._返回JSON(结果)
-                # 打开文件夹
-                if 结果.get("成功") and 结果.get("保存路径"):
-                    保存目录 = os.path.dirname(结果["保存路径"])
-                    def _打开文件夹():
-                        try:
-                            if sys.platform == "win32":
-                                os.startfile(保存目录)
-                            elif sys.platform == "darwin":
-                                subprocess.Popen(["open", 保存目录])
-                            else:
-                                subprocess.Popen(["xdg-open", 保存目录])
-                        except Exception:
-                            pass
-                    threading.Thread(target=_打开文件夹, daemon=True).start()
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/screenrecord-status":
@@ -1953,22 +2620,6 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 _写日志("API:screenrecord-status", "信息",
                         f"转码中={状态.get('转码中')} 转码完成={状态.get('转码完成')} "
                         f"录制中={状态.get('录制中')}")
-                # 转码完成时，自动打开文件夹
-                if 状态.get("转码完成") and 状态.get("结果", {}).get("成功"):
-                    保存路径 = 状态["结果"].get("保存路径", "")
-                    if 保存路径:
-                        保存目录 = os.path.dirname(保存路径)
-                        def _打开文件夹2():
-                            try:
-                                if sys.platform == "win32":
-                                    os.startfile(保存目录)
-                                elif sys.platform == "darwin":
-                                    subprocess.Popen(["open", 保存目录])
-                                else:
-                                    subprocess.Popen(["xdg-open", 保存目录])
-                            except Exception:
-                                pass
-                        threading.Thread(target=_打开文件夹2, daemon=True).start()
                 self._返回JSON(状态)
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
@@ -1990,6 +2641,9 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/screenrecord-settings":
+            """返回后端保存的录屏设置（供轮盘快捷录屏复用）"""
+            self._返回JSON({"成功": True, "设置": 网页请求处理器._录屏设置})
         elif 路径 == "/api/screenrecord-test-volume":
             """试听音量：用系统声音文件按当前音量倍数直接播放"""
             try:
@@ -2022,9 +2676,1092 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     self._返回JSON({"成功": False, "错误": "音频生成失败"})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/voice-install":
+            """自动安装 sherpa-onnx + 下载模型（复用项目多线程下载模块）"""
+            import shutil, tarfile
+            from 操作.多线程下载 import 多线程下载
+            网页请求处理器._语音安装状态 = {"步骤": "正在安装 sherpa-onnx 库...", "进度": 0, "完成": False, "错误": ""}
+            def _后台安装():
+                try:
+                    # ① pip install sherpa-onnx
+                    result = subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "sherpa-onnx"],
+                        capture_output=True, text=True, timeout=300,
+                        encoding="utf-8", errors="replace"
+                    )
+                    if result.returncode != 0:
+                        网页请求处理器._语音安装状态["错误"] = f"sherpa-onnx安装失败: {result.stderr[:500]}"
+                        return
+                    网页请求处理器._语音安装状态["进度"] = 10
+                    # ② 下载模型（复用项目多线程下载模块，进度自动显示在下载面板）
+                    # 注意：模型必须放在纯英文路径，sherpa-onnx的C++底层不支持中文路径
+                    模型目录 = _获取英文模型目录()
+                    目标目录 = 模型目录 / "paraformer-streaming"
+                    模型目录.mkdir(parents=True, exist_ok=True)
+                    if not 目标目录.exists() or not (目标目录 / "encoder.int8.onnx").exists():
+                        目标目录.mkdir(parents=True, exist_ok=True)
+                        # 下载流式模型（旧离线模型不兼容流式，必须重新下载）
+                        下载源 = [
+                            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2",
+                        ]
+                        下载器 = 多线程下载()
+                        下载器.进度回调 = None
+                        下载器.取消检查 = None
+                        下载器._aria2c路径 = None
+                        with 多线程下载._下载进度锁:
+                            多线程下载._下载进度表[999] = {
+                                "文件名": "语音模型.tar.bz2", "百分比": 0, "已下载MB": 0,
+                                "总大小MB": 0, "速度MB每秒": 0, "ETA": "", "状态": "启动中"
+                            }
+                        临时文件 = str(模型目录 / "语音模型.tar.bz2")
+                        成功 = False
+                        for 源idx, 地址 in enumerate(下载源):
+                            网页请求处理器._语音安装状态["步骤"] = f"下载模型（源{源idx+1}，多线程加速）..."
+                            多线程下载._保存任务(999, {
+                                "下载地址": 地址, "保存路径": 临时文件,
+                                "线程数": 16, "重试次数": 5, "已取消": False,
+                                "启动时间": time.strftime("%Y-%m-%d %H:%M:%S"),
+                            })
+                            结果 = 下载器._执行下载(地址, Path(临时文件), 16, 5, 下载ID=999, 文件名="语音模型.tar.bz2")
+                            if 结果.成功:
+                                成功 = True
+                                break
+                            网页请求处理器._语音安装状态["步骤"] = f"源{源idx+1}失败: {结果.错误[:100]}，尝试下一个源..."
+                        with 多线程下载._下载进度锁:
+                            多线程下载._下载进度表.pop(999, None)
+                        多线程下载._移除任务(999)
+                        if not 成功:
+                            网页请求处理器._语音安装状态["错误"] = "所有下载源均失败，请检查网络后重试"
+                            return
+                        网页请求处理器._语音安装状态["步骤"] = "正在解压模型..."
+                        网页请求处理器._语音安装状态["进度"] = 90
+                        with tarfile.open(临时文件, "r:bz2") as tar:
+                            for member in tar.getmembers():
+                                基名 = os.path.basename(member.name)
+                                if 基名 in ("encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"):
+                                    member.name = 基名
+                                    tar.extract(member, 目标目录)
+                        try: os.remove(临时文件)
+                        except: pass
+                        for d in 模型目录.glob("sherpa-onnx-streaming-*"):
+                            if d.is_dir():
+                                shutil.rmtree(d, ignore_errors=True)
+                    网页请求处理器._语音安装状态["进度"] = 100
+                    网页请求处理器._语音安装状态["步骤"] = "安装完成"
+                    网页请求处理器._语音安装状态["完成"] = True
+                except Exception as e:
+                    网页请求处理器._语音安装状态["错误"] = str(e)
+            threading.Thread(target=_后台安装, daemon=True).start()
+            self._返回JSON({"成功": True, "消息": "安装已启动"})
+        elif 路径 == "/api/voice-install-status":
+            """查询安装进度"""
+            self._返回JSON({"成功": True, "状态": 网页请求处理器._语音安装状态})
+        elif 路径 == "/api/tts-install":
+            """安装Kokoro TTS模型（复用多线程下载模块）"""
+            import shutil, tarfile
+            from 操作.多线程下载 import 多线程下载
+            网页请求处理器._tts安装状态 = {"步骤": "正在下载Kokoro TTS模型...", "进度": 0, "完成": False, "错误": ""}
+            def _后台安装TTS():
+                try:
+                    # 检查sherpa-onnx是否已安装
+                    try:
+                        import sherpa_onnx
+                    except ImportError:
+                        网页请求处理器._tts安装状态["步骤"] = "正在安装 sherpa-onnx 库..."
+                        result = subprocess.run(
+                            [sys.executable, "-m", "pip", "install", "sherpa-onnx"],
+                            capture_output=True, text=True, timeout=300,
+                            encoding="utf-8", errors="replace"
+                        )
+                        if result.returncode != 0:
+                            网页请求处理器._tts安装状态["错误"] = f"sherpa-onnx安装失败: {result.stderr[:500]}"
+                            return
+                    网页请求处理器._tts安装状态["进度"] = 10
+
+                    模型目录 = _获取英文模型目录() / "kokoro-tts"
+                    模型目录.mkdir(parents=True, exist_ok=True)
+
+                    # 先检查模型是否已存在（避免重复下载）
+                    已有模型 = (模型目录 / "model.onnx").exists() or (模型目录 / "model.int8.onnx").exists()
+                    已有voices = (模型目录 / "voices.bin").exists()
+                    已有tokens = (模型目录 / "tokens.txt").exists()
+                    if 已有模型 and 已有voices and 已有tokens:
+                        网页请求处理器._kokoroTTS引擎 = None
+                        网页请求处理器._tts安装状态["进度"] = 100
+                        网页请求处理器._tts安装状态["步骤"] = "模型已存在，跳过下载"
+                        网页请求处理器._tts安装状态["完成"] = True
+                        return
+
+                    # 清理残留的tar.bz2
+                    残留 = 模型目录 / "kokoro-tts.tar.bz2"
+                    if 残留.exists():
+                        try: 残留.unlink()
+                        except: pass
+
+                    # 下载模型（int8版本，126MB）
+                    下载源 = [
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2",
+                        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_1.tar.bz2",
+                    ]
+                    下载器 = 多线程下载()
+                    下载器.进度回调 = None
+                    下载器.取消检查 = None
+                    下载器._aria2c路径 = None
+                    with 多线程下载._下载进度锁:
+                        多线程下载._下载进度表[998] = {
+                            "文件名": "kokoro-tts.tar.bz2", "百分比": 0, "已下载MB": 0,
+                            "总大小MB": 0, "速度MB每秒": 0, "ETA": "", "状态": "启动中"
+                        }
+                    临时文件 = str(模型目录 / "kokoro-tts.tar.bz2")
+                    成功 = False
+                    最后错误 = ""
+                    for 源idx, 地址 in enumerate(下载源):
+                        网页请求处理器._tts安装状态["步骤"] = f"下载Kokoro模型（源{源idx+1}，多线程加速）..."
+                        多线程下载._保存任务(998, {
+                            "下载地址": 地址, "保存路径": 临时文件,
+                            "线程数": 16, "重试次数": 5, "已取消": False,
+                            "启动时间": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        })
+                        结果 = 下载器._执行下载(地址, Path(临时文件), 16, 5, 下载ID=998, 文件名="kokoro-tts.tar.bz2")
+                        if 结果.成功:
+                            成功 = True
+                            break
+                        最后错误 = 结果.错误[:200] if 结果.错误 else "未知错误"
+                        网页请求处理器._tts安装状态["步骤"] = f"源{源idx+1}失败，尝试下一个源..."
+                    with 多线程下载._下载进度锁:
+                        多线程下载._下载进度表.pop(998, None)
+                    多线程下载._移除任务(998)
+                    if not 成功:
+                        网页请求处理器._tts安装状态["错误"] = f"下载失败: {最后错误}"
+                        return
+                    # 解压模型
+                    网页请求处理器._tts安装状态["步骤"] = "正在解压模型..."
+                    网页请求处理器._tts安装状态["进度"] = 90
+                    with tarfile.open(临时文件, "r:bz2") as tar:
+                        tar.extractall(模型目录)
+                    # 删除tar.bz2压缩包
+                    try: os.remove(临时文件)
+                    except: pass
+                    # 检查解压后的目录结构，可能多一层
+                    子目录 = list(模型目录.glob("kokoro-*"))
+                    if 子目录:
+                        for src in 子目录:
+                            if src.is_dir():
+                                for f in src.iterdir():
+                                    目标 = 模型目录 / f.name
+                                    if 目标.exists():
+                                        if 目标.is_dir():
+                                            shutil.rmtree(目标, ignore_errors=True)
+                                        else:
+                                            目标.unlink()
+                                    shutil.move(str(f), str(目标))
+                                shutil.rmtree(src, ignore_errors=True)
+                    # 验证关键文件
+                    有模型 = (模型目录 / "model.onnx").exists() or (模型目录 / "model.int8.onnx").exists()
+                    有voices = (模型目录 / "voices.bin").exists()
+                    有tokens = (模型目录 / "tokens.txt").exists()
+                    if not (有模型 and 有voices and 有tokens):
+                        缺失 = []
+                        if not 有模型: 缺失.append("model.onnx")
+                        if not 有voices: 缺失.append("voices.bin")
+                        if not 有tokens: 缺失.append("tokens.txt")
+                        网页请求处理器._tts安装状态["错误"] = f"解压后缺少文件: {', '.join(缺失)}"
+                        return
+                    # 重置引擎缓存（下次调用时重新加载）
+                    网页请求处理器._kokoroTTS引擎 = None
+                    网页请求处理器._tts安装状态["进度"] = 100
+                    网页请求处理器._tts安装状态["步骤"] = "安装完成"
+                    网页请求处理器._tts安装状态["完成"] = True
+                except Exception as e:
+                    网页请求处理器._tts安装状态["错误"] = str(e)
+            threading.Thread(target=_后台安装TTS, daemon=True).start()
+            self._返回JSON({"成功": True, "消息": "安装已启动"})
+        elif 路径 == "/api/voice-stt":
+            """本地语音识别：接收base64 WAV音频，返回文字"""
+            if not hasattr(网页请求处理器, '_sherpa识别器') or 网页请求处理器._sherpa识别器 is None:
+                try:
+                    import sherpa_onnx
+                except ImportError:
+                    self._返回JSON({"成功": False, "错误": "sherpa-onnx未安装，请在设置→语音中安装"})
+                    return
+                模型目录 = _获取英文模型目录() / "paraformer-zh-int8"
+                if not 模型目录.exists():
+                    self._返回JSON({"成功": False, "错误": "模型未下载，请在设置→语音中安装"})
+                    return
+                try:
+                    网页请求处理器._sherpa识别器 = sherpa_onnx.OfflineRecognizer.from_paraformer(
+                        paraformer=str(模型目录 / "model.int8.onnx"),
+                        tokens=str(模型目录 / "tokens.txt"),
+                        num_threads=2,
+                    )
+                except Exception as e:
+                    self._返回JSON({"成功": False, "错误": f"模型加载失败: {e}"})
+                    return
+            音频base64 = 数据.get("音频", "")
+            if not 音频base64:
+                self._返回JSON({"成功": False, "错误": "音频数据为空"})
+                return
+            try:
+                import base64, wave, tempfile, numpy as np
+                # base64 → WAV文件（用系统临时目录，避免隐私区目录不存在）
+                音频字节 = base64.b64decode(音频base64.split(",")[-1] if "," in 音频base64 else 音频base64)
+                临时wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                临时wav.write(音频字节)
+                临时wav.close()
+                # 读取WAV
+                with wave.open(临时wav.name, "rb") as wf:
+                    声道数 = wf.getnchannels()
+                    采样率 = wf.getframerate()
+                    帧数 = wf.getnframes()
+                    原始数据 = wf.readframes(帧数)
+                samples = np.frombuffer(原始数据, dtype=np.int16).astype(np.float32) / 32768.0
+                if 声道数 > 1:
+                    samples = samples[::声道数]
+                # sherpa-onnx 识别
+                流 = 网页请求处理器._sherpa识别器.create_stream()
+                流.accept_waveform(采样率, samples)
+                网页请求处理器._sherpa识别器.decode_stream(流)
+                文字 = 流.result.text.strip()
+                try:
+                    os.remove(临时wav.name)
+                except:
+                    pass
+                self._返回JSON({"成功": True, "文字": 文字})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": f"识别失败: {e}"})
+        elif 路径.startswith("/api/employee-"):
+            self._处理员工管理API(路径, 数据)
         else:
             print(f"  ❌ 未知POST API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
+
+    # 员工独立对话状态：{员工名: [{role, content}, ...]}
+    _员工对话历史 = {}
+    # 员工上线时间：{员工名: "ISO时间"}
+    _员工上线时间 = {}
+    # 员工提醒队列：{员工名: {"头像": "...", "间隔分钟": 30, "待发送": "消息", "上次提醒": "ISO时间"}}
+    _员工提醒队列 = {}
+    # 员工提醒定时器
+    _员工提醒线程 = None
+
+    def _处理员工对话(self, 数据: dict):
+        """员工独立对话 — 完全隔离于主对话模块"""
+        try:
+            消息 = 数据.get("消息", "")
+            员工名 = 数据.get("姓名", "")
+            if not 消息 or not 员工名:
+                self._返回JSON({"成功": False, "错误": "缺少消息或员工名"})
+                return
+            if not self.模块注册 or "员工管理" not in self.模块注册:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+                return
+            if not self.模型直连器:
+                self._返回JSON({"成功": False, "错误": "模型直连器未就绪"})
+                return
+
+            模块 = self.模块注册["员工管理"]
+            配置结果 = 模块.获取运行时配置(员工名)
+            if not 配置结果.get("成功"):
+                self._返回JSON({"成功": False, "错误": f"员工「{员工名}」不存在"})
+                return
+            运行时 = 配置结果["数据"]
+            系统提示词 = 运行时.get("系统提示词", "")
+
+            # 记录上线时间并注入提示词
+            from datetime import datetime as _dt
+            if 员工名 not in 网页请求处理器._员工上线时间:
+                网页请求处理器._员工上线时间[员工名] = _dt.now().isoformat()
+                # 注册定时提醒（检查人设里是否提到提醒间隔）
+                间隔 = 30  # 默认30分钟
+                追加词 = 运行时.get("系统提示词", "")
+                if "20分钟" in 追加词:
+                    间隔 = 20
+                elif "15分钟" in 追加词:
+                    间隔 = 15
+                elif "60分钟" in 追加词 or "1小时" in 追加词:
+                    间隔 = 60
+                头像 = 运行时.get("头像", "🙂")
+                网页请求处理器._员工提醒队列[员工名] = {
+                    "头像": 头像, "间隔分钟": 间隔, "弹窗时长秒": 30, "待发送": None,
+                    "上次提醒": _dt.now().isoformat(), "角色": 运行时.get("角色", "")
+                }
+                # 启动提醒线程
+                if not 网页请求处理器._员工提醒线程:
+                    网页请求处理器._员工提醒线程 = True
+                    import threading as _th
+                    def _提醒循环():
+                        while True:
+                            import time as _time
+                            _time.sleep(60)
+                            now = _dt.now()
+                            for 姓名, 信息 in list(网页请求处理器._员工提醒队列.items()):
+                                if 信息["待发送"]:
+                                    continue
+                                上次 = _dt.fromisoformat(信息["上次提醒"])
+                                经过 = (now - 上次).total_seconds() / 60
+                                if 经过 >= 信息["间隔分钟"]:
+                                    信息["待发送"] = f"⏰ 已工作{int(经过)}分钟，该休息了！起来走走，喝口水～"
+                                    信息["上次提醒"] = now.isoformat()
+                    _th.Thread(target=_提醒循环, daemon=True).start()
+            上线时间 = 网页请求处理器._员工上线时间[员工名]
+            现在时间 = _dt.now()
+            工作时长分钟 = int((现在时间 - _dt.fromisoformat(上线时间)).total_seconds() / 60)
+            间隔信息 = 网页请求处理器._员工提醒队列.get(员工名, {})
+            系统提示词 += (
+                f"\n\n## 时间信息\n你于{上线时间[:19]}上线，已工作{工作时长分钟}分钟。当前时间：{现在时间.strftime('%Y-%m-%d %H:%M:%S')}。\n"
+                f"你有定时提醒功能，当前设置：每{间隔信息.get('间隔分钟',30)}分钟提醒，弹窗{间隔信息.get('弹窗时长秒',30)}秒。\n"
+                f"你可以根据用户的工作状态动态调整：用户忙时拉长间隔，用户闲时缩短间隔。\n"
+                f"调整方法：在回复末尾加上 [提醒设置:间隔=X分钟,时长=Y秒] 即可，系统会自动解析并应用。\n"
+                f"例如：[提醒设置:间隔=15分钟,时长=10秒] 表示15分钟后提醒，弹窗10秒。\n"
+                f"也可以只改一项：[提醒设置:间隔=45分钟] 或 [提醒设置:时长=60秒]"
+            )
+            # 注入当前工作目录
+            当前文件夹 = 数据.get("当前文件夹", "")
+            if 当前文件夹:
+                系统提示词 += f"\n\n## 工作目录\n用户当前打开的文件夹：{当前文件夹}"
+
+            # 老板注入团队信息
+            树结果 = 模块.获取员工树()
+            if 树结果.get("成功"):
+                for 节点 in 树结果["数据"]:
+                    if 节点.get("姓名") == 员工名:
+                        下属 = 节点.get("下属", [])
+                        if 下属:
+                            团队信息 = "\n\n## 你的团队\n你是一名管理者，以下是你的下属：\n"
+                            for s in 下属:
+                                团队信息 += f"- {s.get('姓名','')}（{s.get('角色','')}）[{s.get('状态','')}]\n"
+                            团队信息 += "\n你可以调配下属干活，也可以自己处理。"
+                            系统提示词 += 团队信息
+                        break
+
+            # 获取或创建该员工的独立对话历史
+            if 员工名 not in 网页请求处理器._员工对话历史:
+                网页请求处理器._员工对话历史[员工名] = []
+            历史 = 网页请求处理器._员工对话历史[员工名]
+
+            # 添加用户消息
+            历史.append({"role": "user", "content": 消息})
+
+            # SSE流式响应
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+
+            def _SSE写入(事件数据):
+                try:
+                    行 = f"data: {json.dumps(事件数据, ensure_ascii=False)}\n\n"
+                    self.wfile.write(行.encode("utf-8"))
+                    self.wfile.flush()
+                except Exception:
+                    pass
+
+            # 调用LLM（直接用模型直连器，不走主对话模块）
+            结果 = self.模型直连器.发送消息(历史, 系统提示词)
+
+            if 结果.get("成功"):
+                回复 = 结果.get("回复内容", "")
+                # 解析员工动态提醒设置 [提醒设置:间隔=X分钟,时长=Y秒]
+                import re as _re
+                设置匹配 = _re.search(r'\[提醒设置[：:](.+?)\]', 回复)
+                if 设置匹配 and 员工名 in 网页请求处理器._员工提醒队列:
+                    设置文本 = 设置匹配.group(1)
+                    信息 = 网页请求处理器._员工提醒队列[员工名]
+                    间隔匹配 = _re.search(r'间隔[=:]?\s*(\d+)', 设置文本)
+                    时长匹配 = _re.search(r'时长[=:]?\s*(\d+)', 设置文本)
+                    if 间隔匹配:
+                        信息["间隔分钟"] = int(间隔匹配.group(1))
+                    if 时长匹配:
+                        信息["弹窗时长秒"] = int(时长匹配.group(1))
+                    # 从回复中移除设置标记
+                    回复 = _re.sub(r'\s*\[提醒设置[：:].+?\]', '', 回复).strip()
+                # 流式推送
+                _SSE写入({"类型": "推理流", "记录": [{"类型": "流式回复", "内容": {"内容": 回复}}]})
+                # 保存到历史
+                历史.append({"role": "assistant", "content": 回复})
+                # 保存到员工记忆文件
+                记忆路径 = 运行时.get("记忆路径")
+                if 记忆路径:
+                    try:
+                        import json as _json
+                        from pathlib import Path as _P
+                        绝对路径 = self.配置加载器.项目根目录 / 记忆路径.lstrip("./")
+                        绝对路径.parent.mkdir(parents=True, exist_ok=True)
+                        记忆数据 = []
+                        if 绝对路径.exists():
+                            记忆数据 = _json.loads(绝对路径.read_text(encoding="utf-8"))
+                        记忆数据.append({"用户": 消息, "助手": 回复, "时间": datetime.now().isoformat()})
+                        绝对路径.write_text(_json.dumps(记忆数据, ensure_ascii=False, indent=2), encoding="utf-8")
+                    except Exception:
+                        pass
+                _SSE写入({"类型": "完成", "结果": {"成功": True, "回复": 回复}})
+            else:
+                _SSE写入({"类型": "完成", "结果": {"成功": False, "错误": 结果.get("错误", "LLM调用失败")}})
+        except Exception as e:
+            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+                return
+            try:
+                self._返回JSON({"成功": False, "错误": f"员工对话异常: {str(e)}"})
+            except Exception:
+                return
+
+    def _处理员工任务(self, 数据: dict):
+        """员工任务执行 — 负责人出题→执行人逐题解答，SSE流式推送进度"""
+        try:
+            任务目标 = 数据.get("任务目标", "")
+            数量 = int(数据.get("数量", 10))
+            负责人 = 数据.get("负责人", "")
+            执行人列表 = 数据.get("执行人列表", [])
+            当前文件夹 = 数据.get("当前文件夹", "")
+
+            if not 任务目标:
+                self._返回JSON({"成功": False, "错误": "缺少任务目标"})
+                return
+            if not 负责人:
+                self._返回JSON({"成功": False, "错误": "缺少负责人"})
+                return
+            if not 执行人列表:
+                self._返回JSON({"成功": False, "错误": "缺少执行人"})
+                return
+            if not self.模块注册 or "员工管理" not in self.模块注册:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+                return
+            if not self.模型直连器:
+                self._返回JSON({"成功": False, "错误": "模型直连器未就绪"})
+                return
+
+            模块 = self.模块注册["员工管理"]
+
+            def _获取员工提示词(员工名):
+                """获取员工运行时配置，返回(系统提示词, 头像, 角色)"""
+                配置结果 = 模块.获取运行时配置(员工名)
+                if not 配置结果.get("成功"):
+                    return None, None, None
+                运行时 = 配置结果["数据"]
+                提示词 = 运行时.get("系统提示词", "")
+                if 当前文件夹:
+                    提示词 += f"\n\n## 工作目录\n{当前文件夹}"
+                return 提示词, 运行时.get("头像", "🙂"), 运行时.get("角色", "")
+
+            # SSE响应头
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+
+            def _SSE写入(事件数据):
+                try:
+                    行 = f"data: {json.dumps(事件数据, ensure_ascii=False)}\n\n"
+                    self.wfile.write(行.encode("utf-8"))
+                    self.wfile.flush()
+                except Exception:
+                    pass
+
+            import re as _re
+            from datetime import datetime as _dt
+
+            # ========== 阶段1: 负责人出题 ==========
+            _SSE写入({"类型": "阶段", "阶段": "出题", "状态": "开始", "负责人": 负责人})
+
+            负责人提示词, 负责人头像, 负责人角色 = _获取员工提示词(负责人)
+            if not 负责人提示词:
+                _SSE写入({"类型": "完成", "结果": {"成功": False, "错误": f"负责人「{负责人}」不存在"}})
+                return
+
+            出题指令 = (
+                f"请根据任务目标「{任务目标}」，出{数量}道题。\n"
+                f"格式要求：每道题独占一行，用数字编号开头（如 1. xxx），只输出题目，不要输出答案和解释。\n"
+                f"请确保恰好输出{数量}道题。"
+            )
+
+            出题结果 = self.模型直连器.发送消息(
+                [{"role": "user", "content": 出题指令}], 负责人提示词
+            )
+
+            if not 出题结果.get("成功"):
+                _SSE写入({"类型": "完成", "结果": {"成功": False, "错误": "负责人出题失败: " + 出题结果.get("错误", "")}})
+                return
+
+            出题回复 = 出题结果.get("回复内容", "")
+
+            # 解析题目列表
+            题目列表 = []
+            for 行 in 出题回复.strip().split("\n"):
+                行 = 行.strip()
+                匹配 = _re.match(r'^\d+[.、)）]\s*(.+)', 行)
+                if 匹配:
+                    题目列表.append(匹配.group(1).strip())
+
+            if not 题目列表:
+                # 按行分割作为后备
+                题目列表 = [行.strip() for 行 in 出题回复.strip().split("\n") if 行.strip() and not 行.startswith("#")]
+
+            实际数量 = len(题目列表)
+            if 实际数量 == 0:
+                _SSE写入({"类型": "完成", "结果": {"成功": False, "错误": "负责人未生成有效题目"}})
+                return
+
+            _SSE写入({"类型": "阶段", "阶段": "出题", "状态": "完成", "题目": 题目列表, "数量": 实际数量})
+
+            # ========== 阶段2: 执行人逐题解答 ==========
+            汇总结果 = []
+            执行人数 = len(执行人列表)
+
+            for i, 题目 in enumerate(题目列表):
+                执行人 = 执行人列表[i % 执行人数]
+                执行人提示词, 执行人头像, 执行人角色 = _获取员工提示词(执行人)
+
+                if not 执行人提示词:
+                    _SSE写入({"类型": "进度", "当前": i + 1, "总数": 实际数量, "题目": 题目, "结果": f"执行人「{执行人}」不存在", "执行人": 执行人, "执行人头像": "❓", "成功": False})
+                    汇总结果.append({"题目": 题目, "结果": f"执行人不存在", "执行人": 执行人, "成功": False})
+                    continue
+
+                _SSE写入({"类型": "进度", "阶段": "解答中", "当前": i + 1, "总数": 实际数量, "题目": 题目, "执行人": 执行人, "执行人头像": 执行人头像})
+
+                解答指令 = f"请解答以下问题，直接给出答案：\n{题目}"
+                解答结果 = self.模型直连器.发送消息(
+                    [{"role": "user", "content": 解答指令}], 执行人提示词
+                )
+
+                if 解答结果.get("成功"):
+                    回复 = 解答结果.get("回复内容", "").strip()
+                else:
+                    回复 = "解答失败: " + 解答结果.get("错误", "")
+
+                _SSE写入({"类型": "进度", "阶段": "已完成", "当前": i + 1, "总数": 实际数量, "题目": 题目, "结果": 回复, "执行人": 执行人, "执行人头像": 执行人头像, "成功": 解答结果.get("成功", False)})
+                汇总结果.append({"题目": 题目, "结果": 回复, "执行人": 执行人, "成功": 解答结果.get("成功", False)})
+
+            # ========== 阶段3: 完成 ==========
+            正确数 = sum(1 for r in 汇总结果 if r.get("成功"))
+            _SSE写入({"类型": "完成", "结果": {"成功": True, "汇总": 汇总结果, "总数": 实际数量, "完成数": len(汇总结果)}})
+
+        except Exception as e:
+            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+                return
+            try:
+                self._返回JSON({"成功": False, "错误": f"任务执行异常: {str(e)}"})
+            except Exception:
+                return
+
+    def _处理员工工作流(self, 数据: dict):
+        """节点工作流执行引擎 — 拓扑排序+并行分支，SSE推送每个节点状态"""
+        try:
+            节点列表 = 数据.get("节点", [])
+            连接列表 = 数据.get("连接", [])
+            当前文件夹 = 数据.get("当前文件夹", "")
+
+            if not 节点列表:
+                self._返回JSON({"成功": False, "错误": "工作流无节点"})
+                return
+            if not self.模块注册 or "员工管理" not in self.模块注册:
+                self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+                return
+            if not self.模型直连器:
+                self._返回JSON({"成功": False, "错误": "模型直连器未就绪"})
+                return
+
+            模块 = self.模块注册["员工管理"]
+            import threading as _th
+            import concurrent.futures as _cf
+            from datetime import datetime as _dt2
+            import time as _time2
+
+            # 生成会话ID
+            wf会话ID = _dt2.now().strftime("%Y%m%d_%H%M%S")
+
+            # 构建邻接表（保留loop属性）
+            节点映射 = {n["id"]: n for n in 节点列表}
+            出边 = {n["id"]: [] for n in 节点列表}
+            入边 = {n["id"]: [] for n in 节点列表}
+            连线映射 = {}  # (from,to) → conn对象
+            for conn in 连接列表:
+                f, t = conn.get("from", ""), conn.get("to", "")
+                if f in 出边 and t in 入边:
+                    出边[f].append(t)
+                    入边[t].append(f)
+                    连线映射[(f, t)] = conn
+
+            # 检测是否有循环连线
+            循环连线 = {k: v for k, v in 连线映射.items() if v.get("loop")}
+            有循环 = len(循环连线) > 0
+
+            # 拓扑排序（Kahn算法）— 无循环时用拓扑，有循环时用分层迭代
+            入度 = {nid: len(入边[nid]) for nid in 节点映射}
+            就绪队列 = [nid for nid, d in 入度.items() if d == 0]
+            执行顺序 = []
+            临时入度 = dict(入度)
+            while 就绪队列:
+                批次 = list(就绪队列)
+                就绪队列 = []
+                for nid in 批次:
+                    执行顺序.append(nid)
+                    for 下游 in 出边[nid]:
+                        临时入度[下游] -= 1
+                        if 临时入度[下游] == 0:
+                            就绪队列.append(下游)
+
+            if not 有循环 and len(执行顺序) < len(节点列表):
+                self._返回JSON({"成功": False, "错误": "工作流存在循环依赖，请设置循环连线属性"})
+                return
+
+            # 按拓扑层分组（同层可并行）
+            层级 = {}
+            for nid in 执行顺序:
+                if not 入边[nid]:
+                    层级[nid] = 0
+                else:
+                    上游层级 = [层级.get(p, 0) for p in 入边[nid] if p in 层级]
+                    层级[nid] = max(上游层级) + 1 if 上游层级 else 0
+            最大层 = max(层级.values()) if 层级 else 0
+            层分组 = [[] for _ in range(最大层 + 1)]
+            for nid, lv in 层级.items():
+                层分组[lv].append(nid)
+
+            # SSE响应头
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+
+            def _SSE写入(事件数据):
+                try:
+                    行 = f"data: {json.dumps(事件数据, ensure_ascii=False)}\n\n"
+                    self.wfile.write(行.encode("utf-8"))
+                    self.wfile.flush()
+                except Exception as _sse_err:
+                    print(f"  [WF SSE错误] {_sse_err} | 数据类型={事件数据.get('类型','?')}")
+
+            # 存储引擎初始化（在SSE建立后，可以推送调试信息）
+            try:
+                from 存储引擎 import 获取存储引擎
+                _wf存储 = 获取存储引擎()
+            except Exception as _wf_err:
+                _wf存储 = None
+                _SSE写入({"类型": "调试", "消息": f"存储引擎初始化失败: {str(_wf_err)}"})
+
+            # 节点输出存储
+            节点输出 = {}
+
+            def _获取员工提示词(员工名):
+                配置结果 = 模块.获取运行时配置(员工名)
+                if not 配置结果.get("成功"):
+                    return None
+                运行时 = 配置结果["数据"]
+                提示词 = 运行时.get("系统提示词", "")
+                if 当前文件夹:
+                    提示词 += f"\n\n## 工作目录\n{当前文件夹}"
+                return 提示词
+
+            def _获取员工运行时(员工名):
+                """获取员工运行时配置（含工具调用等属性）"""
+                配置结果 = 模块.获取运行时配置(员工名)
+                if not 配置结果.get("成功"):
+                    return None
+                return 配置结果["数据"]
+
+            def _收集上游输入(nid):
+                """收集所有上游节点的输出，合并为文本"""
+                上游 = 入边.get(nid, [])
+                if not 上游:
+                    return ""
+                # 按拓扑层级排序上游，保证输入顺序=执行顺序
+                上游排序 = sorted(上游, key=lambda uid: 层级.get(uid, 0))
+                parts = []
+                for uid in 上游排序:
+                    out = 节点输出.get(uid, "")
+                    if out:
+                        node = 节点映射.get(uid, {})
+                        parts.append(f"【来自{node.get('name', uid)}】\n{out}")
+                return "\n\n".join(parts)
+
+            def _wf写日志(nid, nname, ntype, 状态, 输入, 输出, 错误, 耗时):
+                """安全写入工作流日志"""
+                if not _wf存储: return
+                try:
+                    _wf存储.写工作流日志(wf会话ID, nid, nname, ntype, 状态, 输入, 输出, 错误, 耗时)
+                except Exception:
+                    pass
+
+            def _执行工具员工(nid, nname, 员工名, 初始消息, 提示词, 上游输入):
+                """工具员工ReAct循环：多轮LLM+操作调用，只返回最终文字"""
+                对话历史 = [{"role": "user", "content": 初始消息}]
+                工具定义 = self.操作注册中心.获取工具定义() if hasattr(self.操作注册中心, '获取工具定义') else []
+                最大步数 = 15
+                for 步 in range(最大步数):
+                    print(f"  [WF-Tool] {nname} 第{步+1}步, 消息数={len(对话历史)}")
+                    结果 = self.模型直连器.发送消息(对话历史, 提示词, 工具列表=工具定义, 跳过缓存=True)
+                    if not 结果.get("成功"):
+                        return 结果.get("错误", "LLM调用失败")
+                    回复 = 结果.get("回复内容", "").strip()
+                    工具调用 = 结果.get("工具调用")
+                    # 如果没有工具调用，返回最终回复
+                    if not 工具调用:
+                        print(f"  [WF-Tool] {nname} 完成，无更多工具调用")
+                        return 回复
+                    # 处理工具调用
+                    _SSE写入({"类型": "调试", "消息": f"🔧 {nname} 调用: {工具调用.get('name','?')}"})
+                    执行结果 = self.操作注册中心.执行(工具调用.get("name", ""), 工具调用.get("参数", {}))
+                    操作输出 = 执行结果.get("数据") or 执行结果.get("结果") or str(执行结果)
+                    # 追加到对话历史
+                    对话历史.append({"role": "assistant", "content": 回复})
+                    对话历史.append({"role": "user", "content": f"操作结果：\n{操作输出}\n\n请继续，或如果任务已完成请给出最终回复。"})
+                    print(f"  [WF-Tool] {nname} 操作完成: {工具调用.get('name','?')}")
+                # 超过最大步数
+                print(f"  [WF-Tool] {nname} 达到最大步数{最大步数}")
+                return 回复
+
+            def _执行节点(nid):
+                node = 节点映射[nid]
+                ntype = node.get("type", "")
+                nname = node.get("name", "")
+                config = node.get("config", {})
+                _t0 = _time2.time()
+                print(f"  [WF] 开始执行节点: {nname} ({ntype})")
+
+                _SSE写入({"类型": "节点开始", "id": nid, "name": nname, "type": ntype})
+
+                try:
+                    if ntype == "target" or ntype == "目标":
+                        目标 = config.get("目标", "")
+                        数量 = int(config.get("数量", 1))
+                        输出 = f"任务目标：{目标}\n数量：{数量}"
+                        节点输出[nid] = 输出
+                        print(f"  [WF] 目标节点输出: {输出[:60]}")
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 输出, "成功": True})
+                        print(f"  [WF] 节点完成已推送: {nname}")
+                        _wf写日志(nid, nname, ntype, "成功", "", 输出, "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "employee" or ntype == "员工":
+                        员工名 = node.get("员工名", nname)
+                        运行时 = _获取员工运行时(员工名)
+                        if not 运行时:
+                            节点输出[nid] = f"员工「{员工名}」不存在"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "员工不存在", "成功": False})
+                            _wf写日志(nid, nname, ntype, "失败", "", "员工不存在", f"员工「{员工名}」不存在", int((_time2.time()-_t0)*1000))
+                            return
+
+                        提示词 = 运行时.get("系统提示词", "")
+                        if 当前文件夹:
+                            提示词 += f"\n\n## 工作目录\n{当前文件夹}"
+                        启用工具 = 运行时.get("工具调用", False)
+
+                        上游输入 = _收集上游输入(nid)
+                        指令 = node.get("config", {}).get("指令", "")
+                        if 指令:
+                            消息 = f"{指令}\n\n{上游输入}" if 上游输入 else 指令
+                        else:
+                            消息 = 上游输入 if 上游输入 else "请根据任务目标开始工作"
+
+                        if 启用工具 and self.操作注册中心:
+                            # 工具员工：ReAct循环
+                            回复 = _执行工具员工(nid, nname, 员工名, 消息, 提示词, 上游输入)
+                        else:
+                            # 普通员工：单轮对话
+                            print(f"  [WF] 调用LLM: {员工名}, 消息长度={len(消息)}")
+                            结果 = self.模型直连器.发送消息(
+                                [{"role": "user", "content": 消息}], 提示词, 跳过缓存=True
+                            )
+                            if 结果.get("成功"):
+                                回复 = 结果.get("回复内容", "").strip()
+                            else:
+                                回复 = None
+                                错误 = 结果.get("错误", "LLM调用失败")
+
+                        if 回复 is not None:
+                            节点输出[nid] = 回复
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 回复, "成功": True})
+                            print(f"  [WF] 节点完成已推送: {nname}, 输出长度={len(回复)}")
+                            _wf写日志(nid, nname, ntype, "成功", 上游输入, 回复, "", int((_time2.time()-_t0)*1000))
+                        else:
+                            节点输出[nid] = 错误
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 错误, "成功": False})
+                            print(f"  [WF] 节点失败已推送: {nname}, 错误={错误[:60]}")
+                            _wf写日志(nid, nname, ntype, "失败", 上游输入, 错误, 错误, int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "input" or ntype == "输入":
+                        # 输入节点：直接输出config中的内容
+                        config = node.get("config", {})
+                        输出 = config.get("内容", "")
+                        节点输出[nid] = 输出
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 输出[:200] if 输出 else "(空)", "成功": True})
+                        _wf写日志(nid, nname, ntype, "成功", "", 输出[:200], "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "print" or ntype == "打印":
+                        上游输入 = _收集上游输入(nid)
+                        节点输出[nid] = 上游输入
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 上游输入, "成功": True})
+                        _wf写日志(nid, nname, ntype, "成功", 上游输入, 上游输入, "", int((_time2.time()-_t0)*1000))
+                except Exception as _node_err:
+                    print(f"  [WF] 节点执行异常: {nname}: {_node_err}")
+                    节点输出[nid] = str(_node_err)
+                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": f"执行异常: {_node_err}", "成功": False})
+
+            # 逐层执行（同层并行）— 支持循环连线
+            总节点数 = len(节点列表)
+            已完成 = 0
+
+            if 有循环:
+                # ===== 循环执行模式 =====
+                # 找到循环连线涉及的节点对
+                循环节点对 = []
+                for (f, t), conn in 循环连线.items():
+                    loop = conn.get("loop", {})
+                    循环节点对.append({"from": f, "to": t, "loop": loop})
+
+                # 找到循环回路中的所有节点（from到to路径上的节点）
+                循环节点集 = set()
+                for pair in 循环节点对:
+                    循环节点集.add(pair["from"])
+                    循环节点集.add(pair["to"])
+
+                # 先执行非循环节点（不在循环节点集中的节点）
+                非循环层 = [lv for lv in range(len(层分组)) if not any(nid in 循环节点集 for nid in 层分组[lv])]
+                for lv in 非循环层:
+                    层 = 层分组[lv]
+                    if not 层: continue
+                    if len(层) == 1:
+                        _执行节点(层[0])
+                    else:
+                        with _cf.ThreadPoolExecutor(max_workers=len(层)) as executor:
+                            futures = {executor.submit(_执行节点, nid): nid for nid in 层}
+                            for f in _cf.as_completed(futures):
+                                f.result()
+                    已完成 += len(层)
+                    _SSE写入({"类型": "进度", "已完成": 已完成, "总数": 总节点数})
+
+                # 执行循环
+                for pair in 循环节点对:
+                    loop = pair["loop"]
+                    f, t = pair["from"], pair["to"]
+                    fnode = 节点映射.get(f, {})
+                    tnode = 节点映射.get(t, {})
+                    fname = fnode.get("name", f)
+                    tname = tnode.get("name", t)
+
+                    if loop.get("type") == "for":
+                        count = int(loop.get("count", 3))
+                        _SSE写入({"类型": "循环轮次", "轮次": 0, "总数": count, "信息": f"固定循环 {count} 次"})
+                        累积输出 = []
+                        for i in range(count):
+                            轮次 = i + 1
+                            _SSE写入({"类型": "循环轮次", "轮次": 轮次, "总数": count, "信息": f"第{轮次}/{count}轮", "重置": [f, t]})
+                            # 执行from节点
+                            _执行节点(f)
+                            累积输出.append(节点输出.get(f, ""))
+                            # 执行to节点（带累积输入）
+                            上游 = 累积输出[-1]
+                            if len(累积输出) > 1:
+                                上游 = "\n\n".join([f"第{j+1}轮：{v}" for j, v in enumerate(累积输出)])
+                            # 临时设置from的输出为累积
+                            原始输出 = 节点输出.get(f, "")
+                            节点输出[f] = 上游
+                            _执行节点(t)
+                            节点输出[f] = 原始输出  # 恢复
+                            已完成 += 2
+                            _SSE写入({"类型": "进度", "已完成": min(已完成, 总节点数), "总数": 总节点数})
+                        _SSE写入({"类型": "循环结束", "循环类型": "for", "总轮次": count, "信息": f"For循环完成，共执行{count}轮"})
+
+                    elif loop.get("type") == "while":
+                        condition = loop.get("condition", "")
+                        maxLoop = int(loop.get("maxLoop", 10))
+                        _SSE写入({"类型": "循环轮次", "轮次": 0, "总数": maxLoop, "信息": f"条件循环：{condition}（最多{maxLoop}次）"})
+                        for i in range(maxLoop):
+                            轮次 = i + 1
+                            _SSE写入({"类型": "循环轮次", "轮次": 轮次, "总数": maxLoop, "信息": f"第{轮次}轮", "重置": [f, t]})
+                            # 执行from节点
+                            _执行节点(f)
+                            # 执行to节点
+                            _执行节点(t)
+                            已完成 += 2
+                            _SSE写入({"类型": "进度", "已完成": min(已完成, 总节点数), "总数": 总节点数})
+                            # AI判断是否满足条件
+                            判断输出 = 节点输出.get(t, "")
+                            判断提示 = f"当前节点输出：\n{判断输出}\n\n判断条件：{condition}\n\n请回答：是或否（只回答一个字）"
+                            判断结果 = self.模型直连器.发送消息(
+                                [{"role": "user", "content": 判断提示}],
+                                "你是条件判断助手，只回答'是'或'否'。",
+                                跳过缓存=True
+                            )
+                            判断回复 = ""
+                            if 判断结果.get("成功"):
+                                判断回复 = 判断结果.get("回复内容", "").strip()
+                            _SSE写入({"类型": "循环轮次", "轮次": 轮次, "信息": f"条件判断：{判断回复}"})
+                            if "是" in 判断回复:
+                                _SSE写入({"类型": "循环轮次", "轮次": 轮次, "信息": f"条件满足，跳出循环（第{轮次}轮）"})
+                                break
+                        else:
+                            _SSE写入({"类型": "循环轮次", "轮次": maxLoop, "信息": f"已达最大循环次数{maxLoop}，强制停止"})
+                        # While循环结束提示
+                        if "是" in 判断回复:
+                            _SSE写入({"类型": "循环结束", "循环类型": "while", "总轮次": 轮次, "信息": f"条件循环完成，第{轮次}轮满足条件「{condition}」"})
+                        else:
+                            _SSE写入({"类型": "循环结束", "循环类型": "while", "总轮次": maxLoop, "信息": f"条件循环结束，已达最大{maxLoop}次未满足「{condition}」"})
+
+                # 执行剩余非循环节点
+                循环后层 = [lv for lv in range(len(层分组)) if lv not in 非循环层]
+                # 重新执行所有层（简化：从拓扑层中找到循环节点之后的层）
+                已执行节点 = set()
+                for lv in 非循环层:
+                    已执行节点.update(层分组[lv])
+                已执行节点.update(循环节点集)
+                剩余节点 = [nid for nid in 执行顺序 if nid not in 已执行节点]
+                if 剩余节点:
+                    # 按层级排序剩余节点
+                    剩余排序 = sorted(剩余节点, key=lambda nid: 层级.get(nid, 0))
+                    # 重新分组
+                    剩余层级 = {}
+                    for nid in 剩余排序:
+                        上游在剩余 = [p for p in 入边[nid] if p in set(剩余节点)]
+                        if not 上游在剩余:
+                            剩余层级[nid] = 0
+                        else:
+                            剩余层级[nid] = max(剩余层级.get(p, 0) for p in 上游在剩余) + 1
+                    剩余最大层 = max(剩余层级.values()) if 剩余层级 else 0
+                    剩余层分组 = [[] for _ in range(剩余最大层 + 1)]
+                    for nid, lv in 剩余层级.items():
+                        剩余层分组[lv].append(nid)
+                    for 层 in 剩余层分组:
+                        if not 层: continue
+                        if len(层) == 1:
+                            _执行节点(层[0])
+                        else:
+                            with _cf.ThreadPoolExecutor(max_workers=len(层)) as executor:
+                                futures = {executor.submit(_执行节点, nid): nid for nid in 层}
+                                for f2 in _cf.as_completed(futures):
+                                    f2.result()
+                        已完成 += len(层)
+                        _SSE写入({"类型": "进度", "已完成": min(已完成, 总节点数), "总数": 总节点数})
+
+            else:
+                # ===== 普通执行模式（原逻辑） =====
+                for 层 in 层分组:
+                    if len(层) == 1:
+                        _执行节点(层[0])
+                    else:
+                        with _cf.ThreadPoolExecutor(max_workers=len(层)) as executor:
+                            futures = {executor.submit(_执行节点, nid): nid for nid in 层}
+                            for f in _cf.as_completed(futures):
+                                f.result()
+                    已完成 += len(层)
+                    _SSE写入({"类型": "进度", "已完成": 已完成, "总数": 总节点数})
+
+            _SSE写入({"类型": "完成", "结果": {"成功": True, "总数": 总节点数, "会话ID": wf会话ID}})
+
+        except Exception as e:
+            if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+                return
+            try:
+                self._返回JSON({"成功": False, "错误": f"工作流执行异常: {str(e)}"})
+            except Exception:
+                return
+
+    def _处理员工管理API(self, 路径: str, 数据: dict):
+        """处理员工管理相关API"""
+        if not self.模块注册 or "员工管理" not in self.模块注册:
+            self._返回JSON({"成功": False, "错误": "员工管理模块未加载"})
+            return
+        模块 = self.模块注册["员工管理"]
+        if 路径 == "/api/employee-switch":
+            结果 = 模块.切换员工(数据.get("姓名", ""))
+            # 只记录切换，不修改主对话模块
+            self._返回JSON(结果)
+        elif 路径 == "/api/employee-create":
+            self._返回JSON(模块.创建员工(数据.get("配置", {})))
+        elif 路径 == "/api/employee-update":
+            self._返回JSON(模块.更新员工(数据.get("姓名", ""), 数据.get("配置", {})))
+        elif 路径 == "/api/employee-delete":
+            self._返回JSON(模块.删除员工(数据.get("姓名", "")))
+        elif 路径 == "/api/employee-assign":
+            self._返回JSON(模块.分配员工(数据.get("员工名", ""), 数据.get("老板名", "")))
+        elif 路径 == "/api/employee-unassign":
+            self._返回JSON(模块.移除分配(数据.get("员工名", ""), 数据.get("老板名", "")))
+        elif 路径 == "/api/employee-status":
+            self._返回JSON(模块.设置状态(数据.get("姓名", ""), 数据.get("状态", "")))
+        elif 路径 == "/api/employee-notify-config":
+            姓名 = 数据.get("姓名", "")
+            if 姓名 in 网页请求处理器._员工提醒队列:
+                信息 = 网页请求处理器._员工提醒队列[姓名]
+                if "间隔分钟" in 数据:
+                    信息["间隔分钟"] = int(数据["间隔分钟"])
+                if "弹窗时长秒" in 数据:
+                    信息["弹窗时长秒"] = int(数据["弹窗时长秒"])
+                self._返回JSON({"成功": True, "数据": f"提醒间隔{信息['间隔分钟']}分钟，弹窗{信息['弹窗时长秒']}秒"})
+            else:
+                self._返回JSON({"成功": False, "错误": "该员工未开启提醒"})
+        elif 路径 == "/api/employee-generate-persona":
+            """AI生成员工人设（非流式，直接返回JSON）"""
+            姓名 = 数据.get("姓名", "")
+            角色 = 数据.get("角色", "")
+            if not 姓名 or not 角色:
+                self._返回JSON({"成功": False, "错误": "缺少姓名或角色"})
+                return
+            if not self.模型直连器:
+                self._返回JSON({"成功": False, "错误": "模型未就绪"})
+                return
+            提示 = f"请为数字员工「{姓名}」生成系统提示词。角色：{角色}。要求：1.开头写'你的名字叫{姓名}' 2.描述角色专长和限制 3.当用户问你是谁时回答你是{姓名} 4.控制在100字以内 5.只输出提示词内容，不要多余解释"
+            结果 = self.模型直连器.发送消息([{"role": "user", "content": 提示}], "你是一个人设生成助手，简洁输出。")
+            if 结果.get("成功"):
+                self._返回JSON({"成功": True, "数据": 结果.get("回复内容", "").strip()})
+            else:
+                self._返回JSON({"成功": False, "错误": 结果.get("错误", "生成失败")})
+        elif 路径 == "/api/employee-clear-history":
+            """清除员工聊天记录（不影响技能和经验）"""
+            姓名 = 数据.get("姓名", "")
+            # 清空内存
+            网页请求处理器._员工对话历史[姓名] = []
+            # 清空记忆文件
+            if self.模块注册 and "员工管理" in self.模块注册:
+                运行时结果 = self.模块注册["员工管理"].获取运行时配置(姓名)
+                if 运行时结果.get("成功"):
+                    记忆路径 = 运行时结果["数据"].get("记忆路径")
+                    if 记忆路径:
+                        try:
+                            绝对路径 = self.配置加载器.项目根目录 / 记忆路径.lstrip("./")
+                            if 绝对路径.exists():
+                                绝对路径.write_text("[]", encoding="utf-8")
+                        except Exception:
+                            pass
+            self._返回JSON({"成功": True, "数据": "聊天记录已清除"})
+        elif 路径 == "/api/employee-save-history":
+            """保存员工聊天历史（单条删除后同步）"""
+            姓名 = 数据.get("姓名", "")
+            历史 = 数据.get("历史", [])
+            网页请求处理器._员工对话历史[姓名] = 历史
+            # 同步到记忆文件
+            if self.模块注册 and "员工管理" in self.模块注册:
+                运行时结果 = self.模块注册["员工管理"].获取运行时配置(姓名)
+                if 运行时结果.get("成功"):
+                    记忆路径 = 运行时结果["数据"].get("记忆路径")
+                    if 记忆路径:
+                        try:
+                            import json as _json
+                            绝对路径 = self.配置加载器.项目根目录 / 记忆路径.lstrip("./")
+                            绝对路径.parent.mkdir(parents=True, exist_ok=True)
+                            记忆数据 = []
+                            i = 0
+                            while i < len(历史):
+                                role = 历史[i].get("role", "")
+                                content = 历史[i].get("content", "")
+                                if role == "user" and i + 1 < len(历史) and 历史[i + 1].get("role") == "assistant":
+                                    记忆数据.append({"用户": content, "助手": 历史[i + 1].get("content", "")})
+                                    i += 2
+                                elif role == "user":
+                                    记忆数据.append({"用户": content, "助手": ""})
+                                    i += 1
+                                elif role == "assistant":
+                                    记忆数据.append({"用户": "", "助手": content})
+                                    i += 1
+                                else:
+                                    i += 1
+                            绝对路径.write_text(_json.dumps(记忆数据, ensure_ascii=False, indent=2), encoding="utf-8")
+                        except Exception:
+                            pass
+            self._返回JSON({"成功": True})
+        else:
+            self._返回JSON({"成功": False, "错误": "未知员工管理API: " + 路径})
 
     def _引擎差异分析(self) -> dict:
         """对比工作引擎与主引擎的文件差异"""
