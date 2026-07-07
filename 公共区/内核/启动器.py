@@ -85,7 +85,7 @@ class 启动器类:
             _time.sleep(0.05)
 
 
-        版本 = "v3.1.0"
+        版本 = "v3.0.1"
 
         启动步骤 = []
 
@@ -201,10 +201,9 @@ class 启动器类:
 
         # ── 4f. 知识库 ──
         _步("📚", "知识库")
-        import sys as _sys
         _知识库父目录 = str(self.项目根目录 / "公共区" / "模块" / "记忆")
-        if _知识库父目录 not in _sys.path:
-            _sys.path.insert(0, _知识库父目录)
+        if _知识库父目录 not in sys.path:
+            sys.path.insert(0, _知识库父目录)
         from 操作.知识库操作 import 设置知识库实例
         from 知识库 import 知识库模块
         知识库配置路径 = self.项目根目录 / "公共区" / "配置" / "知识库配置.json"
@@ -236,7 +235,7 @@ class 启动器类:
             try:
                 from 系统托盘 import 系统托盘 as 系统托盘类
                 self.系统托盘 = 系统托盘类(self)
-                self.系统托盘.启动("朱峰社区智能体 v3.1.0 运行中")
+                self.系统托盘.启动("朱峰社区智能体 v3.0.1 运行中")
                 启动步骤[-1] = ("📌", "系统托盘", "✅", "已创建")
             except Exception as e:
                 启动步骤[-1] = ("📌", "系统托盘", "⚠️", str(e)[:50])
@@ -379,6 +378,65 @@ class 启动器类:
         except Exception:
             pass
 
+        # ── 检查语音模型安装中断恢复 ──
+        try:
+            import tarfile, shutil, tempfile
+            # 模型存放在纯英文路径（sherpa-onnx的C++底层不支持中文路径）
+            # 优先用Python安装目录旁边，其次系统Temp，最后C盘根目录
+            def _找英文目录():
+                for p in [Path(sys.executable).parent / "zf3d_voice_model",
+                          Path(tempfile.gettempdir()) / "zf3d_voice_model",
+                          Path("C:/zf3d_voice_model")]:
+                    try:
+                        str(p).encode('ascii')
+                        p.mkdir(parents=True, exist_ok=True)
+                        return p
+                    except (UnicodeEncodeError, OSError, PermissionError):
+                        continue
+                p = Path(tempfile.gettempdir()) / "zf3d_voice_model"
+                p.mkdir(parents=True, exist_ok=True)
+                return p
+            模型目录 = _找英文目录()
+            目标目录 = 模型目录 / "paraformer-streaming"
+            tar文件 = 模型目录 / "语音模型.tar.bz2"
+            if tar文件.exists() and not (目标目录 / "encoder.int8.onnx").exists():
+                # tar.bz2 已下完但模型未解压 → 自动解压
+                print("📦 检测到流式语音模型未解压，正在解压...")
+                目标目录.mkdir(parents=True, exist_ok=True)
+                with tarfile.open(str(tar文件), "r:bz2") as tar:
+                    for member in tar.getmembers():
+                        基名 = os.path.basename(member.name)
+                        if 基名 in ("encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"):
+                            member.name = 基名
+                            tar.extract(member, 目标目录)
+                try: os.remove(str(tar文件))
+                except: pass
+                for d in 模型目录.glob("sherpa-onnx-paraformer-*"):
+                    if d.is_dir():
+                        shutil.rmtree(d, ignore_errors=True)
+                print("✅ 语音模型解压完成")
+        except Exception as e:
+            print(f"⚠️ 语音模型恢复失败: {e}")
+
+        # ── 6b. 预加载Kokoro TTS引擎（后台线程，不阻塞启动） ──
+        try:
+            语音输出配置 = 系统配置.get("语音输出", {})
+            if 语音输出配置.get("引擎", "本地") == "本地":
+                import threading
+                def _预加载TTS():
+                    try:
+                        from 网页服务 import _获取KokoroTTS引擎
+                        引擎 = _获取KokoroTTS引擎()
+                        if 引擎:
+                            print("✅ Kokoro TTS引擎预加载完成")
+                        else:
+                            print("⚠️ Kokoro TTS引擎未加载（模型可能未下载）")
+                    except Exception as e:
+                        print(f"⚠️ Kokoro TTS预加载失败: {e}")
+                threading.Thread(target=_预加载TTS, daemon=True).start()
+        except Exception:
+            pass
+
         # ── 7. Web服务 ──
         系统配置 = 配置.get("系统配置", {})
         端口 = 系统配置.get("网页端口", 8765)
@@ -490,6 +548,12 @@ class 启动器类:
         """停止系统"""
         print("\n🛑 系统关闭中...")
         self.运行中 = False
+        # 立即停止录屏+点击效果子进程（防止关闭后鼠标还有点击音效和圆圈动画）
+        try:
+            from 录屏器 import 录屏器
+            录屏器.停止录制()
+        except Exception:
+            pass
         for 模块名, 模块实例 in self.模块注册.items():
             try:
                 模块实例.停止()
