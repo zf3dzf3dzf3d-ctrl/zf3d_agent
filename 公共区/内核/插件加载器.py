@@ -52,7 +52,7 @@ class 插件加载器类:
                     self.已加载插件[py文件.name] = 实例列表
                     全部实例.extend(实例列表)
                     名称列表 = [i.名称 for i in 实例列表]
-                    print(f"   🔌 插件 [{py文件.name}] 加载 {len(实例列表)} 个操作: {', '.join(名称列表)}")
+                    print(f"   📦 插件 [{py文件.name}] 加载 {len(实例列表)} 个操作")
             except Exception as e:
                 print(f"   ❌ 插件 [{py文件.name}] 加载失败: {e}")
 

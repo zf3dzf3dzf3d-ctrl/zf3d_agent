@@ -1664,6 +1664,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             文件名 = 数据.get("文件名", "未命名")
             安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or "未命名"
             路径文件 = 目录 / (安全名 + ".json")
+            覆盖 = 数据.get("覆盖", False)
+            if 路径文件.exists() and not 覆盖:
+                self._返回JSON({"成功": False, "已存在": True})
+                return
             try:
                 路径文件.write_text(json.dumps(数据.get("图", {}), ensure_ascii=False, indent=2), encoding="utf-8")
                 self._返回JSON({"成功": True, "路径": str(路径文件)})
@@ -1674,8 +1678,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             import os as _os
             目录 = self.配置加载器.项目根目录 / "节点图"
             if not 目录.exists():
-                self._返回JSON({"成功": True, "列表": [], "图": None})
-                return
+                目录.mkdir(parents=True, exist_ok=True)
             文件名 = 数据.get("文件名", "")
             if 文件名:
                 路径文件 = 目录 / (文件名 + ".json")
@@ -1687,6 +1690,87 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             else:
                 列表 = [f.stem for f in 目录.glob("*.json")]
                 self._返回JSON({"成功": True, "列表": 列表})
+        elif 路径 == "/api/wf-check-images":
+            """检查图片节点中的图片是否还存在，返回有效的图片列表"""
+            import os as _os_chk
+            图片列表 = 数据.get("图片列表", [])
+            有效 = []
+            for p in 图片列表:
+                if p and _os_chk.exists(p):
+                    有效.append(p)
+            self._返回JSON({"成功": True, "有效图片": 有效})
+        elif 路径 == "/api/wf-poll-images":
+            """轮询ComfyUI异步生成的图片"""
+            新图片 = list(网页请求处理器._comfyui图片队列)
+            if 新图片:
+                print(f"  [WF-Poll] 返回{len(新图片)}张图片: {新图片}")
+            网页请求处理器._comfyui图片队列.clear()
+            self._返回JSON({"成功": True, "图片列表": 新图片})
+        elif 路径 == "/api/wf-scan-comfyui":
+            """扫描ComfyUI工作流目录中所有_api.json文件"""
+            import os as _os, pathlib as _pl
+            结果 = []
+            # 搜索目录列表
+            搜索目录列表 = []
+            # 1. ComfyUI用户工作流目录
+            try:
+                from 操作.ComfyUI操作 import _获取工作流目录
+                comfyui目录 = _获取工作流目录()
+                if _os.path.isdir(comfyui目录):
+                    搜索目录列表.append(comfyui目录)
+            except Exception:
+                pass
+            # 2. 项目内置工作流目录
+            try:
+                项目根 = self.配置加载器.项目根目录
+                内置目录 = 项目根 / "公共区" / "工作流"
+                if 内置目录.exists():
+                    搜索目录列表.append(str(内置目录))
+            except Exception:
+                pass
+            # 扫描所有_api.json
+            seen = set()
+            for 搜索目录 in 搜索目录列表:
+                if not _os.path.exists(搜索目录):
+                    continue
+                for 根, _, 文件列表 in _os.walk(搜索目录):
+                    # 计算相对搜索目录的子文件夹路径
+                    相对路径 = _os.path.relpath(根, 搜索目录)
+                    if 相对路径 == ".":
+                        文件夹 = "其他"
+                    else:
+                        # 取第一级文件夹名
+                        文件夹 = 相对路径.split(_os.sep)[0]
+                        # 清理常见前缀
+                        文件夹 = 文件夹.replace("01常用", "").replace("02图片", "图片").replace("03其他", "其他").replace("04图片", "图片").replace("05音频", "音频").replace("06其他", "其他").replace("07工程", "工程")
+                        if not 文件夹:
+                            文件夹 = "其他"
+                    for f in 文件列表:
+                        if f.endswith("_api.json"):
+                            full = _os.path.join(根, f)
+                            if full in seen:
+                                continue
+                            seen.add(full)
+                            短名 = f.replace("_api.json", "")
+                            # 分类：优先用文件夹名，其次用文件名关键词
+                            分类 = 文件夹
+                            if 分类 == "其他" or 分类 == "workflows":
+                                for kw, cat in [("文生图","图片"),("text_to_image","图片"),("图生视频","视频"),("文生视频","视频"),("i2v","视频"),("t2v","视频"),
+                                               ("图片修改","图片"),("image_edit","图片"),("放大","图片"),("upscal","图片"),
+                                               ("反推","其他"),("interrogat","其他"),
+                                               ("视频","视频"),("audio","音频"),("音乐","音频"),("tts","音频")]:
+                                    if kw in 短名.lower():
+                                        分类 = cat
+                                        break
+                            # 只分两类：图片 和 视频，其他归入其他
+                            if 分类 not in ("图片", "视频", "音频", "工程", "其他"):
+                                分类 = "其他"
+                            结果.append({"名称": 短名, "文件名": f, "路径": full, "分类": 分类})
+            # 提示信息
+            提示 = ""
+            if not 结果:
+                提示 = "未找到任何_api格式工作流。请在ComfyUI中打开工作流→菜单→保存(API格式)→文件名以_api结尾（如：我的工作流_api.json）→保存到ComfyUI的user/default/workflows/目录"
+            self._返回JSON({"成功": True, "工作流列表": 结果, "提示": 提示})
         elif 路径 == "/api/wf-delete":
             """删除节点图文件"""
             目录 = self.配置加载器.项目根目录 / "节点图"
@@ -1868,6 +1952,18 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/fs-mkdir":
+            """创建文件夹"""
+            import os as _os
+            目标 = 数据.get("path", "")
+            if not 目标:
+                self._返回JSON({"成功": False, "错误": "缺少路径"})
+            else:
+                try:
+                    _os.makedirs(目标, exist_ok=True)
+                    self._返回JSON({"成功": True})
+                except Exception as e:
+                    self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/file-rename":
             结果 = self.文件管理器.重命名(数据.get("路径", ""), 数据.get("新名称", ""))
             self._返回JSON(结果)
@@ -2941,6 +3037,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     _员工上线时间 = {}
     # 员工提醒队列：{员工名: {"头像": "...", "间隔分钟": 30, "待发送": "消息", "上次提醒": "ISO时间"}}
     _员工提醒队列 = {}
+    # ComfyUI异步生成图片队列：[{节点id, prompt_id, 图片路径, 状态, 时间}]
+    _comfyui图片队列 = []
     # 员工提醒定时器
     _员工提醒线程 = None
 
@@ -3080,7 +3178,19 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 _SSE写入({"类型": "推理流", "记录": [{"类型": "流式回复", "内容": {"内容": 回复}}]})
                 # 保存到历史
                 历史.append({"role": "assistant", "content": 回复})
-                # 保存到员工记忆文件
+                # 保存到SQLite（员工对话记录表）
+                try:
+                    from 存储引擎 import 存储引擎类
+                    存储实例 = 存储引擎类._实例引用
+                    if 存储实例:
+                        时间戳 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        存储实例._执行("INSERT INTO 员工对话记录 (员工名, 角色, 内容, 时间, 来源) VALUES (?,?,?,?,?)",
+                            (员工名, "user", 消息, 时间戳, "员工对话"))
+                        存储实例._执行("INSERT INTO 员工对话记录 (员工名, 角色, 内容, 时间, 来源) VALUES (?,?,?,?,?)",
+                            (员工名, "assistant", 回复, 时间戳, "员工对话"))
+                except Exception:
+                    pass
+                # 保存到员工记忆文件（JSON，兼容旧逻辑）
                 记忆路径 = 运行时.get("记忆路径")
                 if 记忆路径:
                     try:
@@ -3251,6 +3361,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             节点列表 = 数据.get("节点", [])
             连接列表 = 数据.get("连接", [])
             当前文件夹 = 数据.get("当前文件夹", "")
+            单节点上游 = 数据.get("单节点上游输入", "")  # 单节点执行时前端传的上游输入
 
             if not 节点列表:
                 self._返回JSON({"成功": False, "错误": "工作流无节点"})
@@ -3364,6 +3475,9 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             def _收集上游输入(nid):
                 """收集所有上游节点的输出，合并为文本"""
+                # 单节点模式：直接返回前端传的上游输入
+                if 单节点上游:
+                    return 单节点上游
                 上游 = 入边.get(nid, [])
                 if not 上游:
                     return ""
@@ -3386,32 +3500,56 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     pass
 
             def _执行工具员工(nid, nname, 员工名, 初始消息, 提示词, 上游输入):
-                """工具员工ReAct循环：多轮LLM+操作调用，只返回最终文字"""
+                """工具员工ReAct循环：多轮LLM+操作调用，思考过程不输出，只返回最终结果"""
                 对话历史 = [{"role": "user", "content": 初始消息}]
                 工具定义 = self.操作注册中心.获取工具定义() if hasattr(self.操作注册中心, '获取工具定义') else []
+                工具提示 = "\n\n## 工具使用规则\n你拥有可调用的工具（function calling）。必须通过工具调用实际执行操作，不要只用文字描述你做了什么。如果你需要生成图片，必须调用生图工具；如果你需要读取文件，必须调用文件读取工具。绝不允许在文字中声称已执行操作而实际未调用工具。"
                 最大步数 = 15
+                最终回复 = ""
                 for 步 in range(最大步数):
-                    print(f"  [WF-Tool] {nname} 第{步+1}步, 消息数={len(对话历史)}")
-                    结果 = self.模型直连器.发送消息(对话历史, 提示词, 工具列表=工具定义, 跳过缓存=True)
+                    结果 = self.模型直连器.发送消息(对话历史, 提示词 + 工具提示, 工具列表=工具定义, 跳过缓存=True)
                     if not 结果.get("成功"):
                         return 结果.get("错误", "LLM调用失败")
                     回复 = 结果.get("回复内容", "").strip()
-                    工具调用 = 结果.get("工具调用")
-                    # 如果没有工具调用，返回最终回复
-                    if not 工具调用:
-                        print(f"  [WF-Tool] {nname} 完成，无更多工具调用")
-                        return 回复
-                    # 处理工具调用
-                    _SSE写入({"类型": "调试", "消息": f"🔧 {nname} 调用: {工具调用.get('name','?')}"})
-                    执行结果 = self.操作注册中心.执行(工具调用.get("name", ""), 工具调用.get("参数", {}))
+                    工具调用列表 = 结果.get("工具调用")
+                    if not 工具调用列表:
+                        # LLM没调用工具但声称执行了操作 → 强制再试一次
+                        if 步 == 0 and ("已使用" in 回复 or "已调用" in 回复 or "已提交" in 回复 or "已生成" in 回复 or "已完成" in 回复):
+                            对话历史.append({"role": "assistant", "content": 回复})
+                            对话历史.append({"role": "user", "content": "你刚才声称执行了操作，但实际并未通过工具调用执行。请现在使用function calling调用相应工具来真正执行操作。不要只描述，要实际调用。"})
+                            continue
+                        最终回复 = 回复
+                        break
+                    # 工具调用是列表，取第一个
+                    调用 = 工具调用列表[0]
+                    英文名 = 调用.get("名称", 调用.get("name", ""))
+                    英文参数 = 调用.get("参数", 调用.get("arguments", {}))
+                    if not 英文名:
+                        最终回复 = 回复
+                        break
+                    # 英文参数名→中文参数名映射
+                    if hasattr(self.操作注册中心, '解析工具调用'):
+                        工具名, 工具参数 = self.操作注册中心.解析工具调用(英文名, 英文参数)
+                    else:
+                        工具名, 工具参数 = 英文名, 英文参数
+                    执行结果 = self.操作注册中心.执行(工具名, 工具参数)
                     操作输出 = 执行结果.get("数据") or 执行结果.get("结果") or str(执行结果)
-                    # 追加到对话历史
                     对话历史.append({"role": "assistant", "content": 回复})
                     对话历史.append({"role": "user", "content": f"操作结果：\n{操作输出}\n\n请继续，或如果任务已完成请给出最终回复。"})
-                    print(f"  [WF-Tool] {nname} 操作完成: {工具调用.get('name','?')}")
-                # 超过最大步数
-                print(f"  [WF-Tool] {nname} 达到最大步数{最大步数}")
-                return 回复
+                else:
+                    最终回复 = 回复
+
+                # 最终总结：只输出结果，不输出思考过程
+                if len(对话历史) > 1:
+                    总结结果 = self.模型直连器.发送消息(
+                        对话历史 + [{"role": "user", "content": "请根据以上工作过程，给出简洁的最终结果。只输出结果本身，不要重复思考过程和操作细节。"}],
+                        提示词, 跳过缓存=True
+                    )
+                    if 总结结果.get("成功"):
+                        总结 = 总结结果.get("回复内容", "").strip()
+                        if 总结:
+                            return 总结
+                return 最终回复
 
             def _执行节点(nid):
                 node = 节点映射[nid]
@@ -3419,6 +3557,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 nname = node.get("name", "")
                 config = node.get("config", {})
                 _t0 = _time2.time()
+
+                # 禁用节点跳过执行
+                if node.get("disabled"):
+                    _SSE写入({"类型": "节点开始", "id": nid, "name": nname, "type": ntype})
+                    节点输出[nid] = ""
+                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "🚫 节点已禁用", "成功": True})
+                    _wf写日志(nid, nname, ntype, "跳过", "", "节点已禁用", "", int((_time2.time()-_t0)*1000))
+                    return
+
                 print(f"  [WF] 开始执行节点: {nname} ({ntype})")
 
                 _SSE写入({"类型": "节点开始", "id": nid, "name": nname, "type": ntype})
@@ -3446,12 +3593,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         提示词 = 运行时.get("系统提示词", "")
                         if 当前文件夹:
                             提示词 += f"\n\n## 工作目录\n{当前文件夹}"
+                        提示词 += "\n\n## 工作流上下文\n你是提示词增强流水线中的一个加工节点。上游给你一段画面提示词，你的任务：在上游提示词基础上加工（追加你负责的元素或做最终审核），然后直接输出完整的提示词。规则：1.去掉上游的【来自xxx】标签，只保留纯提示词内容 2.不要用方括号[]包裹提示词 3.直接输出纯文本提示词，不要任何格式标记 4.不要解释工作过程 5.不要输出设计文档"
                         启用工具 = 运行时.get("工具调用", False)
 
                         上游输入 = _收集上游输入(nid)
                         指令 = node.get("config", {}).get("指令", "")
-                        if 指令:
-                            消息 = f"{指令}\n\n{上游输入}" if 上游输入 else 指令
+                        if 指令 and 上游输入:
+                            消息 = f"【用户指令】{指令}\n\n【上游输入】\n{上游输入}"
+                        elif 指令:
+                            消息 = f"【用户指令】{指令}"
                         else:
                             消息 = 上游输入 if 上游输入 else "请根据任务目标开始工作"
 
@@ -3494,6 +3644,272 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         节点输出[nid] = 上游输入
                         _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 上游输入, "成功": True})
                         _wf写日志(nid, nname, ntype, "成功", 上游输入, 上游输入, "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "prompt" or ntype == "文本输入":
+                        # 文本输入节点：零token，直接输出用户填的提示词
+                        输出 = config.get("提示词") or config.get("prompt") or ""
+                        节点输出[nid] = 输出
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 输出[:500], "成功": True})
+                        _wf写日志(nid, nname, ntype, "成功", "", 输出[:500], "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "text" or ntype == "文本":
+                        # 文本拼接节点：零token，直接拼接指令+上游输入（不带名片）
+                        指令 = config.get("指令") or config.get("text") or config.get("content") or ""
+                        # 收集上游原始输出（不带【来自xxx】标签）
+                        上游输入 = ""
+                        if 单节点上游:
+                            上游输入 = 单节点上游
+                        else:
+                            上游 = 入边.get(nid, [])
+                            上游排序 = sorted(上游, key=lambda uid: 层级.get(uid, 0))
+                            parts = []
+                            for uid in 上游排序:
+                                out = 节点输出.get(uid, "")
+                                if out:
+                                    parts.append(out)
+                            上游输入 = "\n".join(parts)
+                        if 上游输入 and 指令:
+                            输出 = 上游输入 + 指令
+                        elif 指令:
+                            输出 = 指令
+                        elif 上游输入:
+                            输出 = 上游输入
+                        else:
+                            输出 = ""
+                        节点输出[nid] = 输出
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": 输出[:500], "成功": True})
+                        _wf写日志(nid, nname, ntype, "成功", 上游输入[:200], 输出[:500], "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "comfyui" or ntype == "生图":
+                        # ComfyUI直出节点：不走LLM，直接调用ComfyUI出图，零token消耗
+                        # 全局锁：同一时间只允许一个ComfyUI任务
+                        if not hasattr(网页请求处理器, '_comfyui执行中'):
+                            网页请求处理器._comfyui执行中 = {}
+                        if not hasattr(网页请求处理器, '_comfyui全局锁'):
+                            import threading as _th_lock
+                            网页请求处理器._comfyui全局锁 = _th_lock.Lock()
+                        # 检查是否有任何ComfyUI任务正在执行
+                        if 网页请求处理器._comfyui执行中:
+                            节点输出[nid] = "⏳ 有其他ComfyUI任务在执行中，等待完成后再试"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "⏳ 等待其他ComfyUI任务完成", "成功": False})
+                            _wf写日志(nid, nname, ntype, "跳过", "", "等待ComfyUI全局锁", "其他任务执行中", int((_time2.time()-_t0)*1000))
+                        else:
+                            上游输入 = _收集上游输入(nid)
+                            提示词 = config.get("提示词") or config.get("prompt") or 上游输入 or ""
+                            # 清理提示词：去掉上游标签、多余格式，只保留画面描述
+                            import re as _re_clean
+                            提示词 = _re_clean.sub(r'【来自[^】]*】\s*', '', 提示词)
+                            提示词 = _re_clean.sub(r'```[a-z]*\n?', '', 提示词)
+                            提示词 = _re_clean.sub(r'\*\*[^*]*\*\*:', '', 提示词)
+                            提示词 = _re_clean.sub(r'^\s*[-•]\s*', '', 提示词, flags=_re_clean.MULTILINE)
+                            提示词 = _re_clean.sub(r'\n{3,}', '\n\n', 提示词)
+                            提示词 = 提示词.strip()
+                            工作流名 = config.get("工作流") or config.get("workflow") or ""
+                            宽度 = int(config.get("宽度") or config.get("width") or 0)
+                            高度 = int(config.get("高度") or config.get("height") or 0)
+                            if not 提示词:
+                                节点输出[nid] = "无提示词输入"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "无提示词", "成功": False})
+                                _wf写日志(nid, nname, ntype, "失败", "", "无提示词", "缺少提示词", int((_time2.time()-_t0)*1000))
+                            else:
+                                try:
+                                    from 操作.ComfyUI操作 import ComfyUI一键生图, _获取ComfyUI地址, _加载工作流文件, _注入种子, _注入宽高, _注入提示词通用, _API请求, _获取默认保存目录
+                                    地址 = _获取ComfyUI地址()
+                                    print(f"  [WF-ComfyUI] 探测地址: {地址}")
+                                    保存目录 = 当前文件夹 if 当前文件夹 else _获取默认保存目录()
+                                    print(f"  [WF-ComfyUI] 保存目录: {保存目录}")
+                                    import os as _os2
+                                    _os2.makedirs(保存目录, exist_ok=True)
+                                    import json as _json2, uuid as _uuid2, random as _random2
+                                    if 工作流名:
+                                        成功2, 结果2, _ = _加载工作流文件(工作流名)
+                                        if not 成功2:
+                                            raise Exception(结果2)
+                                        工作流dict = 结果2
+                                    else:
+                                        工作流dict = {
+                                            "3": {"class_type": "KSampler", "inputs": {"seed": _random2.randint(0, 2**32-1), "steps": 20, "cfg": 7.0, "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
+                                            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ""}},
+                                            "5": {"class_type": "EmptyLatentImage", "inputs": {"width": 宽度 or 512, "height": 高度 or 512, "batch_size": 1}},
+                                            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": 提示词, "clip": ["4", 1]}},
+                                            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "low quality, bad anatomy", "clip": ["4", 1]}},
+                                            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+                                            "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "zf3d", "images": ["8", 0]}}
+                                        }
+                                    种子 = _random2.randint(0, 2**32-1)
+                                    _注入种子(工作流dict, 种子)
+                                    _注入宽高(工作流dict, 宽度, 高度)
+                                    _注入提示词通用(工作流dict, 提示词)
+                                    client_id = str(_uuid2.uuid4())
+                                    payload = {"prompt": 工作流dict, "client_id": client_id}
+                                    成功3, 结果3 = _API请求(地址, "/prompt", "POST", payload)
+                                    if not 成功3:
+                                        raise Exception(f"提交失败: {结果3}")
+                                    prompt_id = 结果3.get("prompt_id", "")
+                                    网页请求处理器._comfyui执行中[nid] = prompt_id
+                                    输出文本 = f"✅ 已提交生成任务(不等待)\n提示词: {提示词[:60]}{'...' if len(提示词)>60 else ''}\nprompt_id: {prompt_id}"
+                                    节点输出[nid] = 输出文本
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 输出文本, "成功": True, "图片": ""})
+
+                                    def _轮询图片(nid, prompt_id, 地址, 保存目录):
+                                        import time as _time3
+                                        for _ in range(120):
+                                            _time3.sleep(2)
+                                            try:
+                                                ok, hist = _API请求(地址, f"/history/{prompt_id}")
+                                                if ok and prompt_id in hist:
+                                                    条目 = hist[prompt_id]
+                                                    状态 = 条目.get("status", {})
+                                                    if isinstance(状态, dict) and 状态.get("status_str") == "error":
+                                                        网页请求处理器._comfyui图片队列.append({"节点id": nid, "prompt_id": prompt_id, "图片路径": "", "状态": "失败", "时间": _time3.time()})
+                                                        网页请求处理器._comfyui执行中.pop(nid, None)
+                                                        return
+                                                    import os as _os3
+                                                    for 节点id, 输出 in 条目.get("outputs", {}).items():
+                                                        for img in 输出.get("images", []):
+                                                            文件名 = img.get("filename", "")
+                                                            if not 文件名:
+                                                                continue
+                                                            import urllib.request as _ur2, urllib.parse as _up2
+                                                            参数 = {"filename": 文件名, "type": img.get("type", "output")}
+                                                            if img.get("subfolder"):
+                                                                参数["subfolder"] = img["subfolder"]
+                                                            url = f"http://{地址}/view?{_up2.urlencode(参数)}"
+                                                            保存路径 = _os3.path.join(保存目录, 文件名)
+                                                            try:
+                                                                req = _ur2.Request(url, headers={"User-Agent": "ZF3D-Agent"})
+                                                                with _ur2.urlopen(req, timeout=30) as resp2:
+                                                                    with open(保存路径, 'wb') as f2:
+                                                                        f2.write(resp2.read())
+                                                                print(f"  [WF-ComfyUI] 图片已保存: {保存路径}")
+                                                            except Exception as dl_err:
+                                                                print(f"  [WF-ComfyUI] 图片下载失败: {dl_err}, url={url}")
+                                                            网页请求处理器._comfyui图片队列.append({"节点id": nid, "prompt_id": prompt_id, "图片路径": 保存路径, "文件名": 文件名, "状态": "完成", "时间": _time3.time()})
+                                                            网页请求处理器._comfyui执行中.pop(nid, None)
+                                                            return
+                                            except Exception as poll_err:
+                                                print(f"  [WF-ComfyUI] 轮询异常: {poll_err}")
+                                        网页请求处理器._comfyui图片队列.append({"节点id": nid, "prompt_id": prompt_id, "图片路径": "", "状态": "超时", "时间": _time3.time()})
+                                        网页请求处理器._comfyui执行中.pop(nid, None)
+
+                                    import threading as _th2
+                                    _th2.Thread(target=_轮询图片, args=(nid, prompt_id, 地址, 保存目录), daemon=True).start()
+                                    _wf写日志(nid, nname, ntype, "成功", 提示词[:200], 输出文本, "", int((_time2.time()-_t0)*1000))
+                                except Exception as e:
+                                    错误 = f"ComfyUI出图失败: {e}"
+                                    节点输出[nid] = 错误
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 错误, "成功": False})
+                                    _wf写日志(nid, nname, ntype, "失败", 提示词[:200], 错误, 错误, int((_time2.time()-_t0)*1000))
+                    elif ntype == "comfyui-edit" or ntype == "图片修改":
+                        # ComfyUI图片修改节点：上传图片+注入提示词，不走LLM
+                        if not hasattr(网页请求处理器, '_comfyui执行中'):
+                            网页请求处理器._comfyui执行中 = {}
+                        if 网页请求处理器._comfyui执行中:
+                            节点输出[nid] = "⏳ 等待其他ComfyUI任务完成"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "⏳ 等待ComfyUI", "成功": False})
+                            _wf写日志(nid, nname, ntype, "跳过", "", "等待全局锁", "", int((_time2.time()-_t0)*1000))
+                        else:
+                            上游输入 = _收集上游输入(nid)
+                            提示词 = config.get("提示词") or config.get("prompt") or 上游输入 or ""
+                            工作流名 = config.get("工作流") or config.get("workflow") or ""
+                            图片路径 = config.get("图片路径") or config.get("路径") or ""
+                            if not 工作流名:
+                                节点输出[nid] = "未指定工作流"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "未指定工作流", "成功": False})
+                            elif not 图片路径:
+                                节点输出[nid] = "未提供图片路径"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "未提供图片路径", "成功": False})
+                            else:
+                                try:
+                                    from 操作.ComfyUI操作 import ComfyUI图片修改, _获取ComfyUI地址, _获取默认保存目录
+                                    操作实例 = ComfyUI图片修改()
+                                    操作参数 = {"工作流": 工作流名, "图片路径": 图片路径}
+                                    if 提示词:
+                                        操作参数["提示词"] = 提示词
+                                    保存目录 = 当前文件夹 if 当前文件夹 else _获取默认保存目录()
+                                    操作参数["保存目录"] = 保存目录
+                                    网页请求处理器._comfyui执行中[nid] = "edit"
+                                    # 后台执行
+                                    def _执行图片修改(nid, 操作实例, 操作参数, 保存目录):
+                                        import time as _time_edit
+                                        结果 = 操作实例.执行(操作参数)
+                                        输出文本 = 结果.结果 if hasattr(结果, '结果') else str(结果)
+                                        图片路径_out = ""
+                                        if hasattr(结果, '元数据') and 结果.元数据:
+                                            sd = 结果.元数据.get("保存目录", "")
+                                            if sd:
+                                                import os as _os_edit
+                                                图片文件 = [f for f in _os_edit.listdir(sd) if f.endswith(('.png','.jpg','.jpeg','.webp'))]
+                                                if 图片文件:
+                                                    图片文件.sort(key=lambda f: _os_edit.getmtime(_os_edit.join(sd, f)), reverse=True)
+                                                    图片路径_out = _os_edit.join(sd, 图片文件[0])
+                                        网页请求处理器._comfyui图片队列.append({"节点id": nid, "图片路径": 图片路径_out, "文件名": "", "状态": "完成" if 结果.成功 else "失败", "时间": _time_edit.time()})
+                                        网页请求处理器._comfyui执行中.pop(nid, None)
+                                    import threading as _th_edit
+                                    _th_edit.Thread(target=_执行图片修改, args=(nid, 操作实例, 操作参数, 保存目录), daemon=True).start()
+                                    节点输出[nid] = f"✅ 已提交图片修改(不等待)\n工作流: {工作流名}\n图片: {图片路径}"
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 节点输出[nid], "成功": True, "图片": ""})
+                                    _wf写日志(nid, nname, ntype, "成功", 提示词[:200], 节点输出[nid], "", int((_time2.time()-_t0)*1000))
+                                except Exception as e:
+                                    网页请求处理器._comfyui执行中.pop(nid, None)
+                                    错误 = f"图片修改失败: {e}"
+                                    节点输出[nid] = 错误
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 错误, "成功": False})
+                                    _wf写日志(nid, nname, ntype, "失败", "", 错误, 错误, int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "comfyui-video" or ntype == "视频生成":
+                        # ComfyUI视频生成节点：文生视频/图生视频，不走LLM
+                        if not hasattr(网页请求处理器, '_comfyui执行中'):
+                            网页请求处理器._comfyui执行中 = {}
+                        if 网页请求处理器._comfyui执行中:
+                            节点输出[nid] = "⏳ 等待其他ComfyUI任务完成"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "⏳ 等待ComfyUI", "成功": False})
+                            _wf写日志(nid, nname, ntype, "跳过", "", "等待全局锁", "", int((_time2.time()-_t0)*1000))
+                        else:
+                            上游输入 = _收集上游输入(nid)
+                            提示词 = config.get("提示词") or config.get("prompt") or 上游输入 or ""
+                            工作流名 = config.get("工作流") or config.get("workflow") or ""
+                            图片路径 = config.get("图片路径") or config.get("路径") or ""
+                            if not 工作流名:
+                                节点输出[nid] = "未指定工作流"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "未指定工作流", "成功": False})
+                            else:
+                                try:
+                                    from 操作.ComfyUI操作 import ComfyUI视频生成, _获取ComfyUI地址, _获取默认保存目录
+                                    操作实例 = ComfyUI视频生成()
+                                    操作参数 = {"提示词": 提示词, "工作流": 工作流名}
+                                    if 图片路径:
+                                        操作参数["图片路径"] = 图片路径
+                                    保存目录 = 当前文件夹 if 当前文件夹 else _获取默认保存目录()
+                                    操作参数["保存目录"] = 保存目录
+                                    网页请求处理器._comfyui执行中[nid] = "video"
+                                    def _执行视频生成(nid, 操作实例, 操作参数, 保存目录):
+                                        import time as _time_vid
+                                        结果 = 操作实例.执行(操作参数)
+                                        输出文本 = 结果.结果 if hasattr(结果, '结果') else str(结果)
+                                        视频路径 = ""
+                                        if hasattr(结果, '元数据') and 结果.元数据:
+                                            sd = 结果.元数据.get("保存目录", "")
+                                            if sd:
+                                                import os as _os_vid
+                                                视频文件 = [f for f in _os_vid.listdir(sd) if f.endswith(('.mp4','.webm','.gif','.avi'))]
+                                                if 视频文件:
+                                                    视频文件.sort(key=lambda f: _os_vid.getmtime(_os_vid.join(sd, f)), reverse=True)
+                                                    视频路径 = _os_vid.join(sd, 视频文件[0])
+                                        网页请求处理器._comfyui图片队列.append({"节点id": nid, "图片路径": 视频路径, "文件名": "", "状态": "完成" if 结果.成功 else "失败", "时间": _time_vid.time()})
+                                        网页请求处理器._comfyui执行中.pop(nid, None)
+                                    import threading as _th_vid
+                                    _th_vid.Thread(target=_执行视频生成, args=(nid, 操作实例, 操作参数, 保存目录), daemon=True).start()
+                                    节点输出[nid] = f"✅ 已提交视频生成(不等待)\n工作流: {工作流名}\n提示词: {提示词[:60]}"
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 节点输出[nid], "成功": True, "图片": ""})
+                                    _wf写日志(nid, nname, ntype, "成功", 提示词[:200], 节点输出[nid], "", int((_time2.time()-_t0)*1000))
+                                except Exception as e:
+                                    网页请求处理器._comfyui执行中.pop(nid, None)
+                                    错误 = f"视频生成失败: {e}"
+                                    节点输出[nid] = 错误
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 错误, "成功": False})
+                                    _wf写日志(nid, nname, ntype, "失败", "", 错误, 错误, int((_time2.time()-_t0)*1000))
+
                 except Exception as _node_err:
                     print(f"  [WF] 节点执行异常: {nname}: {_node_err}")
                     节点输出[nid] = str(_node_err)
@@ -3701,12 +4117,15 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             if not self.模型直连器:
                 self._返回JSON({"成功": False, "错误": "模型未就绪"})
                 return
-            提示 = f"请为数字员工「{姓名}」生成系统提示词。角色：{角色}。要求：1.开头写'你的名字叫{姓名}' 2.描述角色专长和限制 3.当用户问你是谁时回答你是{姓名} 4.控制在100字以内 5.只输出提示词内容，不要多余解释"
-            结果 = self.模型直连器.发送消息([{"role": "user", "content": 提示}], "你是一个人设生成助手，简洁输出。")
-            if 结果.get("成功"):
-                self._返回JSON({"成功": True, "数据": 结果.get("回复内容", "").strip()})
-            else:
-                self._返回JSON({"成功": False, "错误": 结果.get("错误", "生成失败")})
+            # AI润色用户描述（补充细节，不改原意）
+            润色提示 = f"用户想创建一个AI图片提示词加工流水线的员工「{姓名}」，职责描述：{角色}\n请对这段描述进行润色和补充，使其更清晰、更专业，但不要改变用户的原始意图。只输出润色后的描述（50字以内），不要其他内容。"
+            润色结果 = self.模型直连器.发送消息([{"role": "user", "content": 润色提示}], "简洁专业地润色，保留原意。")
+            润色描述 = ""
+            if 润色结果.get("成功"):
+                润色描述 = 润色结果.get("回复内容", "").strip()
+            # 人设 = 名字 + 用户原始描述 + AI润色 + 工作规则
+            人设 = f"你的名字叫{姓名}。你在AI提示词加工流水线中工作。\n\n## 用户描述\n{角色}\n\n## 角色润色\n{润色描述}\n\n## 工作规则\n收到上游提示词后，按照上述职责进行加工，输出完整提示词。不要解释工作过程，禁止输出设计文档。当用户问你是谁时，回答你是{姓名}。"
+            self._返回JSON({"成功": True, "数据": 人设})
         elif 路径 == "/api/employee-clear-history":
             """清除员工聊天记录（不影响技能和经验）"""
             姓名 = 数据.get("姓名", "")

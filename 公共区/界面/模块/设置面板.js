@@ -20,6 +20,7 @@ function initSettings() {
             if (item.dataset.tab === "tokenstats") loadTokenStats();
             if (item.dataset.tab === "config") loadConfig();
             if (item.dataset.tab === "wheel") loadWheelConfig();
+            if (item.dataset.tab === "voice") { loadVoiceConfig(); loadTTSConfig(); }
         });
     });
 }
@@ -436,8 +437,8 @@ function resetWheelConfig() {
         "扇区": [
             {"名称": "翻译", "颜色": "#4a9eff", "说明": "选中文本翻译"},
             {"名称": "问答", "颜色": "#9b59b6", "说明": "快速提问，带上下文"},
-            {"名称": "空", "颜色": "", "说明": ""},
-            {"名称": "空", "颜色": "", "说明": ""},
+            {"名称": "录音", "颜色": "#e74c3c", "说明": "点击开始录音，再次点击停止"},
+            {"名称": "录屏", "颜色": "#2ecc71", "说明": "点击开始录屏，再次点击停止"},
             {"名称": "朗读", "颜色": "#f39c12", "说明": "选中文本语音朗读"},
             {"名称": "截图", "颜色": "#50c878", "说明": "框选区域截图"}
         ],
@@ -460,4 +461,351 @@ function resetWheelConfig() {
     document.getElementById("wcTextHoverColor").value = c.文字hover色;
     renderWheelSectors(c.扇区);
     showToast("info", "↩️ 已恢复默认", "点击保存按钮写入配置");
+}
+
+// ============ 语音输入配置 ============
+let _voiceInstallPolling = null;
+async function loadVoiceConfig() {
+    try {
+        // 先查安装状态（判断是否正在下载中）
+        let 安装中 = false;
+        let 安装步骤 = "";
+        try {
+            const sr = await fetch("/api/voice-install-status", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+            const sd = await sr.json();
+            if (sd.成功 && !sd.状态.完成 && !sd.状态.错误 && sd.状态.进度 > 0) {
+                安装中 = true;
+                安装步骤 = sd.状态.步骤 || "安装中";
+            }
+        } catch(e) {}
+
+        const res = await fetch("/api/voice-status");
+        const d = await res.json();
+        if (!d.成功) { showToast("error", "❌ 加载失败", d.错误); return; }
+        const panel = document.getElementById("voiceConfigPanel");
+        const 已安装 = d.已安装;
+        const 模型存在 = d.模型存在;
+        const 引擎 = d.引擎 || "浏览器";
+        const 状态文本 = 已安装 && 模型存在 ? "✅ 已就绪" : (已安装 ? "⚠️ 库已安装，模型未下载" : (安装中 ? "⏳ 安装中..." : "❌ 未安装"));
+        const 按钮HTML = 安装中
+            ? '<button class="dlg-btn primary" disabled style="opacity:0.6;">⏳ 下载中...</button>'
+            : ((!已安装 || !模型存在) ? '<button class="dlg-btn primary" onclick="installLocalSTT()" id="voiceInstallBtn">🔧 自动安装</button>' : '');
+        panel.innerHTML = `
+            <div style="font-size:13px;line-height:1.8;margin-bottom:16px;">
+                <p style="color:var(--text2);">选择语音输入引擎：</p>
+                <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="voiceEngine" value="浏览器" ${引擎==="浏览器"?"checked":""}>
+                    <span>🌐 浏览器引擎</span>
+                    <span style="color:var(--text2);font-size:11px;">（Web Speech API，零安装，需联网）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="voiceEngine" value="本地" ${引擎==="本地"?"checked":""}>
+                    <span>🖥️ 本地引擎</span>
+                    <span style="color:var(--text2);font-size:11px;">（sherpa-onnx，流式识别，边说边出字）</span>
+                </label>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+                <h4 style="margin:0 0 8px;font-size:13px;">本地引擎状态</h4>
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <span style="font-size:13px;">${状态文本}</span>
+                    ${按钮HTML}
+                </div>
+                <div id="voiceInstallProgress" style="font-size:12px;color:var(--text2);">${安装中 ? 安装步骤 : ''}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:8px;">
+                    安装内容：sherpa-onnx 库（~50MB）+ 流式语音模型（~220MB）<br>
+                    模型来源：GitHub，多线程加速下载<br>
+                    模型存储：本地英文路径，不外泄
+                </div>
+            </div>
+            <div style="margin-top:16px;">
+                <button class="dlg-btn primary" onclick="saveVoiceConfig()">💾 保存设置</button>
+            </div>
+        `;
+        // 如果正在安装中，恢复进度显示
+        if (_voiceInstallPolling) _startInstallPolling();
+    } catch (e) { showToast("error", "❌ 加载失败", e.message); }
+}
+
+async function saveVoiceConfig() {
+    const 引擎 = document.querySelector('input[name="voiceEngine"]:checked')?.value || "浏览器";
+    try {
+        // 读取当前系统配置，修改语音输入部分，保存
+        const res = await fetch("/api/config");
+        const c = await res.json();
+        const 系统配置 = c.系统配置 || {};
+        if (!系统配置.语音输入) 系统配置.语音输入 = {};
+        系统配置.语音输入.引擎 = 引擎;
+        await fetch("/api/save-config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ "名称": "系统配置", "数据": 系统配置, "区域": "公共区" })
+        });
+        showToast("success", "✅ 语音设置已保存", "切换引擎后刷新页面生效");
+    } catch (e) { showToast("error", "❌ 保存失败", e.message); }
+}
+
+async function installLocalSTT() {
+    // 正在安装中则不重复点击
+    if (_voiceInstallPolling) {
+        showToast("info", "🔧 正在安装中", "请等待当前下载完成");
+        return;
+    }
+    const btn = document.getElementById("voiceInstallBtn");
+    const progress = document.getElementById("voiceInstallProgress");
+    if (btn) { btn.disabled = true; btn.textContent = "⏳ 下载中..."; }
+    try {
+        await fetch("/api/voice-install", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+        // 立即弹出下载面板
+        if (typeof showDownloadPanel === "function") showDownloadPanel();
+        // 持续保持面板显示+轮询，直到安装完成
+        _keepPanelAlive = true;
+        if (typeof startDownloadPolling === "function") startDownloadPolling();
+        _startInstallPolling();
+    } catch (e) {
+        showToast("error", "❌ 启动安装失败", e.message);
+        if (btn) { btn.disabled = false; btn.textContent = "🔧 自动安装"; }
+    }
+}
+
+function _startInstallPolling() {
+    if (_voiceInstallPolling) return;
+    const progress = document.getElementById("voiceInstallProgress");
+    _voiceInstallPolling = setInterval(async () => {
+        try {
+            const res = await fetch("/api/voice-install-status", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+            const d = await res.json();
+            if (!d.成功) return;
+            const s = d.状态;
+            if (progress) {
+                if (s.错误) {
+                    progress.innerHTML = `<span style="color:#f44336;">❌ ${s.错误}</span>`;
+                } else if (s.完成) {
+                    progress.innerHTML = `<span style="color:#4caf50;">✅ 安装完成！点击保存并刷新页面</span>`;
+                } else {
+                    progress.innerHTML = `${s.步骤}（${s.进度}%）`;
+                }
+            }
+            if (s.完成 || s.错误) {
+                clearInterval(_voiceInstallPolling);
+                _voiceInstallPolling = null;
+                _keepPanelAlive = false; // 释放下载面板
+                const btn2 = document.getElementById("voiceInstallBtn");
+                if (btn2) { btn2.disabled = false; btn2.textContent = "🔧 自动安装"; }
+                if (s.完成) {
+                    // 不立即loadVoiceConfig，避免重新渲染覆盖进度显示
+                    // 改为直接更新状态文本
+                    if (progress) progress.innerHTML = `<span style="color:#4caf50;">✅ 安装完成！请关闭设置并刷新页面</span>`;
+                    showToast("success", "✅ 语音引擎安装完成", "请关闭设置并刷新页面生效");
+                }
+            }
+        } catch (e) {}
+    }, 2000);
+}
+
+// ============ TTS输出配置 ============
+let _ttsInstallPolling = null;
+let _tts说话人列表 = [];
+let _keepPanelAliveTTS = false;
+
+async function loadTTSConfig() {
+    try {
+        // 先查安装状态（判断是否正在下载中）
+        let 安装中 = false;
+        let 安装步骤 = "";
+        try {
+            const sr = await fetch("/api/tts-install-status");
+            const sd = await sr.json();
+            if (sd.成功 && !sd.状态.完成 && !sd.状态.错误 && sd.状态.进度 > 0) {
+                安装中 = true;
+                安装步骤 = sd.状态.步骤 || "安装中";
+            }
+        } catch(e) {}
+
+        const [cfgRes, voicesRes] = await Promise.all([
+            fetch("/api/tts-config"),
+            fetch("/api/tts-voices")
+        ]);
+        const cfg = await cfgRes.json();
+        const voices = await voicesRes.json();
+        if (!cfg.成功) { showToast("error", "❌ 加载TTS配置失败", cfg.错误); return; }
+        if (voices.成功) _tts说话人列表 = voices.数据 || [];
+        const panel = document.getElementById("ttsConfigPanel");
+        if (!panel) return;
+        const 配置 = cfg.配置 || {};
+        const 引擎 = 配置.引擎 || "本地";
+        const 说话人ID = 配置.说话人ID ?? 47;
+        const 语速 = 配置.语速 ?? 1.0;
+        const edge音色 = 配置.edge音色 || "zh-CN-XiaoxiaoNeural";
+        const 已安装 = cfg.已安装;
+        const 模型存在 = cfg.模型存在;
+        const 状态文本 = 已安装 && 模型存在 ? "✅ 已就绪" : (已安装 ? "⚠️ 库已安装，模型未下载" : (安装中 ? "⏳ 安装中..." : "❌ 未安装"));
+        const 按钮HTML = 安装中
+            ? '<button class="dlg-btn primary" disabled style="opacity:0.6;">⏳ 下载中...</button>'
+            : ((!已安装 || !模型存在) ? '<button class="dlg-btn primary" onclick="installTTS()" id="ttsInstallBtn">🔧 自动安装</button>' : '');
+        // 筛选中文说话人优先显示
+        const 中文说话人 = _tts说话人列表.filter(v => v.语言 === "中文");
+        const 其他说话人 = _tts说话人列表.filter(v => v.语言 !== "中文");
+        const 说话人选项 = [...中文说话人, ...其他说话人]
+            .map(v => `<option value="${v.sid}" ${v.sid===说话人ID?'selected':''}>${v.头像||''} ${v.名称}（${v.性别}·${v.语言}）</option>`).join('');
+        const edge音色列表 = [
+            "zh-CN-XiaoxiaoNeural","zh-CN-YunxiNeural","zh-CN-YunyangNeural","zh-CN-YunjianNeural",
+            "zh-CN-XiaoyiNeural","zh-CN-XiaochenNeural","zh-CN-XiaohanNeural","zh-CN-XiaomengNeural",
+            "zh-CN-XiaomoNeural","zh-CN-XiaoruiNeural","zh-CN-XiaoshuangNeural","zh-CN-XiaoxuanNeural",
+            "zh-CN-XiaoyanNeural","zh-CN-XiaozhenNeural","zh-CN-YunfengNeural","zh-CN-YunhaoNeural",
+            "zh-CN-YunxiaNeural","zh-CN-YunzeNeural","zh-CN-liaoning-XiaobeiNeural","zh-CN-shaanxi-XiaoniNeural"
+        ];
+        const edge选项 = edge音色列表.map(v => `<option value="${v}" ${v===edge音色?'selected':''}>${v}</option>`).join('');
+        panel.innerHTML = `
+            <div style="font-size:13px;line-height:1.8;margin-bottom:16px;">
+                <p style="color:var(--text2);">选择TTS朗读引擎：</p>
+                <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="ttsEngine" value="本地" ${引擎==="本地"?"checked":""}>
+                    <span>🖥️ 本地引擎</span>
+                    <span style="color:var(--text2);font-size:11px;">（Kokoro TTS，离线，103个音色）</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
+                    <input type="radio" name="ttsEngine" value="edge" ${引擎==="edge"?"checked":""}>
+                    <span>🌐 Edge TTS</span>
+                    <span style="color:var(--text2);font-size:11px;">（微软在线，需联网，音质好）</span>
+                </label>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+                <h4 style="margin:0 0 8px;font-size:13px;">本地引擎状态</h4>
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <span style="font-size:13px;">${状态文本}</span>
+                    ${按钮HTML}
+                </div>
+                <div id="ttsInstallProgress" style="font-size:12px;color:var(--text2);">${安装中 ? 安装步骤 : ''}</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:8px;">
+                    安装内容：Kokoro TTS 模型 int8版（~126MB）<br>
+                    模型来源：GitHub，多线程加速下载<br>
+                    模型存储：本地英文路径，不外泄
+                </div>
+            </div>
+            <div id="ttsLocalSettings" style="margin-top:12px;${引擎!=='本地'?'display:none':''}">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">说话人（中文优先）</label>
+                    <select id="ttsSpeaker" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px">
+                        ${说话人选项}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">语速（${语速}，越大越快）</label>
+                    <input type="range" id="ttsSpeed" min="0.5" max="2.0" step="0.1" value="${语速}" style="width:100%" oninput="this.previousElementSibling.textContent='语速（'+this.value+'，越大越快）'">
+                </div>
+            </div>
+            <div id="ttsEdgeSettings" style="margin-top:12px;${引擎!=='edge'?'display:none':''}">
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Edge音色</label>
+                    <select id="ttsEdgeVoice" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px">
+                        ${edge选项}
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top:16px;">
+                <button class="dlg-btn" onclick="testTTS()" style="margin-right:8px">🔊 试听</button>
+                <button class="dlg-btn primary" onclick="saveTTSConfig()">💾 保存设置</button>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">🔊 朗读音量（${ttsVolume}%）</label>
+                    <input type="range" id="ttsVolumeSlider" min="0" max="100" value="${ttsVolume}" style="width:100%" oninput="this.previousElementSibling.textContent='🔊 朗读音量（'+this.value+'%）'; ttsVolume=parseInt(this.value); localStorage.setItem('ttsVolume',String(ttsVolume))">
+                </div>
+            </div>
+        `;
+        // 引擎切换时显示/隐藏对应设置区
+        document.querySelectorAll('input[name="ttsEngine"]').forEach(r => {
+            r.addEventListener('change', (e) => {
+                document.getElementById('ttsLocalSettings').style.display = e.target.value === '本地' ? '' : 'none';
+                document.getElementById('ttsEdgeSettings').style.display = e.target.value === 'edge' ? '' : 'none';
+            });
+        });
+        if (_ttsInstallPolling) _startTTSInstallPolling();
+    } catch (e) { showToast("error", "❌ 加载失败", e.message); }
+}
+
+async function saveTTSConfig() {
+    const 引擎 = document.querySelector('input[name="ttsEngine"]:checked')?.value || "本地";
+    const 说话人ID = parseInt(document.getElementById("ttsSpeaker")?.value || "47");
+    const 语速 = parseFloat(document.getElementById("ttsSpeed")?.value || "1.0");
+    const edge音色 = document.getElementById("ttsEdgeVoice")?.value || "zh-CN-XiaoxiaoNeural";
+    try {
+        const res = await fetch("/api/config");
+        const c = await res.json();
+        const 系统配置 = c.系统配置 || {};
+        系统配置.语音输出 = { 引擎, 说话人ID, 语速, edge音色 };
+        await fetch("/api/save-config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ "名称": "系统配置", "数据": 系统配置, "区域": "公共区" })
+        });
+        showToast("success", "✅ TTS设置已保存", "新设置即时生效");
+    } catch (e) { showToast("error", "❌ 保存失败", e.message); }
+}
+
+function testTTS() {
+    const 引擎 = document.querySelector('input[name="ttsEngine"]:checked')?.value || "本地";
+    const sid = parseInt(document.getElementById("ttsSpeaker")?.value || "47");
+    const 语速 = parseFloat(document.getElementById("ttsSpeed")?.value || "1.0");
+    const edge音色 = document.getElementById("ttsEdgeVoice")?.value || "zh-CN-XiaoxiaoNeural";
+    fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            文本: "你好，这是语音朗读测试。",
+            音量: ttsVolume,
+            语音配置: { 引擎, 说话人ID: sid, 语速, edge音色 }
+        })
+    }).catch(() => {});
+}
+
+async function installTTS() {
+    if (_ttsInstallPolling) { showToast("info", "🔧 正在安装中", "请等待当前下载完成"); return; }
+    const btn = document.getElementById("ttsInstallBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "⏳ 下载中..."; }
+    try {
+        await fetch("/api/tts-install", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+        // 立即弹出下载面板（左下角断点续传对话框）
+        if (typeof showDownloadPanel === "function") showDownloadPanel();
+        // 持续保持面板显示+轮询，直到安装完成
+        _keepPanelAliveTTS = true;
+        if (typeof startDownloadPolling === "function") startDownloadPolling();
+        _startTTSInstallPolling();
+    } catch (e) {
+        showToast("error", "❌ 启动安装失败", e.message);
+        if (btn) { btn.disabled = false; btn.textContent = "🔧 自动安装"; }
+    }
+}
+
+function _startTTSInstallPolling() {
+    if (_ttsInstallPolling) return;
+    const progress = document.getElementById("ttsInstallProgress");
+    _ttsInstallPolling = setInterval(async () => {
+        try {
+            const res = await fetch("/api/tts-install-status");
+            const d = await res.json();
+            if (!d.成功) return;
+            const s = d.状态;
+            if (progress) {
+                if (s.错误) {
+                    progress.innerHTML = `<span style="color:#f44336;">❌ ${s.错误}</span>`;
+                } else if (s.完成) {
+                    progress.innerHTML = `<span style="color:#4caf50;">✅ 安装完成！可选择说话人并试听</span>`;
+                } else {
+                    progress.innerHTML = `${s.步骤}（${s.进度}%）`;
+                }
+            }
+            if (s.完成 || s.错误) {
+                clearInterval(_ttsInstallPolling);
+                _ttsInstallPolling = null;
+                _keepPanelAliveTTS = false; // 释放下载面板
+                const btn2 = document.getElementById("ttsInstallBtn");
+                if (btn2) { btn2.disabled = false; btn2.textContent = "🔧 自动安装"; }
+                if (s.完成) {
+                    showToast("success", "✅ Kokoro TTS安装完成", "可在上方选择说话人并试听");
+                    loadTTSConfig();
+                }
+            }
+        } catch (e) {}
+    }, 2000);
 }

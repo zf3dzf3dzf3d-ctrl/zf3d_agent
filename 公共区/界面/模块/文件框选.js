@@ -337,19 +337,20 @@ function captureSelection() {
         hideSelectionHint();
         return;
     }
-    // 代码编辑器中的选区
-    const ta = document.getElementById("codeInput");
-    const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
-    if (sel.length > 0) {
-        editorSelection = { text: sel, start: ta.selectionStart, end: ta.selectionEnd };
-        if (activeFileIdx >= 0 && openFiles[activeFileIdx]) openFiles[activeFileIdx].selection = editorSelection;
-        showSelectionHint(sel);
-        if (editorInstance) editorInstance.设置选区高亮(ta.selectionStart, ta.selectionEnd);
-    } else {
-        editorSelection = null;
-        if (activeFileIdx >= 0 && openFiles[activeFileIdx]) openFiles[activeFileIdx].selection = null;
-        hideSelectionHint();
-        if (editorInstance) editorInstance.清除选区高亮();
+    // 代码编辑器中的选区（通过 Monaco API）
+    if (editorInstance) {
+        const range = editorInstance.获取选中范围();
+        if (range && range.text.length > 0) {
+            editorSelection = { text: range.text, start: range.start, end: range.end };
+            if (activeFileIdx >= 0 && openFiles[activeFileIdx]) openFiles[activeFileIdx].selection = editorSelection;
+            showSelectionHint(range.text);
+            editorInstance.设置选区高亮(range.start, range.end);
+        } else {
+            editorSelection = null;
+            if (activeFileIdx >= 0 && openFiles[activeFileIdx]) openFiles[activeFileIdx].selection = null;
+            hideSelectionHint();
+            editorInstance.清除选区高亮();
+        }
     }
 }
 

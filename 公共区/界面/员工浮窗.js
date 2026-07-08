@@ -44,7 +44,7 @@
         panel.innerHTML = `
             <div class="emp-panel-header">
                 <span class="emp-panel-title">🏢 数字员工</span>
-                <button class="emp-panel-close" onclick="window.empWidget.openWorkflow()" title="节点工作流">🔀</button>
+                <button class="emp-panel-close" id="wfToggleBtn" onclick="window.empWidget.toggleWorkflow()" title="节点工作流">🔲</button>
                 <button class="emp-panel-close" onclick="window.empWidget.openCreatePanel()" title="创建员工">➕</button>
                 <button class="emp-panel-close" onclick="window.empWidget.togglePanel()" title="关闭">✕</button>
             </div>
@@ -91,6 +91,7 @@
                     </div>
                     <span class="emp-wf-title">🔀 节点工作流</span>
                     <div class="emp-wf-toolbar-right">
+                        <button class="emp-wf-tool-btn" onclick="window.empWidget.openCreatePanel()" title="添加员工">➕</button>
                         <button class="emp-wf-tool-btn" onclick="window.empWidget.wfUndo()" title="撤销(Ctrl+Z)">↩️</button>
                         <button class="emp-wf-tool-btn" onclick="window.empWidget.wfRedo()" title="重做(Ctrl+Y)">↪️</button>
                         <span class="emp-wf-tool-sep"></span>
@@ -299,6 +300,10 @@
             }
             // 无保存位置时CSS已设定 right:200px; top:15px
             refresh();
+            // 自动打开节点工作流
+            if (!document.getElementById('empWfOverlay').classList.contains('show')) {
+                openWorkflow();
+            }
         }
     }
 
@@ -511,9 +516,27 @@
         `;
         document.body.appendChild(overlay);
         overlay.classList.add('show');
-        overlay.addEventListener('click', function(e) {
-            if (e.target === this) this.remove();
-        });
+
+        // header拖拽
+        var edBox = overlay.querySelector('.emp-chat-box');
+        var edHeader = overlay.querySelector('.emp-chat-header');
+        if (edHeader && edBox) {
+            edHeader.style.cursor = 'move';
+            edHeader.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                var sx = e.clientX, sy = e.clientY;
+                var r = edBox.getBoundingClientRect();
+                var moved = false;
+                function mv(ev) {
+                    var dx = ev.clientX - sx, dy = ev.clientY - sy;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                    if (moved) { edBox.style.position = 'fixed'; edBox.style.left = Math.max(0, Math.min(window.innerWidth - r.width, r.left + dx)) + 'px'; edBox.style.top = Math.max(0, Math.min(window.innerHeight - r.height, r.top + dy)) + 'px'; edBox.style.transform = 'none'; edBox.style.margin = '0'; }
+                }
+                function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
+        }
     }
 
     async function saveEdit(originalName) {
@@ -538,6 +561,29 @@
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({姓名: originalName, 配置: {姓名, 头像, 角色: 描述, 目标: 描述, 人设追加, 工具调用, 状态: '在岗'}})
         });
+        // 同步更新分类中的员工名
+        empCategories.forEach(function(cat) {
+            if (cat.employeeNames) {
+                var idx = cat.employeeNames.indexOf(originalName);
+                if (idx >= 0) cat.employeeNames[idx] = 姓名;
+            }
+        });
+        saveCategories();
+        // 同步更新节点画布上的名字
+        if (typeof wfNodes !== 'undefined') {
+            wfNodes.forEach(function(n) {
+                if (n.config && n.config.员工名 === originalName) {
+                    n.config.员工名 = 姓名;
+                    n.name = (n.name || '').replace(originalName, 姓名);
+                    var el = document.getElementById('wfNode_' + n.id);
+                    if (el) {
+                        var nameEl = el.querySelector('.emp-wf-node-header .name');
+                        if (nameEl) nameEl.textContent = n.name;
+                    }
+                }
+            });
+            if (typeof autoSaveWorkflow === 'function') autoSaveWorkflow();
+        }
         overlay.remove();
         refresh();
         showToast('已保存「' + 姓名 + '」的修改', 'success');
@@ -580,9 +626,27 @@
         `;
         document.body.appendChild(overlay);
         overlay.classList.add('show');
-        overlay.addEventListener('click', function(e) {
-            if (e.target === this) this.remove();
-        });
+
+        // header拖拽
+        var crBox = overlay.querySelector('.emp-chat-box');
+        var crHeader = overlay.querySelector('.emp-chat-header');
+        if (crHeader && crBox) {
+            crHeader.style.cursor = 'move';
+            crHeader.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                var sx = e.clientX, sy = e.clientY;
+                var r = crBox.getBoundingClientRect();
+                var moved = false;
+                function mv(ev) {
+                    var dx = ev.clientX - sx, dy = ev.clientY - sy;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                    if (moved) { crBox.style.position = 'fixed'; crBox.style.left = Math.max(0, Math.min(window.innerWidth - r.width, r.left + dx)) + 'px'; crBox.style.top = Math.max(0, Math.min(window.innerHeight - r.height, r.top + dy)) + 'px'; crBox.style.transform = 'none'; crBox.style.margin = '0'; }
+                }
+                function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
+        }
         setTimeout(function() { document.getElementById('createName').focus(); }, 100);
     }
 
@@ -653,6 +717,11 @@
             overlay.remove();
             refresh();
             showToast('已创建「' + 姓名 + '」', 'success');
+            // 如果节点工作流面板打开，自动在画布中央创建员工节点
+            if (document.getElementById('empWfOverlay').classList.contains('show')) {
+                var p = wfScreenToCanvas(window.innerWidth / 2, window.innerHeight / 2);
+                addWfNode('employee', p.x, p.y, 头像 + ' ' + 姓名, {员工名: 姓名, 指令: ''}, {员工名: 姓名, avatar: 头像, role: 描述});
+            }
         } else {
             alert('创建失败：' + (data.错误 || data.error || '未知错误'));
         }
@@ -707,31 +776,29 @@
         });
 
         // 渲染分类
-        empCategories.forEach(function(cat) {
+        // 只渲染顶层分类（无parentId的），子分类在父分类内部渲染
+        var 顶层分类 = empCategories.filter(function(c) { return !c.parentId; });
+        顶层分类.forEach(function(cat) {
             const collapsed = cat.collapsed;
             const catColor = cat.color || '#007ACC';
-            html += '<div class="emp-category" data-cat-id="' + cat.id + '">' +
-                '<div class="emp-category-header" style="border-left:3px solid ' + catColor + '">' +
-                    '<span class="emp-cat-drag" draggable="true" data-cat-drag="' + cat.id + '" title="拖拽排序">⠿</span>' +
-                    '<span class="emp-category-toggle" onclick="event.stopPropagation();window.empWidget._toggleCategory(\'' + cat.id + '\')" style="color:' + catColor + '">' + (collapsed ? '▶' : '▼') + '</span>' +
-                    '<span class="emp-category-name-text" style="color:' + catColor + '">' + escapeHtml(cat.name) + '</span>' +
-                    '<button class="emp-cat-rename-btn" onclick="event.stopPropagation();window.empWidget._renameCategory(\'' + cat.id + '\')" title="重命名">✏️</button>' +
-                    '<span class="emp-cat-color-dot" data-cat-color="' + cat.id + '" style="background:' + catColor + '" onclick="event.stopPropagation();window.empWidget._cycleCategoryColor(\'' + cat.id + '\')"></span>' +
-                    '<button class="emp-category-del" draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();window.empWidget._deleteCategory(\'' + cat.id + '\')">✕</button>' +
-                '</div>';
-            if (!collapsed) {
-                html += '<div class="emp-category-body" data-cat-drop="' + cat.id + '" style="border-left:2px solid ' + catColor + '40">';
-                (cat.employeeNames || []).forEach(function(name) {
-                    const emp = employees.find(function(e) { return (e.name || e.姓名) === name; });
-                    if (!emp) return;
-                    html += _renderEmpItem(emp, name, false);
-                });
-                if (!cat.employeeNames || cat.employeeNames.length === 0) {
-                    html += '<div class="emp-category-empty">拖入员工到此处</div>';
-                }
-                html += '</div>';
+            // 递归统计：本分类员工 + 所有子分类员工
+            function countAll(c) {
+                var n = (c.employeeNames || []).length;
+                var subs = empCategories.filter(function(sc) { return sc.parentId === c.id; });
+                subs.forEach(function(sc) { n += countAll(sc); });
+                return n;
             }
-            html += '</div>';
+            function countSubCats(c) {
+                var subs = empCategories.filter(function(sc) { return sc.parentId === c.id; });
+                var n = subs.length;
+                subs.forEach(function(sc) { n += countSubCats(sc); });
+                return n;
+            }
+            var empCount = (cat.employeeNames || []).length;
+            var totalEmp = countAll(cat);
+            var totalSubs = countSubCats(cat);
+            var countLabel = totalSubs > 0 ? (' (' + totalEmp + '/' + totalSubs + '子)') : (empCount > 0 ? ' (' + empCount + ')' : '');
+            html += _renderCategoryRecursive(cat, 0);
         });
 
         // 分隔线（如果有分类）
@@ -782,6 +849,61 @@
         bindCategoryDnd();
     }
 
+    function _renderCategoryRecursive(cat, depth) {
+        var collapsed = cat.collapsed;
+        var catColor = cat.color || '#007ACC';
+        // 递归统计
+        function countAll(c) {
+            var n = (c.employeeNames || []).length;
+            var subs = empCategories.filter(function(sc) { return sc.parentId === c.id; });
+            subs.forEach(function(sc) { n += countAll(sc); });
+            return n;
+        }
+        function countSubCats(c) {
+            var subs = empCategories.filter(function(sc) { return sc.parentId === c.id; });
+            var n = subs.length;
+            subs.forEach(function(sc) { n += countSubCats(sc); });
+            return n;
+        }
+        var empCount = (cat.employeeNames || []).length;
+        var totalEmp = countAll(cat);
+        var totalSubs = countSubCats(cat);
+        var countLabel = totalSubs > 0 ? (' (' + totalEmp + '/' + totalSubs + '子)') : (empCount > 0 ? ' (' + empCount + ')' : '');
+        var indent = depth > 0 ? 'margin-left:' + (depth * 12) + 'px;' : '';
+        var html = '<div class="emp-category" data-cat-id="' + cat.id + '" style="' + indent + '">' +
+            '<div class="emp-category-header" draggable="true" data-cat-drag="' + cat.id + '" data-cat-drop="' + cat.id + '" style="border-left:3px solid ' + catColor + '">' +
+                '<span class="emp-cat-drag" title="拖拽排序">⠿</span>' +
+                '<span class="emp-category-toggle" onclick="event.stopPropagation();window.empWidget._toggleCategory(\'' + cat.id + '\')" style="color:' + catColor + '">' + (collapsed ? '▶' : '▼') + '</span>' +
+                '<span class="emp-category-name-text" style="color:' + catColor + '">' + escapeHtml(cat.name) + countLabel + '</span>' +
+                '<button class="emp-cat-rename-btn" onclick="event.stopPropagation();window.empWidget._renameCategory(\'' + cat.id + '\')" title="重命名">✏️</button>' +
+                '<span class="emp-cat-color-dot" data-cat-color="' + cat.id + '" style="background:' + catColor + '" onclick="event.stopPropagation();window.empWidget._cycleCategoryColor(\'' + cat.id + '\')"></span>' +
+                '<button class="emp-category-del" draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();window.empWidget._deleteCategory(\'' + cat.id + '\')">✕</button>' +
+            '</div>';
+        if (!collapsed) {
+            html += '<div class="emp-category-body" data-cat-drop="' + cat.id + '" style="border-left:2px solid ' + catColor + '40">';
+            // 渲染本分类员工（排除已在其他分类中的）
+            var shownNames = {};
+            (cat.employeeNames || []).forEach(function(name) {
+                if (shownNames[name]) return;
+                shownNames[name] = true;
+                const emp = employees.find(function(e) { return (e.name || e.姓名) === name; });
+                if (!emp) return;
+                html += _renderEmpItem(emp, name, false);
+            });
+            // 递归渲染子分类
+            var subCats = empCategories.filter(function(c) { return c.parentId === cat.id; });
+            subCats.forEach(function(sc) {
+                html += _renderCategoryRecursive(sc, depth + 1);
+            });
+            if (empCount === 0 && subCats.length === 0) {
+                html += '<div class="emp-category-empty">拖入员工到此处</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
     function _renderEmpItem(emp, name, isFixed, isTree) {
         const avatar = emp.avatar || emp.头像 || '🙂';
         const role = emp.role || emp.角色 || '';
@@ -807,18 +929,22 @@
     function bindCategoryDnd() {
         const list = document.getElementById('empList');
         if (!list) return;
-        // 分类体作为drop目标
+        // 分类body和header都作为drop目标（员工拖入分类）
         list.querySelectorAll('[data-cat-drop]').forEach(function(zone) {
             zone.addEventListener('dragover', function(e) {
                 if (!dragName) return;
+                // 是员工拖入分类，不是分类排序
                 e.preventDefault();
+                e.stopPropagation();
                 zone.classList.add('cat-drop-over');
             });
             zone.addEventListener('dragleave', function() { zone.classList.remove('cat-drop-over'); });
             zone.addEventListener('drop', function(e) {
+                if (!dragName) return;
                 e.preventDefault();
+                e.stopPropagation();
                 zone.classList.remove('cat-drop-over');
-                if (!dragName || dragName === '🎯目标' || dragName === '📋打印') return;
+                if (dragName === '🎯目标' || dragName === '📋打印') return;
                 const catId = zone.dataset.catDrop;
                 const cat = empCategories.find(function(c) { return c.id == catId; });
                 if (!cat) return;
@@ -832,46 +958,108 @@
                 renderTree(getTreeData());
             });
         });
-        // 分类header拖拽排序
+        // 分类header拖拽（整个header可拖拽，支持排序+嵌套）
         let catDragId = null;
         list.querySelectorAll('[data-cat-drag]').forEach(function(el) {
-            el.addEventListener('dragstart', function(e) { catDragId = el.dataset.catDrag; el.style.opacity = '0.4'; });
-            el.addEventListener('dragend', function() { el.style.opacity = ''; _clearCatDropIndicator(); });
+            el.addEventListener('dragstart', function(e) {
+                catDragId = el.dataset.catDrag;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', 'cat:' + catDragId);
+                el.style.opacity = '0.4';
+            });
+            el.addEventListener('dragend', function() {
+                el.style.opacity = '';
+                _clearCatDropIndicator();
+                catDragId = null;
+            });
             el.addEventListener('dragover', function(e) {
                 if (!catDragId) return;
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 var catEl = el.closest('.emp-category');
                 if (catEl) {
                     _clearCatDropIndicator();
                     var rect = catEl.getBoundingClientRect();
                     var midY = rect.top + rect.height / 2;
-                    catEl.classList.add('cat-drop-indicator');
-                    if (e.clientY > midY) catEl.classList.add('after'); else catEl.classList.remove('after');
+                    // 上半部分=前面插入，下半部分=嵌套进去
+                    if (e.clientY < midY) {
+                        catEl.classList.add('cat-drop-before');
+                    } else {
+                        catEl.classList.add('cat-drop-nest');
+                    }
                 }
             });
             el.addEventListener('dragleave', function() {
                 var catEl = el.closest('.emp-category');
-                if (catEl) catEl.classList.remove('cat-drop-indicator');
+                if (catEl) catEl.classList.remove('cat-drop-before', 'cat-drop-nest');
             });
             el.addEventListener('drop', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 _clearCatDropIndicator();
                 if (!catDragId) return;
-                const targetId = el.dataset.catDrag;
+                var targetId = el.dataset.catDrag;
                 if (catDragId === targetId) return;
-                const fromIdx = empCategories.findIndex(function(c) { return c.id == catDragId; });
-                const toIdx = empCategories.findIndex(function(c) { return c.id == targetId; });
-                if (fromIdx < 0 || toIdx < 0) return;
-                const moved = empCategories.splice(fromIdx, 1)[0];
-                empCategories.splice(toIdx, 0, moved);
+                // 不能把自己拖到自己的子分类里
+                var target = empCategories.find(function(c) { return c.id == targetId; });
+                if (target && target.parentId === catDragId) return;
+
+                var catEl = el.closest('.emp-category');
+                var rect = catEl.getBoundingClientRect();
+                var midY = rect.top + rect.height / 2;
+                var dragCat = empCategories.find(function(c) { return c.id == catDragId; });
+                if (!dragCat) return;
+
+                if (e.clientY < midY) {
+                    // 上半部分 → 插入到目标前面（同级）
+                    dragCat.parentId = target.parentId || null;
+                    var fromIdx = empCategories.indexOf(dragCat);
+                    var toIdx = empCategories.indexOf(target);
+                    empCategories.splice(fromIdx, 1);
+                    toIdx = empCategories.indexOf(target);
+                    empCategories.splice(toIdx, 0, dragCat);
+                } else {
+                    // 下半部分 → 嵌套为子分类
+                    dragCat.parentId = targetId;
+                    var fromIdx2 = empCategories.indexOf(dragCat);
+                    empCategories.splice(fromIdx2, 1);
+                    var toIdx2 = empCategories.indexOf(target);
+                    empCategories.splice(toIdx2 + 1, 0, dragCat);
+                }
                 saveCategories();
                 renderTree(getTreeData());
             });
         });
+        // 空白处drop → 解除父级
+        list.addEventListener('dragover', function(e) {
+            if (!catDragId) return;
+            var target = e.target;
+            if (target === list || target.classList.contains('emp-list-divider') || target.classList.contains('emp-category-add')) {
+                e.preventDefault();
+            }
+        });
+        list.addEventListener('drop', function(e) {
+            if (!catDragId) return;
+            var target = e.target;
+            if (target === list || target.classList.contains('emp-list-divider') || target.classList.contains('emp-category-add')) {
+                e.preventDefault();
+                var dragCat = empCategories.find(function(c) { return c.id == catDragId; });
+                if (dragCat && dragCat.parentId) {
+                    dragCat.parentId = null;
+                    // 移到列表末尾
+                    var fromIdx = empCategories.indexOf(dragCat);
+                    empCategories.splice(fromIdx, 1);
+                    empCategories.push(dragCat);
+                    saveCategories();
+                    renderTree(getTreeData());
+                }
+            }
+        });
     }
     function _clearCatDropIndicator() {
-        document.querySelectorAll('.cat-drop-indicator').forEach(function(el) { el.classList.remove('cat-drop-indicator'); });
+        document.querySelectorAll('.cat-drop-before, .cat-drop-nest').forEach(function(el) {
+            el.classList.remove('cat-drop-before', 'cat-drop-nest');
+        });
     }
 
     function getTreeData() {
@@ -971,6 +1159,16 @@
         }
     }
     function saveCategories() {
+        // 清理：确保每个员工只在一个分类中
+        var seenEmps = {};
+        empCategories.forEach(function(cat) {
+            if (!cat.employeeNames) return;
+            cat.employeeNames = cat.employeeNames.filter(function(name) {
+                if (seenEmps[name]) return false;
+                seenEmps[name] = true;
+                return true;
+            });
+        });
         try { localStorage.setItem('empCategories', JSON.stringify(empCategories)); } catch(e) {}
     }
     function loadCategories() {
@@ -1410,6 +1608,73 @@
 
     // ========== 定时提醒 ==========
     let notifyInterval = null;
+    // ========== ComfyUI图片轮询 ==========
+    let _imgPollInterval = null;
+
+    function _startImgPolling() {
+        if (_imgPollInterval) return;
+        _imgPollInterval = setInterval(function() {
+            if (!document.getElementById('empWfOverlay').classList.contains('show')) return;
+            // 1. 检查图片节点中已删除的图片
+            var needRefresh = false;
+            var imageNodes = wfNodes.filter(function(n) { return n.type === 'image' && n.config.图片列表 && n.config.图片列表.length > 0; });
+            if (imageNodes.length > 0) {
+                var allPaths = [];
+                imageNodes.forEach(function(n) { allPaths = allPaths.concat(n.config.图片列表); });
+                fetch('/api/wf-check-images', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({图片列表: allPaths})})
+                .then(function(r) { return r.json(); })
+                .then(function(chkData) {
+                    if (chkData.成功 && chkData.有效图片) {
+                        var validSet = {};
+                        chkData.有效图片.forEach(function(p) { validSet[p] = true; });
+                        imageNodes.forEach(function(n) {
+                            var before = n.config.图片列表.length;
+                            n.config.图片列表 = n.config.图片列表.filter(function(p) { return validSet[p]; });
+                            if (n.config.图片列表.length === 0) {
+                                delete n.config.图片列表;
+                                delete n.config.展开;
+                            } else {
+                                n.config.内容 = n.config.图片列表[0];
+                                n.config.路径 = n.config.图片列表[0];
+                            }
+                            if (n.config.图片列表 && n.config.图片列表.length !== before) {
+                                needRefresh = true;
+                                var el = document.getElementById('wfNode_' + n.id);
+                                if (el) { el.remove(); renderWfNode(n); }
+                            }
+                        });
+                        if (needRefresh) autoSaveWorkflow();
+                    }
+                }).catch(function() {});
+            }
+            // 2. 轮询ComfyUI新生成的图片
+            fetch('/api/wf-poll-images', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.成功 && data.图片列表 && data.图片列表.length > 0) {
+                    data.图片列表.forEach(function(item) {
+                        if (item.状态 === '完成' && item.图片路径) {
+                            // 更新节点状态
+                            var el = document.getElementById('wfNode_' + item.节点id);
+                            if (el) { el.classList.remove('running'); el.classList.add('done'); }
+                            var st = document.getElementById('wfStatus_' + item.节点id);
+                            if (st) { st.textContent = '✅ 图片已生成'; st.className = 'emp-wf-node-status done'; }
+                            // 创建/更新图片节点
+                            _createImageNode(item.节点id, item.图片路径);
+                            appendWfLog('✅ 图片已生成: ' + item.文件名, 'success');
+                        } else if (item.状态 === '失败') {
+                            var st2 = document.getElementById('wfStatus_' + item.节点id);
+                            if (st2) { st2.textContent = '❌ 生成失败'; st2.className = 'emp-wf-node-status error'; }
+                            appendWfLog('❌ 图片生成失败', 'error');
+                        } else if (item.状态 === '超时') {
+                            var st3 = document.getElementById('wfStatus_' + item.节点id);
+                            if (st3) { st3.textContent = '❌ 生成超时'; st3.className = 'emp-wf-node-status error'; }
+                        }
+                    });
+                }
+            }).catch(function() {});
+        }, 2000);
+    }
 
     function startNotifyPolling() {
         if (notifyInterval) return;
@@ -1470,6 +1735,7 @@
     let wfFrames = [];
     let wfFrameId = 0;
     let wfDragFrame = null;
+    let wfSelectedFrame = null;  // 选中的分组
 
     // 撤销/重做
     let wfHistory = [];
@@ -1904,14 +2170,54 @@
 
         // 双击节点 → 弹出详情对话框（同一时间只允许一个）
         canvasWrap.addEventListener('dblclick', function(e) {
+            // 双击分组标题 → 重命名
+            var frameHeaderEl = e.target.closest('.wf-frame-header');
+            if (frameHeaderEl) {
+                var frameEl = frameHeaderEl.closest('.wf-frame');
+                if (frameEl) {
+                    var fid = frameEl.dataset.id;
+                    var frame = wfFrames.find(function(f) { return f.id === fid; });
+                    if (frame) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        // 内联编辑
+                        var nameSpan = frameHeaderEl.querySelector('.wf-frame-name-text');
+                        if (nameSpan) {
+                            var oldName = frame.text;
+                            var input = document.createElement('input');
+                            input.type = 'text';
+                            input.value = oldName;
+                            input.style.cssText = 'flex:1;min-width:40px;background:transparent;border:none;color:inherit;font-size:12px;font-weight:600;outline:none;font-family:inherit;border-bottom:1px solid var(--blue)';
+                            nameSpan.replaceWith(input);
+                            input.focus();
+                            input.select();
+                            function commit() {
+                                var newName = input.value.trim();
+                                if (!newName) newName = oldName;
+                                frame.text = newName;
+                                autoSaveWorkflow();
+                                renderWfFrame(frame);
+                            }
+                            input.addEventListener('blur', commit);
+                            input.addEventListener('keydown', function(ev) {
+                                if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+                                if (ev.key === 'Escape') { input.value = oldName; input.blur(); }
+                            });
+                        }
+                        return;
+                    }
+                }
+            }
             const nodeEl = e.target.closest('.emp-wf-node');
-            // 空白处双击 → 关闭所有弹出属性窗
+            // 空白处双击 → 弹出节点商店
             if (!nodeEl) {
+                // 先关闭弹窗
                 const existing = document.querySelector('.wf-popup');
                 if (existing) {
                     existing.classList.remove('show');
                     setTimeout(function() { existing.remove(); }, 200);
                 }
+                _showNodeShopMenu(e.clientX, e.clientY);
                 return;
             }
             if (e.target.classList.contains('del')) return;
@@ -1933,6 +2239,14 @@
                 return;
             }
             const nid = nodeEl.id.replace('wfNode_', '');
+            // 图片节点双击 → 直接打开大图查看器
+            var node = wfNodes.find(function(n) { return n.id === nid; });
+            if (node && node.type === 'image') {
+                _showImageViewer(nid, 0);
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+            }
             const existing = document.querySelector('.wf-popup');
             if (existing) { existing.classList.remove('show'); existing.remove(); }
             _wfShowNodeDetail(nid, e.clientX, e.clientY);
@@ -1943,13 +2257,21 @@
         // 右键节点 → 弹出员工操作菜单
         canvasWrap.addEventListener('contextmenu', function(e) {
             const nodeEl = e.target.closest('.emp-wf-node');
-            if (!nodeEl) return;
-            const node = wfNodes.find(function(n) { return n.id === nodeEl.id.replace('wfNode_', ''); });
-            if (!node || node.type !== 'employee') return;
+            if (nodeEl) {
+                // 右键节点 → 弹出员工操作菜单
+                const node = wfNodes.find(function(n) { return n.id === nodeEl.id.replace('wfNode_', ''); });
+                if (node && node.type === 'employee') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const 员工名 = node.config.员工名 || node.name;
+                    showContextMenu(e, 员工名);
+                }
+                return;
+            }
+            // 右键空白 → 弹出节点商店菜单
             e.preventDefault();
             e.stopPropagation();
-            const 员工名 = node.config.员工名 || node.name;
-            showContextMenu(e, 员工名);
+            _showNodeShopMenu(e.clientX, e.clientY);
         });
 
         // ===== 统一鼠标事件分发器 =====
@@ -2014,6 +2336,10 @@
                 if (frame) {
                     if (e.target.classList.contains('wf-frame-del')) { _wfDeleteFrame(fid); return; }
                     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    // 选中分组
+                    wfSelectedFrame = fid;
+                    document.querySelectorAll('.wf-frame.selected').forEach(function(el) { el.classList.remove('selected'); });
+                    frameEl.classList.add('selected');
                     const p = wfScreenToCanvas(e.clientX, e.clientY);
                     wfDragFrame = {id: fid, lastX: p.x, lastY: p.y};
                     e.preventDefault();
@@ -2229,12 +2555,6 @@
         document.addEventListener('mouseup', function(e) {
             if (wfPanning) { wfPanning = false; canvasWrap.classList.remove('panning'); }
             if (wfDragNode) {
-                // 保存所有移动过的节点尺寸
-                wfSelectedNodes.concat(wfDragNode.id).forEach(function(nid) {
-                    var el = document.getElementById('wfNode_' + nid);
-                    var n = wfNodes.find(function(x) { return x.id === nid; });
-                    if (el && n) { n.w = el.offsetWidth; n.h = el.offsetHeight; }
-                });
                 autoSaveWorkflow(); wfPushHistory(); wfDragNode = null;
             }
             if (wfDragFrame) { autoSaveWorkflow(); wfPushHistory(); wfDragFrame = null; }
@@ -2302,10 +2622,12 @@
         // Delete键删除 + Ctrl+C/V复制粘贴
         let wfClipboard = [];  // {nodes: [...], conns: [...]}
         let wfMouseX = 0, wfMouseY = 0;  // 记录鼠标在画布上的位置
+        let wfMouseScreenX = 0, wfMouseScreenY = 0;  // 记录鼠标屏幕坐标
         // 跟踪鼠标位置（用于粘贴时定位）
         document.addEventListener('mousemove', function(e) {
             const wrap = document.getElementById('empWfCanvasWrap');
             if (!wrap) return;
+            wfMouseScreenX = e.clientX; wfMouseScreenY = e.clientY;
             const rect = wrap.getBoundingClientRect();
             if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
                 const p = wfScreenToCanvas(e.clientX, e.clientY);
@@ -2314,6 +2636,13 @@
         });
         document.addEventListener('keydown', function(e) {
             if (!document.getElementById('empWfOverlay').classList.contains('show')) return;
+            // Tab键 → 弹出节点商店
+            if (e.key === 'Tab') {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                e.preventDefault();
+                _showNodeShopMenu(wfMouseScreenX, wfMouseScreenY);
+                return;
+            }
             // Ctrl+C 复制选中节点+连线
             if (e.ctrlKey && (e.key === 'c' || e.key === 'C') && wfSelectedNodes.length > 0) {
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -2381,6 +2710,56 @@
                 if (svgEl) { const t = svgEl.querySelector('path.temp'); if (t) t.remove(); }
                 redrawWfConnections();
             }
+            // D键 = 切换禁用状态
+            if (!e.ctrlKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                // 如果选中了分组，禁用/启用分组内所有节点
+                if (wfSelectedFrame && !wfSelectedNodes.length) {
+                    var frame = wfFrames.find(function(f) { return f.id === wfSelectedFrame; });
+                    if (frame && frame.nodeIds && frame.nodeIds.length > 0) {
+                        e.preventDefault();
+                        wfPushHistory();
+                        var allDisabled = frame.nodeIds.every(function(nid) {
+                            var n = wfNodes.find(function(x) { return x.id === nid; });
+                            return n && n.disabled;
+                        });
+                        frame.nodeIds.forEach(function(nid) {
+                            var n = wfNodes.find(function(x) { return x.id === nid; });
+                            if (n) {
+                                n.disabled = !allDisabled;
+                                var el = document.getElementById('wfNode_' + nid);
+                                if (el) el.classList.toggle('disabled', n.disabled);
+                            }
+                        });
+                        autoSaveWorkflow();
+                        redrawWfConnections();
+                        showToast(allDisabled ? '已启用分组内全部节点' : '已禁用分组内全部节点', 'success');
+                        return;
+                    }
+                }
+                if (wfSelectedNodes.length === 0) return;
+                e.preventDefault();
+                wfPushHistory();
+                var 禁用数 = 0, 启用数 = 0;
+                wfSelectedNodes.forEach(function(nid) {
+                    var n = wfNodes.find(function(x) { return x.id === nid; });
+                    if (n) {
+                        n.disabled = !n.disabled;
+                        var el = document.getElementById('wfNode_' + nid);
+                        if (el) el.classList.toggle('disabled', n.disabled);
+                        if (n.disabled) 禁用数++; else 启用数++;
+                    }
+                });
+                autoSaveWorkflow();
+                redrawWfConnections();
+                if (禁用数 > 0 && 启用数 > 0) {
+                    showToast('已禁用' + 禁用数 + '个节点，启用' + 启用数 + '个节点', 'info');
+                } else if (禁用数 > 0) {
+                    showToast('已禁用 ' + 禁用数 + ' 个节点', 'success');
+                } else {
+                    showToast('已启用 ' + 启用数 + '个节点', 'success');
+                }
+            }
             // Ctrl+G = 创建背景框
             if (e.ctrlKey && (e.key === 'g' || e.key === 'G') && wfSelectedNodes.length > 0) {
                 e.preventDefault();
@@ -2410,6 +2789,356 @@
                 _scissorsOff();
             }
         });
+    }
+
+    // ========== 节点商店 ==========
+    var _节点商店 = {
+        "基础节点": {
+            icon: "📦",
+            items: [
+                {name: "📝 文本输入", type: "prompt", config: {提示词: ""}},
+                {name: "🧩 文本拼接(零token)", type: "text", config: {指令: ""}},
+            ]
+        },
+        "ComfyUI": {
+            icon: "🎨",
+            subcategories: {
+                "图片": [
+                    {name: "⚡ z_image快速出图", type: "comfyui", config: {工作流: "z_image", 宽度: 960, 高度: 600}},
+                    {name: "⚡ qwen2512高质量出图", type: "comfyui", config: {工作流: "qwen2512", 宽度: 1328, 高度: 1328}},
+                    {name: "⚡ flux2出图", type: "comfyui", config: {工作流: "flux2", 宽度: 1024, 高度: 1024}},
+                    {name: "⚡ 自动出图(不指定工作流)", type: "comfyui", config: {}},
+                    {name: "✏️ 图片修改(qwen2511单图)", type: "comfyui-edit", config: {工作流: "qwen2511单图"}},
+                    {name: "✏️ 图片放大(2k_upscaler)", type: "comfyui-edit", config: {工作流: "2k_upscaler"}},
+                ],
+                "视频": [
+                    {name: "🎬 wan2.2文生视频", type: "comfyui-video", config: {工作流: "wan2.2文生视频"}},
+                    {name: "🎬 ltx2.3文生视频", type: "comfyui-video", config: {工作流: "ltx2.3文生视频"}},
+                    {name: "🎬 wan2.2图生视频", type: "comfyui-video", config: {工作流: "wan2.2图生视频"}},
+                ]
+            }
+        }
+    };
+
+    // 用户自定义节点（从本地节点图加载）
+    var _自定义节点 = [];
+    // 自动扫描的ComfyUI工作流
+    var _comfyui工作流 = [];
+    var _comfyui提示 = '';
+    var _comfyui已加载 = false;
+
+    function _加载ComfyUI工作流() {
+        if (_comfyui已加载) return; // 已加载过，不重复请求
+        _comfyui已加载 = true;
+        fetch('/api/wf-scan-comfyui', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.成功 || data.success) {
+                _comfyui工作流 = data.工作流列表 || [];
+                _comfyui提示 = data.提示 || '';
+            }
+        }).catch(function() { _comfyui已加载 = false; });
+    }
+
+    // 增量刷新：只更新变化的部分
+    function _刷新ComfyUI工作流() {
+        fetch('/api/wf-scan-comfyui', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!(data.成功 || data.success)) return;
+            var 新列表 = data.工作流列表 || [];
+            // 以路径为key做diff
+            var 旧map = {};
+            _comfyui工作流.forEach(function(wf) { 旧map[wf.路径] = wf; });
+            var 新map = {};
+            新列表.forEach(function(wf) { 新map[wf.路径] = wf; });
+            // 删除不再存在的
+            _comfyui工作流 = _comfyui工作流.filter(function(wf) { return 新map[wf.路径]; });
+            // 添加新出现的
+            新列表.forEach(function(wf) {
+                if (!旧map[wf.路径]) _comfyui工作流.push(wf);
+            });
+            _comfyui提示 = data.提示 || '';
+        }).catch(function() {});
+    }
+
+    function _加载自定义节点() {
+        _自定义节点 = [];
+        fetch('/api/wf-load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.成功 || data.success) {
+                var 列表 = data.列表 || [];
+                列表.forEach(function(name) {
+                    if (name.startsWith('自定义_') || name.startsWith('节点_')) {
+                        _自定义节点.push(name);
+                    }
+                });
+            }
+        }).catch(function() {});
+    }
+
+    function _showNodeShopMenu(mouseX, mouseY) {
+        _加载自定义节点();
+        // 首次加载用完整加载，后续用增量刷新
+        if (!_comfyui已加载) {
+            _加载ComfyUI工作流();
+        } else {
+            _刷新ComfyUI工作流();
+        }
+        // 关闭已有菜单
+        var old = document.querySelector('.wf-node-shop-menu');
+        if (old) old.remove();
+
+        var menu = document.createElement('div');
+        menu.className = 'wf-node-shop-menu';
+        // 先临时显示测量尺寸，再定位到鼠标周围
+        menu.style.visibility = 'hidden';
+        document.body.appendChild(menu);
+        var mw = menu.offsetWidth || 180;
+        var mh = menu.offsetHeight || 200;
+        document.body.removeChild(menu);
+        menu.style.visibility = '';
+        menu.style.left = Math.min(mouseX, window.innerWidth - mw - 4) + 'px';
+        menu.style.top = Math.min(mouseY, window.innerHeight - mh - 4) + 'px';
+
+        var html = '<div class="wf-shop-search-wrap"><input type="text" class="wf-shop-search" placeholder="🔍 搜索节点..." id="wfShopSearch"></div>';
+        var htmlList = '';
+        // 添加员工快捷入口
+        html += '<div class="wf-shop-save" id="wfShopAddEmp" style="border-bottom:1px solid var(--border);margin-bottom:2px">' +
+            '<span style="font-size:14px">➕</span>' +
+            '<span>添加新员工</span></div>';
+        // 内置分类
+        for (var cat in _节点商店) {
+            var catData = _节点商店[cat];
+            html += '<div class="wf-shop-category" data-cat="' + cat + '">' +
+                '<span class="wf-shop-cat-icon">' + catData.icon + '</span>' +
+                '<span class="wf-shop-cat-name">' + cat + '</span>' +
+                '<span class="wf-shop-cat-arrow">▶</span>';
+            html += '<div class="wf-shop-submenu">';
+            if (catData.subcategories) {
+                // 二级分类：每个子分类一个小标题
+                for (var subcat in catData.subcategories) {
+                    var subitems = catData.subcategories[subcat];
+                    html += '<div class="wf-shop-subcat-header">' + subcat + '</div>';
+                    subitems.forEach(function(item) {
+                        html += '<div class="wf-shop-item" data-type="' + item.type + '" data-name="' + escapeHtml(item.name) + '" data-config=\'' + JSON.stringify(item.config).replace(/'/g, "&#39;") + '\' data-search="' + (cat + ' ' + subcat + ' ' + item.name).toLowerCase() + '">' + item.name + '</div>';
+                    });
+                }
+            } else if (catData.items) {
+                catData.items.forEach(function(item) {
+                    html += '<div class="wf-shop-item" data-type="' + item.type + '" data-name="' + escapeHtml(item.name) + '" data-config=\'' + JSON.stringify(item.config).replace(/'/g, "&#39;") + '\' data-search="' + (cat + ' ' + item.name).toLowerCase() + '">' + item.name + '</div>';
+                });
+            }
+            // 自动扫描的ComfyUI工作流追加到ComfyUI分类下
+            if (cat === 'ComfyUI' && _comfyui工作流.length > 0) {
+                var 分组 = {};
+                _comfyui工作流.forEach(function(wf) {
+                    var wfcat = wf.分类 || '其他';
+                    if (!分组[wfcat]) 分组[wfcat] = [];
+                    分组[wfcat].push(wf);
+                });
+                for (var wfcatName in 分组) {
+                    var wfitems = 分组[wfcatName];
+                    html += '<div class="wf-shop-subcat-header">' + wfcatName + ' (' + wfitems.length + ')</div>';
+                    wfitems.forEach(function(wf) {
+                        var config = JSON.stringify({工作流: wf.名称}).replace(/'/g, "&#39;");
+                        html += '<div class="wf-shop-item" data-type="comfyui" data-name="' + escapeHtml(wf.名称) + '" data-config=\'' + config + '\' data-search="' + ('comfyui ' + wfcatName + ' ' + wf.名称).toLowerCase() + '">' + wf.名称 + '</div>';
+                    });
+                }
+            } else if (cat === 'ComfyUI' && _comfyui提示) {
+                html += '<div class="wf-shop-item" style="opacity:0.6;cursor:default;font-size:11px" data-nosearch="1">💡 ' + escapeHtml(_comfyui提示.substring(0, 50)) + '...</div>';
+            }
+            html += '</div></div>';
+        }
+        // 自定义节点
+        if (_自定义节点.length > 0) {
+            html += '<div class="wf-shop-category" data-cat="我的节点">' +
+                '<span class="wf-shop-cat-icon">⭐</span>' +
+                '<span class="wf-shop-cat-name">我的节点</span>' +
+                '<span class="wf-shop-cat-arrow">▶</span>';
+            html += '<div class="wf-shop-submenu">';
+            _自定义节点.forEach(function(name) {
+                html += '<div class="wf-shop-item" data-type="loadfile" data-name="' + escapeHtml(name) + '" data-config="{}" data-search="' + ('我的节点 ' + name).toLowerCase() + '">' + name + '</div>';
+            });
+            html += '</div></div>';
+        }
+        // 保存选中为节点
+        if (wfSelectedNodes.length > 0) {
+            html += '<div class="wf-shop-sep" data-nosearch="1"></div>';
+            html += '<div class="wf-shop-save" id="wfShopSave" data-nosearch="1">' +
+                '<span style="font-size:14px">💾</span>' +
+                '<span>保存选中为节点</span></div>';
+        }
+
+        menu.innerHTML = html;
+        document.body.appendChild(menu);
+
+        // 搜索功能
+        var searchInput = menu.querySelector('#wfShopSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                var q = this.value.trim().toLowerCase();
+                if (!q) {
+                    // 恢复分类菜单
+                    menu.querySelectorAll('.wf-shop-category, .wf-shop-sep, .wf-shop-save').forEach(function(el) {
+                        el.style.display = '';
+                    });
+                    menu.querySelectorAll('.wf-shop-submenu').forEach(function(el) { el.style.display = 'none'; });
+                    return;
+                }
+                // 隐藏分类，只显示匹配的项
+                menu.querySelectorAll('.wf-shop-category, .wf-shop-sep, .wf-shop-save').forEach(function(el) {
+                    el.style.display = 'none';
+                });
+                // 把匹配的item提取出来直接显示
+                var existing = menu.querySelector('.wf-shop-results');
+                if (existing) existing.remove();
+                var results = [];
+                menu.querySelectorAll('.wf-shop-item').forEach(function(item) {
+                    if (item.dataset.search && item.dataset.search.indexOf(q) >= 0) {
+                        results.push(item);
+                    }
+                });
+                if (results.length > 0) {
+                    var rc = document.createElement('div');
+                    rc.className = 'wf-shop-results';
+                    results.forEach(function(item) {
+                        var clone = item.cloneNode(true);
+                        clone.style.display = 'block';
+                        clone.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            item.click();
+                        });
+                        rc.appendChild(clone);
+                    });
+                    menu.appendChild(rc);
+                } else {
+                    var empty = document.createElement('div');
+                    empty.className = 'wf-shop-results';
+                    empty.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text2);font-size:12px">无匹配节点</div>';
+                    menu.appendChild(empty);
+                }
+            });
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    var first = menu.querySelector('.wf-shop-results .wf-shop-item');
+                    if (first) first.click();
+                    e.preventDefault();
+                } else if (e.key === 'Escape') {
+                    menu.remove();
+                    e.preventDefault();
+                }
+            });
+            searchInput.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+            setTimeout(function() { searchInput.focus(); }, 50);
+        }
+
+        // 子菜单：紧贴分类右侧，顶部上移20px方便鼠标移入
+        menu.querySelectorAll('.wf-shop-category').forEach(function(cat) {
+            cat.addEventListener('mouseenter', function() {
+                var sub = cat.querySelector('.wf-shop-submenu');
+                if (sub) {
+                    sub.style.display = 'block';
+                    sub.style.top = '-20px';
+                    sub.style.left = '100%';
+                    sub.style.right = '';
+                    sub.style.maxHeight = '';
+                    var rect = sub.getBoundingClientRect();
+                    // 右边超出 → 向左弹
+                    if (rect.right > window.innerWidth) {
+                        sub.style.left = 'auto';
+                        sub.style.right = '100%';
+                    }
+                    // 顶部超出 → 不上移
+                    if (rect.top < 0) {
+                        sub.style.top = '0px';
+                    }
+                    // 底部超出 → 限制高度可滚动
+                    var newRect = sub.getBoundingClientRect();
+                    if (newRect.bottom > window.innerHeight) {
+                        sub.style.top = '0px';
+                        sub.style.maxHeight = (window.innerHeight - newRect.top - 8) + 'px';
+                    }
+                }
+            });
+            cat.addEventListener('mouseleave', function() {
+                var sub = cat.querySelector('.wf-shop-submenu');
+                if (sub) { sub.style.display = ''; sub.style.top = ''; sub.style.left = ''; sub.style.right = ''; }
+            });
+        });
+
+        // 添加员工按钮
+        var addEmpBtn = menu.querySelector('#wfShopAddEmp');
+        if (addEmpBtn) {
+            addEmpBtn.addEventListener('click', function() {
+                menu.remove();
+                openCreatePanel();
+            });
+        }
+
+        // 保存按钮
+        var saveBtn = menu.querySelector('#wfShopSave');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function() {
+                _saveAsNodeTemplate();
+                menu.remove();
+            });
+        }
+
+        // 节点项点击 → 创建节点
+        menu.querySelectorAll('.wf-shop-item').forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var type = item.dataset.type;
+                var name = item.dataset.name;
+                var config = {};
+                try { config = JSON.parse(item.dataset.config); } catch(err) {}
+                var p = wfScreenToCanvas(mouseX, mouseY);
+                if (type === 'loadfile') {
+                    fetch('/api/wf-load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({文件名: name})})
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.成功 || data.success) {
+                            loadWorkflowFromData(data.图 || {});
+                            showToast('已加载: ' + name, 'success');
+                        }
+                    }).catch(function() {});
+                } else {
+                    addWfNode(type, p.x, p.y, name, config, {});
+                    showToast('已创建: ' + name, 'success');
+                }
+                menu.remove();
+            });
+        });
+
+        // 点击菜单外部关闭
+        setTimeout(function() {
+            document.addEventListener('mousedown', function closeShop(e) {
+                if (!menu.contains(e.target)) {
+                    menu.remove();
+                    document.removeEventListener('mousedown', closeShop);
+                }
+            });
+        }, 50);
+    }
+
+    function _saveAsNodeTemplate() {
+        var name = prompt('请输入节点名称（保存到节点图目录，可在"我的节点"中重用）：', '自定义_' + new Date().toISOString().slice(0, 10));
+        if (!name) return;
+        // 只保存选中的节点和它们之间的连线
+        var subNodes = wfNodes.filter(function(n) { return wfSelectedNodes.includes(n.id); });
+        var subConns = wfConns.filter(function(c) { return wfSelectedNodes.includes(c.from) && wfSelectedNodes.includes(c.to); });
+        var subFrames = wfFrames.filter(function(f) { return f.nodeIds && f.nodeIds.some(function(nid) { return wfSelectedNodes.includes(nid); }); });
+        var data = {nodes: subNodes, conns: subConns, frames: subFrames, _isTemplate: true};
+        fetch('/api/wf-save', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({文件名: name, 图: data})
+        }).then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.成功 || d.success) showToast('已保存节点: ' + name, 'success');
+            else showToast('保存失败', 'error');
+        }).catch(function() { showToast('保存失败', 'error'); });
     }
 
     // ========== 剪刀模式 ==========
@@ -2533,7 +3262,12 @@
                 // 内部文件树拖入（有path属性，是伪File对象）→ 只存路径，不预读内容
                 if (file.path && !file.size) {
                     appendWfLog('📥 已导入: ' + fileName, 'info');
-                    addWfNode('input', x, y, icon + ' ' + fileName, {文件名: fileName, 内容: '', 类型: fileType, 路径: filePath}, {文件名: fileName, 类型: fileType, 图标: icon});
+                    // 图片文件：额外存图片路径，方便图片修改/视频节点引用
+                    var nodeConfig = {文件名: fileName, 内容: '', 类型: fileType, 路径: filePath};
+                    if (fileType === 'image') {
+                        nodeConfig.图片路径 = filePath;
+                    }
+                    addWfNode('input', x, y, icon + ' ' + fileName, nodeConfig, {文件名: fileName, 类型: fileType, 图标: icon});
                     doneCount++;
                     if (doneCount === files.length) { redrawWfConnections(); fitWorkflow(); }
                     return;
@@ -2587,6 +3321,7 @@
         const canvas = document.getElementById('empWfCanvas');
         const el = document.createElement('div');
         el.className = 'emp-wf-node';
+        if (node.disabled) el.className += ' disabled';
         el.id = 'wfNode_' + node.id;
         el.style.left = node.x + 'px';
         el.style.top = node.y + 'px';
@@ -2602,8 +3337,65 @@
             if (emp && (emp.工具调用)) toolIcon = ' <span style="font-size:10px" title="工具调用">🔧</span>';
             bodyHtml = '<div class="field" style="color:var(--text2)">' + (node.extra.role || '') + toolIcon + '</div>' +
                        '<div class="field"><input type="text" value="' + (node.config.指令||'') + '" placeholder="指令(可选)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'指令\',this.value)"></div>';
+        } else if (node.type === 'prompt') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">📝基础提示词输入</div>' +
+                       '<div class="field"><textarea rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="输入提示词..." oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'提示词\',this.value)">' + escapeHtml(node.config.提示词||'') + '</textarea></div>';
         } else if (node.type === 'print') {
             bodyHtml = '<div class="field" style="color:var(--text2)">显示上游输出</div>';
+        } else if (node.type === 'text' || node.type === '文本') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">🧩零token文本拼接</div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.指令||'') + '" placeholder="固定文本/指令" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'指令\',this.value)"></div>';
+        } else if (node.type === 'comfyui' || node.type === '生图') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">⚡直接出图(零token)</div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.工作流||'') + '" placeholder="工作流名(可选,如z_image)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'工作流\',this.value)"></div>' +
+                       '<div class="field" style="display:flex;gap:4px"><input type="number" value="' + (node.config.宽度||'') + '" placeholder="宽" style="width:50px" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'宽度\',this.value)"><input type="number" value="' + (node.config.高度||'') + '" placeholder="高" style="width:50px" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'高度\',this.value)"></div>';
+        } else if (node.type === 'comfyui-edit' || node.type === '图片修改') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">✏️图片修改(零token)</div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.工作流||'') + '" placeholder="工作流名(如qwen2511单图)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'工作流\',this.value)"></div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.图片路径||'') + '" placeholder="图片路径(从上游拖入)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'图片路径\',this.value)"></div>';
+        } else if (node.type === 'comfyui-video' || node.type === '视频生成') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">🎬视频生成(零token)</div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.工作流||'') + '" placeholder="工作流名(如wan2.2文生视频)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'工作流\',this.value)"></div>' +
+                       '<div class="field"><input type="text" value="' + escapeHtml(node.config.图片路径||'') + '" placeholder="图片路径(图生视频时填)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'图片路径\',this.value)"></div>';
+        } else if (node.type === 'image') {
+            var 图片列表 = node.config.图片列表 || [];
+            if (图片列表.length === 0 && node.config.内容) 图片列表 = [node.config.内容];
+            var imgCount = 图片列表.length;
+            if (imgCount > 0) {
+                if (imgCount > 1 && !node.config.展开) {
+                    // 收缩模式：单张图片+浮空翻页条+展开按钮
+                    bodyHtml = '<div class="wf-img-gallery" data-node="' + node.id + '" data-idx="0">';
+                    图片列表.forEach(function(p, idx) {
+                        var src = '/api/image?path=' + encodeURIComponent(p) + '&t=' + (Date.now() + idx);
+                        bodyHtml += '<div class="wf-img-slide" data-idx="' + idx + '" style="' + (idx === 0 ? '' : 'display:none') + '">' +
+                            '<img src="' + src + '" draggable="false" style="width:100%;border-radius:4px;display:block" onerror="this.style.display=\'none\'">' +
+                            '</div>';
+                    });
+                    bodyHtml += '</div>';
+                    bodyHtml += '<div class="wf-img-bar" data-node="' + node.id + '">' +
+                        '<span class="wf-img-label">🖼️ 生成图片</span>' +
+                        '<span class="wf-img-arrow" onclick="event.stopPropagation();window.empWidget._imgGalleryNav(\'' + node.id + '\',-1)">◀</span>' +
+                        '<span class="wf-img-count">1/' + imgCount + '</span>' +
+                        '<span class="wf-img-arrow" onclick="event.stopPropagation();window.empWidget._imgGalleryNav(\'' + node.id + '\',1)">▶</span>' +
+                        '<a onclick="window.empWidget._imgExpand(\'' + node.id + '\')" style="cursor:pointer;color:var(--blue);font-size:10px">📑展开</a>' +
+                        '</div>';
+                } else if (imgCount > 1 && node.config.展开) {
+                    // 展开模式：主图在节点内，右侧浮空面板平铺其他图片
+                    var mainSrc = '/api/image?path=' + encodeURIComponent(图片列表[0]) + '&t=' + Date.now();
+                    bodyHtml = '<div style="width:100%"><img src="' + mainSrc + '" draggable="false" style="width:100%;border-radius:4px;display:block;cursor:pointer" onclick="window.empWidget._showImageViewer(\'' + node.id + '\')" onerror="this.style.display=\'none\'"></div>';
+                    bodyHtml += '<div class="wf-img-bar"><span class="wf-img-label">🖼️ ' + imgCount + '张</span><a onclick="window.empWidget._imgCollapse(\'' + node.id + '\')" style="cursor:pointer;color:var(--blue);font-size:10px">📋收缩</a></div>';
+                    // 标记需要在canvas上创建侧边面板
+                    node._needSidePanel = true;
+                } else {
+                    // 单张图片
+                    var src0 = '/api/image?path=' + encodeURIComponent(图片列表[0]) + '&t=' + Date.now();
+                    bodyHtml = '<div style="width:100%"><img src="' + src0 + '" draggable="false" style="width:100%;border-radius:4px;display:block;cursor:pointer" onclick="window.empWidget._showImageViewer(\'' + node.id + '\')" onerror="this.style.display=\'none\'"></div>' +
+                        '<div class="wf-input-name">🖼️ 1张图片</div>';
+                }
+            } else {
+                bodyHtml = '<div class="wf-input-thumb" style="height:80px"><span class="wf-loading">等待生成...</span></div>' +
+                    '<div class="wf-input-name">🖼️ 等待生成</div>';
+            }
         } else if (node.type === 'input') {
             var 图标 = node.extra.图标 || '📄';
             var 文件名 = escapeHtml(node.config.文件名 || '');
@@ -2621,6 +3413,7 @@
             '<div class="emp-wf-port input" data-node="' + node.id + '"></div>' +
             '<div class="emp-wf-node-header" data-node="' + node.id + '">' +
                 '<span class="name">' + node.name + '</span>' +
+                '<span class="wf-node-run" onclick="event.stopPropagation();window.empWidget._runSingleNode(\'' + node.id + '\')" title="单独执行此节点">▶</span>' +
                 '<span class="del" onclick="window.empWidget._wfDeleteNode(\'' + node.id + '\')">✕</span>' +
             '</div>' +
             '<div class="emp-wf-node-body">' + bodyHtml + '</div>' +
@@ -2632,6 +3425,29 @@
         // 恢复节点尺寸
         if (node.w) el.style.width = node.w + 'px';
         if (node.h) el.style.height = node.h + 'px';
+
+        // 展开模式：在画布右侧创建图片侧边面板
+        var oldPanel = document.getElementById('wfImgSide_' + node.id);
+        if (oldPanel) oldPanel.remove();
+        if (node._needSidePanel && node.type === 'image') {
+            var 图片列表 = node.config.图片列表 || [];
+            var panel = document.createElement('div');
+            panel.className = 'wf-img-side-panel';
+            panel.id = 'wfImgSide_' + node.id;
+            panel.style.left = (node.x + (node.w || 160) + 8) + 'px';
+            panel.style.top = node.y + 'px';
+            var panelHtml = '';
+            图片列表.forEach(function(p, idx) {
+                var src = '/api/image?path=' + encodeURIComponent(p) + '&t=' + (Date.now() + idx);
+                panelHtml += '<div class="wf-img-side-item' + (idx === 0 ? ' active' : '') + '" data-idx="' + idx + '" onclick="window.empWidget._imgSelect(\'' + node.id + '\',' + idx + ')">' +
+                    '<img src="' + src + '" draggable="false" onerror="this.style.display=\'none\'">' +
+                    '<span class="wf-img-side-num">' + (idx+1) + '</span>' +
+                    '</div>';
+            });
+            panel.innerHTML = panelHtml;
+            canvas.appendChild(panel);
+            node._needSidePanel = false;
+        }
 
         // 节点右下角拖拽缩放
         var resizeHandle = el.querySelector('.wf-node-resize');
@@ -2648,7 +3464,6 @@
                     el.style.width = nw + 'px';
                     el.style.height = nh + 'px';
                     node.w = nw; node.h = nh;
-                    // 缩略图高度跟随节点高度
                     var thumb = el.querySelector('.wf-input-thumb');
                     if (thumb) thumb.style.height = (nh - 70) + 'px';
                     redrawWfConnections();
@@ -2721,12 +3536,22 @@
             path.dataset.to = c.to;
             path.id = 'wfPath_' + c.from + '_' + c.to;
             path.style.pointerEvents = 'none';
+            // 禁用节点的连线变灰虚线
+            var fromNode = wfNodes.find(function(n) { return n.id === c.from; });
+            var toNode = wfNodes.find(function(n) { return n.id === c.to; });
+            if ((fromNode && fromNode.disabled) || (toNode && toNode.disabled)) {
+                path.style.stroke = '#555';
+                path.setAttribute('stroke-dasharray', '4 4');
+                path.style.opacity = '0.4';
+            }
             // 循环连线样式
             if (c.loop) {
                 path.classList.add('loop');
                 if (c.loop.type === 'for') path.setAttribute('stroke-dasharray', '6 3');
                 else if (c.loop.type === 'while') path.setAttribute('stroke-dasharray', '3 3');
-                path.style.stroke = '#E06C75';
+                if (!(fromNode && fromNode.disabled) && !(toNode && toNode.disabled)) {
+                    path.style.stroke = '#E06C75';
+                }
             }
             svg.appendChild(path);
             if (!fromFrame && fromPort) fromPort.classList.add('connected');
@@ -2857,6 +3682,9 @@
         const overlay = document.getElementById('empWfOverlay');
         const panel = document.getElementById('empWfPanel');
         overlay.classList.add('show');
+        // 更新按钮图标为开启状态
+        var btn = document.getElementById('wfToggleBtn');
+        if (btn) { btn.textContent = '🔀'; btn.title = '节点工作流 (点击关闭)'; btn.style.color = 'var(--blue)'; }
 
         // 恢复面板位置和大小
         const saved = localStorage.getItem('empWfPanelState');
@@ -2894,6 +3722,17 @@
 
     function closeWorkflow() {
         document.getElementById('empWfOverlay').classList.remove('show');
+        // 更新按钮图标为关闭状态
+        var btn = document.getElementById('wfToggleBtn');
+        if (btn) { btn.textContent = '🔲'; btn.title = '节点工作流 (点击打开)'; btn.style.color = ''; }
+    }
+
+    function toggleWorkflow() {
+        if (document.getElementById('empWfOverlay').classList.contains('show')) {
+            closeWorkflow();
+        } else {
+            openWorkflow();
+        }
     }
 
     function clearWorkflow() {
@@ -2917,6 +3756,74 @@
     function _wfDeleteNode(id) {
         wfPushHistory();
         _wfDeleteNodeNoHistory(id);
+    }
+
+    async function _runSingleNode(nodeId) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node) return;
+        // 收集上游输入（从已执行的结果中获取）
+        var 上游输入 = '';
+        var 有上游 = wfConns.some(function(c) { return c.to === nodeId; });
+        wfConns.filter(function(c) { return c.to === nodeId; }).forEach(function(c) {
+            var srcNode = wfNodes.find(function(n) { return n.id === c.from; });
+            if (srcNode && srcNode._result && srcNode._result.output) {
+                上游输入 += (上游输入 ? '\n\n' : '') + '【来自' + (srcNode.name || srcNode.id) + '】\n' + srcNode._result.output;
+            }
+        });
+        // 有上游但没执行过 → 提示
+        if (有上游 && !上游输入) {
+            showToast('上游节点尚未执行，请先执行上游节点或整体执行', 'error');
+            return;
+        }
+
+        var el = document.getElementById('wfNode_' + nodeId);
+        var st = document.getElementById('wfStatus_' + nodeId);
+        if (el) { el.classList.remove('done', 'error', 'pending'); el.classList.add('running'); }
+        if (st) { st.textContent = '⏳ 执行中...'; st.className = 'emp-wf-node-status running'; }
+
+        var nodesData = [{id: node.id, type: node.type, name: node.name, config: node.config, 员工名: node.config.员工名 || node.name}];
+        var connsData = [];
+
+        let wd = '';
+        try { wd = currentRoot || ''; } catch(e) {}
+
+        try {
+            var resp = await fetch('/api/employee-workflow', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({节点: nodesData, 连接: connsData, 当前文件夹: wd, 单节点上游输入: 上游输入})
+            });
+            var reader = resp.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+            while (true) {
+                var r = await reader.read();
+                if (r.done) break;
+                buffer += decoder.decode(r.value, {stream: true});
+                var lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (var line of lines) {
+                    line = line.trim();
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        var d = JSON.parse(line.substring(6));
+                        var type = d.类型 || d.type;
+                        if (type === '节点开始') {
+                            if (st) { st.textContent = '⏳ ' + d.name + ' 执行中...'; }
+                        } else if (type === '节点完成') {
+                            if (el) { el.classList.remove('running'); el.classList.add(d.成功 !== false ? 'done' : 'error'); }
+                            if (st) { st.textContent = d.成功 !== false ? '✅ 完成' : '❌ 失败'; st.className = 'emp-wf-node-status ' + (d.成功 !== false ? 'done' : 'error'); }
+                            showWfNodeResult(d.id, d.name, d.输入 || 上游输入, d.输出 || '', d.成功 !== false, d.图片 || '');
+                            if (d.图片 && d.成功 !== false) _createImageNode(d.id, d.图片);
+                        } else if (type === '完成') {
+                            break;
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {
+            if (el) { el.classList.remove('running'); el.classList.add('error'); }
+            if (st) { st.textContent = '❌ ' + e.message; }
+        }
     }
 
     function _wfDeleteNodeNoHistory(id) {
@@ -3030,7 +3937,7 @@
                 var startX = e.clientX, startY = e.clientY;
                 var startW = frame.w, startH = frame.h, startX0 = frame.x, startY0 = frame.y;
                 function onMove(ev) {
-                    var dx = ev.clientX - startX, dy = ev.clientY - startY;
+                    var dx = (ev.clientX - startX) / wfZoom, dy = (ev.clientY - startY) / wfZoom;
                     if (dir === 'r' || dir === 'br' || dir === 'tr') frame.w = Math.max(120, startW + dx);
                     if (dir === 'b' || dir === 'br' || dir === 'bl') frame.h = Math.max(80, startH + dy);
                     if (dir === 'l' || dir === 'bl' || dir === 'tl') { var nw = Math.max(120, startW - dx); frame.x = startX0 + (startW - nw); frame.w = nw; }
@@ -3194,20 +4101,74 @@
     }
 
     async function saveWorkflowAs() {
-        const 文件名 = prompt('请输入保存名称：', wfCurrentFileName || '工作流_' + new Date().toISOString().slice(0,10));
-        if (!文件名) return;
+        // 先获取已有文件列表
+        var existList = [];
         try {
-            const resp = await fetch('/api/wf-save', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({文件名: 文件名, 图: getWfData()})
+            var listResp = await fetch('/api/wf-load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})});
+            var listData = await listResp.json();
+            if (listData.成功 || listData.success) existList = listData.列表 || [];
+        } catch(e) {}
+
+        const overlay = document.createElement('div');
+        overlay.className = 'emp-chat-overlay';
+        overlay.style.zIndex = '9300';
+        var defaultName = wfCurrentFileName || '工作流_' + new Date().toISOString().slice(0,10);
+        var itemsHtml = existList.map(function(name) {
+            return '<div class="wf-file-item" data-name="' + name + '" style="' + (name === defaultName ? 'border-color:var(--blue)' : '') + '">' +
+                '<span>📄 ' + name + '</span>' +
+                '<span style="font-size:10px;color:var(--text2)">点击覆盖</span></div>';
+        }).join('');
+        overlay.innerHTML = '<div class="emp-chat-box" style="width:360px;height:440px">' +
+            '<div class="emp-chat-header">' +
+                '<div class="emp-avatar">💾</div>' +
+                '<div><div class="emp-name">另存为</div><div class="emp-role">输入名称或点击已有文件覆盖</div></div>' +
+                '<div class="emp-chat-actions"><button class="emp-chat-btn" onclick="this.closest(\'.emp-chat-overlay\').remove()">✕</button></div>' +
+            '</div>' +
+            '<div class="emp-chat-body" style="padding:12px;gap:8px">' +
+                '<input id="wfSaveAsInput" type="text" value="' + defaultName + '" placeholder="文件名" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;font-family:inherit">' +
+                '<div style="font-size:11px;color:var(--text2);margin:2px 0">已有文件（点击覆盖）：</div>' +
+                '<div style="overflow-y:auto;flex:1">' + (itemsHtml || '<div style="color:var(--text2);font-size:12px;padding:8px">暂无文件</div>') + '</div>' +
+            '</div>' +
+            '<div class="emp-chat-input" style="justify-content:flex-end;padding:10px 16px">' +
+                '<button class="emp-chat-btn" style="background:var(--blue);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px" id="wfSaveAsBtn">💾 保存</button>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(overlay);
+        overlay.classList.add('show');
+        overlay.addEventListener('click', function(e) { if (e.target === this) this.remove(); });
+        var input = overlay.querySelector('#wfSaveAsInput');
+        input.focus();
+        input.select();
+
+        async function doSave(name) {
+            if (!name) { showToast('文件名不能为空', 'error'); return; }
+            try {
+                var resp = await fetch('/api/wf-save', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({文件名: name, 图: getWfData(), 覆盖: true})
+                });
+                var data = await resp.json();
+                if (data.成功 || data.success) {
+                    wfCurrentFileName = name;
+                    autoSaveWorkflow();
+                    showToast('已保存: ' + name, 'success');
+                    overlay.remove();
+                } else { showToast('保存失败: ' + (data.错误 || ''), 'error'); }
+            } catch(e2) { showToast('保存失败: ' + e2.message, 'error'); }
+        }
+
+        overlay.querySelector('#wfSaveAsBtn').addEventListener('click', function() {
+            doSave(input.value.trim());
+        });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); doSave(input.value.trim()); }
+        });
+        overlay.querySelectorAll('.wf-file-item').forEach(function(item) {
+            item.addEventListener('click', function() {
+                var name = item.dataset.name;
+                if (confirm('覆盖文件「' + name + '」？')) doSave(name);
             });
-            const data = await resp.json();
-            if (data.成功 || data.success) {
-                wfCurrentFileName = 文件名;
-                autoSaveWorkflow();
-                showToast('已另存为: ' + 文件名, 'success');
-            } else { showToast('保存失败', 'error'); }
-        } catch(e) { showToast('保存失败: ' + e.message, 'error'); }
+        });
     }
 
     async function loadWorkflowFile() {
@@ -3333,7 +4294,7 @@
         if (wfConns.length === 0) { alert('请先连线（至少一条连接才能执行）'); return; }
         // 收集画布上的节点位置
         const nodesData = wfNodes.map(function(n) {
-            return {id: n.id, type: n.type, name: n.name, config: n.config, 员工名: n.config.员工名 || n.name};
+            return {id: n.id, type: n.type, name: n.name, config: n.config, 员工名: n.config.员工名 || n.name, disabled: n.disabled || false};
         });
         const connsData = wfConns.map(function(c) {
             var d = {from: c.from, to: c.to};
@@ -3408,7 +4369,11 @@
                                 st.className = 'emp-wf-node-status ' + (d.成功 !== false ? 'done' : 'error');
                             }
                             // 显示输入输出
-                            showWfNodeResult(d.id, d.name, d.输入 || '', d.输出 || '', d.成功 !== false);
+                            showWfNodeResult(d.id, d.name, d.输入 || '', d.输出 || '', d.成功 !== false, d.图片 || '');
+                            // 如果有图片，自动创建图片预览节点
+                            if (d.图片 && d.成功 !== false) {
+                                _createImageNode(d.id, d.图片);
+                            }
                             appendWfLog((d.成功 !== false ? '✅ ' : '❌ ') + d.name + (d.成功 !== false ? ' 完成' : ' 失败') + (d.输出 ? ': ' + d.输出.substring(0,60) : ''), d.成功 !== false ? 'success' : 'error');
                         } else if (type === '进度') {
                             done = d.已完成 || d.current || done + 1;
@@ -3507,6 +4472,14 @@
     function appendWfLog(msg, cls) {
         const log = document.getElementById('empWfLog');
         if (!log) return;
+        // 首次添加日志时插入工具栏
+        if (!log.querySelector('.emp-wf-log-toolbar')) {
+            var tb = document.createElement('div');
+            tb.className = 'emp-wf-log-toolbar';
+            tb.innerHTML = '<button onclick="window.empWidget._wfLogCopy()" title="复制全部">📋</button>' +
+                '<button onclick="window.empWidget._wfLogToggle()" title="收起/展开" id="wfLogToggleBtn">▼</button>';
+            log.appendChild(tb);
+        }
         const entry = document.createElement('div');
         entry.className = 'wf-log-entry' + (cls ? ' ' + cls : '');
         entry.textContent = msg;
@@ -3514,13 +4487,109 @@
         log.scrollTop = log.scrollHeight;
     }
 
-    function showWfNodeResult(nodeId, name, input, output, success) {
+    function _imgGalleryNav(nodeId, dir) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node || !node.config.图片列表) return;
+        var gallery = document.querySelector('.wf-img-gallery[data-node="' + nodeId + '"]');
+        if (!gallery) return;
+        var slides = gallery.querySelectorAll('.wf-img-slide');
+        var curIdx = parseInt(gallery.dataset.idx || 0);
+        curIdx += dir;
+        if (curIdx < 0) curIdx = slides.length - 1;
+        if (curIdx >= slides.length) curIdx = 0;
+        gallery.dataset.idx = curIdx;
+        slides.forEach(function(s, i) { s.style.display = i === curIdx ? '' : 'none'; });
+        var count = gallery.querySelector('.wf-img-count');
+        if (count) count.textContent = (curIdx + 1) + '/' + slides.length;
+    }
+
+    function _imgExpand(nodeId) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (node) { node.config.展开 = true; var el = document.getElementById('wfNode_' + nodeId); if (el) { el.remove(); renderWfNode(node); } }
+    }
+
+    function _imgCollapse(nodeId) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (node) {
+            delete node.config.展开;
+            var panel = document.getElementById('wfImgSide_' + nodeId);
+            if (panel) panel.remove();
+            var el = document.getElementById('wfNode_' + nodeId);
+            if (el) { el.remove(); renderWfNode(node); }
+        }
+    }
+
+    function _imgSelect(nodeId, idx) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node || !node.config.图片列表) return;
+        // 更新主图
+        var el = document.getElementById('wfNode_' + nodeId);
+        if (el) {
+            var img = el.querySelector('img');
+            if (img) img.src = '/api/image?path=' + encodeURIComponent(node.config.图片列表[idx]) + '&t=' + Date.now();
+        }
+        // 高亮选中项
+        var panel = document.getElementById('wfImgSide_' + nodeId);
+        if (panel) {
+            panel.querySelectorAll('.wf-img-side-item').forEach(function(item) {
+                item.classList.toggle('active', parseInt(item.dataset.idx) === idx);
+            });
+        }
+    }
+
+    function _createImageNode(sourceNodeId, imagePath) {
+        var sourceNode = wfNodes.find(function(n) { return n.id === sourceNodeId; });
+        if (!sourceNode) return;
+        // 检查是否已有image节点连接到该节点
+        var existingNode = null;
+        wfConns.forEach(function(c) {
+            if (c.from === sourceNodeId && c.to) {
+                var n = wfNodes.find(function(x) { return x.id === c.to; });
+                if (n && n.type === 'image') existingNode = n;
+            }
+        });
+        if (existingNode) {
+            // 追加图片到已有节点的图片列表
+            if (!existingNode.config.图片列表) existingNode.config.图片列表 = [];
+            // 避免重复
+            if (existingNode.config.图片列表.indexOf(imagePath) < 0) {
+                existingNode.config.图片列表.unshift(imagePath);  // 最新放最前
+            }
+            existingNode.config.内容 = imagePath;  // 最新图片用于缩略图
+            existingNode.config.路径 = imagePath;
+            existingNode.config.类型 = 'image';
+            // 重新渲染该节点
+            var el = document.getElementById('wfNode_' + existingNode.id);
+            if (el) {
+                el.remove();
+                renderWfNode(existingNode);
+            }
+            return;
+        }
+        // 创建新图片节点
+        var px = sourceNode.x + 220;
+        var py = sourceNode.y;
+        var node = addWfNode('image', px, py, '🖼️ 生成图片', {
+            文件名: imagePath.split('/').pop().split('\\').pop(),
+            内容: imagePath,
+            类型: 'image',
+            路径: imagePath,
+            图片列表: [imagePath]
+        }, {});
+        // 自动连线
+        wfConns.push({from: sourceNodeId, to: node.id});
+        redrawWfConnections();
+        updateWfInfo();
+        autoSaveWorkflow();
+    }
+
+    function showWfNodeResult(nodeId, name, input, output, success, imagePath) {
         const el = document.getElementById('wfNode_' + nodeId);
         if (!el) return;
         // 存储结果到节点数据上，点击时弹出
         const node = wfNodes.find(function(n) { return n.id === nodeId; });
         if (node) {
-            node._result = {input: input, output: output, success: success};
+            node._result = {input: input, output: output, success: success, image: imagePath || ''};
         }
         // 节点底部显示简短状态
         const old = el.querySelector('.emp-wf-node-result');
@@ -3542,16 +4611,162 @@
         }
     }
 
+    // ========== 大图查看器 ==========
+    var _imgViewer = null;
+
+    function _showImageViewer(nodeId, idx) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node) return;
+        var 图片列表 = node.config.图片列表 || (node.config.内容 ? [node.config.内容] : []);
+        if (图片列表.length === 0) return;
+        var curIdx = idx || 0;
+
+        // 关闭已有查看器
+        if (_imgViewer) { _imgViewer.remove(); _imgViewer = null; }
+
+        var ov = document.createElement('div');
+        ov.className = 'wf-img-viewer';
+        ov.innerHTML = '<div class="wf-iv-close" onclick="this.closest(\'.wf-img-viewer\').remove()">✕</div>' +
+            '<div class="wf-iv-prev" onclick="window.empWidget._ivNav(-1)">◀</div>' +
+            '<div class="wf-iv-next" onclick="window.empWidget._ivNav(1)">▶</div>' +
+            '<div class="wf-iv-count" id="wfIvCount"></div>' +
+            '<div class="wf-iv-stage" id="wfIvStage"></div>';
+        document.body.appendChild(ov);
+        _imgViewer = ov;
+        _imgViewer._imgs = 图片列表;
+        _imgViewer._idx = curIdx;
+        _imgViewer._zoom = 1;
+        _imgViewer._panX = 0;
+        _imgViewer._panY = 0;
+
+        _renderIvImage();
+
+        // 滚轮缩放
+        ov.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            var stage = document.getElementById('wfIvStage');
+            var rect = stage.getBoundingClientRect();
+            var mx = e.clientX - rect.left - rect.width / 2;
+            var my = e.clientY - rect.top - rect.height / 2;
+            var oldZoom = _imgViewer._zoom;
+            var delta = e.deltaY > 0 ? 0.9 : 1.1;
+            _imgViewer._zoom = Math.max(0.1, Math.min(10, _imgViewer._zoom * delta));
+            // 基于鼠标中心缩放
+            var ratio = _imgViewer._zoom / oldZoom;
+            _imgViewer._panX = mx - (mx - _imgViewer._panX) * ratio;
+            _imgViewer._panY = my - (my - _imgViewer._panY) * ratio;
+            _applyIvTransform();
+        });
+
+        // 中键平移（仅平移，不做其他操作）
+        var panning = false, panStart = null, panMoved = false;
+        ov.addEventListener('mousedown', function(e) {
+            if (e.button === 1 || (e.button === 0 && e.target.classList.contains('wf-iv-stage'))) {
+                panning = true;
+                panMoved = false;
+                panStart = {x: e.clientX - _imgViewer._panX, y: e.clientY - _imgViewer._panY};
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('mousemove', function ivMove(e) {
+            if (panning) {
+                var dx = e.clientX - panStart.x - _imgViewer._panX;
+                var dy = e.clientY - panStart.y - _imgViewer._panY;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) panMoved = true;
+                _imgViewer._panX = e.clientX - panStart.x;
+                _imgViewer._panY = e.clientY - panStart.y;
+                _applyIvTransform();
+            }
+        });
+        document.addEventListener('mouseup', function ivUp(e) {
+            panning = false;
+        });
+
+        // 中键不触发任何其他操作
+        ov.addEventListener('auxclick', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        // 点击背景关闭
+        ov.addEventListener('click', function(e) {
+            if (panMoved) { e.stopPropagation(); e.preventDefault(); return; }
+            if (e.target === ov) { ov.remove(); _imgViewer = null; }
+        });
+        // 右键下一张
+        ov.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            if (_imgViewer) _ivNav(1);
+        });
+        // 鼠标左键点击图片区域上一张（拖拽后不触发）
+        var stage = document.getElementById('wfIvStage');
+        if (stage) {
+            stage.addEventListener('click', function(e) {
+                if (panMoved) { e.stopPropagation(); return; }
+                if (_imgViewer) _ivNav(-1);
+            });
+        }
+        // ESC关闭，方向键翻页
+        document.addEventListener('keydown', function ivEsc(e) {
+            if (e.key === 'Escape' && _imgViewer) { _imgViewer.remove(); _imgViewer = null; document.removeEventListener('keydown', ivEsc); }
+            if (_imgViewer && e.key === 'ArrowLeft') _ivNav(-1);
+            if (_imgViewer && e.key === 'ArrowRight') _ivNav(1);
+        });
+    }
+
+    function _renderIvImage() {
+        if (!_imgViewer) return;
+        var imgs = _imgViewer._imgs;
+        var idx = _imgViewer._idx;
+        var src = '/api/image?path=' + encodeURIComponent(imgs[idx]) + '&t=' + Date.now();
+        var stage = document.getElementById('wfIvStage');
+        if (stage) stage.innerHTML = '<img src="' + src + '" draggable="false" onerror="this.style.display=\'none\'">';
+        var count = document.getElementById('wfIvCount');
+        if (count) count.textContent = (idx + 1) + ' / ' + imgs.length;
+        _imgViewer._zoom = 1;
+        _imgViewer._panX = 0;
+        _imgViewer._panY = 0;
+        _applyIvTransform();
+    }
+
+    function _applyIvTransform() {
+        if (!_imgViewer) return;
+        var stage = document.getElementById('wfIvStage');
+        if (!stage) return;
+        var img = stage.querySelector('img');
+        if (img) {
+            img.style.transform = 'translate(' + _imgViewer._panX + 'px,' + _imgViewer._panY + 'px) scale(' + _imgViewer._zoom + ')';
+        }
+    }
+
+    function _ivNav(dir) {
+        if (!_imgViewer) return;
+        var imgs = _imgViewer._imgs;
+        _imgViewer._idx += dir;
+        if (_imgViewer._idx < 0) _imgViewer._idx = imgs.length - 1;
+        if (_imgViewer._idx >= imgs.length) _imgViewer._idx = 0;
+        _renderIvImage();
+    }
+
     function _wfShowNodeDetail(nodeId, mouseX, mouseY) {
         const node = wfNodes.find(function(n) { return n.id === nodeId; });
         if (!node) return;
-        const r = node._result || {input: '', output: '', success: null};
+        const r = node._result || {input: '', output: '', success: null, image: ''};
         let html = '';
+        // 图片预览（如果有图片路径）
+        if (r.image) {
+            html += '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--text2);margin-bottom:4px">🖼️ 生成图片</div>' +
+                '<div style="text-align:center;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px">' +
+                '<img src="/api/image?path=' + encodeURIComponent(r.image) + '" style="max-width:100%;max-height:300px;border-radius:4px" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\'">' +
+                '<div style="display:none;color:var(--text2);font-size:12px;padding:20px">图片加载失败<br>' + escapeHtml(r.image) + '</div>' +
+                '</div></div>';
+        }
         if (r.input) {
-            html += '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--text2);margin-bottom:4px">⬇️ 输入</div><div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;font-size:13px;max-height:200px;overflow-y:auto">' + escapeHtml(r.input) + '</div></div>';
+            html += '<div style="margin-bottom:12px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text2)">⬇️ 输入</span><button onclick="navigator.clipboard.writeText(document.getElementById(\'wfDetailInput\').textContent).then(function(){showToast(\'已复制\',\'success\')})" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer">📋复制</button></div><div id="wfDetailInput" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;font-size:13px;max-height:200px;overflow-y:auto">' + escapeHtml(r.input) + '</div></div>';
         }
         if (r.output) {
-            html += '<div><div style="font-size:12px;color:var(--text2);margin-bottom:4px">⬆️ 输出</div><div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;font-size:13px;max-height:300px;overflow-y:auto">' + (typeof marked !== 'undefined' ? marked.parse(r.output) : escapeHtml(r.output)) + '</div></div>';
+            var 输出html = typeof marked !== 'undefined' ? marked.parse(r.output) : escapeHtml(r.output);
+            html += '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text2)">⬆️ 输出</span><button onclick="navigator.clipboard.writeText(document.getElementById(\'wfDetailOutput\').textContent).then(function(){showToast(\'已复制\',\'success\')})" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer">📋复制</button></div><div id="wfDetailOutput" class="wf-output-content" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;font-size:13px;max-height:300px;overflow-y:auto">' + 输出html + '</div></div>';
         }
         if (!html) html = '<div style="color:var(--text2);text-align:center;padding:40px">该节点尚未执行，暂无输入输出数据<br><br>请点击底部"🚀执行"按钮运行工作流</div>';
         const popup = showWfPopup(node.name + ' — 节点详情', html, mouseX, mouseY);
@@ -3589,7 +4804,23 @@
         document.body.appendChild(box);
 
         // 触发渐入动画
-        requestAnimationFrame(function() { box.classList.add('show'); });
+        requestAnimationFrame(function() {
+            box.classList.add('show');
+            // KaTeX渲染LaTeX数学公式
+            if (typeof renderMathInElement !== 'undefined') {
+                try {
+                    renderMathInElement(box, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '\\[', right: '\\]', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false}
+                        ],
+                        throwOnError: false
+                    });
+                } catch(e) {}
+            }
+        });
 
         // 恢复上次弹窗位置和大小（优先使用保存的位置，而非鼠标位置）
         var savedPopup = null;
@@ -3660,8 +4891,25 @@
         openEditPanel: openEditPanel, saveEdit: saveEdit,
         openCreatePanel: openCreatePanel, saveCreate: saveCreate,
         generatePersona: generatePersona,
-        openWorkflow: openWorkflow, closeWorkflow: closeWorkflow, clearWorkflow: clearWorkflow,
-        executeWorkflow: executeWorkflow, _wfDeleteNode: _wfDeleteNode, _wfUpdateConfig: _wfUpdateConfig,
+        openWorkflow: openWorkflow, closeWorkflow: closeWorkflow, toggleWorkflow: toggleWorkflow, clearWorkflow: clearWorkflow,
+        executeWorkflow: executeWorkflow, _wfDeleteNode: _wfDeleteNode, _runSingleNode: _runSingleNode, _wfUpdateConfig: _wfUpdateConfig,
+        _imgGalleryNav: _imgGalleryNav, _imgExpand: _imgExpand, _imgCollapse: _imgCollapse, _imgSelect: _imgSelect,
+        _showImageViewer: _showImageViewer, _ivNav: _ivNav,
+        _wfLogCopy: function() {
+            var log = document.getElementById('empWfLog');
+            if (!log) return;
+            var entries = log.querySelectorAll('.wf-log-entry');
+            var text = '';
+            entries.forEach(function(e) { text += e.textContent + '\n'; });
+            navigator.clipboard.writeText(text).then(function() { showToast('已复制日志', 'success'); });
+        },
+        _wfLogToggle: function() {
+            var log = document.getElementById('empWfLog');
+            if (!log) return;
+            log.classList.toggle('collapsed');
+            var btn = document.getElementById('wfLogToggleBtn');
+            if (btn) btn.textContent = log.classList.contains('collapsed') ? '▶' : '▼';
+        },
         _wfShowFull: _wfShowFull,
         _wfShowNodeDetail: _wfShowNodeDetail,
         _wfUpdateFrame: _wfUpdateFrame, _wfDeleteFrame: _wfDeleteFrame,
@@ -3680,9 +4928,9 @@
     };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); document.addEventListener('click', closeContextMenu); });
+        document.addEventListener('DOMContentLoaded', function() { init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); _startImgPolling(); document.addEventListener('click', closeContextMenu); });
     } else {
-        init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); document.addEventListener('click', closeContextMenu);
+        init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); _startImgPolling(); document.addEventListener('click', closeContextMenu);
     }
     // 关闭页面前自动保存
     window.addEventListener('beforeunload', function() { autoSaveWorkflow(); });

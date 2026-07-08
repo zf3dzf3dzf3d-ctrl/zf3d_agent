@@ -241,7 +241,8 @@ async function loadDriveList() {
 
 function refreshTree() {
     if (currentRoot) openFolder(currentRoot);
-    if (galleryPath) showGallery(galleryPath);
+    // 仅在编辑器无激活文件时才刷新画廊（避免替换后切走编辑器视图）
+    if (galleryPath && (typeof activeFileIdx === 'undefined' || activeFileIdx < 0)) showGallery(galleryPath);
 }
 
 async function openInExplorer(path) {

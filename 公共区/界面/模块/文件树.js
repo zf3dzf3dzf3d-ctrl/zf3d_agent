@@ -91,10 +91,11 @@ async function openFolder(path) {
             const rootEl = document.createElement("div");
             const rootItem = document.createElement("div");
             rootItem.className = "ti active";
-            rootItem.innerHTML = `<span class="arr">▼</span><span class="ico">📁</span><span class="nm">${root.名称}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
+            rootItem.innerHTML = `<span class="arr">▼</span><span class="ico">📁</span><span class="nm">${root.名称}</span><button class="new-btn" title="新建文件夹">➕</button><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
             rootEl.appendChild(rootItem);
             setupDropTarget(rootItem, currentRoot);
             rootItem.addEventListener("click", e => {
+                if (e.target.classList.contains("new-btn")) { e.stopPropagation(); newFolder(currentRoot); return; }
                 if (e.target.classList.contains("exp-btn")) { e.stopPropagation(); openInExplorer(currentRoot); return; }
                 if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(currentRoot, root.名称, true); return; }
                 if (e.target.classList.contains("ren-btn")) { e.stopPropagation(); renameItem(currentRoot, root.名称); return; }
@@ -245,7 +246,7 @@ function buildTreeNode(node, path) {
         item.dataset.size = node.大小 || 0;
         item.dataset.date = node.创建时间 || "";
         item.dataset.ext = "";
-        item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${_esc(node.名称)}</span><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
+        item.innerHTML = `<span class="arr">${hasKids ? "▶" : " "}</span><span class="ico">📁</span><span class="nm">${_esc(node.名称)}</span><button class="new-btn" title="新建文件夹">➕</button><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
         el.appendChild(item);
         attachFileTooltip(item, {名称: node.名称, 类型: "目录", 大小: 0, 创建时间: node.创建时间, 后缀: "", 路径: fullPath});
         setupDropTarget(item, fullPath);
@@ -255,6 +256,7 @@ function buildTreeNode(node, path) {
         if (node.子项) for (const c of node.子项) kids.appendChild(buildTreeNode(c, fullPath));
         el.appendChild(kids);
         item.addEventListener("click", e => {
+            if (e.target.classList.contains("new-btn")) { e.stopPropagation(); newFolder(fullPath); return; }
             if (e.target.classList.contains("exp-btn")) { e.stopPropagation(); openInExplorer(fullPath); return; }
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, true); return; }
             if (e.target.classList.contains("ren-btn")) { e.stopPropagation(); renameItem(fullPath, node.名称); return; }
@@ -339,6 +341,26 @@ async function deleteItem(path, name, isDir) {
         }
     } catch (e) {
         alert("删除失败: " + e.message);
+    }
+}
+
+async function newFolder(parentPath) {
+    const 名称 = prompt("请输入文件夹名称：", "新建文件夹");
+    if (!名称) return;
+    try {
+        const resp = await fetch("/api/fs-mkdir", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: joinPath(parentPath, 名称) })
+        });
+        const d = await resp.json();
+        if (d.成功 || d.success) {
+            refreshTree();
+            showToast("已创建文件夹: " + 名称, "success");
+        } else {
+            alert("创建失败: " + (d.错误 || d.error || "未知错误"));
+        }
+    } catch (e) {
+        alert("创建失败: " + e.message);
     }
 }
 

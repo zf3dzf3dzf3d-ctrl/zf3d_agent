@@ -14,8 +14,43 @@ function showReasoningPanel() {
         panel = document.createElement("div");
         panel.id = "reasoningPanel";
         panel.className = "reasoning-panel";
-        panel.innerHTML = '<div class="reasoning-header"><span>⚡ AI推理过程</span><span class="rh-count" id="rhCount">0步</span></div><div class="reasoning-body" id="reasoningBody"></div>';
+        panel.innerHTML = '<div class="reasoning-header" id="reasoningHeader"><span>⚡ AI推理过程</span><span class="rh-count" id="rhCount">0步</span></div><div class="reasoning-body" id="reasoningBody"></div>';
         chatMsg.parentNode.insertBefore(panel, chatMsg.nextSibling);
+        // 恢复上次高度
+        const savedH = localStorage.getItem('reasoningPanelHeight');
+        if (savedH) {
+            panel.style.maxHeight = savedH + 'px';
+            const body = document.getElementById('reasoningBody');
+            if (body) body.style.maxHeight = (savedH - 30) + 'px';
+        }
+        // 拖拽调整大小
+        const header = document.getElementById('reasoningHeader');
+        let dragging = false, startY = 0, startH = 0;
+        header.addEventListener('mousedown', function(e) {
+            if (e.target.id === 'rhCount') return;
+            dragging = true;
+            startY = e.clientY;
+            startH = panel.offsetHeight;
+            e.preventDefault();
+            document.body.style.cursor = 'ns-resize';
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', function(e) {
+            if (!dragging) return;
+            const delta = startY - e.clientY;
+            let newH = Math.max(80, Math.min(600, startH + delta));
+            panel.style.maxHeight = newH + 'px';
+            const body = document.getElementById('reasoningBody');
+            if (body) body.style.maxHeight = (newH - 30) + 'px';
+        });
+        document.addEventListener('mouseup', function() {
+            if (dragging) {
+                dragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                localStorage.setItem('reasoningPanelHeight', panel.offsetHeight);
+            }
+        });
     }
     panel.style.display = "block";
     document.getElementById("reasoningBody").innerHTML = "";

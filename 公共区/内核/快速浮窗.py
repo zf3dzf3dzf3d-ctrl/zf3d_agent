@@ -91,6 +91,8 @@ class 快速浮窗:
         self._回答文本 = None
         self._选中文本 = ""
         self._正在朗读 = False
+        self._正在录音 = False
+        self._正在录屏 = False
         self._点击锁 = False
 
     def 启动(self):
@@ -114,6 +116,8 @@ class 快速浮窗:
         self._中心 = 鼠标坐标
         self._当前窗口标题 = 窗口标题
         self._选中文本 = 选中文本
+        # 弹出前同步录音/录屏状态
+        threading.Thread(target=lambda: (self._同步录音状态(), self._同步录屏状态()), daemon=True).start()
         # 全部在Tk主线程中执行，确保顺序正确
         def 安全创建():
             if self._弹窗:
@@ -208,8 +212,14 @@ class 快速浮窗:
             角度起始 = -90 + 扇区角度 * i
             原名 = 扇区.get("名称", "")
             是朗读扇区 = 原名 == "朗读"
+            是录音扇区 = 原名 == "录音"
+            是录屏扇区 = 原名 == "录屏"
             if 是朗读扇区 and self._正在朗读:
                 名称 = "停读"
+            elif 是录音扇区 and self._正在录音:
+                名称 = "停录"
+            elif 是录屏扇区 and self._正在录屏:
+                名称 = "停录"
             else:
                 名称 = 原名[:2]
             是空扇区 = 原名[:2] == "空"
@@ -217,6 +227,10 @@ class 快速浮窗:
                 填充色 = "#abcdef"
             elif 是朗读扇区 and self._正在朗读:
                 填充色 = self.朗读激活色
+            elif 是录音扇区 and self._正在录音:
+                填充色 = "#3a1a1a"
+            elif 是录屏扇区 and self._正在录屏:
+                填充色 = "#1a3a1a"
             else:
                 填充色 = self.扇区默认色
             arc_id = self._画布.create_arc(
@@ -398,11 +412,150 @@ class 快速浮窗:
                     self._关闭()
                     self._显示气泡("没有选中文本")
 
+        elif 动作 in ("录音", "停录"):
+            self._关闭()
+            # 先查后端实际状态（防止轮盘状态与后端不同步）
+            self._同步录音状态()
+            self._根窗口.after(200, lambda: self._切换录音())
+
+        elif 动作 in ("录屏", "停录"):
+            self._关闭()
+            self._同步录屏状态()
+            self._根窗口.after(200, lambda: self._切换录屏())
+
         else:
             消息 = [{"role": "user", "content": 选中文本 or 动作}]
             提示词 = self.配置.get("系统提示词", "你是快速助手，简洁回答。")
             self._过渡到回答区()
             self._启动LLM(消息, 提示词)
+
+    # ============ 录音/录屏 ============
+
+    def _同步录音状态(self):
+        """从后端查询录音实际状态"""
+        import urllib.request, json as _json
+        端口 = self.配置.get("网页端口", 8765)
+        try:
+            req = urllib.request.Request(
+                f"http://localhost:{端口}/api/record-status",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            resp = urllib.request.urlopen(req, timeout=2)
+            数据 = _json.loads(resp.read().decode("utf-8"))
+            if 数据.get("成功"):
+                self._正在录音 = 数据.get("录制中", False)
+        except Exception:
+            pass
+
+    def _同步录屏状态(self):
+        """从后端查询录屏实际状态"""
+        import urllib.request, json as _json
+        端口 = self.配置.get("网页端口", 8765)
+        try:
+            req = urllib.request.Request(
+                f"http://localhost:{端口}/api/screenrecord-status",
+                data=b"{}",
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            resp = urllib.request.urlopen(req, timeout=2)
+            数据 = _json.loads(resp.read().decode("utf-8"))
+            if 数据.get("成功"):
+                self._正在录屏 = 数据.get("录制中", False)
+        except Exception:
+            pass
+
+    def _切换录音(self):
+        """切换录音状态：未录制→开始，录制中→停止"""
+        import urllib.request, json as _json
+        端口 = self.配置.get("网页端口", 8765)
+        try:
+            if self._正在录音:
+                req = urllib.request.Request(
+                    f"http://localhost:{端口}/api/record-stop",
+                    data=_json.dumps({"音量倍数": 5.0}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, timeout=30)
+                数据 = _json.loads(resp.read().decode("utf-8"))
+                self._正在录音 = False
+                保存路径 = 数据.get("路径", "")
+                提示 = "✅ 录音已停止"
+                if 保存路径:
+                    提示 += f"\n📁 {保存路径}"
+                self._显示气泡(提示)
+            else:
+                req = urllib.request.Request(
+                    f"http://localhost:{端口}/api/record-start",
+                    data=_json.dumps({"保存目录": "", "设备索引": -1}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, timeout=5)
+                数据 = _json.loads(resp.read().decode("utf-8"))
+                if 数据.get("成功"):
+                    self._正在录音 = True
+                    设备 = 数据.get("设备名", "")
+                    self._显示气泡(f"🔴 录音中..." + (f"\n🎤 {设备}" if 设备 else ""))
+                else:
+                    self._显示气泡(f"❌ {数据.get('错误', '录音启动失败')}")
+        except Exception as e:
+            self._显示气泡(f"❌ 录音错误: {e}")
+
+    def _切换录屏(self):
+        """切换录屏状态：未录制→开始，录制中→停止"""
+        import urllib.request, json as _json
+        端口 = self.配置.get("网页端口", 8765)
+        try:
+            if self._正在录屏:
+                req = urllib.request.Request(
+                    f"http://localhost:{端口}/api/screenrecord-stop",
+                    data=_json.dumps({}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, timeout=300)
+                数据 = _json.loads(resp.read().decode("utf-8"))
+                self._正在录屏 = False
+                保存路径 = 数据.get("路径", "")
+                提示 = "✅ 录屏已停止"
+                if 保存路径:
+                    提示 += f"\n📁 {保存路径}"
+                self._显示气泡(提示)
+            else:
+                # 读取后端保存的录屏设置（跟随智能体主页的设置）
+                设置 = {"x": 0, "y": 0, "w": 0, "h": 0, "保存目录": ""}
+                try:
+                    sreq = urllib.request.Request(
+                        f"http://localhost:{端口}/api/screenrecord-settings",
+                        data=b"{}",
+                        headers={"Content-Type": "application/json"},
+                        method="POST"
+                    )
+                    sresp = urllib.request.urlopen(sreq, timeout=2)
+                    sdata = _json.loads(sresp.read().decode("utf-8"))
+                    if sdata.get("成功"):
+                        设置.update(sdata.get("设置", {}))
+                except Exception:
+                    pass
+                req = urllib.request.Request(
+                    f"http://localhost:{端口}/api/screenrecord-start",
+                    data=_json.dumps(设置).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, timeout=10)
+                数据 = _json.loads(resp.read().decode("utf-8"))
+                if 数据.get("成功"):
+                    self._正在录屏 = True
+                    self._显示气泡("🎬 录屏中...\n⏹ 再次点击停止")
+                else:
+                    self._显示气泡(f"❌ {数据.get('错误', '录屏启动失败')}")
+        except Exception as e:
+            self._显示气泡(f"❌ 录屏错误: {e}")
 
     # ============ 截图选区 ============
 

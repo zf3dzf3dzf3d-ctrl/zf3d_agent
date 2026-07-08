@@ -6,6 +6,7 @@ let _dpPollTimer = null;
 let _dpCollapsed = false;
 let _dpCompletedTimers = {}; // 记录已完成项的移除定时器
 let _dpCancelling = new Set(); // 记录正在取消的下载ID
+let _keepPanelAlive = false; // 语音安装期间保持面板显示
 
 function initDownloadPanel() {
     // 启动时查一次，有下载才继续轮询
@@ -36,8 +37,10 @@ function pollDownloadPanel() {
             const entries = Object.entries(list);
 
             if (entries.length === 0) {
-                hideDownloadPanel();
-                _dpStopPolling();
+                if (!_keepPanelAlive) {
+                    hideDownloadPanel();
+                    _dpStopPolling();
+                }
                 return;
             }
             _dpStartPolling();
@@ -210,7 +213,15 @@ function updateDownloadItem(item, dlId, info) {
     if (sizeEl) sizeEl.textContent = (downloaded && total) ? `${downloaded}/${total} MB` : "";
 
     const speedEl = item.querySelector(".dl-item-speed");
-    if (speedEl) speedEl.textContent = speed ? `${speed} MB/s` : "";
+    if (speedEl) {
+        if (speed >= 1) {
+            speedEl.textContent = `${speed.toFixed(1)} MB/s`;
+        } else if (speed > 0) {
+            speedEl.textContent = `${Math.round(speed * 1024)} KB/s`;
+        } else {
+            speedEl.textContent = "";
+        }
+    }
 
     const etaEl = item.querySelector(".dl-item-eta");
     if (etaEl) etaEl.textContent = eta ? `⏳${eta}` : "";

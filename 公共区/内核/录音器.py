@@ -298,14 +298,16 @@ class 录音器:
                 if _流:
                     _流.stop()
                     _流.close()
+                    _录音状态["_流"] = None
             except Exception:
                 pass
 
-            # 停止 soundcard recorder
+            # 停止 soundcard recorder（只停一次，录音线程的finally可能已经停了）
             try:
                 recorder = _录音状态.get("_recorder")
                 if recorder:
                     recorder.__exit__(None, None, None)
+                    _录音状态["_recorder"] = None
             except Exception:
                 pass
 

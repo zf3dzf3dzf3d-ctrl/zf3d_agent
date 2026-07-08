@@ -14,6 +14,7 @@ from datetime import datetime
 
 class 存储引擎类:
     """SQLite存储引擎，线程安全，支持全文搜索+向量搜索"""
+    _实例引用 = None
 
     def __init__(self, 路径: str):
         self._路径 = str(路径)
@@ -27,6 +28,7 @@ class 存储引擎类:
         self._连接.execute("PRAGMA journal_mode=WAL")
         self._连接.execute("PRAGMA synchronous=NORMAL")
         self._连接.execute("PRAGMA busy_timeout=5000")
+        存储引擎类._实例引用 = self
 
         # 读连接（WAL下读不阻塞写）
         self._读连接 = sqlite3.connect(self._路径, check_same_thread=False, timeout=5)
@@ -311,6 +313,38 @@ class 存储引擎类:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_录屏日志_会话 ON 录屏日志(会话ID)")
+
+            # 工作流日志表
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 工作流日志 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    会话ID TEXT NOT NULL,
+                    节点ID TEXT,
+                    节点名 TEXT,
+                    节点类型 TEXT,
+                    状态 TEXT NOT NULL,
+                    输入 TEXT,
+                    输出 TEXT,
+                    错误 TEXT,
+                    耗时毫秒 INTEGER,
+                    时间 TEXT NOT NULL
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_工作流日志_会话 ON 工作流日志(会话ID)")
+
+            # 员工对话记录表（自动持久化，隐私区，不外传）
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS 员工对话记录 (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    员工名 TEXT NOT NULL,
+                    角色 TEXT NOT NULL,
+                    内容 TEXT NOT NULL,
+                    时间 TEXT NOT NULL,
+                    来源 TEXT DEFAULT '员工对话'
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_员工对话_员工 ON 员工对话记录(员工名)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_员工对话_时间 ON 员工对话记录(时间)")
 
             conn.commit()
 
@@ -1265,6 +1299,43 @@ class 存储引擎类:
     def 查询最新录屏会话(self) -> str:
         """查询最新的录屏会话ID"""
         rows = self._查询("SELECT 会话ID FROM 录屏日志 ORDER BY id DESC LIMIT 1")
+        if rows:
+            return rows[0][0]
+        return None
+
+    # ==================== 工作流日志 ====================
+
+    def 写工作流日志(self, 会话ID: str, 节点ID: str, 节点名: str, 节点类型: str,
+                     状态: str, 输入: str = "", 输出: str = "", 错误: str = "", 耗时毫秒: int = 0) -> int:
+        """写入一条工作流节点执行日志"""
+        时间 = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        cursor = self._执行(
+            """INSERT INTO 工作流日志 (会话ID, 节点ID, 节点名, 节点类型, 状态, 输入, 输出, 错误, 耗时毫秒, 时间)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [会话ID, 节点ID, 节点名, 节点类型, 状态, 输入, 输出, 错误, 耗时毫秒, 时间]
+        )
+        return cursor.lastrowid
+
+    def 查询工作流日志(self, 会话ID: str = None, limit: int = 500) -> list:
+        """查询工作流日志"""
+        if 会话ID:
+            rows = self._查询(
+                "SELECT id, 会话ID, 节点ID, 节点名, 节点类型, 状态, 输入, 输出, 错误, 耗时毫秒, 时间 FROM 工作流日志 WHERE 会话ID=? ORDER BY id ASC",
+                [会话ID]
+            )
+        else:
+            rows = self._查询(
+                "SELECT id, 会话ID, 节点ID, 节点名, 节点类型, 状态, 输入, 输出, 错误, 耗时毫秒, 时间 FROM 工作流日志 ORDER BY id DESC LIMIT ?",
+                [limit]
+            )
+        return [{
+            "id": r[0], "会话ID": r[1], "节点ID": r[2], "节点名": r[3], "节点类型": r[4],
+            "状态": r[5], "输入": r[6], "输出": r[7], "错误": r[8], "耗时毫秒": r[9], "时间": r[10]
+        } for r in rows]
+
+    def 查询最新工作流会话(self) -> str:
+        """查询最新的工作流会话ID"""
+        rows = self._查询("SELECT 会话ID FROM 工作流日志 ORDER BY id DESC LIMIT 1")
         if rows:
             return rows[0][0]
         return None

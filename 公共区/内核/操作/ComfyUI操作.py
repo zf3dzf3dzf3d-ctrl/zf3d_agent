@@ -27,19 +27,72 @@ import urllib.parse
 from .基类 import 操作结果, 操作基类
 
 
+_探测缓存 = None
+_探测时间 = 0
+
+def _自动探测ComfyUI端口() -> str:
+    """探测8000-8010哪个端口有ComfyUI在运行，缓存60秒"""
+    global _探测缓存, _探测时间
+    import time as _time_mod
+    if _探测缓存 and (_time_mod.time() - _探测时间) < 60:
+        # 缓存有效但验证一下是否还活着
+        import socket as _sock_v
+        s = _sock_v.socket(_sock_v.AF_INET, _sock_v.SOCK_STREAM)
+        s.settimeout(0.3)
+        if s.connect_ex(("127.0.0.1", int(_探测缓存.split(":")[1]))) == 0:
+            s.close()
+            return _探测缓存
+        s.close()
+        _探测缓存 = None  # 连不上，清除缓存重新探测
+    import socket as _sock
+    for port in range(8000, 8011):
+        try:
+            s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+            s.settimeout(0.3)
+            result = s.connect_ex(("127.0.0.1", port))
+            s.close()
+            if result == 0:
+                try:
+                    ok, data = _API请求(f"127.0.0.1:{port}", "/system_stats")
+                    if ok:
+                        _探测缓存 = f"127.0.0.1:{port}"
+                        _探测时间 = _time_mod.time()
+                        print(f"  [ComfyUI] 自动探测到端口: {port}")
+                        return _探测缓存
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    return "127.0.0.1:8000"
+
+
 def _获取ComfyUI地址() -> str:
-    """从系统配置读取ComfyUI地址"""
+    """从系统配置读取ComfyUI地址，配置为auto时自动探测"""
     try:
         from 操作注册中心 import 操作注册中心类
         实例 = 操作注册中心类._实例引用
         if 实例 and 实例._配置加载器:
             系统配置 = 实例._配置加载器.配置缓存.get("系统配置", {})
-            地址 = 系统配置.get("ComfyUI地址", "127.0.0.1:8188")
-            if 地址:
+            地址 = 系统配置.get("ComfyUI地址", "auto")
+            if 地址 and 地址 != "auto":
                 return 地址
+            return _自动探测ComfyUI端口()
     except Exception:
         pass
-    return "127.0.0.1:8188"
+    return _自动探测ComfyUI端口()
+
+
+def _获取默认保存目录() -> str:
+    """获取AI生成图片的固定保存目录"""
+    try:
+        项目根 = pathlib.Path(__file__).parent.parent.parent.parent
+        保存目录 = 项目根 / "隐私区" / "我的数据" / "AI生成图片"
+        保存目录.mkdir(parents=True, exist_ok=True)
+        return str(保存目录)
+    except Exception:
+        保存目录 = os.path.join(os.path.expanduser("~"), "Desktop", "AI生成图片")
+        os.makedirs(保存目录, exist_ok=True)
+        return 保存目录
 
 
 def _获取工作流目录() -> str:
@@ -120,14 +173,26 @@ def _查找工作流文件(关键词: str) -> str:
 
     # 3. 递归搜索，收集所有匹配项
     工作流目录 = _获取工作流目录()
-    if not os.path.exists(工作流目录):
-        return None
+    搜索目录列表 = [工作流目录]
+    # 同时搜索项目内置工作流目录
+    try:
+        项目根 = pathlib.Path(__file__).parent.parent.parent.parent
+        内置目录 = str(项目根 / "公共区" / "工作流")
+        if os.path.isdir(内置目录):
+            搜索目录列表.append(内置目录)
+    except Exception:
+        pass
 
     匹配列表 = []
-    for 根, _, 文件列表 in os.walk(工作流目录):
-        for f in 文件列表:
-            if f.endswith(".json") and 关键词 in f.lower():
-                匹配列表.append(os.path.join(根, f))
+    for 搜索目录 in 搜索目录列表:
+        if not os.path.exists(搜索目录):
+            continue
+        for 根, _, 文件列表 in os.walk(搜索目录):
+            for f in 文件列表:
+                if f.endswith(".json") and 关键词 in f.lower():
+                    full = os.path.join(根, f)
+                    if full not in 匹配列表:
+                        匹配列表.append(full)
 
     if not 匹配列表:
         return None
@@ -153,13 +218,13 @@ def _API请求(地址: str, 路径: str, 方法: str = "GET", 数据: dict = Non
     url = f"http://{地址}{路径}"
     try:
         if 方法 == "GET":
-            req = urllib.request.Request(url)
+            req = urllib.request.Request(url, headers={"User-Agent": "ZF3D-Agent"})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return True, json.loads(resp.read().decode("utf-8"))
         elif 方法 == "POST":
             body = json.dumps(数据 or {}).encode("utf-8")
             req = urllib.request.Request(url, data=body, method="POST",
-                                         headers={"Content-Type": "application/json"})
+                                         headers={"Content-Type": "application/json", "User-Agent": "ZF3D-Agent"})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 return True, json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
@@ -196,7 +261,7 @@ def _上传图片到ComfyUI(图片路径: str, 地址: str) -> str:
 
     url = f"http://{地址}/upload/image"
     req = urllib.request.Request(url, data=body, method="POST",
-                                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+                                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "User-Agent": "ZF3D-Agent"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         结果 = json.loads(resp.read().decode("utf-8"))
 
@@ -320,6 +385,22 @@ def _注入种子(工作流: dict, 种子: int):
                 noise_id = str(noise[0])
                 if noise_id in 工作流 and isinstance(工作流[noise_id], dict):
                     工作流[noise_id]["inputs"]["noise_seed"] = 种子
+
+
+def _注入宽高(工作流: dict, 宽度: int, 高度: int):
+    """注入宽高到所有EmptyLatentImage/EmptySD3LatentImage节点"""
+    if 宽度 <= 0 and 高度 <= 0:
+        return
+    for nid, node in 工作流.items():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type", "")
+        if ct in ("EmptyLatentImage", "EmptySD3LatentImage"):
+            inputs = node.setdefault("inputs", {})
+            if 宽度 > 0:
+                inputs["width"] = 宽度
+            if 高度 > 0:
+                inputs["height"] = 高度
 
 
 def _上传并注入图片(工作流: dict, 图片路径列表: list, 地址: str) -> list:
@@ -783,7 +864,7 @@ class ComfyUI获取图片(操作基类):
             return 操作结果.失败(f"任务 {prompt_id} 没有生成图片")
 
         if not 保存目录:
-            保存目录 = getattr(self, '当前工作目录', None) or os.path.join(os.path.expanduser("~"), "Desktop")
+            保存目录 = _获取默认保存目录()
         os.makedirs(保存目录, exist_ok=True)
 
         下载成功 = []
@@ -960,16 +1041,16 @@ class ComfyUI一键生图(操作基类):
     }
 
     def 执行(self, 参数: dict) -> 操作结果:
-        提示词 = 参数.get("提示词", "")
-        工作流名 = 参数.get("工作流", "").strip()
-        负面提示词 = 参数.get("负面提示词", "low quality, bad anatomy, ugly, blurry")
-        模型 = 参数.get("模型", "")
-        宽度 = int(参数.get("宽度", 512))
-        高度 = int(参数.get("高度", 512))
-        步数 = int(参数.get("步数", 20))
-        cfg = float(参数.get("CFG", 7.0))
-        种子 = 参数.get("种子", -1)
-        保存目录 = 参数.get("保存目录", "")
+        提示词 = 参数.get("提示词") or 参数.get("prompt") or 参数.get("text") or ""
+        工作流名 = (参数.get("工作流") or 参数.get("workflow") or "").strip()
+        负面提示词 = 参数.get("负面提示词") or 参数.get("negative_prompt") or "low quality, bad anatomy, ugly, blurry"
+        模型 = 参数.get("模型") or 参数.get("model_name") or ""
+        宽度 = int(参数.get("宽度") or 参数.get("width") or 512)
+        高度 = int(参数.get("高度") or 参数.get("height") or 512)
+        步数 = int(参数.get("步数") or 参数.get("steps") or 20)
+        cfg = float(参数.get("CFG") or 参数.get("cfg") or 7.0)
+        种子 = 参数.get("种子") or 参数.get("seed") or -1
+        保存目录 = 参数.get("保存目录") or 参数.get("save_dir") or ""
 
         if not 提示词:
             return 操作结果.失败("请输入提示词")
@@ -990,6 +1071,9 @@ class ComfyUI一键生图(操作基类):
             # 注入种子
             _注入种子(工作流, 种子)
 
+            # 注入宽高
+            _注入宽高(工作流, 宽度, 高度)
+
             # 注入提示词
             _注入提示词通用(工作流, 提示词, 负面提示词)
 
@@ -1007,8 +1091,70 @@ class ComfyUI一键生图(操作基类):
                         if isinstance(值, list) and len(值) > 0 and isinstance(值[0], list) and 值[0]:
                             模型 = 值[0][0]
                             break
-                if not 模型:
-                    return 操作结果.失败("未指定模型且无法自动获取，请用「ComfyUI列出模型」查看可用模型")
+            if not 模型:
+                # 没有checkpoint，尝试自动找一个文生图工作流文件
+                工作流目录 = _获取工作流目录()
+                if os.path.exists(工作流目录):
+                    候选 = []
+                    for root, dirs, files in os.walk(工作流目录):
+                        for f in files:
+                            if f.endswith("_api.json") and ("文生图" in f or "text_to_image" in f.lower()):
+                                候选.append(os.path.join(root, f))
+                    if 候选:
+                        # 优先选z_image（快），其次qwen，再其次flux
+                        优先级 = ["z_image", "qwen2512", "qwen", "flux2", "flux"]
+                        选定 = None
+                        for p in 优先级:
+                            for c in 候选:
+                                if p in c.lower():
+                                    选定 = c
+                                    break
+                            if 选定:
+                                break
+                        if not 选定:
+                            选定 = 候选[0]
+                        try:
+                            with open(选定, "r", encoding="utf-8") as f:
+                                工作流 = json.load(f)
+                            _注入种子(工作流, 种子)
+                            _注入宽高(工作流, 宽度, 高度)
+                            _注入提示词通用(工作流, 提示词, 负面提示词)
+                            模型 = _提取模型名(工作流) or "工作流内置"
+                            # 跳过下面的内置模板构建
+                            client_id = str(uuid.uuid4())
+                            payload = {"prompt": 工作流, "client_id": client_id}
+                            成功, 结果 = _API请求(地址, "/prompt", "POST", payload)
+                            if not 成功:
+                                return 操作结果.失败(f"提交失败: {结果}")
+                            prompt_id = 结果.get("prompt_id", "")
+                            node_errors = 结果.get("node_errors", {})
+                            if node_errors:
+                                return 操作结果.失败(f"工作流节点错误: {str(node_errors)[:300]}")
+                            # 等待完成并下载图片（与Path1/Path3一致）
+                            import time as _t2
+                            _t0 = _t2.time()
+                            成功2, 条目 = _等待完成(地址, prompt_id, 300, self.进度回调, "ComfyUI一键生图", 提示词, 取消检查=self.取消检查)
+                            if not 成功2:
+                                return 操作结果.失败(条目)
+                            耗时 = int(_t2.time() - _t0)
+                            if not 保存目录:
+                                保存目录 = _获取默认保存目录()
+                            输出 = _提取所有输出(条目, 保存目录, 地址)
+                            if not 输出["图片"]:
+                                return 操作结果.成功(f"✅ 生成完成（无图片输出），prompt_id: {prompt_id}")
+                            结果文本 = f"✅ 生成完成！耗时 {耗时} 秒\n提示词: {提示词[:60]}{'...' if len(提示词)>60 else ''}\n"
+                            结果文本 += f"保存 {len(输出['图片'])} 张图片到: {保存目录}\n"
+                            for i, p in enumerate(输出["图片"]):
+                                结果文本 += f"  {i+1}. {os.path.basename(p)}\n"
+                            return 操作结果.成功(结果文本, 元数据={
+                                "操作类型": "ComfyUI一键生图", "prompt_id": prompt_id,
+                                "种子": 种子, "模型": 模型, "耗时秒": 耗时,
+                                "图片数": len(输出["图片"]), "保存目录": 保存目录,
+                                "工作流文件": 选定
+                            })
+                        except Exception as e:
+                            return 操作结果.失败(f"自动加载工作流失败: {e}")
+                return 操作结果.失败("未指定模型且无法自动获取，请用「ComfyUI列出模型」查看可用模型，或在参数中指定工作流名称")
 
             # 构建标准文生图工作流
             工作流 = {
@@ -1077,7 +1223,7 @@ class ComfyUI一键生图(操作基类):
 
         # 下载图片
         if not 保存目录:
-            保存目录 = getattr(self, '当前工作目录', None) or os.path.join(os.path.expanduser("~"), "Desktop")
+            保存目录 = _获取默认保存目录()
         os.makedirs(保存目录, exist_ok=True)
 
         输出 = _提取所有输出(条目, 保存目录, 地址)
@@ -1196,7 +1342,7 @@ class ComfyUI图片修改(操作基类):
         耗时 = int(time.time() - 开始)
 
         if not 保存目录:
-            保存目录 = getattr(self, '当前工作目录', None) or os.path.join(os.path.expanduser("~"), "Desktop")
+            保存目录 = _获取默认保存目录()
         os.makedirs(保存目录, exist_ok=True)
 
         输出 = _提取所有输出(条目, 保存目录, 地址)
@@ -1308,7 +1454,7 @@ class ComfyUI视频生成(操作基类):
         耗时 = int(time.time() - 开始)
 
         if not 保存目录:
-            保存目录 = getattr(self, '当前工作目录', None) or os.path.join(os.path.expanduser("~"), "Desktop")
+            保存目录 = _获取默认保存目录()
         os.makedirs(保存目录, exist_ok=True)
 
         输出 = _提取所有输出(条目, 保存目录, 地址)
@@ -1403,7 +1549,7 @@ class ComfyUI反推(操作基类):
         耗时 = int(time.time() - 开始)
 
         # 提取文本输出
-        输出 = _提取所有输出(条目, "", 地址)
+        输出 = _提取所有输出(条目, _获取默认保存目录(), 地址)
 
         if 输出["文本"]:
             return 操作结果.成功(

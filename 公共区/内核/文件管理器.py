@@ -255,6 +255,11 @@ class 文件管理器类:
         try:
             with open(文件路径, "r", encoding="utf-8") as f:
                 原始内容 = f.read()
+            # 行尾归一化：统一为 LF 后再匹配
+            # Python open('r') 在 Windows 上已把 CRLF→LF，但旧文本/新文本可能带 CRLF
+            原始内容 = 原始内容.replace('\r\n', '\n').replace('\r', '\n')
+            旧文本 = 旧文本.replace('\r\n', '\n').replace('\r', '\n')
+            新文本 = 新文本.replace('\r\n', '\n').replace('\r', '\n')
             匹配数 = 原始内容.count(旧文本)
             if 匹配数 == 0:
                 # 模糊匹配兜底：strip后查找（处理前后空白差异）
@@ -275,10 +280,14 @@ class 文件管理器类:
         def _替换():
             with open(文件路径, "r", encoding="utf-8") as f:
                 内容 = f.read()
+            # 行尾归一化（统一为 LF）
+            内容 = 内容.replace('\r\n', '\n').replace('\r', '\n')
+            旧文本_l = 旧文本.replace('\r\n', '\n').replace('\r', '\n')
+            新文本_l = 新文本.replace('\r\n', '\n').replace('\r', '\n')
             if 全部替换:
-                新内容 = 内容.replace(旧文本, 新文本)
+                新内容 = 内容.replace(旧文本_l, 新文本_l)
             else:
-                新内容 = 内容.replace(旧文本, 新文本, 1)
+                新内容 = 内容.replace(旧文本_l, 新文本_l, 1)
             with open(文件路径, "w", encoding="utf-8") as f:
                 f.write(新内容)
             return True
@@ -305,10 +314,13 @@ class 文件管理器类:
         try:
             with open(文件路径, "r", encoding="utf-8") as f:
                 原始内容 = f.read()
+            原始内容 = 原始内容.replace('\r\n', '\n').replace('\r', '\n')
             预检详情 = []
             全部失败 = True
             for 编辑 in 编辑列表:
                 旧文本 = 编辑.get("旧文本", "")
+                # 行尾归一化（统一为 LF）
+                旧文本 = 旧文本.replace('\r\n', '\n').replace('\r', '\n')
                 匹配数 = 原始内容.count(旧文本) if 旧文本 else 0
                 预检详情.append({"旧文本": 旧文本[:30], "匹配数": 匹配数})
                 if 匹配数 > 0:
@@ -325,10 +337,13 @@ class 文件管理器类:
         def _批量替换():
             with open(文件路径, "r", encoding="utf-8") as f:
                 内容 = f.read()
+            内容 = 内容.replace('\r\n', '\n').replace('\r', '\n')
             成功数 = 0
             for 编辑 in 编辑列表:
                 旧文本 = 编辑.get("旧文本", "")
                 新文本 = 编辑.get("新文本", "")
+                旧文本 = 旧文本.replace('\r\n', '\n').replace('\r', '\n')
+                新文本 = 新文本.replace('\r\n', '\n').replace('\r', '\n')
                 项全部替换 = 编辑.get("全部替换", False)
                 匹配数 = 内容.count(旧文本) if 旧文本 else 0
                 if 匹配数 == 0:

@@ -73,6 +73,8 @@ class 对话模块:
         self._取消标志 = False
         self.检查点 = None
         self.检查点路径 = None
+        self.当前员工名 = None  # 当前活跃员工名
+        self.当前员工记忆路径 = None  # 员工独立记忆文件路径
         # 子模块
         self.意图解析器 = 意图解析器类()
         self.上下文管理器 = 上下文管理器类()
@@ -177,6 +179,14 @@ class 对话模块:
                             if 经验卡片:
                                 self.存储引擎.插入任务经验(经验卡片)
                             self.经验师.沉淀经验(用户消息, 推理结果)
+                            # 员工独立记忆保存
+                            if self.当前员工记忆路径:
+                                import json as _json
+                                from pathlib import Path as _P
+                                p = _P(self.当前员工记忆路径)
+                                p.parent.mkdir(parents=True, exist_ok=True)
+                                with open(str(p), "w", encoding="utf-8") as f:
+                                    _json.dump(self.永久记忆, f, ensure_ascii=False, indent=2)
                         except Exception:
                             pass
                     import threading as _t
@@ -481,6 +491,20 @@ class 对话模块:
             if 行.startswith("用户指令:"):
                 原始指令 = 行.replace("用户指令:", "").strip()
                 break
+        
+        # 判断指令类型：改写类 vs 分析类
+        分析关键词 = ["查bug", "查Bug", "查BUG", "检查", "bug", "BUG", "Bug",
+                     "分析", "审查", "诊断", "解释", "看看", "看一下",
+                     "有什么问题", "找问题", "问题", "优化建议", "改进建议",
+                     "代码审查", "review", "Review", "REVIEW",
+                     "哪些变量", "有什么", "看一下", "帮我看",
+                     "解释一下", "为什么", "怎么回事", "什么意思"]
+        原始指令小写 = 原始指令.lower()
+        是分析指令 = any(kw.lower() in 原始指令小写 for kw in 分析关键词)
+        if 是分析指令:
+            # 分析类指令不走快捷替换路径，回退到 ReAct 让 AI 用工具分析
+            return None
+        
         精简提示 = f"""将下面选中的文本根据用户指令改写或扩展，只输出最终结果。
 
 选中原文:
@@ -512,6 +536,14 @@ class 对话模块:
             "路径": 框选文件路径, "旧文本": 框选原文, "新文本": 新文本
         })
         操作成功 = 执行结果.get("成功", 执行结果.get("success", False))
+        # 推送推理流事件（让前端实时看到操作过程）
+        if self._推入推理流:
+            self._推入推理流("操作调用", {"操作": 操作名})
+            self._推入推理流("操作结果", {
+                "操作": 操作名, "成功": 操作成功,
+                "参数": {"路径": 框选文件路径, "旧文本": 框选原文, "新文本": 新文本},
+                "错误": "" if 操作成功 else 执行结果.get("error", 执行结果.get("错误", "替换失败"))
+            })
         推理过程 = [{
             "步骤": 1, "类型": "操作", "操作": 操作名,
             "参数": {"路径": 框选文件路径, "旧文本": 框选原文, "新文本": 新文本},
@@ -523,6 +555,9 @@ class 对话模块:
             最终回复 = f"✅ 已替换" if 新文本 else f"✅ 已删除"
         else:
             最终回复 = f"❌ 替换失败"
+        # 推送流式回复（让前端能看到回复而非一闪而过）
+        if self._推入推理流:
+            self._推入推理流("流式回复", {"内容": 最终回复})
         self.对话历史.append({"角色": "助手", "内容": 最终回复,
                                "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
         return {"成功": True, "回复": 最终回复, "推理过程": 推理过程,
