@@ -17,7 +17,7 @@ from 操作基类 import (
     Job创建, Job更新, Job列表, Job详情,
     后台执行, 获取后台结果,
     子代理, 并行执行,
-    Pipeline, Barrier, LoopUntilDry,
+    串行流水线, Barrier, LoopUntilDry,
     查Bug, 编程循环,
     查询运行错误, 解决运行错误, 清除已解决错误,
     添加监控规则, 查询监控规则, 删除监控规则, 搜索操作结果,
@@ -33,6 +33,9 @@ from 操作.ComfyUI操作 import (
     ComfyUI图片修改, ComfyUI视频生成, ComfyUI反推, ComfyUI启动,
     ComfyUI诊断, ComfyUI修复自定义节点,
 )
+from 操作.AgnesAI操作 import (
+    AgnesAI生图, AgnesAI生视频,
+)
 from 操作.压缩 import (
     解压文件, 压缩文件,
 )
@@ -44,6 +47,10 @@ from 操作.剧本操作 import (
 )
 from 操作.导出与配置操作 import (
     导出对话, 创建工具, 导出训练数据,
+)
+from 操作.员工操作 import (
+    查询员工列表, 创建员工, 更新员工, 删除员工, 切换员工, 获取员工配置,
+    查询员工记忆, 修改员工记忆, 查询全体员工记忆,
 )
 from 操作.询问用户 import (
     询问用户,
@@ -99,6 +106,7 @@ class 操作注册中心类:
         self._调用历史 = []  # 最近100条调用记录
         self._统计锁 = threading.Lock()  # 统计数据线程安全锁
         self.子代理最大步数 = 30  # 子代理迭代预算（可被推理引擎覆盖）
+        self._操作白名单 = None  # 员工模式：只允许这些操作，None=不限制
         # 软件锁定：一旦用户在某个软件中操作，锁定该软件工具组，排除其他软件组
         self._软件锁定组 = None  # 当前锁定的组名（如"Blender"/"浏览器"等）
         self._软件锁定计数 = 0  # 锁定后经过的对话轮数
@@ -123,7 +131,7 @@ class 操作注册中心类:
             "Job列表": "job_list", "Job详情": "job_get",
             "后台执行": "bg_run", "获取后台结果": "bg_result",
             "子代理": "sub_agent", "并行执行": "parallel_run",
-            "Pipeline": "pipeline", "Barrier": "barrier", "LoopUntilDry": "loop_until_dry",
+            "串行流水线": "pipeline", "Barrier": "barrier", "LoopUntilDry": "loop_until_dry",
             "查Bug": "bug_check", "编程循环": "code_loop",
             "查询运行错误": "query_errors", "解决运行错误": "resolve_error",
             "清除已解决错误": "clear_resolved", "添加监控规则": "add_monitor_rule",
@@ -132,6 +140,11 @@ class 操作注册中心类:
             "记录Bug": "record_bug", "解决Bug": "resolve_bug",
             "查询Bug列表": "list_bugs", "搜索Bug": "search_bugs",
             "查询绕路记录": "list_detours",
+            "查询员工列表": "employee_list", "创建员工": "employee_create",
+            "更新员工": "employee_update", "删除员工": "employee_delete",
+            "切换员工": "employee_switch", "获取员工配置": "employee_config",
+            "查询员工记忆": "employee_memory", "修改员工记忆": "employee_memory_edit",
+            "查询全体员工记忆": "employee_memory_all",
             "读取Word": "read_word", "替换Word文本": "replace_word_text",
             "追加Word段落": "append_word_para", "插入Word段落": "insert_word_para",
             "删除Word段落": "delete_word_para", "新建Word文档": "create_word_doc",
@@ -160,6 +173,8 @@ class 操作注册中心类:
                     "ComfyUI启动": "comfyui_start",
                     "ComfyUI诊断": "comfyui_diagnose",
                     "ComfyUI修复自定义节点": "comfyui_fix_custom_nodes",
+                    "AgnesAI生图": "agnesai_generate_image",
+                    "AgnesAI生视频": "agnesai_generate_video",
                     "解压文件": "extract_file",
                     "压缩文件": "compress_file",
                     "导入文档": "import_doc",
@@ -321,8 +336,12 @@ class 操作注册中心类:
             },
             "高级": {
                 "操作": ["子代理", "并行执行", "后台执行", "获取后台结果", "查Bug", "编程循环",
-                          "Pipeline", "Barrier", "LoopUntilDry"],
-                "关键词": ["子代理", "并行", "后台", "pipeline", "流水线",
+                          "串行流水线", "Barrier", "LoopUntilDry",
+                          "查询员工列表", "创建员工", "更新员工", "删除员工", "切换员工", "获取员工配置",
+                          "查询员工记忆", "修改员工记忆", "查询全体员工记忆"],
+                "关键词": ["子代理", "并行", "后台", "pipeline", "流水线", "串行", "流水", "链式", "分阶段", "多步骤",
+                           "顺序执行", "依次", "同时执行", "并发", "同时跑", "一起执行",
+                           "员工", "招聘", "切换员工", "数字员工",
                            "编程循环", "barrier", "agent"],
                 "始终启用": True,
             },
@@ -345,6 +364,11 @@ class 操作注册中心类:
                            "图片修改", "图片放大", "自定义节点", "lora", "checkpoint",
                            "采样器", "VAE", "模型加载", "出图", "张图"],
                 "始终启用": False,
+            },
+            "AgnesAI": {
+                "操作": ["AgnesAI生图", "AgnesAI生视频"],
+                "关键词": ["agnes", "agnesai", "免费生图", "免费生视频", "全模态"],
+                "始终启用": True,
             },
             "浏览器": {
                 "操作": [
@@ -472,6 +496,8 @@ class 操作注册中心类:
     def 设置模块注册(self, 模块注册):
         """注入模块注册表，使操作类可访问记忆模块等"""
         self._模块注册 = 模块注册
+        for 操作实例 in self._操作表.values():
+            操作实例.模块注册 = 模块注册
 
     _当前工作目录 = None
 
@@ -486,6 +512,10 @@ class 操作注册中心类:
         self._进度回调 = 回调
         for 操作实例 in self._操作表.values():
             操作实例.进度回调 = 回调
+
+    def 设置操作白名单(self, 操作名列表):
+        """设置操作白名单（员工模式），None=清除限制"""
+        self._操作白名单 = set(操作名列表) if 操作名列表 else None
 
     def 重置软件锁定(self):
         """重置软件锁定状态（新对话开始时调用）"""
@@ -540,6 +570,7 @@ class 操作注册中心类:
             ComfyUI队列控制(), ComfyUI上传图片(),
             ComfyUI图片修改(), ComfyUI视频生成(), ComfyUI反推(), ComfyUI启动(),
             ComfyUI诊断(), ComfyUI修复自定义节点(),
+            AgnesAI生图(), AgnesAI生视频(),
             打开程序(), 运行命令(), 创建文件(), 读取文件(), 写入文件(),
             追加文件(), 删除文件(), 替换文本(), 列出目录(), 网页抓取(), 网络搜索(),
             截图(), 获取时间(), 系统信息(), 等待(), 数学计算(), JSON操作(),
@@ -552,7 +583,7 @@ class 操作注册中心类:
             Job创建(), Job更新(), Job列表(), Job详情(),
             后台执行(), 获取后台结果(),
             子代理(), 并行执行(),
-            Pipeline(), Barrier(), LoopUntilDry(),
+            串行流水线(), Barrier(), LoopUntilDry(),
             查Bug(), 编程循环(),
             查询运行错误(), 解决运行错误(), 清除已解决错误(),
             添加监控规则(), 查询监控规则(), 删除监控规则(), 搜索操作结果(),
@@ -584,6 +615,8 @@ class 操作注册中心类:
             BlenderPolyHaven状态(), Blender搜索资产(), Blender下载资产(), Blender断开(),
             Blender启动(),
             连接MCP服务(),
+            查询员工列表(), 创建员工(), 更新员工(), 删除员工(), 切换员工(), 获取员工配置(),
+            查询员工记忆(), 修改员工记忆(), 查询全体员工记忆(),
         ]
         for 操作 in 内置操作列表:
             self.注册(操作)
@@ -615,7 +648,13 @@ class 操作注册中心类:
             "创建Job": "Job创建", "更新Job": "Job更新",
             "Job列表": "Job列表", "Job详情": "Job详情",
             "子agent": "子代理", "agent": "子代理", "sub-agent": "子代理",
-            "并行": "并行执行", "parallel": "并行执行",
+            "并行": "并行执行", "parallel": "并行执行", "同时执行": "并行执行", "同时跑": "并行执行",
+            "一起执行": "并行执行", "并发": "并行执行", "同步执行": "并行执行", "同时做": "并行执行",
+            "pipeline": "串行流水线", "流水线": "串行流水线", "串行": "串行流水线",
+            "流水": "串行流水线", "链式执行": "串行流水线", "分阶段执行": "串行流水线",
+            "多步骤执行": "串行流水线", "串联": "串行流水线", "接龙": "串行流水线",
+            "顺序执行": "串行流水线", "依次执行": "串行流水线", "逐步执行": "串行流水线",
+            "按顺序": "串行流水线", "一步一步": "串行流水线", "先...再": "串行流水线",
             "查bug": "查Bug", "检查bug": "查Bug", "bug检查": "查Bug",
             "诊断对话": "查Bug", "对话诊断": "查Bug", "查Bug": "查Bug",
             "编程循环": "编程循环", "code loop": "编程循环", "编程loop": "编程循环",
@@ -631,6 +670,15 @@ class 操作注册中心类:
             "搜bug": "搜索Bug", "查找bug": "搜索Bug",
             "查询绕路": "查询绕路记录", "绕路记录": "查询绕路记录", "避坑记录": "查询绕路记录",
             "查绕路": "查询绕路记录", "失败教训": "查询绕路记录",
+            "查员工": "查询员工列表", "员工列表": "查询员工列表", "列出员工": "查询员工列表",
+            "有哪些员工": "查询员工列表", "招聘": "创建员工", "添加员工": "创建员工", "新建员工": "创建员工",
+            "改员工": "更新员工", "修改员工": "更新员工",
+            "开员工": "删除员工", "辞退": "删除员工",
+            "用员工": "切换员工", "换员工": "切换员工", "切到": "切换员工",
+            "员工详情": "获取员工配置", "员工能力": "获取员工配置",
+            "员工记忆": "查询员工记忆", "查记忆": "查询员工记忆", "学到了什么": "查询员工记忆",
+            "全员记忆": "查询全体员工记忆", "所有员工记忆": "查询全体员工记忆", "记忆检查": "查询全体员工记忆",
+            "清空记忆": "修改员工记忆", "删除记忆": "修改员工记忆", "改记忆": "修改员工记忆",
             "读Word": "读取Word", "读word": "读取Word",
             "改Word": "替换Word文本", "替换Word": "替换Word文本",
             "加Word段落": "追加Word段落", "追加Word": "追加Word段落",
@@ -641,6 +689,8 @@ class 操作注册中心类:
             "解压": "解压文件", "unzip": "解压文件", "extract": "解压文件", "打开压缩包": "解压文件",
             "压缩": "压缩文件", "zip": "压缩文件", "archive": "压缩文件", "打包": "压缩文件",
             "AI生图": "ComfyUI一键生图", "文生图": "ComfyUI一键生图", "生成图片": "ComfyUI一键生图",
+            "Agnes生图": "AgnesAI生图", "Agnes图片": "AgnesAI生图", "免费生图": "AgnesAI生图",
+            "Agnes生视频": "AgnesAI生视频", "Agnes视频": "AgnesAI生视频", "免费生视频": "AgnesAI生视频",
             "提交工作流": "ComfyUI提交工作流",
             "查询进度": "ComfyUI查询进度", "ComfyUI进度": "ComfyUI查询进度",
             "获取图片": "ComfyUI获取图片",
@@ -739,6 +789,10 @@ class 操作注册中心类:
                 else:
                     提示 = f"未知操作: '{操作名}'"
                 return {"成功": False, "错误": 提示, "可用操作": list(self._操作表.keys())}
+
+        # 员工模式：操作白名单检查
+        if self._操作白名单 is not None and 实际名称 not in self._操作白名单:
+            return {"成功": False, "错误": f"当前员工无权使用「{实际名称}」操作"}
 
         # 验证参数
         验证结果 = 操作实例.验证参数(参数)
@@ -850,9 +904,10 @@ class 操作注册中心类:
         "新建Word文档", "替换Word文本", "追加Word段落", "插入Word段落", "删除Word段落",
         "替换Excel文本",
         "ComfyUI提交工作流", "ComfyUI上传图片", "ComfyUI队列控制", "ComfyUI一键生图",
+        "AgnesAI生图", "AgnesAI生视频",
         "后台执行", "多线程下载",
         "清空回收站", "压缩文件", "解压文件",
-        "子代理", "并行执行", "Pipeline", "Barrier", "LoopUntilDry",
+        "子代理", "并行执行", "串行流水线", "Barrier", "LoopUntilDry",
     }
 
     def 过滤操作_按权限(self, 操作名列表: list, 工作模式: str) -> list:
@@ -983,6 +1038,9 @@ class 操作注册中心类:
     def 获取相关工具定义(self, 用户消息: str = "", 当前观察: str = "") -> list:
         """按需生成FC工具定义（只包含与当前任务相关的工具）"""
         启用集 = self._获取匹配操作集(用户消息, 当前观察)
+        # 员工模式：白名单过滤
+        if self._操作白名单 is not None:
+            启用集 = 启用集 & self._操作白名单
         类型映射 = {
             "字符串": "string", "整数": "integer", "数字": "number", "布尔": "boolean", "列表": "array"
         }

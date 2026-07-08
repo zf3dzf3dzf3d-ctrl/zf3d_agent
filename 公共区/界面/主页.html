@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -7,24 +7,26 @@
     <title>朱峰社区智能体</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260707d">
+    <link rel="stylesheet" href="样式.css?v=20260708a">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
-    <link rel="stylesheet" href="员工浮窗.css?v=20260707b1">
+    <link rel="stylesheet" href="员工浮窗.css?v=20260709a1">
 </head>
 <body>
     <!-- 启动动画 -->
-    <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s">
-        <div style="position:relative;width:80px;height:80px;margin-bottom:24px">
+    <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.3s">
+        <div style="position:relative;width:80px;height:80px;margin-bottom:20px">
             <div style="position:absolute;inset:0;border:3px solid var(--border);border-radius:50%"></div>
             <div id="bootSpinner" style="position:absolute;inset:0;border:3px solid transparent;border-top-color:var(--blue);border-radius:50%;animation:boot-spin 0.8s linear infinite"></div>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><img src="favicon.png?v=1" style="width:40px;height:40px"></div>
         </div>
-        <div style="font-size:16px;font-weight:bold;color:var(--blue);margin-bottom:8px;text-shadow:0 0 12px rgba(0,122,204,0.3)">朱峰社区智能体</div>
+        <div style="font-size:18px;font-weight:bold;color:var(--blue);margin-bottom:8px;text-shadow:0 0 12px rgba(0,122,204,0.3)">朱峰社区智能体</div>
+        <div style="font-size:14px;color:var(--text2);margin-bottom:4px">接管你，成就你</div>
+        <div style="font-size:11px;color:var(--text2);opacity:0.6">zf3d.com 出品</div>
         <div id="bootStatus" style="font-size:12px;color:var(--text2);min-height:16px">正在启动...</div>
-        <div style="width:200px;height:3px;background:var(--border);border-radius:2px;margin-top:16px;overflow:hidden">
-            <div id="bootProgress" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:2px;transition:width 0.3s"></div>
+        <div style="width:200px;height:3px;background:var(--border);border-radius:2px;margin-top:12px;overflow:hidden">
+            <div id="bootProgress" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:2px;transition:width 0.2s"></div>
         </div>
     </div>
     <style>
@@ -604,7 +606,7 @@
     <script src="模块/多对话管理.js?v=20260627d"></script>
     <script src="模块/模型配置.js?v=20260706d"></script>
     <script src="模块/设置面板.js?v=20260706j"></script>
-    <script src="模块/文件树.js?v=20260704b"></script>
+    <script src="模块/文件树.js?v=20260708a"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
     <script src="模块/图片查看器.js?v=20260707a"></script>
@@ -755,35 +757,36 @@
         }
     }, 3000);
     </script>
-    <script src="员工浮窗.js?v=20260707b1"></script>
+    <script src="员工浮窗.js?v=20260709e1"></script>
     <script>
-    // 启动动画控制
+    // 启动动画控制（加速版）
     (function(){
-        var steps = ['正在加载配置...', '正在连接模型...', '正在加载员工...', '正在初始化界面...'];
+        var steps = ['正在加载配置...', '正在连接模型...', '正在初始化界面...'];
         var step = 0;
         var prog = 0;
         var bar = document.getElementById('bootProgress');
         var status = document.getElementById('bootStatus');
         var timer = setInterval(function(){
             step = Math.min(step + 1, steps.length - 1);
-            prog = Math.min(prog + 25, 100);
+            prog = Math.min(prog + 35, 100);
             if (status) status.textContent = steps[step];
             if (bar) bar.style.width = prog + '%';
-        }, 800);
+        }, 400);
         function bootDone(){
             clearInterval(timer);
             if (bar) bar.style.width = '100%';
             if (status) status.textContent = '启动完成';
             var ov = document.getElementById('bootOverlay');
-            if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 500); }
+            if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 300); }
         }
-        // 页面加载完成后延迟2秒关闭（确保界面渲染完毕）
+        // 页面加载完成后延迟1秒关闭（加速）
         if (document.readyState === 'complete') {
-            setTimeout(bootDone, 2500);
+            setTimeout(bootDone, 1000);
         } else {
-            window.addEventListener('load', function(){ setTimeout(bootDone, 2500); });
+            window.addEventListener('load', function(){ setTimeout(bootDone, 1000); });
         }
     })();
     </script>
 </body>
 </html>
+

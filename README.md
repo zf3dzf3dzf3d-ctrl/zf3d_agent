@@ -1,4 +1,4 @@
-# ZF3D Agent v3
+﻿# ZF3D Agent v3
 
 > 全能桌面AI助手 — 节点工作流编排多AI协作、管理文件、浏览网页、编辑文档、AI生图/视频、图片加工、3D软件整合（3ds Max/Houdini/Blender）、自动化任务，276+操作，ReAct推理引擎，语义记忆，绕路师避坑学习，纯Python零依赖
 
@@ -200,7 +200,7 @@ cd zf3d_agent
 bash install.sh
 
 # 或解压便携包后安装
-tar xzf zf3d_agent_v3.0.1_linux.tar.gz
+tar xzf zf3d_agent_v3.0.2_linux.tar.gz
 cd zf3d_agent
 bash install.sh
 ```
@@ -301,3 +301,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 3. 提交更改
 4. 推送到分支
 5. 创建 Pull Request
+

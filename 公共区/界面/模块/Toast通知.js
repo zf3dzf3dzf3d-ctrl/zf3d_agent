@@ -37,20 +37,17 @@ function showEditorModifiedBanner(message, type) {
 function flashEditorLines(startLine, endLine, type) {
     const container = document.getElementById("editorContainer");
     if (!container) return;
-    const ta = document.getElementById("codeInput");
-    if (!ta) return;
-    const 行高 = parseFloat(getComputedStyle(ta).lineHeight) || 19.5;
-    const scrollTop = ta.scrollTop || 0;
+    if (!editorInstance) return;
+    const 行高 = editorInstance.获取行高();
+    const scrollPos = editorInstance.获取滚动位置();
     const containerRect = container.getBoundingClientRect();
-    const taRect = ta.getBoundingClientRect();
-    const offsetY = taRect.top - containerRect.top;
     const cls = type === "delete" ? "editor-flash-line delete" : "editor-flash-line modify";
     const maxLines = 15;
     const flashEnd = Math.min(endLine, startLine + maxLines - 1);
     for (let i = startLine; i <= flashEnd; i++) {
         const flash = document.createElement("div");
         flash.className = cls;
-        flash.style.top = (i * 行高 + offsetY - scrollTop) + "px";
+        flash.style.top = (i * 行高 - scrollPos.scrollTop) + "px";
         flash.style.height = 行高 + "px";
         container.appendChild(flash);
         flash.style.animationDelay = ((i - startLine) * 60) + "ms";

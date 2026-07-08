@@ -94,6 +94,8 @@ async function sendMessage() {
     setThinkingState(true);
     // 清空上一轮AI修改文件记录
     if (typeof aiModifiedFiles !== 'undefined') aiModifiedFiles.clear();
+    // 重置 liveDiffHandled，让每轮对话都能触发精确 diff
+    liveDiffHandled = false;
     // 显示推理流容器（SSE模式下推理事件直接推送）
     showReasoningPanel();
     reasoningIndex = 0;
@@ -261,6 +263,8 @@ async function sendMessage() {
                         }
 
                         // 处理推理过程中的文件修改操作（从完整结果补充检测+触发Diff查看器）
+                        const pendingReplacements = [];  // 待处理的替换操作（可能需要先打开文件）
+                        const pendingWrites = [];  // 待处理的写入/创建操作（需要自动打开文件）
                         if (d.推理过程?.length > 0) {
                             for (const s of d.推理过程) {
                                 if (s.类型 === "操作" && s.成功 && ["写入文件", "替换文本", "删除文件", "追加文件", "创建文件", "替换Word文本", "替换Excel文本", "追加Word段落", "插入Word段落", "删除Word段落", "新建Word文档", "多线程下载", "下载网页图片", "ComfyUI一键生图", "ComfyUI获取图片", "ComfyUI图片修改", "ComfyUI视频生成"].includes(s.操作)) {
@@ -273,8 +277,20 @@ async function sendMessage() {
                                         aiModifiedFiles.add(s.参数["路径"]);
                                     }
                                 }
-                                if (s.操作 === "替换文本" && s.成功 && s.参数 && !liveDiffHandled) {
-                                    applyLiveDiff(s.参数["旧文本"] || "", s.参数["新文本"] || "");
+                                // 替换文本：收集起来，循环外统一处理（支持多次替换+跨文件跳转）
+                                if (s.操作 === "替换文本" && s.成功 && s.参数) {
+                                    pendingReplacements.push({
+                                        路径: s.参数["路径"] || "",
+                                        旧文本: s.参数["旧文本"] || "",
+                                        新文本: s.参数["新文本"] || ""
+                                    });
+                                }
+                                // 写入文件/创建文件：收集起来，循环外自动打开文件
+                                if ((s.操作 === "写入文件" || s.操作 === "创建文件" || s.操作 === "追加文件") && s.成功 && s.参数) {
+                                    pendingWrites.push({
+                                        路径: s.参数["路径"] || "",
+                                        操作: s.操作
+                                    });
                                 }
                                 // 触发Diff查看器页面
                                 if (s.成功 && s.参数 && typeof showDiffPage === 'function') {
@@ -297,11 +313,67 @@ async function sendMessage() {
                                 }
                             }
                         }
+                        // 统一处理替换操作（每次都跳转到目标文件并高亮 diff）
+                        for (const rep of pendingReplacements) {
+                            const fileIdx = openFiles.findIndex(f => f.path === rep.路径 && f.type !== 'document');
+                            if (fileIdx >= 0) {
+                                if (fileIdx !== activeFileIdx) switchTab(fileIdx);
+                                applyLiveDiff(rep.旧文本, rep.新文本);
+                            } else {
+                                // 未打开：先通过 API 打开文件
+                                try {
+                                    const res = await fetch("/api/file-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: rep.路径 }) });
+                                    const fd = await res.json();
+                                    if (fd.成功) {
+                                        const fileName = rep.路径.split(/[/\\]/).pop();
+                                        openFiles.push({ path: rep.路径, name: fileName, content: fd.内容, dirty: false, type: 'code', selection: null, 原始内容: fd.内容 });
+                                        switchTab(openFiles.length - 1);
+                                        renderTabs();
+                                        applyLiveDiff(rep.旧文本, rep.新文本);
+                                    }
+                                } catch(e) {}
+                            }
+                            // 多次替换之间间隔 800ms，让用户看清每次 diff
+                            if (pendingReplacements.length > 1) {
+                                await new Promise(r => setTimeout(r, 800));
+                                liveDiffHandled = false;
+                            }
+                        }
+                        // 统一处理写入/创建操作（自动打开文件并切换 Tab）
+                        for (const wr of pendingWrites) {
+                            const fileIdx = openFiles.findIndex(f => f.path === wr.路径 && f.type !== 'document');
+                            if (fileIdx < 0) {
+                                // 文件未打开：通过 API 打开
+                                try {
+                                    const res = await fetch("/api/file-read", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: wr.路径 }) });
+                                    const fd = await res.json();
+                                    if (fd.成功) {
+                                        const fileName = wr.路径.split(/[/\\]/).pop();
+                                        openFiles.push({ path: wr.路径, name: fileName, content: fd.内容, dirty: true, type: 'code', selection: null, 原始内容: fd.内容 });
+                                        switchTab(openFiles.length - 1);
+                                        renderTabs();
+                                        showToast("info", "📝 已打开", `${fileName} 被 AI ${wr.操作 === "创建文件" ? "创建" : "修改"}`);
+                                    }
+                                } catch(e) {}
+                            } else {
+                                // 文件已打开：切换到该 Tab
+                                if (fileIdx !== activeFileIdx) switchTab(fileIdx);
+                            }
+                            if (pendingWrites.length > 1) {
+                                await new Promise(r => setTimeout(r, 500));
+                            }
+                        }
 
+                        // 如果 applyLiveDiff 处理过，等待 1.5 秒让用户看到 diff 高亮再刷新
+                        if (liveDiffHandled) {
+                            await new Promise(r => setTimeout(r, 1500));
+                            liveDiffHandled = false;  // 重置，让后续 refreshAllOpenFiles 正常处理
+                        }
                         if (hasFileChange) {
                             await refreshAllOpenFiles(true);
                             refreshTree();
-                            if (galleryPath) showGallery(galleryPath);
+                            // 仅在非编辑器激活时才切到画廊（避免替换后隐藏编辑器）
+                            if (galleryPath && activeFileIdx < 0) showGallery(galleryPath);
                             if (docChanges.length > 0) highlightDocChanges(docChanges);
                         } else {
                             await refreshAllOpenFiles(false);

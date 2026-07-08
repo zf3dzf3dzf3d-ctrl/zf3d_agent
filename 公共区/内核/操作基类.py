@@ -13,7 +13,7 @@ from 操作.系统 import (打开程序, 运行命令, 截图, 获取时间, 系
 from 操作.网络 import (网页抓取, 网络搜索, 网页分析, 图片分析)
 from 操作.Job import (Job创建, Job更新, Job列表, Job详情)
 from 操作.高级 import (
-    子代理, 并行执行, Pipeline, Barrier, LoopUntilDry,
+    子代理, 并行执行, 串行流水线, Barrier, LoopUntilDry,
     _后台任务管理器, 后台执行, 获取后台结果,
     查Bug, 编程循环
 )
@@ -49,7 +49,7 @@ __all__ = [
     "Git状态", "Git提交", "Git回滚", "Git差异", "Git日志", "Git分支",
     "打开程序", "运行命令", "截图", "获取时间", "系统信息", "等待", "数学计算", "JSON操作",
     "网页抓取", "网络搜索", "网页分析", "图片分析",
-    "子代理", "并行执行", "Pipeline", "Barrier", "LoopUntilDry",
+    "子代理", "并行执行", "串行流水线", "Barrier", "LoopUntilDry",
     "_后台任务管理器", "后台执行", "获取后台结果",
     "Job创建", "Job更新", "Job列表", "Job详情",
     "查询运行错误", "解决运行错误", "清除已解决错误",

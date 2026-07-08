@@ -491,7 +491,7 @@ class 模型直连器类:
             self._记录LLM调用日志(错误结果, 系统提示词, 消息列表)
             return 错误结果
 
-    def 发送消息(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None) -> dict:
+    def 发送消息(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None, 跳过缓存: bool = False) -> dict:
         """发送消息到大模型，返回完整响应（全透明）
         
         参数:
@@ -517,7 +517,7 @@ class 模型直连器类:
                             return {"错误": f"当前模型「{self.当前模型名}」不支持图片分析(vision)，请切换到支持vision的模型", "原始请求": None, "原始响应": None}
 
         # v2.1: 缓存检查
-        if self.缓存启用:
+        if self.缓存启用 and not 跳过缓存:
             缓存键 = self._生成缓存键(消息列表, 系统提示词, 工具列表)
             with self._缓存锁:
                 缓存条目 = self._响应缓存.get(缓存键)
@@ -616,8 +616,8 @@ class 模型直连器类:
                     "finish_reason": 响应JSON.get("choices", [{}])[0].get("finish_reason", "") if 响应JSON.get("choices") else ""
                 }
 
-                # v2.1: 存入缓存（不缓存工具调用响应，只缓存纯文本响应）
-                if self.缓存启用 and 缓存键 and not 工具调用列表:
+                # v2.1: 存入缓存（不缓存工具调用响应，只缓存纯文本响应，跳过缓存的请求不存）
+                if self.缓存启用 and 缓存键 and not 工具调用列表 and not 跳过缓存:
                     with self._缓存锁:
                         # 控制缓存大小
                         if len(self._响应缓存) >= self.缓存最大条目:
@@ -797,8 +797,23 @@ class 模型直连器类:
                 实际值 = 模型密钥.get(变量名, "")
                 if not 实际值:
                     实际值 = os.environ.get(环境键, "")
+                # 模型名称：有默认值时始终用默认值（前端已隐藏输入框，旧值可能是用户误改的）
+                if 变量名 == "模型名称":
+                    当前配置 = self._获取当前模型配置()
+                    默认值 = 当前配置.get("默认模型名称", "") if 当前配置 else ""
+                    if 默认值:
+                        实际值 = 默认值
+                    elif not 实际值:
+                        实际值 = os.environ.get(环境键, "")
                 文本 = 文本.replace(占位符, 实际值)
         return 文本
+
+    def _获取当前模型配置(self) -> dict:
+        """获取当前模型的配置字典"""
+        for m in self.模型配置列表:
+            if m.get("名称") == self.当前模型名:
+                return m
+        return {}
 
     def _解析工具参数(self, 参数字符串: str, finish_reason: str) -> dict:
         """解析工具调用的arguments字符串，检测截断和空参数错误"""

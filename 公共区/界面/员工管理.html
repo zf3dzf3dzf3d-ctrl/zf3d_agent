@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字员工管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: "Microsoft YaHei", sans-serif; font-size: 14px; height: 100vh; display: flex; flex-direction: column; }
+
+.header { background: #16213e; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #333; flex-shrink: 0; }
+.header h1 { font-size: 18px; color: #4a9eff; }
+.header .close-btn { background: none; border: none; color: #888; font-size: 22px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.header .close-btn:hover { color: #fff; background: #333; }
+
+.main { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 280px; background: #16213e; border-right: 1px solid #333; display: flex; flex-direction: column; }
+.sidebar-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+.employee-card { display: flex; align-items: center; padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.2s; }
+.employee-card:hover { background: #1a1a3e; }
+.employee-card.selected { background: #0f3460; }
+.employee-card .avatar { font-size: 28px; margin-right: 12px; position: relative; }
+.employee-card .crown { position: absolute; top: -6px; right: -6px; font-size: 12px; }
+.employee-card .info { flex: 1; min-width: 0; }
+.employee-card .name { font-weight: 600; font-size: 15px; }
+.employee-card .role { font-size: 12px; color: #888; margin-top: 2px; }
+.employee-card .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.online { background: #50c878; }
+.status-dot.offline { background: #666; }
+
+.sidebar-bottom { padding: 12px; border-top: 1px solid #333; }
+.btn-add { width: 100%; padding: 10px; background: #0f3460; color: #4a9eff; border: 1px solid #4a9eff; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.btn-add:hover { background: #1a4a80; }
+
+.detail { flex: 1; overflow-y: auto; padding: 20px; }
+.detail-header { display: flex; align-items: center; margin-bottom: 20px; gap: 16px; }
+.detail-header .avatar { font-size: 48px; }
+.detail-header .name { font-size: 22px; font-weight: 700; }
+.detail-header .role { font-size: 14px; color: #888; margin-top: 4px; }
+.detail-header .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; margin-left: auto; }
+.status-badge.online { background: rgba(80,200,120,0.2); color: #50c878; }
+.status-badge.offline { background: rgba(102,102,102,0.2); color: #888; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: #aaa; }
+.form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px 12px; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; font-size: 14px; font-family: inherit; }
+.form-group input:focus, .form-group textarea:focus { border-color: #4a9eff; outline: none; }
+.form-group textarea { resize: vertical; min-height: 60px; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { background: #0f3460; padding: 4px 10px; border-radius: 12px; font-size: 12px; color: #4a9eff; display: flex; align-items: center; gap: 4px; }
+.tag .remove { cursor: pointer; opacity: 0.6; }
+.tag .remove:hover { opacity: 1; color: #ff6b6b; }
+
+.permissions { font-size: 13px; color: #888; }
+.permissions .inherit { color: #4a9eff; }
+
+.actions { display: flex; gap: 12px; margin-top: 24px; }
+.btn { padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; border: none; }
+.btn-save { background: #4a9eff; color: #fff; }
+.btn-save:hover { background: #3a8eef; }
+.btn-delete { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+.btn-delete:hover { background: rgba(255,107,107,0.3); }
+.btn-add-op { background: none; border: 1px dashed #4a9eff; color: #4a9eff; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 12px; font-family: inherit; }
+.btn-add-op:hover { background: rgba(74,158,255,0.1); }
+
+.switch { position: relative; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: #333; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #888; border-radius: 50%; transition: 0.3s; }
+.switch input:checked + .slider { background: #4a9eff; }
+.switch input:checked + .slider::before { transform: translateX(20px); background: #fff; }
+
+.empty { text-align: center; padding: 60px; color: #666; font-size: 15px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #16213e; padding: 24px; border-radius: 12px; width: 360px; }
+.modal h3 { margin-bottom: 16px; color: #4a9eff; }
+.modal input { width: 100%; padding: 8px 12px; background: #1a1a2e; border: 1px solid #333; border-radius: 6px; color: #e0e0e0; margin-bottom: 12px; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #16213e; color: #50c878; padding: 10px 24px; border-radius: 8px; border: 1px solid #50c878; font-size: 14px; z-index: 200; animation: fadeout 2s forwards; }
+@keyframes fadeout { 0%,70%{opacity:1} 100%{opacity:0} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏢 数字员工管理</h1>
+  <button class="close-btn" onclick="window.close()">✕</button>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-list" id="employeeList"></div>
+    <div class="sidebar-bottom">
+      <button class="btn-add" onclick="showAddModal()">➕ 新建员工</button>
+    </div>
+  </div>
+  <div class="detail" id="detailPanel">
+    <div class="empty">← 选择左侧员工查看详情</div>
+  </div>
+</div>
+
+<script>
+let employees = [];
+let selectedIdx = -1;
+let currentConfig = null;
+
+async function loadEmployees() {
+  try {
+    const resp = await fetch('/api/employee-list');
+    const data = await resp.json();
+    if (data.成功 || data.success) {
+      employees = data.数据 || data.data || [];
+      renderList();
+    }
+  } catch (e) {
+    console.error('加载员工列表失败:', e);
+  }
+}
+
+function renderList() {
+  const list = document.getElementById('employeeList');
+  if (!employees.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#666;font-size:13px">暂无员工</div>';
+    return;
+  }
+  list.innerHTML = employees.map((emp, i) => {
+    const cls = i === selectedIdx ? 'employee-card selected' : 'employee-card';
+    const dot = (emp.状态 || emp.status) === '在岗' ? 'online' : 'offline';
+    const crown = (emp.是母体 || emp.isMother) ? '<span class="crown">👑</span>' : '';
+    const name = emp.姓名 || emp.name || '';
+    const role = emp.角色 || emp.role || '';
+    const avatar = emp.头像 || emp.avatar || '🙂';
+    return `<div class="${cls}" onclick="selectEmployee(${i})">
+      <div class="avatar">${avatar}${crown}</div>
+      <div class="info"><div class="name">${name}</div><div class="role">${role}</div></div>
+      <div class="status-dot ${dot}"></div>
+    </div>`;
+  }).join('');
+}
+
+async function selectEmployee(i) {
+  selectedIdx = i;
+  renderList();
+  const emp = employees[i];
+  const name = emp.姓名 || emp.name;
+  try {
+    const resp = await fetch('/api/employee-config?%E5%A7%93%E5%90%8D=' + encodeURIComponent(name));
+    const data = await resp.json();
+    if (data.成功 || data.success) {
+      currentConfig = data.数据 || data.data || {};
+    } else {
+      currentConfig = null;
+    }
+  } catch (e) {
+    currentConfig = null;
+  }
+  renderDetail();
+}
+
+function renderDetail() {
+  const panel = document.getElementById('detailPanel');
+  if (selectedIdx < 0) { panel.innerHTML = '<div class="empty">← 选择左侧员工查看详情</div>'; return; }
+  const emp = employees[selectedIdx];
+  const isMother = emp.是母体 || emp.isMother;
+  const cfg = currentConfig || {};
+  const ops = cfg.可用操作;
+  const opsHtml = ops
+    ? ops.map(op => `<span class="tag">${op}<span class="remove" onclick="removeOp('${op}')">✕</span></span>`).join('') + '<button class="btn-add-op" onclick="addOp()">➕ 添加</button>'
+    : '<span class="permissions"><span class="inherit">继承母体全部操作</span></span><button class="btn-add-op" onclick="setCustomOps()">⚙️ 自定义</button>';
+  const permDir = cfg.权限目录;
+  const permText = permDir === null || permDir === undefined
+    ? '<span class="inherit">继承母体权限</span>'
+    : (Array.isArray(permDir) ? permDir.map(p => `<span class="tag">${p}</span>`).join('') : '<span class="inherit">继承母体权限</span>');
+  const model = cfg.模型;
+  const modelText = !model ? '<span class="inherit">继承母体模型</span>' : model;
+  const 状态 = emp.状态 || emp.status || '在岗';
+  const 姓名 = emp.姓名 || emp.name || '';
+  const 头像 = emp.头像 || emp.avatar || '🙂';
+  const 角色 = emp.角色 || emp.role || '';
+  const 目标 = cfg.目标 || '';
+  const 人设追加 = cfg.人设追加 || '';
+
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div class="avatar">${头像}</div>
+      <div>
+        <div class="name">${姓名} ${isMother?'<span style="font-size:14px;color:#888">(母体)</span>':''}</div>
+        <div class="role">${角色}</div>
+      </div>
+      <span class="status-badge ${状态==='在岗'?'online':'offline'}" onclick="toggleStatus()">${状态==='在岗'?'● 在岗':'○ 离线'}</span>
+    </div>
+    <div class="form-group">
+      <label>角色</label>
+      <input type="text" value="${角色}" onchange="updateField('角色', this.value)">
+    </div>
+    <div class="form-group">
+      <label>目标</label>
+      <input type="text" value="${目标}" onchange="updateField('目标', this.value)">
+    </div>
+    <div class="form-group">
+      <label>人设追加（追加在母体提示词后面）</label>
+      <textarea onchange="updateField('人设追加', this.value)">${人设追加}</textarea>
+    </div>
+    <div class="form-group">
+      <label>可用操作</label>
+      <div class="tags" id="opsTags">${opsHtml}</div>
+    </div>
+    <div class="form-group">
+      <label>权限目录</label>
+      <div class="permissions">${permText}</div>
+    </div>
+    <div class="form-group">
+      <label>独立记忆</label>
+      <label class="switch"><input type="checkbox" ${cfg.独立记忆?'checked':''} onchange="updateField('独立记忆', this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="form-group">
+      <label>模型</label>
+      <div class="permissions">${modelText}</div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-save" onclick="saveEmployee()">💾 保存</button>
+      ${isMother?'<span style="color:#666;font-size:13px;align-self:center">👑 母体不可删除</span>':'<button class="btn btn-delete" onclick="deleteEmployee()">🗑️ 删除</button>'}
+    </div>`;
+}
+
+function updateField(field, value) {
+  if (currentConfig) currentConfig[field] = value;
+}
+
+function removeOp(op) {
+  if (!currentConfig || !currentConfig.可用操作) return;
+  currentConfig.可用操作 = currentConfig.可用操作.filter(o => o !== op);
+  renderDetail();
+}
+
+function addOp() {
+  if (!currentConfig) return;
+  if (!currentConfig.可用操作) currentConfig.可用操作 = [];
+  const op = prompt('请输入操作名称：');
+  if (op && op.trim()) {
+    if (!currentConfig.可用操作.includes(op.trim())) {
+      currentConfig.可用操作.push(op.trim());
+      renderDetail();
+    }
+  }
+}
+
+function setCustomOps() {
+  if (!currentConfig) return;
+  currentConfig.可用操作 = [];
+  renderDetail();
+}
+
+async function toggleStatus() {
+  if (selectedIdx < 0) return;
+  const emp = employees[selectedIdx];
+  const name = emp.姓名 || emp.name;
+  const newStatus = (emp.状态 || emp.status) === '在岗' ? '离线' : '在岗';
+  try {
+    await fetch('/api/employee-status', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({姓名: name, 状态: newStatus})
+    });
+    emp.状态 = newStatus;
+    if (currentConfig) currentConfig.状态 = newStatus;
+    renderList();
+    renderDetail();
+  } catch (e) {
+    showToast('操作失败', 'error');
+  }
+}
+
+async function saveEmployee() {
+  if (selectedIdx < 0 || !currentConfig) return;
+  const emp = employees[selectedIdx];
+  const name = emp.姓名 || emp.name;
+  const isMother = emp.是母体 || emp.isMother;
+  if (isMother) { showToast('母体不可修改'); return; }
+  const 配置 = {};
+  for (const k of ['角色', '目标', '人设追加', '可用操作', '独立记忆']) {
+    if (currentConfig[k] !== undefined) 配置[k] = currentConfig[k];
+  }
+  try {
+    const resp = await fetch('/api/employee-update', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({姓名: name, 配置})
+    });
+    const data = await resp.json();
+    if (data.成功 || data.success) {
+      showToast('已保存');
+      await loadEmployees();
+      selectedIdx = employees.findIndex(e => (e.姓名 || e.name) === name);
+      renderList();
+    } else {
+      showToast('保存失败: ' + (data.错误 || data.error || ''));
+    }
+  } catch (e) {
+    showToast('保存失败: ' + e.message);
+  }
+}
+
+async function deleteEmployee() {
+  if (selectedIdx < 0) return;
+  const emp = employees[selectedIdx];
+  const name = emp.姓名 || emp.name;
+  if (!confirm(`确认删除员工「${name}」？`)) return;
+  try {
+    const resp = await fetch('/api/employee-delete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({姓名: name})
+    });
+    const data = await resp.json();
+    if (data.成功 || data.success) {
+      selectedIdx = -1;
+      currentConfig = null;
+      await loadEmployees();
+      renderDetail();
+      showToast('已删除');
+    } else {
+      showToast('删除失败: ' + (data.错误 || data.error || ''));
+    }
+  } catch (e) {
+    showToast('删除失败: ' + e.message);
+  }
+}
+
+function showAddModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal">
+    <h3>新建员工</h3>
+    <input id="newName" placeholder="员工姓名">
+    <input id="newRole" placeholder="角色（如：程序员）">
+    <input id="newAvatar" placeholder="头像emoji（如：🧑‍🔧）" value="🙂">
+    <div class="modal-actions">
+      <button class="btn" style="background:#333;color:#aaa" onclick="this.closest('.modal-overlay').remove()">取消</button>
+      <button class="btn btn-save" onclick="addEmployee()">创建</button>
+    </div></div>`;
+  document.body.appendChild(overlay);
+}
+
+async function addEmployee() {
+  const name = document.getElementById('newName').value.trim();
+  const role = document.getElementById('newRole').value.trim();
+  const avatar = document.getElementById('newAvatar').value.trim() || '🙂';
+  if (!name) { alert('请输入员工姓名'); return; }
+  if (employees.some(e => (e.姓名 || e.name) === name)) { alert('员工已存在'); return; }
+  const 配置 = {姓名: name, 头像: avatar, 角色: role, 目标: role, 人设追加: '', 独立记忆: true, 状态: '在岗'};
+  try {
+    const resp = await fetch('/api/employee-create', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({配置})
+    });
+    const data = await resp.json();
+    if (data.成功 || data.success) {
+      document.querySelector('.modal-overlay').remove();
+      await loadEmployees();
+      selectedIdx = employees.findIndex(e => (e.姓名 || e.name) === name);
+      renderList();
+      await selectEmployee(selectedIdx);
+      showToast('已创建');
+    } else {
+      alert('创建失败: ' + (data.错误 || data.error || ''));
+    }
+  } catch (e) {
+    alert('创建失败: ' + e.message);
+  }
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2000);
+}
+
+loadEmployees();
+</script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+{
+  "123": {
+    "inputs": {
+      "filename_prefix": "Qwen-2512-2steps-LoRA",
+      "images": [
+        "132:109",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "129": {
+    "inputs": {
+      "value": "朱峰社区最高处的悬浮岛屿上，魔法学院入口坐落于环形建筑群的正东方位。入口为厚重的灰石拱门，表面攀附着发光藤蔓与流动的蓝色符文，拱顶略高于周边塔楼基座。阳光自左上方斜射，漫反射照亮石材质感，城堡顶部有暖金色逆光勾勒轮廓，远处瀑布的水雾中透着冷蓝色反光。\n\n画面采用超宽视角全景构图，相机位于高空俯拍略带倾斜角度，呈现“鸟瞰+微仰”的复合视角。背景是蓝天白云与无垠远景，一道彩虹贯穿底部云层，营造梦幻纵深。环形建筑群环绕中央水系延展，层次分明。\n\n入口前的石阶与水晶小径上零星分布着几位儿童形象的人物，均为卡通化风格：五官简化圆润，瞳孔大而明亮，鼻梁短直，发色为棕褐色卷曲短发。服饰多样——有穿红白条纹屋檐帽配布衣裤者立于拱门旁，有穿黄色外套黑靴者站在石阶上凝望远方。多数角色静止伫立，少数沿缓坡行走，双手自然垂放或轻触腰间物品，整体氛围安详静谧，肢体张力极低，呈现探索与观望的叙事基调。"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "提示词"
+    }
+  },
+  "132:105": {
+    "inputs": {
+      "unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "132:128": {
+    "inputs": {
+      "conditioning": [
+        "132:108",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "132:110": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "132:114",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "采样算法（AuraFlow）"
+    }
+  },
+  "132:114": {
+    "inputs": {
+      "lora_name": "Wuli-Qwen-Image-2512-Turbo-LoRA-2steps-V1.0-bf16.safetensors",
+      "strength_model": 1,
+      "model": [
+        "132:105",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "132:104": {
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "132:103": {
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "132:106": {
+    "inputs": {
+      "seed": 992921741331681,
+      "steps": 2,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "132:110",
+        0
+      ],
+      "positive": [
+        "132:108",
+        0
+      ],
+      "negative": [
+        "132:128",
+        0
+      ],
+      "latent_image": [
+        "132:107",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "132:109": {
+    "inputs": {
+      "samples": [
+        "132:106",
+        0
+      ],
+      "vae": [
+        "132:103",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "132:108": {
+    "inputs": {
+      "text": [
+        "129",
+        0
+      ],
+      "clip": [
+        "132:104",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "132:107": {
+    "inputs": {
+      "width": 704,
+      "height": 1280,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "空Latent图像（SD3）"
+    }
+  }
+}

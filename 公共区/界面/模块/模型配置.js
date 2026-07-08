@@ -100,14 +100,25 @@ function renderModelKeyEditor(d) {
     wrap.style.cssText = "padding:8px 12px;border:1px solid var(--border);border-radius:6px;";
     const 密钥配置 = m.已配置密钥 || {};
     const 环境变量 = m.环境变量 || {};
+    const 默认模型名 = m.默认模型名称 || "";
     let inputs = "";
     for (const [变量名, 环境键] of Object.entries(环境变量)) {
+        // 有默认模型名的模型跳过"模型名称"输入框（已在上方提示）
+        if (变量名 === "模型名称" && 默认模型名) continue;
         const 已有 = 密钥配置[变量名] || "";
         const placeholder = 已有 ? `已配置: ${已有}` : "未配置";
         inputs += `<div style="margin-top:6px;"><label style="font-size:11px;color:var(--text2);">${变量名}</label><input type="password" data-model="${m.名称}" data-key="${变量名}" class="dialog-input" placeholder="${placeholder}" style="width:100%;margin-top:2px;" /></div>`;
     }
     const 已有模型名 = 密钥配置["模型名称"] || "";
-    wrap.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">${m.名称} — 模型名</div><input type="text" data-model="${m.名称}" data-key="_模型名称" class="dialog-input" placeholder="如 deepseek-chat" value="${已有模型名}" style="width:100%;" />${inputs}`;
+    const 当前模型名显示 = 已有模型名 || 默认模型名;
+    // 有默认模型名的只显示提示文字（不可改），无默认的显示输入框
+    let 模型名HTML;
+    if (默认模型名) {
+        模型名HTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">模型名: <span style="color:var(--blue);">${当前模型名显示}</span></div>`;
+    } else {
+        模型名HTML = `<div style="margin-top:6px;"><label style="font-size:11px;color:var(--text2);">模型名称</label><input type="text" data-model="${m.名称}" data-key="_模型名称" class="dialog-input" placeholder="如 deepseek-chat" value="${已有模型名}" style="width:100%;margin-top:2px;" /></div>`;
+    }
+    wrap.innerHTML = `${模型名HTML}${inputs}`;
     editor.appendChild(wrap);
 }
 

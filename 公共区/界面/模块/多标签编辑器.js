@@ -83,10 +83,10 @@ function switchTab(idx, skipSave) {
             // 代码标签页：显示编辑器
             hideMediaView();
             if (editorInstance) {
+                // 切换标签时用 setValue（合理：新文件 = 新 undo 栈）
                 editorInstance.设置内容(f.content);
                 const ext = (f.name.split(".").pop() || "").toLowerCase();
-                const langMap = { json: "json", py: "python", js: "javascript", ts: "javascript", cs: "javascript", css: "json", html: "json", md: "json", txt: "json", bat: "json" };
-                editorInstance.设置语言(langMap[ext] || "json");
+                editorInstance.设置语言(Monaco语言映射[ext] || "plaintext");
             }
             const pathEl = document.getElementById("editorFilePath");
             if (pathEl) pathEl.textContent = f.path;
@@ -139,7 +139,8 @@ function rollbackAIChange(idx) {
     const f = openFiles[idx];
     if (!f || !f.原始内容) return;
     if (editorInstance && idx === activeFileIdx) {
-        editorInstance.设置内容(f.原始内容);
+        // 用 executeEdits 替代 setValue，保留 Monaco 撤销栈
+        editorInstance.设置内容保留撤销(f.原始内容);
     }
     f.content = f.原始内容;
     f.dirty = false;
@@ -220,18 +221,21 @@ function initEditor() {
     const lineNums = document.getElementById("lineNumbers");
     if (container && textarea && preview && lineNums) {
         editorInstance = new 编辑器引擎(container, textarea, preview, lineNums);
-        textarea.addEventListener("keydown", e => {
-            if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveEditorContent(); }
-            setTimeout(() => {
-                if (activeFileIdx >= 0 && openFiles[activeFileIdx]) {
-                    openFiles[activeFileIdx].dirty = true;
-                    updateChangeBadge();
-                    renderTabs();
-                }
-            }, 50);
+        // Monaco 编辑器事件（通过回调绑定，Monaco 加载后生效）
+        editorInstance.设置内容变更回调(() => {
+            if (activeFileIdx >= 0 && openFiles[activeFileIdx]) {
+                openFiles[activeFileIdx].dirty = true;
+                updateChangeBadge();
+                renderTabs();
+            }
         });
-        textarea.addEventListener("mouseup", () => setTimeout(captureSelection, 0));
-        textarea.addEventListener("keyup", () => setTimeout(captureSelection, 0));
+        editorInstance.设置选区回调(() => {
+            setTimeout(captureSelection, 0);
+        });
+        // Ctrl+S 保存（全局键盘事件，Monaco 不拦截时生效）
+        container.addEventListener("keydown", e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); saveEditorContent(); }
+        });
     }
     // 文档预览器框选追踪
     const docContent = document.getElementById("docContent");
