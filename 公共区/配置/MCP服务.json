@@ -2,7 +2,7 @@
   "说明": "MCP Server 配置 — 在此添加 MCP 服务，自动发现工具并注册为操作",
   "启用": true,
   "服务列表": [
-    {"名称": "3dsmax", "传输方式": "stdio", "命令": ["uv", "run", "--directory", "C:/Users/Administrator/Desktop/zf3d_Agent/3dsmax-mcp", "3dsmax-mcp"], "环境变量": {}, "启用": true, "软件组": "3dsMax", "自动安装": true, "项目目录": "C:/Users/Administrator/Desktop/zf3d_Agent/3dsmax-mcp", "安装命令": ["uv", "run", "python", "install.py", "--skip-skill"], "安装标记": "C:/Program Files/Autodesk/3ds Max 2026/plugins/mcp_bridge.gup", "说明": "3ds Max MCP服务（115个工具：场景/物体/材质/修改器/渲染/tyFlow等，自动安装uv+依赖+插件）"},
+    {"名称": "3dsmax", "传输方式": "stdio", "命令": ["uv", "run", "--directory", "./3dsmax-mcp", "3dsmax-mcp"], "环境变量": {}, "启用": false, "软件组": "3dsMax", "自动安装": true, "项目目录": "./3dsmax-mcp", "安装命令": ["uv", "run", "python", "install.py", "--skip-skill"], "安装标记": "C:/Program Files/Autodesk/3ds Max 2026/plugins/mcp_bridge.gup", "说明": "3ds Max MCP服务（115个工具：场景/物体/材质/修改器/渲染/tyFlow等，自动安装uv+依赖+插件）"},
     {"名称": "filesystem", "传输方式": "stdio", "命令": ["npx", "@modelcontextprotocol/server-filesystem"], "参数": ["D:/允许访问的目录"], "环境变量": {}, "启用": false, "说明": "文件系统MCP服务（示例，需安装npx和对应npm包）"},
     {
       "名称": "github",

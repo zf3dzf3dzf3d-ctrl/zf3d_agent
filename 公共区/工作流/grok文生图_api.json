@@ -1,0 +1,19 @@
+{
+  "1": {
+    "class_type": "GrokImageNode",
+    "inputs": {
+      "prompt": "",
+      "model": "grok-2-image-1212",
+      "aspect_ratio": "9:16",
+      "batch_size": 1,
+      "api_key": ""
+    }
+  },
+  "2": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["1", 0],
+      "filename_prefix": "Grok"
+    }
+  }
+}

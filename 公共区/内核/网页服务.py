@@ -496,6 +496,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     操作注册中心 = None
     运行诊断器 = None  # 运行诊断器实例
     当前模型名 = None  # 当前对话使用的模型名
+    _启动器实例 = None
+    _定时任务调度器 = None
     _tts主界面状态 = {"播放中": False, "代次": 0}  # 主界面语音播报状态
     _tts轮盘状态 = {"播放中": False, "代次": 0}    # 轮盘朗读状态
     _sherpa识别器 = None  # sherpa-onnx 离线语音识别器（懒加载）
@@ -509,6 +511,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                   "dshow设备名": ""}
 
     def do_GET(self):
+        self._http方法 = "GET"
         try:
             解析结果 = urlparse(self.path)
             路径 = unquote(解析结果.path)
@@ -555,6 +558,18 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 return  # 响应也失败了，放弃
 
     def do_POST(self):
+        self._http方法 = "POST"
+        self._处理POST请求()
+
+    def do_PUT(self):
+        self._http方法 = "PUT"
+        self._处理POST请求()
+
+    def do_DELETE(self):
+        self._http方法 = "DELETE"
+        self._处理POST请求()
+
+    def _处理POST请求(self):
         try:
             解析结果 = urlparse(self.path)
             路径 = unquote(解析结果.path)
@@ -1034,6 +1049,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             self._返回JSON({"待确认": self.文件管理器.获取待确认()})
         elif 路径 == "/api/modules":
             self._返回JSON({"模块": list(self.模块注册.keys()) if self.模块注册 else []})
+        elif 路径 == "/api/dev-reload-sse":
+            self._处理开发热重载SSE()
         elif 路径 == "/api/status":
             对话状态 = {}
             if self.模块注册 and "对话" in self.模块注册:
@@ -1104,6 +1121,16 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     self._返回JSON({"成功": False, "错误": str(e)})
             else:
                 self._返回JSON({"成功": False, "错误": "对话模块未就绪"})
+        elif 路径 == "/api/wf-tasks":
+            """GET: 获取工作流定时任务列表"""
+            调度器 = getattr(网页请求处理器, '_定时任务调度器', None)
+            if not 调度器:
+                self._返回JSON({"成功": False, "错误": "定时任务调度器未就绪"})
+                return
+            if 调度器:
+                self._返回JSON({"成功": True, "任务列表": 调度器.获取工作流任务列表()})
+            else:
+                self._返回JSON({"成功": False, "错误": "定时任务调度器未就绪"})
         elif 路径 == "/api/history":
             if self.模块注册 and "对话" in self.模块注册:
                 历史 = self.模块注册["对话"].获取历史()
@@ -1648,7 +1675,33 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         if not self._检查鉴权():
             self._返回JSON({"错误": "未授权：缺少或无效的令牌"}, 401)
             return
-        if 路径 == "/api/chat":
+        if 路径 == "/api/restart":
+            self._返回JSON({"成功": True, "消息": "重启中..."})
+            def _延迟重启():
+                time.sleep(0.5)
+                try:
+                    import subprocess, sys, os
+                    # 获取项目根目录
+                    项目根 = str(网页请求处理器.配置加载器.项目根目录)
+                    python = sys.executable
+                    启动脚本 = os.path.join(项目根, "公共区", "内核", "启动器.py")
+                    # 设置环境变量标记重启，使新进程不再自动打开浏览器
+                    env = os.environ.copy()
+                    env["_ZF3D_RESTART"] = "1"
+                    # 创建detached新进程
+                    if sys.platform == 'win32':
+                        subprocess.Popen([python, 启动脚本], cwd=项目根, env=env,
+                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)
+                    else:
+                        subprocess.Popen([python, 启动脚本], cwd=项目根, env=env,
+                                       start_new_session=True)
+                except Exception as e:
+                    print(f"⚠️ 重启失败: {e}")
+                # 立即强制退出当前进程（不走停止流程，避免端口释放延迟）
+                import os as _os
+                _os._exit(0)
+            threading.Thread(target=_延迟重启, daemon=True).start()
+        elif 路径 == "/api/chat":
             self._处理对话(数据)
         elif 路径 == "/api/employee-chat":
             self._处理员工对话(数据)
@@ -1911,6 +1964,43 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "图": 图, "新建员工": 新建员工})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-tasks":
+            """工作流定时任务管理（POST=创建, PUT=更新, DELETE=删除）"""
+            调度器 = getattr(网页请求处理器, '_定时任务调度器', None)
+            if not 调度器:
+                self._返回JSON({"成功": False, "错误": "定时任务调度器未就绪"})
+                return
+            方法 = getattr(self, '_http方法', 'POST')
+            if 方法 == "POST":
+                try:
+                    结果 = 调度器.添加工作流任务(
+                        名称=数据.get("名称", ""),
+                        工作流文件=数据.get("工作流文件", ""),
+                        类型=数据.get("类型", "每日"),
+                        时间=数据.get("时间", "08:00"),
+                        星期=数据.get("星期", []),
+                        间隔分钟=数据.get("间隔分钟", 0),
+                        通知=数据.get("通知", True),
+                        日期=数据.get("日期", "")
+                    )
+                    self._返回JSON(结果)
+                except Exception as _e:
+                    self._返回JSON({"成功": False, "错误": str(_e)})
+            elif 方法 == "PUT":
+                结果 = 调度器.更新工作流任务(数据.get("id", ""), 数据.get("更新", {}))
+                self._返回JSON(结果)
+            elif 方法 == "DELETE":
+                结果 = 调度器.删除工作流任务(数据.get("id", ""))
+                self._返回JSON(结果)
+            else:
+                self._返回JSON({"成功": False, "错误": "不支持的方法"})
+        elif 路径 == "/api/wf-task-notify":
+            """获取工作流任务执行通知"""
+            调度器 = getattr(网页请求处理器, '_定时任务调度器', None)
+            if 调度器:
+                self._返回JSON({"成功": True, "通知": 调度器.获取工作流通知()})
+            else:
+                self._返回JSON({"成功": True, "通知": []})
         elif 路径 == "/api/resume-checkpoint":
             """从检查点续跑"""
             if self.模块注册 and "对话" in self.模块注册:
@@ -2436,7 +2526,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """检查GitHub是否有新版本"""
             try:
                 from 更新检查器 import 更新检查器类
-                系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                # 强制从文件读取最新配置（不依赖内存缓存，避免版本号过期）
+                import json as _json_upd
+                _cfg路径 = str(self.配置加载器.项目根目录 / "公共区" / "配置" / "系统配置.json")
+                with open(_cfg路径, "r", encoding="utf-8-sig") as _f_upd:
+                    系统配置 = _json_upd.load(_f_upd)
                 系统配置["项目根目录"] = str(self.配置加载器.项目根目录)
                 检查器 = 更新检查器类(系统配置)
                 结果 = 检查器.检查更新(强制=数据.get("强制", False))
@@ -2447,7 +2541,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             """执行更新：下载并覆盖公共区"""
             try:
                 from 更新检查器 import 更新检查器类
-                系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                # 强制从文件读取最新配置
+                import json as _json_upd2
+                _cfg路径2 = str(self.配置加载器.项目根目录 / "公共区" / "配置" / "系统配置.json")
+                with open(_cfg路径2, "r", encoding="utf-8-sig") as _f_upd2:
+                    系统配置 = _json_upd2.load(_f_upd2)
                 系统配置["项目根目录"] = str(self.配置加载器.项目根目录)
                 检查器 = 更新检查器类(系统配置)
                 下载地址 = 数据.get("下载地址", "")
@@ -3680,6 +3778,108 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": 输出[:500], "成功": True})
                         _wf写日志(nid, nname, ntype, "成功", 上游输入[:200], 输出[:500], "", int((_time2.time()-_t0)*1000))
 
+                    elif ntype == "alert":
+                        # 弹窗提醒节点：零token，弹窗显示内容+播放提示音
+                        提醒内容 = config.get("提醒内容") or ""
+                        # 收集上游输入
+                        上游输入 = ""
+                        if 单节点上游:
+                            上游输入 = 单节点上游
+                        else:
+                            上游 = 入边.get(nid, [])
+                            上游排序 = sorted(上游, key=lambda uid: 层级.get(uid, 0))
+                            parts = []
+                            for uid in 上游排序:
+                                out = 节点输出.get(uid, "")
+                                if out:
+                                    parts.append(out)
+                            上游输入 = "\n".join(parts)
+                        # 组合最终提醒内容
+                        if 提醒内容 and 上游输入:
+                            最终内容 = 提醒内容 + "\n\n" + 上游输入
+                        elif 提醒内容:
+                            最终内容 = 提醒内容
+                        elif 上游输入:
+                            最终内容 = 上游输入
+                        else:
+                            最终内容 = "提醒时间到了！"
+                        节点输出[nid] = 最终内容
+                        # 推送弹窗通知到前端
+                        声音开关 = config.get("声音", "default")
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": 最终内容[:500], "成功": True, "alert": True, "alert内容": 最终内容, "alert声音": 声音开关})
+                        _wf写日志(nid, nname, ntype, "成功", 上游输入[:200], 最终内容[:500], "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype in ("file_read", "file_write", "file_mkdir", "file_search",
+                                   "web_search", "web_fetch", "file_download",
+                                   "run_command", "system_info",
+                                   "image_watermark", "image_crop", "image_resize", "image_rotate",
+                                   "code_search", "code_glob",
+                                   "play_music", "play_video", "tts_speak", "video_convert"):
+                        # 通用操作节点：通过操作注册中心执行，零token
+                        上游输入 = _收集上游输入(nid)
+                        # 参数：config中的值
+                        参数 = dict(config)
+                        # 检查上游节点是否有文件路径信息（拖入的文件节点）
+                        上游节点列表 = 入边.get(nid, [])
+                        for uid in 上游节点列表:
+                            src_node = 节点映射.get(uid, {})
+                            src_config = src_node.get("config", {})
+                            if src_config.get("路径") and not 参数.get("路径"):
+                                参数["路径"] = src_config["路径"]
+                            if src_config.get("图片路径") and not 参数.get("图片路径"):
+                                参数["图片路径"] = src_config["图片路径"]
+                            if src_config.get("输入路径") and not 参数.get("输入路径"):
+                                参数["输入路径"] = src_config["输入路径"]
+                        # 如果路径还是空，但上游有内容（浏览器拖入的文件内容已预读），直接用内容作为输出
+                        if ntype == "file_read" and not 参数.get("路径") and 上游输入:
+                            节点输出[nid] = 上游输入
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "使用上游文件内容", "输出": 上游输入[:500], "成功": True})
+                            _wf写日志(nid, nname, ntype, "成功", "上游内容", 上游输入[:500], "", int((_time2.time()-_t0)*1000))
+                            return
+                        # 如果有上游文本输入，填充到常见字段
+                        if 上游输入:
+                            if "路径" in 参数 and not 参数["路径"]:
+                                参数["路径"] = 上游输入
+                            if "关键词" in 参数 and not 参数["关键词"]:
+                                参数["关键词"] = 上游输入
+                            if "内容" in 参数 and not 参数["内容"]:
+                                参数["内容"] = 上游输入
+                            if "文本" in 参数 and not 参数["文本"]:
+                                参数["文本"] = 上游输入
+                            if "网址" in 参数 and not 参数["网址"]:
+                                参数["网址"] = 上游输入
+                            if "歌曲名" in 参数 and not 参数["歌曲名"]:
+                                参数["歌曲名"] = 上游输入
+                            if "视频名" in 参数 and not 参数["视频名"]:
+                                参数["视频名"] = 上游输入
+                            if "命令" in 参数 and not 参数["命令"]:
+                                参数["命令"] = 上游输入
+                        try:
+                            # 操作名映射
+                            操作映射 = {
+                                "file_read": "读取文件", "file_write": "写入文件", "file_mkdir": "创建文件夹", "file_search": "搜索文件",
+                                "web_search": "网络搜索", "web_fetch": "网页抓取", "file_download": "多线程下载",
+                                "run_command": "运行命令", "system_info": "系统信息",
+                                "image_watermark": "去水印", "image_crop": "裁剪图片", "image_resize": "缩放图片", "image_rotate": "旋转图片",
+                                "code_search": "搜索代码", "code_glob": "Glob搜索",
+                                "play_music": "搜索音乐", "play_video": "搜索视频", "tts_speak": "朗读文本", "video_convert": "视频转码"
+                            }
+                            操作名 = 操作映射.get(ntype, ntype)
+                            if self.操作注册中心:
+                                结果 = self.操作注册中心.执行(操作名, 参数)
+                                输出 = 结果.get("数据") or 结果.get("结果") or str(结果)
+                                if isinstance(输出, dict):
+                                    输出 = json.dumps(输出, ensure_ascii=False, indent=2)
+                                节点输出[nid] = 输出
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": str(参数)[:200], "输出": str(输出)[:500], "成功": True})
+                            else:
+                                节点输出[nid] = "操作注册中心未就绪"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "操作注册中心未就绪", "成功": False})
+                        except Exception as _op_err:
+                            节点输出[nid] = str(_op_err)
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": f"执行失败: {_op_err}", "成功": False})
+                        _wf写日志(nid, nname, ntype, "成功" if 节点输出.get(nid) else "失败", str(参数)[:200], str(节点输出.get(nid, ""))[:500], "", int((_time2.time()-_t0)*1000))
+
                     elif ntype == "comfyui" or ntype == "生图":
                         # ComfyUI直出节点：不走LLM，直接调用ComfyUI出图，零token消耗
                         # 全局锁：同一时间只允许一个ComfyUI任务
@@ -3909,6 +4109,125 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                                     节点输出[nid] = 错误
                                     _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 错误, "成功": False})
                                     _wf写日志(nid, nname, ntype, "失败", "", 错误, 错误, int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "cloud_image" or ntype == "云端出图":
+                        上游输入 = _收集上游输入(nid)
+                        提示词 = config.get("提示词") or config.get("prompt") or 上游输入 or ""
+                        提示词 = _re_clean.sub(r'【来自[^】]*】\s*', '', 提示词)
+                        提示词 = _re_clean.sub(r'```[a-z]*\n?', '', 提示词)
+                        提示词 = 提示词.strip()
+                        服务商 = config.get("服务商") or config.get("provider") or "agnes"
+                        宽度 = int(config.get("宽度") or config.get("width") or 1024)
+                        高度 = int(config.get("高度") or config.get("height") or 1024)
+                        if not 提示词:
+                            节点输出[nid] = "无提示词输入"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "无提示词", "成功": False})
+                            _wf写日志(nid, nname, ntype, "失败", "", "无提示词", "缺少提示词", int((_time2.time()-_t0)*1000))
+                        else:
+                            try:
+                                import os as _os_ci, json as _json_ci, urllib.request as _ur_ci, time as _time_ci, uuid as _uuid_ci, base64 as _b64_ci
+                                _cfg路径 = _os_ci.path.join(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.abspath(__file__)))), "公共区", "配置", "系统配置.json")
+                                with open(_cfg路径, "r", encoding="utf-8-sig") as _f:
+                                    _系统配置 = _json_ci.load(_f)
+                                _保存目录 = 当前文件夹 if 当前文件夹 else "."
+                                _os_ci.makedirs(_保存目录, exist_ok=True)
+                                _img_bytes = None
+                                _文件名 = ""
+                                if 服务商.lower() in ("agnes", "agnesai"):
+                                    _api_key = _系统配置.get("Agnes_API密钥", "")
+                                    if not _api_key:
+                                        try:
+                                            _密钥路径 = _os_ci.path.join(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.abspath(__file__)))), "隐私区", "我的配置", "密钥.json")
+                                            if _os_ci.exists(_密钥路径):
+                                                with open(_密钥路径, "r", encoding="utf-8-sig") as _kf:
+                                                    _kd = _json_ci.load(_kf)
+                                                _api_key = _kd.get("密钥列表", {}).get("AgnesAI(全模态免费)", {}).get("API密钥", "")
+                                        except Exception: pass
+                                    if not _api_key: raise Exception("未配置AgnesAI密钥，请在设置→模型中配置")
+                                    _url = "https://apihub.agnes-ai.com/v1/images/generations"
+                                    _payload = _json_ci.dumps({"model": "agnes-image-2.1-flash", "prompt": 提示词, "n": 1, "size": f"{宽度}x{高度}"}).encode("utf-8")
+                                    _req = _ur_ci.Request(_url, data=_payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {_api_key}"}, method="POST")
+                                    _SSE写入({"类型": "节点进度", "id": nid, "name": nname, "信息": "正在调用AgnesAI免费生图API..."})
+                                    _resp = _ur_ci.urlopen(_req, timeout=120)
+                                    _result = _json_ci.loads(_resp.read().decode("utf-8"))
+                                    for _item in _result.get("data", []):
+                                        if "b64_json" in _item: _img_bytes = _b64_ci.b64decode(_item["b64_json"]); break
+                                        if "url" in _item: _img_bytes = _ur_ci.urlopen(_ur_ci.Request(_item["url"], headers={"User-Agent": "ZF3D-Agent"}), timeout=60).read(); break
+                                    _文件名 = f"agnes_{_uuid_ci.uuid4().hex[:8]}.png"
+                                elif 服务商.lower() in ("seedream", "字节跳动"):
+                                    _api_key = _系统配置.get("Seedream_API密钥", "")
+                                    if not _api_key: raise Exception("未配置Seedream_API密钥")
+                                    _url = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+                                    _payload = _json_ci.dumps({"model": "bytedance/seedream-v5.0-lite", "prompt": 提示词, "size": f"{宽度}x{高度}", "n": 1}).encode("utf-8")
+                                    _req = _ur_ci.Request(_url, data=_payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {_api_key}"}, method="POST")
+                                    _SSE写入({"类型": "节点进度", "id": nid, "name": nname, "信息": "正在调用Seedream API..."})
+                                    _resp = _ur_ci.urlopen(_req, timeout=120)
+                                    _result = _json_ci.loads(_resp.read().decode("utf-8"))
+                                    for _item in _result.get("data", []):
+                                        if "b64_json" in _item: _img_bytes = _b64_ci.b64decode(_item["b64_json"]); break
+                                        if "url" in _item: _img_bytes = _ur_ci.urlopen(_ur_ci.Request(_item["url"], headers={"User-Agent": "ZF3D-Agent"}), timeout=60).read(); break
+                                    _文件名 = f"seedream_{_uuid_ci.uuid4().hex[:8]}.png"
+                                elif 服务商.lower() in ("nano_banana", "google", "banana"):
+                                    _api_key = _系统配置.get("Google_API密钥", "")
+                                    if not _api_key: raise Exception("未配置Google_API密钥")
+                                    _ar = "9:16" if 高度 > 宽度 else ("16:9" if 宽度 > 高度 else "1:1")
+                                    _url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={_api_key}"
+                                    _payload = _json_ci.dumps({"contents": [{"role": "user", "parts": [{"text": 提示词}]}], "generationConfig": {"responseModalities": ["IMAGE"], "imageConfig": {"aspectRatio": _ar}}}).encode("utf-8")
+                                    _req = _ur_ci.Request(_url, data=_payload, headers={"Content-Type": "application/json"}, method="POST")
+                                    _SSE写入({"类型": "节点进度", "id": nid, "name": nname, "信息": "正在调用Nano Banana API..."})
+                                    _resp = _ur_ci.urlopen(_req, timeout=180)
+                                    _result = _json_ci.loads(_resp.read().decode("utf-8"))
+                                    for _c in _result.get("candidates", []):
+                                        for _p in _c.get("content", {}).get("parts", []):
+                                            if "inlineData" in _p: _img_bytes = _b64_ci.b64decode(_p["inlineData"]["data"]); break
+                                        if _img_bytes: break
+                                    _文件名 = f"nano_banana_{_uuid_ci.uuid4().hex[:8]}.png"
+                                elif 服务商.lower() in ("grok", "xai"):
+                                    _api_key = _系统配置.get("Grok_API密钥", "")
+                                    if not _api_key: raise Exception("未配置Grok_API密钥")
+                                    _size = "1024x1024"
+                                    if 宽度 > 高度: _size = "1280x720"
+                                    elif 高度 > 宽度: _size = "720x1280"
+                                    _url = "https://api.x.ai/v1/images/generations"
+                                    _payload = _json_ci.dumps({"model": "grok-2-image-1212", "prompt": 提示词, "n": 1, "size": _size, "response_format": "b64_json"}).encode("utf-8")
+                                    _req = _ur_ci.Request(_url, data=_payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {_api_key}"}, method="POST")
+                                    _SSE写入({"类型": "节点进度", "id": nid, "name": nname, "信息": "正在调用Grok API..."})
+                                    _resp = _ur_ci.urlopen(_req, timeout=120)
+                                    _result = _json_ci.loads(_resp.read().decode("utf-8"))
+                                    for _item in _result.get("data", []):
+                                        if "b64_json" in _item: _img_bytes = _b64_ci.b64decode(_item["b64_json"]); break
+                                    _文件名 = f"grok_{_uuid_ci.uuid4().hex[:8]}.png"
+                                elif 服务商.lower() in ("gpt_image", "openai", "gpt-image"):
+                                    _api_key = _系统配置.get("OpenAI_Image_API密钥", "")
+                                    if not _api_key: raise Exception("未配置OpenAI_Image_API密钥")
+                                    _size = "1024x1024"
+                                    if 宽度 > 高度: _size = "1536x1024"
+                                    elif 高度 > 宽度: _size = "1024x1536"
+                                    _url = "https://api.openai.com/v1/images/generations"
+                                    _payload = _json_ci.dumps({"model": "gpt-image-1", "prompt": 提示词, "size": _size, "n": 1}).encode("utf-8")
+                                    _req = _ur_ci.Request(_url, data=_payload, headers={"Content-Type": "application/json", "Authorization": f"Bearer {_api_key}"}, method="POST")
+                                    _SSE写入({"类型": "节点进度", "id": nid, "name": nname, "信息": "正在调用GPT Image API..."})
+                                    _resp = _ur_ci.urlopen(_req, timeout=180)
+                                    _result = _json_ci.loads(_resp.read().decode("utf-8"))
+                                    for _item in _result.get("data", []):
+                                        if "b64_json" in _item: _img_bytes = _b64_ci.b64decode(_item["b64_json"]); break
+                                    _文件名 = f"gpt_image_{_uuid_ci.uuid4().hex[:8]}.png"
+                                else:
+                                    raise Exception(f"未知服务商: {服务商}")
+                                if not _img_bytes: raise Exception(f"API返回无图片: {str(_result)[:300]}")
+                                _保存路径 = _os_ci.path.join(_保存目录, _文件名)
+                                with open(_保存路径, "wb") as _f2: _f2.write(_img_bytes)
+                                _输出文本 = f"✅ {服务商}出图成功\n提示词: {提示词[:60]}{'...' if len(提示词)>60 else ''}\n图片: {_保存路径}"
+                                节点输出[nid] = _输出文本
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": _输出文本, "成功": True, "图片": _保存路径})
+                                if not hasattr(网页请求处理器, '_comfyui图片队列'): 网页请求处理器._comfyui图片队列 = []
+                                网页请求处理器._comfyui图片队列.append({"节点id": nid, "图片路径": _保存路径, "文件名": _文件名, "状态": "完成", "时间": _time_ci.time()})
+                                _wf写日志(nid, nname, ntype, "成功", 提示词[:200], _输出文本, "", int((_time2.time()-_t0)*1000))
+                            except Exception as e:
+                                错误 = f"云端出图失败: {e}"
+                                节点输出[nid] = 错误
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 错误, "成功": False})
+                                _wf写日志(nid, nname, ntype, "失败", 提示词[:200], 错误, 错误, int((_time2.time()-_t0)*1000))
 
                 except Exception as _node_err:
                     print(f"  [WF] 节点执行异常: {nname}: {_node_err}")
@@ -4583,14 +4902,65 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 ```""")
         return "\n".join(部分)
 
+    # ===== 开发模式热重载 =====
+    _dev文件时间戳 = {}  # {文件路径: mtime}
+
+    def _处理开发热重载SSE(self):
+        """SSE端点：监控界面目录文件变化，变化时推送reload事件"""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Access-Control-Allow-Origin", "http://localhost:8765")
+        self.end_headers()
+        try:
+            # 初始握手
+            self.wfile.write(b"data: {\"type\":\"connected\"}\n\n")
+            self.wfile.flush()
+            界面目录 = self.界面目录
+            监控后缀 = {".js", ".css", ".html"}
+            检查间隔 = 1.0
+            for _ in range(36000):  # 最多10小时
+                time.sleep(检查间隔)
+                变更文件 = []
+                try:
+                    for f in 界面目录.rglob("*"):
+                        if f.is_file() and f.suffix.lower() in 监控后缀:
+                            try:
+                                mtime = f.stat().st_mtime
+                            except Exception:
+                                continue
+                            key = str(f)
+                            旧时间 = 网页请求处理器._dev文件时间戳.get(key)
+                            if 旧时间 is None:
+                                网页请求处理器._dev文件时间戳[key] = mtime
+                            elif mtime != 旧时间:
+                                网页请求处理器._dev文件时间戳[key] = mtime
+                                变更文件.append(f.name)
+                except Exception:
+                    pass
+                if 变更文件:
+                    消息 = json.dumps({"type": "reload", "files": 变更文件}, ensure_ascii=False)
+                    self.wfile.write(f"data: {消息}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                    break  # 推送一次reload后断开，前端刷新后重新连接
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, BrokenPipeError):
+            pass
+        except Exception:
+            pass
+
     def _返回文件(self, 路径: Path, 类型: str, 查询串: str = ""):
         try:
             if 路径.exists():
                 self.send_response(200)
                 self.send_header("Content-Type", f"{类型}; charset=utf-8")
                 self.send_header("Access-Control-Allow-Origin", "http://localhost:8765")
-                # 带版本号的静态资源(?v=xxx)长期缓存；动态内容(如逻辑.js)用no-cache
-                if "?v=" in 查询串 or "&v=" in 查询串:
+                # 开发模式：所有文件no-cache，浏览器刷新即获取最新
+                _开发模式 = False
+                try:
+                    _开发模式 = self.配置加载器.配置缓存.get("系统配置", {}).get("开发模式", False)
+                except Exception:
+                    pass
+                if not _开发模式 and ("?v=" in 查询串 or "&v=" in 查询串):
                     self.send_header("Cache-Control", "max-age=86400")  # 缓存1天
                 else:
                     self.send_header("Cache-Control", "no-cache")
@@ -5276,6 +5646,9 @@ class 网页服务类:
         网页请求处理器.操作注册中心 = 操作注册中心
         网页请求处理器.运行诊断器 = 运行诊断器
         网页请求处理器._启动器实例 = 启动器实例
+        # 直接设置调度器引用，避免多级属性查找出错
+        if 启动器实例 and hasattr(启动器实例, '定时任务调度器'):
+            网页请求处理器._定时任务调度器 = 启动器实例.定时任务调度器
         # 设置当前模型名
         if 模型直连器:
             网页请求处理器.当前模型名 = 模型直连器.当前模型名
@@ -5295,7 +5668,7 @@ class 网页服务类:
                 super().handle_error(request, client_address)
 
         self.服务器 = _健壮HTTPServer(("0.0.0.0", self.端口), 网页请求处理器)
-        print(f"🌐 Web服务已启动: http://localhost:{self.端口}")
+        print(f"   ✅ Web服务已启动: http://localhost:{self.端口}")
         self.服务器.serve_forever()
 
     def 停止(self):

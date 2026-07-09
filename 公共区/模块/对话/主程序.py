@@ -114,10 +114,8 @@ class 对话模块:
         # 多对话管理
         try:
             self._初始化对话管理()
-            print(f"  ✅ 对话管理初始化完成，当前对话: {self.当前对话ID}")
         except Exception as e:
-            print(f"  ⚠️ 对话管理初始化失败: {e}")
-            import traceback; traceback.print_exc()
+            print(f"   ⚠️ 对话管理初始化失败: {e}")
             self.对话列表 = []
             self.当前对话ID = None
             self.永久记忆 = []
@@ -672,9 +670,7 @@ class 对话模块:
                 json文件 = list(对话目录.glob("*.json"))
                 json文件 = [f for f in json文件 if not f.name.startswith("_") and f.stat().st_size > 100]
                 if json文件:
-                    print(f"  📦 检测到{len(json文件)}个旧JSON对话，开始迁移到SQLite...")
                     结果 = self.存储引擎.迁移对话记录(str(对话目录))
-                    print(f"  ✅ 迁移完成: {结果}")
                     self._加载对话索引()
         self._加载永久记忆()
         if not self.对话列表:

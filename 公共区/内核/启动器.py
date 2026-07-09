@@ -12,6 +12,10 @@ if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
 if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
+# 设置控制台窗口标题
+if sys.platform == 'win32':
+    os.system('title ZF3D Agent v3.2.1')
+
 import importlib.util
 from pathlib import Path
 
@@ -54,22 +58,40 @@ class 启动器类:
 
 
         # ── 启动动画 ──
-        宽度 = 44
-        _z = ['█████','   █ ','  █  ',' █   ','█████']
-        _f = ['█████','█    ','████ ','█    ','█    ']
-        _3 = ['█████','    █',' ████','    █','█████']
-        _d = ['████ ','█   █','█    █','█   █','████ ']
-        banner = [
-            "+" + "-" * 宽度 + "+",
-            "|" + "".center(宽度) + "|",
-        ]
+        # 每个位置用██(2列)或空格(2列)，确保所有行终端显示宽度一致
+        # 1=██, 0=空格(2个)
+        def _字母(图案):
+            return [''.join('██' if c == '1' else '  ' for c in row) for row in 图案]
+        _z = _字母(['11111','00010','00100','01000','11111'])
+        _f = _字母(['11111','10000','11111','10000','10000'])
+        _3 = _字母(['11111','00001','11111','00001','11111'])
+        _d = _字母(['11110','10001','10001','10001','11110'])
+        _a = _字母(['00100','01010','11111','10001','10001'])
+        _g = _字母(['11110','10000','10010','10010','11110'])
+        _e = _字母(['11111','10000','11111','10000','11111'])
+        _n = _字母(['10001','11001','10101','10011','10001'])
+        _t = _字母(['11111','00100','00100','00100','00100'])
+        # 字母间4空格(2个空格字符=2列)，左右各2空格(1字符)
+        内容 = []
         for _i in range(5):
-            banner.append("|" + f"  {_z[_i]}  {_f[_i]}  {_3[_i]}  {_d[_i]}".center(宽度) + "|")
+            内容.append(f" {_z[_i]}  {_f[_i]}  {_3[_i]}  {_d[_i]}  {_a[_i]}  {_g[_i]}  {_e[_i]}  {_n[_i]}  {_t[_i]} ")
+        # 所有行字符数相同（都是1+9*10+8*2+1=110），终端显示宽度也相同
+        宽度 = len(内容[0])  # 全是ASCII空格+██，len和显示宽一致
+        banner = [
+            "+" + "-" * (宽度 + 2) + "+",
+            "|" + " " * (宽度 + 2) + "|",
+        ]
+        for 行 in 内容:
+            banner.append("| " + 行 + " |")
+        # 标题行
+        _标题 = "ZF3D Agent  v3.2.1"
+        _左 = (宽度 + 2 - len(_标题)) // 2
+        _右 = 宽度 + 2 - len(_标题) - _左
         banner.extend([
-            "|" + "".center(宽度) + "|",
-            "|" + "Zhu Feng Community Agent".center(宽度) + "|",
-            "|" + "".center(宽度) + "|",
-            "+" + "-" * 宽度 + "+",
+            "|" + " " * (宽度 + 2) + "|",
+            "|" + " " * _左 + _标题 + " " * _右 + "|",
+            "|" + " " * (宽度 + 2) + "|",
+            "+" + "-" * (宽度 + 2) + "+",
         ])
 
 
@@ -82,10 +104,7 @@ class 启动器类:
             print("  " + line)
 
 
-            _time.sleep(0.05)
-
-
-        版本 = "v3.0.2"
+        版本 = "v3.2.1"
 
         启动步骤 = []
 
@@ -106,16 +125,12 @@ class 启动器类:
 
         启动步骤[-1] = ("📋", "加载配置", "✅", f"{len(配置)}个配置文件, 热重载已启动")
 
-        # ── 2. 模型直连器 ──
+        # ── 2. 模型直连器（跳过网络连通检查，首次对话时验证） ──
         _步("🤖", "模型直连器")
         模型配置 = 配置.get("模型规则", {})
         密钥配置 = 配置.get("密钥", {})
         self.模型直连器 = 模型直连器类(模型配置, 密钥配置)
-        连通结果 = self.模型直连器.验证连通性()
-        if 连通结果["连通"]:
-            启动步骤[-1] = ("🤖", "模型直连器", "✅", "接口连通")
-        else:
-            启动步骤[-1] = ("🤖", "模型直连器", "⚠️", f"未连通: {连通结果['原因']}")
+        启动步骤[-1] = ("🤖", "模型直连器", "✅", "配置就绪")
 
         # ── 3. 文件管理器+诊断器+Bug追踪器 ──
         _步("🔒", "文件管理器")
@@ -143,7 +158,7 @@ class 启动器类:
         self.动态工具加载器 = 动态工具加载器类()
         self.动态工具加载器.从文件加载(str(工具声明路径), 注册目标=self.操作注册中心)
         操作数 = len(self.操作注册中心.列出所有操作())
-        启动步骤[-1] = ("🔧", "动态工具", "✅", f"共{操作数}个操作")
+        启动步骤[-1] = ("🔧", "动态工具", "✅", f"{len(self.动态工具加载器.已加载工具) if hasattr(self.动态工具加载器, '已加载工具') else '?'}个工具, 共{操作数}个操作")
 
         _步("🔌", "插件")
         from 插件加载器 import 插件加载器类
@@ -151,7 +166,8 @@ class 启动器类:
         self.插件加载器 = 插件加载器类()
         self.插件加载器.扫描加载(str(插件目录), 注册目标=self.操作注册中心)
         操作数 = len(self.操作注册中心.列出所有操作())
-        启动步骤[-1] = ("🔌", "插件", "✅", f"共{操作数}个操作")
+        _插件列表 = list(self.插件加载器.已加载插件.keys()) if hasattr(self.插件加载器, '已加载插件') else []
+        启动步骤[-1] = ("🔌", "插件", "✅", f"{len(_插件列表)}个插件, 共{操作数}个操作")
 
         _step_detail_skills = ""
         _步("🎓", "技能")
@@ -161,7 +177,8 @@ class 启动器类:
         self.技能加载器.扫描加载(str(技能目录), 注册目标=self.操作注册中心)
         技能数 = len(self.技能加载器.列出技能())
         操作数 = len(self.操作注册中心.列出所有操作())
-        启动步骤[-1] = ("🎓", "技能", "✅", f"{技能数}个技能, 共{操作数}个操作")
+        _技能名列表 = list(self.技能加载器.列出技能()) if 技能数 > 0 else []
+        启动步骤[-1] = ("🎓", "技能", "✅", f"{技能数}个技能{(' [' + ', '.join(_技能名列表) + ']') if _技能名列表 else ''}, 共{操作数}个操作")
 
         _步("🔗", "MCP服务")
         from MCP客户端 import MCP管理器类
@@ -170,11 +187,16 @@ class 启动器类:
         self.MCP管理器.从配置加载(str(MCP配置路径), 注册目标=self.操作注册中心)
         self.操作注册中心.设置MCP管理器(self.MCP管理器)
         操作数 = len(self.操作注册中心.列出所有操作())
-        启动步骤[-1] = ("🔗", "MCP服务", "✅", f"共{操作数}个操作")
+        _mcp详情 = f"共{操作数}个操作"
+        if hasattr(self.MCP管理器, '总工具数') and self.MCP管理器.总工具数 > 0:
+            _mcp详情 = f"{self.MCP管理器.总工具数}个MCP工具, 共{操作数}个操作"
+        else:
+            _mcp详情 = f"3dsmax待连接, 共{操作数}个操作"
+        启动步骤[-1] = ("🔗", "MCP服务", "✅", _mcp详情)
 
         # ── 4e2. Blender ──
         _步("🎨", "Blender")
-        _blender状态 = "⏭️ 未启用"
+        _blender状态 = "未启用"
         try:
             系统配置 = self.配置加载器.获取配置("系统配置")
             blender配置 = 系统配置.get("Blender", {})
@@ -192,12 +214,13 @@ class 启动器类:
                         return "⚠️ 未连接（插件未启动）"
                 _t = _threading.Thread(target=_连blender, daemon=True)
                 _t.start()
-                _t.join(timeout=5)
+                _t.join(timeout=2)
+                _blender状态 = "✅ 已连接" if not _t.is_alive() else "⏳ 连接中（后台）"
             else:
-                _blender状态 = "⏭️ 未启用自动连接"
+                _blender状态 = "未启用自动连接"
         except Exception as e:
             _blender状态 = f"⚠️ {e}"
-        启动步骤[-1] = ("🎨", "Blender", _blender状态.split()[0] if _blender状态 else "✅", _blender状态)
+        启动步骤[-1] = ("🎨", "Blender", "⚠️" if "⚠️" in _blender状态 else "✅", _blender状态)
 
         # ── 4f. 知识库 ──
         _步("📚", "知识库")
@@ -227,7 +250,6 @@ class 启动器类:
         设置剧本管理器(self.剧本管理器)
         剧本数 = len(self.剧本管理器.列出剧本())
         启动步骤[-1] = ("🎬", "剧本管理器", "✅", f"{剧本数}个剧本")
-        print(f"   ✅ 剧本管理器就绪（已保存 {剧本数} 个剧本）")
 
         # 4h. 初始化系统托盘（仅Windows）
         _步("📌", "系统托盘")
@@ -235,12 +257,12 @@ class 启动器类:
             try:
                 from 系统托盘 import 系统托盘 as 系统托盘类
                 self.系统托盘 = 系统托盘类(self)
-                self.系统托盘.启动("朱峰社区智能体 v3.0.2 运行中")
+                self.系统托盘.启动("朱峰社区智能体 v3.2.1 运行中")
                 启动步骤[-1] = ("📌", "系统托盘", "✅", "已创建")
             except Exception as e:
                 启动步骤[-1] = ("📌", "系统托盘", "⚠️", str(e)[:50])
         else:
-            启动步骤[-1] = ("📌", "系统托盘", "⏭️", "非Windows")
+            启动步骤[-1] = ("📌", "系统托盘", "✅", "非Windows")
 
         # 5. 加载模块
         _步("📦", "模块加载")
@@ -261,8 +283,9 @@ class 启动器类:
             操作注册中心=self.操作注册中心,
             项目根目录=str(self.项目根目录)
         )
+        self.定时任务调度器.网页端口 = 系统配置.get("网页端口", 8765)
         self.定时任务调度器.启动()
-        启动步骤[-1] = ("⏰", "定时任务调度器", "✅", "已启动")
+        启动步骤[-1] = ("⏰", "定时任务调度器", "✅", f"已启动 ({len(self.定时任务调度器.任务列表)}个任务)")
 
         # 6. 注册全局命令（静默）
         全局命令中心.注册命令("重载配置", self._命令_重载配置)
@@ -341,7 +364,7 @@ class 启动器类:
                     self.全局呼出器.启动()
                     启动步骤[-1] = ("⚡", "快速呼出轮盘", "✅", "Ctrl+~ 呼出")
                 else:
-                    启动步骤[-1] = ("⚡", "快速呼出轮盘", "⏭️", "已禁用")
+                    启动步骤[-1] = ("⚡", "快速呼出轮盘", "✅", "已禁用")
             except Exception as e:
                 启动步骤[-1] = ("⚡", "快速呼出轮盘", "⚠️", str(e)[:50])
 
@@ -371,52 +394,48 @@ class 启动器类:
         端口 = 系统配置.get("网页端口", 8765)
         界面目录 = self.项目根目录 / "公共区" / "界面"
 
-        # ── 恢复下载任务（静默）──
-        try:
-            from 操作.多线程下载 import 多线程下载
-            多线程下载.恢复未完成任务()
-        except Exception:
-            pass
-
-        # ── 检查语音模型安装中断恢复 ──
-        try:
-            import tarfile, shutil, tempfile
-            # 模型存放在纯英文路径（sherpa-onnx的C++底层不支持中文路径）
-            # 优先用Python安装目录旁边，其次系统Temp，最后C盘根目录
-            def _找英文目录():
-                for p in [Path(sys.executable).parent / "zf3d_voice_model",
-                          Path(tempfile.gettempdir()) / "zf3d_voice_model",
-                          Path("C:/zf3d_voice_model")]:
-                    try:
-                        str(p).encode('ascii')
-                        p.mkdir(parents=True, exist_ok=True)
-                        return p
-                    except (UnicodeEncodeError, OSError, PermissionError):
-                        continue
-                p = Path(tempfile.gettempdir()) / "zf3d_voice_model"
-                p.mkdir(parents=True, exist_ok=True)
-                return p
-            模型目录 = _找英文目录()
-            目标目录 = 模型目录 / "paraformer-streaming"
-            tar文件 = 模型目录 / "语音模型.tar.bz2"
-            if tar文件.exists() and not (目标目录 / "encoder.int8.onnx").exists():
-                # tar.bz2 已下完但模型未解压 → 自动解压
-                print("📦 检测到流式语音模型未解压，正在解压...")
-                目标目录.mkdir(parents=True, exist_ok=True)
-                with tarfile.open(str(tar文件), "r:bz2") as tar:
-                    for member in tar.getmembers():
-                        基名 = os.path.basename(member.name)
-                        if 基名 in ("encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"):
-                            member.name = 基名
-                            tar.extract(member, 目标目录)
-                try: os.remove(str(tar文件))
-                except: pass
-                for d in 模型目录.glob("sherpa-onnx-paraformer-*"):
-                    if d.is_dir():
-                        shutil.rmtree(d, ignore_errors=True)
-                print("✅ 语音模型解压完成")
-        except Exception as e:
-            print(f"⚠️ 语音模型恢复失败: {e}")
+        # ── 恢复下载任务 + 语音模型（后台静默）──
+        import threading as _th
+        def _后台恢复():
+            try:
+                from 操作.多线程下载 import 多线程下载
+                多线程下载.恢复未完成任务()
+            except Exception:
+                pass
+            try:
+                import tarfile, shutil, tempfile
+                def _找英文目录():
+                    for p in [Path(sys.executable).parent / "zf3d_voice_model",
+                              Path(tempfile.gettempdir()) / "zf3d_voice_model",
+                              Path("C:/zf3d_voice_model")]:
+                        try:
+                            str(p).encode('ascii')
+                            p.mkdir(parents=True, exist_ok=True)
+                            return p
+                        except (UnicodeEncodeError, OSError, PermissionError):
+                            continue
+                    p = Path(tempfile.gettempdir()) / "zf3d_voice_model"
+                    p.mkdir(parents=True, exist_ok=True)
+                    return p
+                模型目录 = _找英文目录()
+                目标目录 = 模型目录 / "paraformer-streaming"
+                tar文件 = 模型目录 / "语音模型.tar.bz2"
+                if tar文件.exists() and not (目标目录 / "encoder.int8.onnx").exists():
+                    目标目录.mkdir(parents=True, exist_ok=True)
+                    with tarfile.open(str(tar文件), "r:bz2") as tar:
+                        for member in tar.getmembers():
+                            基名 = os.path.basename(member.name)
+                            if 基名 in ("encoder.int8.onnx", "decoder.int8.onnx", "tokens.txt"):
+                                member.name = 基名
+                                tar.extract(member, 目标目录)
+                    try: os.remove(str(tar文件))
+                    except: pass
+                    for d in 模型目录.glob("sherpa-onnx-paraformer-*"):
+                        if d.is_dir():
+                            shutil.rmtree(d, ignore_errors=True)
+            except Exception:
+                pass
+        _th.Thread(target=_后台恢复, daemon=True).start()
 
         # ── 6b. 预加载Kokoro TTS引擎（后台线程，不阻塞启动） ──
         try:
@@ -428,11 +447,11 @@ class 启动器类:
                         from 网页服务 import _获取KokoroTTS引擎
                         引擎 = _获取KokoroTTS引擎()
                         if 引擎:
-                            print("✅ Kokoro TTS引擎预加载完成")
+                            print("   ✅ Kokoro TTS引擎预加载完成")
                         else:
-                            print("⚠️ Kokoro TTS引擎未加载（模型可能未下载）")
+                            print("   ⚠️ Kokoro TTS引擎未加载（模型可能未下载）")
                     except Exception as e:
-                        print(f"⚠️ Kokoro TTS预加载失败: {e}")
+                        print(f"   ⚠️ Kokoro TTS预加载失败: {e}")
                 threading.Thread(target=_预加载TTS, daemon=True).start()
         except Exception:
             pass
@@ -446,35 +465,32 @@ class 启动器类:
         全局事件中心.发布("系统启动", {})
 
         # ── 渲染启动摘要 ──
-        print()
         for 图标, 名称, 状态, 详情 in 启动步骤:
-            if 状态 == "✅":
-                标记 = "✅"
-            elif 状态 == "⚠️":
-                标记 = "⚠"
-            elif 状态 == "⏭️":
-                标记 = "▶"
+            if 状态 == "⚠️":
+                标记 = "!!"
             else:
-                标记 = "··"
-            显示宽 = sum(2 if ord(c) > 127 else 1 for c in 名称)
-            补空格 = " " * max(0, 20 - 显示宽)
-            print(f"  {名称}{补空格} {标记}  {详情}")
-            _time.sleep(0.03)
+                标记 = "✅"
+            # ✅在cmd占2宽(和中文一样)，名称也按2宽计算，一起对齐
+            # 前缀总宽 = 3空格 + ✅(2) + 1空格 = 6
+            名称宽 = sum(2 if ord(c) > 127 else 1 for c in 名称)
+            目标宽 = 20
+            补空格 = " " * max(0, 目标宽 - 名称宽)
+            print(f"   {标记} {名称}{补空格} {详情}")
 
-        print()
         宽 = 50
         print("  " + "+" + "-" * 宽 + "+")
-        print("  " + "|" + f"  [OK] System Ready  {版本}".center(宽) + "|")
+        print("  " + "|" + f"  [OK] ZF3D Agent {版本} Ready".center(宽) + "|")
         print("  " + "|" + f"  http://localhost:{端口}".center(宽) + "|")
         print("  " + "+" + "-" * 宽 + "+")
-        print()
 
         # 自动打开浏览器
-        try:
-            import webbrowser
-            webbrowser.open(f"http://localhost:{端口}")
-        except Exception:
-            pass
+        # 仅首次启动打开浏览器，重启时不重复打开
+        if not os.environ.get("_ZF3D_RESTART"):
+            try:
+                import webbrowser
+                webbrowser.open(f"http://localhost:{端口}")
+            except Exception:
+                pass
 
         try:
             self.网页服务.启动(

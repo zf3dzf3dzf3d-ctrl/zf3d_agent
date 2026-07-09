@@ -4,30 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com; font-src 'self'; worker-src 'self'">
-    <title>朱峰社区智能体</title>
+    <title>朱峰社区智能体 v3.1.1</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
     <link rel="stylesheet" href="样式.css?v=20260708a">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
-    <link rel="stylesheet" href="员工浮窗.css?v=20260709a1">
+    <link rel="stylesheet" href="员工浮窗.css?v=20260709b1">
 </head>
 <body>
     <!-- 启动动画 -->
     <div id="bootOverlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.3s">
-        <div style="position:relative;width:80px;height:80px;margin-bottom:20px">
+        <div style="position:relative;width:80px;height:80px;margin-bottom:24px">
             <div style="position:absolute;inset:0;border:3px solid var(--border);border-radius:50%"></div>
             <div id="bootSpinner" style="position:absolute;inset:0;border:3px solid transparent;border-top-color:var(--blue);border-radius:50%;animation:boot-spin 0.8s linear infinite"></div>
             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><img src="favicon.png?v=1" style="width:40px;height:40px"></div>
         </div>
         <div style="font-size:18px;font-weight:bold;color:var(--blue);margin-bottom:8px;text-shadow:0 0 12px rgba(0,122,204,0.3)">朱峰社区智能体</div>
-        <div style="font-size:14px;color:var(--text2);margin-bottom:4px">接管你，成就你</div>
-        <div style="font-size:11px;color:var(--text2);opacity:0.6">zf3d.com 出品</div>
+        <div style="font-size:14px;color:var(--text2);margin-bottom:20px">赋能你，成就你</div>
         <div id="bootStatus" style="font-size:12px;color:var(--text2);min-height:16px">正在启动...</div>
         <div style="width:200px;height:3px;background:var(--border);border-radius:2px;margin-top:12px;overflow:hidden">
             <div id="bootProgress" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:2px;transition:width 0.2s"></div>
         </div>
+        <div style="font-size:11px;color:var(--text2);opacity:0.5;margin-top:12px">zf3d.com 出品</div>
     </div>
     <style>
         @keyframes boot-spin { to { transform: rotate(360deg); } }
@@ -44,91 +44,10 @@
         <span class="topbar-title"><img src="favicon.png?v=2" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;position:relative;top:-1px;">朱峰社区智能体</span>
         <div class="topbar-right">
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
+            <button class="topbar-icon" id="wfToggleBtn" title="节点工作流" onclick="window.empWidget.toggleWorkflow()">🔀</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
-            <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openDonate()" style="font-size:15px;">❤️</button>
-        </div>
-    </div>
-
-    <!-- 捐赠/介绍弹窗 -->
-    <div class="overlay" id="donateOverlay" style="display:none;">
-        <div class="donate-box">
-            <button class="settings-close-btn" onclick="closeDonate()" title="关闭">✖</button>
-            <div class="donate-scroll">
-                <!-- 顶部banner -->
-                <div class="donate-banner">
-                    <div class="donate-banner-bg"></div>
-                    <div class="donate-banner-content">
-                        <div class="donate-logo">朱峰社区智能体</div>
-                        <div class="donate-slogan">让每一位创作者都拥有AI助手</div>
-                    </div>
-                </div>
-                <!-- 正文 -->
-                <div class="donate-body">
-                    <div class="donate-section">
-                        <h3 class="donate-h3">🏫 关于朱峰社区</h3>
-                        <p class="donate-p"><b>朱峰社区（zf3d.com）</b> 创立于2006年，至今已运营 <b>20年</b>。20年来始终坚持原创视频教程，覆盖 Maya、3ds Max、Houdini、ZBrush、Unity、ComfyUI 等主流软件，从建模材质到特效动画，从游戏开发到AIGC前沿，紧跟行业最新趋势。</p>
-                        <p class="donate-p">社区拥有完整的教程体系、模型库、材质库、论坛和求职招聘板块，陪伴了无数3D创作者从入门到入行。</p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <div class="donate-section">
-                        <h3 class="donate-h3">📌 这是什么</h3>
-                        <p class="donate-p">面向 <b>3D建模师、2D原画师、特效师、AIGC创作者、游戏开发者</b> 的全功能AI智能体框架。不是聊天框，是能真正动手干活的助手。</p>
-                        <p class="donate-p">文件管理、网页操控、ComfyUI生图、Office文档、图片处理、多模型切换、记忆系统、Ctrl+~快捷轮盘，<b>120+内置操作</b>，说一句话就能完成任务，把繁琐的重复劳动交给AI。</p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <div class="donate-section">
-                        <h3 class="donate-h3">💡 为什么做</h3>
-                        <p class="donate-p">太多美工和特效师技术一流，却困在批量改名、整理文件、查文档、调参数里，吃掉了创作的时间。太多学习者想入门AIGC，却被复杂的工具链和英文文档挡在门外。</p>
-                        <p class="donate-p">所以我们做了一个简单的东西：<b>你说中文，它帮你干活。</b>不收钱，不设门槛，复制即用。</p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <div class="donate-section">
-                        <h3 class="donate-h3">🔧 开发历程</h3>
-                        <p class="donate-p">从一行代码开始，逐步成长为 <b>23,000+行代码、60+源文件、120+操作、10种AI模型、165+测试用例</b> 的完整框架。纯Python标准库，零外部依赖，所有功能从零实现——这个决定让开发难度翻了数倍。</p>
-                        <p class="donate-p">没有团队，没有融资，一个人写代码、测Bug、写文档，从早7点写到半夜12点。但我们坚持下来了，因为我们相信：<b>好的工具不该只有买得起的人才能用。</b></p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <div class="donate-section">
-                        <h3 class="donate-h3">🚀 这只是开始</h3>
-                        <p class="donate-p">我们不会停在这里。Houdini深度对接、双引擎自我进化、插件生态、MCP协议、Blender与Unreal Engine对接……我们会持续打磨每一个功能，让这个工具成为创作者真正的得力助手。</p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <div class="donate-section">
-                        <h3 class="donate-h3">🤝 企业合作</h3>
-                        <p class="donate-p">欢迎 <b>游戏公司、影视特效工作室、高校院系、培训机构、AI研究团队</b> 参与冠名合作、联合开发、教学合作或技术赞助。合作伙伴名称将展示在项目致谢页与发布说明中。</p>
-                        <p class="donate-p">合作意向请通过QQ群 <b>290939358</b> 联系我们，或访问 <b>zf3d.com</b> 了解更多。</p>
-                    </div>
-                    <div class="donate-divider"></div>
-                    <!-- 捐赠通道 -->
-                    <div class="donate-section donate-channel">
-                        <h3 class="donate-h3">❤️ 支持我们</h3>
-                        <p class="donate-p">如果你觉得这个工具帮到了你，欢迎请作者喝杯咖啡。</p>
-                        <p class="donate-p donate-amount">一杯咖啡 15元 · 一顿外卖 30元 · 一本教程 50元</p>
-                        <p class="donate-p donate-thanks">你的每一份支持，都让我们能继续开发下去。</p>
-                        <div class="donate-tabs">
-                            <div class="donate-tab active" id="donateTabWechat" onclick="switchDonateTab('wechat')">💚 微信</div>
-                            <div class="donate-tab" id="donateTabAlipay" onclick="switchDonateTab('alipay')">💙 支付宝</div>
-                        </div>
-                        <div class="donate-qr-area">
-                            <div class="donate-qr-wrap active" id="donateQrWechat">
-                                <img src="捐赠_微信.gif" alt="微信捐赠二维码" />
-                                <div class="donate-qr-label">微信扫一扫 → 向朱峰社区转账</div>
-                            </div>
-                            <div class="donate-qr-wrap" id="donateQrAlipay">
-                                <img src="捐赠_支付宝.gif" alt="支付宝捐赠二维码" />
-                                <div class="donate-qr-label">支付宝扫一扫 → 向朱峰社区转账</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- 底部 -->
-                <div class="donate-footer">
-                    <div class="donate-qq">🐧 技术交流QQ群：290939358</div>
-                    <span> zf3d.com · 朱峰社区</span>
-                    <span>MIT 开源协议 · 永久免费 · 感谢你的支持</span>
-                </div>
-            </div>
+            <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openAbout()" style="font-size:15px;">❤️</button>
         </div>
     </div>
 
@@ -403,6 +322,9 @@
                 <div class="snav-item" data-tab="config" title="查看系统配置">🔧 配置</div>
                 <div class="snav-item" data-tab="wheel" title="轮盘快捷呼出设置">🎛️ 轮盘</div>
                 <div class="snav-item" data-tab="voice" title="语音输入设置">🎤 语音</div>
+                <div class="snav-item" data-tab="cloudimg" title="云端出图API密钥和购买指南">☁️ 云端出图</div>
+                <div class="snav-item" data-tab="about" title="关于朱峰社区智能体">ℹ️ 关于</div>
+                <div class="snav-item" style="margin-top:auto" onclick="restartSystem()" title="重启Python进程">🔁 重启系统</div>
             </div>
             <div class="settings-body">
                 <div class="stab active" id="tab_memory">
@@ -557,11 +479,153 @@
                         <div id="ttsConfigPanel">加载中...</div>
                     </div>
                 </div>
+                <div class="stab" id="tab_cloudimg">
+                    <div class="scard">
+                        <h3>☁️ 云端出图 — API密钥配置</h3>
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;">
+                            填入对应服务商的API密钥后点击保存，节点图中「云端出图」节点即可使用（无需ComfyUI）。<br>
+                            <span style="color:var(--green)">🆓 AgnesAI完全免费，注册即送额度，推荐新手首选</span>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:16px;">
+                            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🆓</span><b style="font-size:14px;">AgnesAI（全免费）</b><span style="font-size:11px;color:var(--green)">推荐新手</span></div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.5;">
+                                    <b>获取：</b>访问 <a href="https://platform.agnes-ai.com" target="_blank" style="color:var(--blue)">platform.agnes-ai.com</a> → 邮箱注册 → 获取API Key<br>
+                                    <b>费用：</b>免费！文本对话+生图+生视频全免费<br>
+                                    <b>需要：</b>邮箱注册，无需科学上网
+                                </div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">💡 AgnesAI密钥请在 设置→🤖模型→选择AgnesAI→填写密钥 中配置</div>
+                            </div>
+                            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🌟</span><b style="font-size:14px;">Seedream（字节跳动）</b></div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.5;">
+                                    <b>获取：</b>访问 <a href="https://www.volcengine.com/product/ark" target="_blank" style="color:var(--blue)">火山方舟</a> → 手机号注册→实名认证→创建API Key<br>
+                                    <b>费用：</b>~¥0.06/张，新用户送¥20
+                                </div>
+                                <input type="password" id="cloudKey_Seedream" class="dialog-input" placeholder="粘贴火山方舟API Key..." style="width:100%;font-family:monospace;font-size:12px;" />
+                            </div>
+                            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🍌</span><b style="font-size:14px;">Nano Banana（Google）</b></div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.5;">
+                                    <b>获取：</b>访问 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue)">Google AI Studio</a> → 免费创建Key（$10/天免费额度）<br>
+                                    <b>注意：</b>中国大陆不在支持区域，需科学上网
+                                </div>
+                                <input type="password" id="cloudKey_Google" class="dialog-input" placeholder="粘贴Google API Key（AIza开头）..." style="width:100%;font-family:monospace;font-size:12px;" />
+                            </div>
+                            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🎯</span><b style="font-size:14px;">Grok（xAI）</b></div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.5;">
+                                    <b>获取：</b>访问 <a href="https://console.x.ai/" target="_blank" style="color:var(--blue)">xAI Console</a> → 注册→生成API Key<br>
+                                    <b>费用：</b>~$0.02/张，需科学上网
+                                </div>
+                                <input type="password" id="cloudKey_Grok" class="dialog-input" placeholder="粘贴xAI API Key..." style="width:100%;font-family:monospace;font-size:12px;" />
+                            </div>
+                            <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🧠</span><b style="font-size:14px;">GPT Image（OpenAI）</b></div>
+                                <div style="font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.5;">
+                                    <b>获取：</b>访问 <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--blue)">OpenAI Platform</a> → 创建API Key<br>
+                                    <b>费用：</b>~$0.04/张，需海外信用卡+科学上网
+                                </div>
+                                <input type="password" id="cloudKey_OpenAI" class="dialog-input" placeholder="粘贴OpenAI API Key（sk-开头）..." style="width:100%;font-family:monospace;font-size:12px;" />
+                            </div>
+                        </div>
+                        <button class="dlg-btn primary" onclick="saveCloudKeys()" style="margin-top:12px;">💾 保存密钥</button>
+                    </div>
+                    <div class="scard">
+                        <h3>📖 使用教程</h3>
+                        <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+                            <p style="margin:4px 0;"><b>第一步：</b>填写至少一个服务商的API密钥→保存</p>
+                            <p style="margin:4px 0;"><b>第二步：</b>节点图空白处右键→ComfyUI→云端出图(免ComfyUI)→选模型</p>
+                            <p style="margin:4px 0;"><b>第三步：</b>文本输入节点连到云端出图节点→输入提示词→运行</p>
+                            <p style="margin:8px 0 4px;color:var(--green)">✅ 所有云端出图都不需要ComfyUI，直接调API出图</p>
+                            <p style="margin:4px 0;color:var(--green)">💡 新手先用AgnesAI（免费）或Seedream（送¥20）</p>
+                        </div>
+                    </div>
+                    <div class="scard">
+                        <h3>💰 费用对比</h3>
+                        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+                            <tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px">服务商</th><th style="text-align:right;padding:4px">单张</th><th style="text-align:right;padding:4px">免费额度</th><th style="text-align:right;padding:4px">门槛</th></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">🆓 AgnesAI</td><td style="text-align:right;padding:4px">免费</td><td style="text-align:right;padding:4px;color:var(--green)">充足</td><td style="text-align:right;padding:4px">邮箱</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">🌟 Seedream</td><td style="text-align:right;padding:4px">~¥0.06</td><td style="text-align:right;padding:4px">送¥20</td><td style="text-align:right;padding:4px">手机号</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">🍌 Nano Banana</td><td style="text-align:right;padding:4px">~$0.03</td><td style="text-align:right;padding:4px">$10/天</td><td style="text-align:right;padding:4px">科学上网</td></tr>
+                            <tr style="border-bottom:1px solid var(--border)"><td style="padding:4px">🎯 Grok</td><td style="text-align:right;padding:4px">~$0.02</td><td style="text-align:right;padding:4px">无</td><td style="text-align:right;padding:4px">科学上网</td></tr>
+                            <tr><td style="padding:4px">🧠 GPT Image</td><td style="text-align:right;padding:4px">~$0.04</td><td style="text-align:right;padding:4px">无</td><td style="text-align:right;padding:4px">海外信用卡</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="stab" id="tab_about">
+                    <!-- 顶部banner -->
+                    <div style="background:var(--bg3);border-radius:8px;padding:28px;text-align:center;margin-bottom:12px;border:1px solid var(--border);">
+                        <div style="font-size:22px;font-weight:bold;color:var(--text);">朱峰社区智能体</div>
+                        <div style="font-size:13px;color:var(--text2);margin-top:6px;">让每一位创作者都拥有AI助手</div>
+                        <div style="font-size:11px;color:var(--text2);margin-top:4px;">v3.1.1 · MIT · zf3d.com</div>
+                    </div>
+                    <!-- 两列布局 -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <div class="scard" style="margin:0;">
+                            <h3>🏫 关于朱峰社区</h3>
+                            <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                                <p style="margin:0 0 6px 0;"><b>朱峰社区（zf3d.com）</b> 创立于2006年，至今已运营 <b>20年</b>。</p>
+                                <p style="margin:0 0 6px 0;">始终坚持原创视频教程，覆盖 Maya、3ds Max、Houdini、ZBrush、Unity、ComfyUI 等主流软件。</p>
+                                <p style="margin:0;">拥有完整的教程体系、模型库、材质库、论坛和求职招聘板块。</p>
+                            </div>
+                        </div>
+                        <div class="scard" style="margin:0;">
+                            <h3>📌 这是什么</h3>
+                            <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                                <p style="margin:0 0 6px 0;">面向 <b>3D建模师、原画师、特效师、AIGC创作者</b> 的全功能AI智能体框架。</p>
+                                <p style="margin:0 0 6px 0;">不是聊天框，是能真正动手干活的助手。</p>
+                                <p style="margin:0;"><b>276+操作</b>，说一句话就能完成任务。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="scard">
+                        <h3>💡 为什么做 & 🔧 开发历程</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 6px 0;">太多美工和特效师技术一流，却困在批量改名、整理文件、查文档、调参数里。</p>
+                            <p style="margin:0 0 6px 0;">所以我们做了一个简单的东西：<b>你说中文，它帮你干活。</b></p>
+                            <p style="margin:0 0 6px 0;">从一行代码到 <b>23,000+行代码、60+源文件、276+操作</b>。</p>
+                            <p style="margin:0;">纯Python标准库，零外部依赖。没有团队，没有融资，一个人写代码。<b>好的工具不该只有买得起的人才能用。</b></p>
+                        </div>
+                    </div>
+                    <div class="scard">
+                        <h3>🚀 这只是开始 & 🤝 企业合作</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 6px 0;">Houdini深度对接、双引擎自我进化、插件生态、MCP协议、Blender与Unreal Engine对接……</p>
+                            <p style="margin:0;">欢迎 <b>游戏公司、影视特效工作室、高校院系、培训机构</b> 参与冠名合作、联合开发。</p>
+                        </div>
+                    </div>
+                    <!-- 支持我们 -->
+                    <div class="scard">
+                        <h3>❤️ 支持我们</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 6px 0;">如果你觉得这个工具帮到了你，欢迎请作者喝杯咖啡。</p>
+                            <p style="margin:0;">一杯咖啡 15元 · 一顿外卖 30元 · 一本教程 50元</p>
+                        </div>
+                        <div style="display:flex;gap:24px;justify-content:center;margin-top:12px;">
+                            <div style="text-align:center;">
+                                <img src="捐赠_微信.gif" alt="微信捐赠" style="width:60%;border-radius:8px;border:1px solid var(--border);">
+                            </div>
+                            <div style="text-align:center;">
+                                <img src="捐赠_支付宝.gif" alt="支付宝捐赠" style="width:60%;border-radius:8px;border:1px solid var(--border);">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 联系我们 -->
+                    <div class="scard">
+                        <h3>💬 联系我们</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 6px 0;">🐧 <b>朱峰社区智能体QQ群</b>：<span style="font-size:16px;font-weight:bold;color:var(--blue);">290939358</span></p>
+                            <p style="margin:0 0 8px 0;color:var(--text2);font-size:12px;">技术交流、问题反馈、功能建议、版本更新通知</p>
+                            <div style="padding-top:8px;border-top:1px solid var(--border);text-align:center;">
+                                <span style="font-size:12px;color:var(--text2);">zf3d.com · 朱峰社区 · MIT 开源协议 · 永久免费</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- 打开文件夹弹窗 -->
     <div class="overlay" id="openFolderOverlay" style="display:none;">
         <div class="dialog-box" style="max-width:520px;">
             <h3>📂 打开文件夹</h3>
@@ -604,8 +668,8 @@
     <script src="模块/Diff查看器.js?v=20260702c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
-    <script src="模块/模型配置.js?v=20260706d"></script>
-    <script src="模块/设置面板.js?v=20260706j"></script>
+    <script src="模块/模型配置.js?v=20260708b"></script>
+    <script src="模块/设置面板.js?v=20260708b"></script>
     <script src="模块/文件树.js?v=20260708a"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
@@ -619,21 +683,6 @@
     <script src="逻辑.js?v=20260627j"></script>
 
     <script>
-    function openDonate(){document.getElementById('donateOverlay').style.display='flex';switchDonateTab('wechat');}
-    function closeDonate(){document.getElementById('donateOverlay').style.display='none';}
-    function switchDonateTab(tab){
-        document.querySelectorAll('.donate-tab').forEach(function(t){t.classList.remove('active');});
-        document.querySelectorAll('.donate-qr-wrap').forEach(function(w){w.classList.remove('active');});
-        if(tab==='wechat'){
-            document.getElementById('donateTabWechat').classList.add('active');
-            document.getElementById('donateQrWechat').classList.add('active');
-        }else{
-            document.getElementById('donateTabAlipay').classList.add('active');
-            document.getElementById('donateQrAlipay').classList.add('active');
-        }
-    }
-    document.getElementById('donateOverlay').addEventListener('click',function(e){if(e.target===this)closeDonate();});
-    </script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
@@ -757,7 +806,7 @@
         }
     }, 3000);
     </script>
-    <script src="员工浮窗.js?v=20260709e1"></script>
+    <script src="员工浮窗.js?v=20260709i1"></script>
     <script>
     // 启动动画控制（加速版）
     (function(){
@@ -771,21 +820,110 @@
             prog = Math.min(prog + 35, 100);
             if (status) status.textContent = steps[step];
             if (bar) bar.style.width = prog + '%';
-        }, 400);
+        }, 150);
         function bootDone(){
             clearInterval(timer);
             if (bar) bar.style.width = '100%';
             if (status) status.textContent = '启动完成';
             var ov = document.getElementById('bootOverlay');
-            if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 300); }
+            if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 200); }
         }
-        // 页面加载完成后延迟1秒关闭（加速）
         if (document.readyState === 'complete') {
-            setTimeout(bootDone, 1000);
+            setTimeout(bootDone, 300);
         } else {
-            window.addEventListener('load', function(){ setTimeout(bootDone, 1000); });
+            window.addEventListener('load', function(){ setTimeout(bootDone, 300); });
         }
     })();
+    </script>
+    <script>
+    // 开发模式热重载：文件变化时自动刷新页面
+    (function(){
+        function devReloadConnect() {
+            var es = new EventSource('/api/dev-reload-sse');
+            es.onmessage = function(e) {
+                try {
+                    var d = JSON.parse(e.data);
+                    if (d.type === 'reload') {
+                        console.log('[热重载] 检测到文件变化:', d.files.join(', '));
+                        es.close();
+                        location.reload();
+                    }
+                } catch(err) {}
+            };
+            es.onerror = function() {
+                es.close();
+                setTimeout(devReloadConnect, 3000);
+            };
+        }
+        devReloadConnect();
+    })();
+
+    // 打开设置→关于页
+    function openAbout() {
+        document.getElementById('settingsOverlay').style.display = 'flex';
+        document.querySelectorAll('.snav-item').forEach(function(i){ i.classList.remove('active'); });
+        document.querySelectorAll('.stab').forEach(function(t){ t.classList.remove('active'); });
+        document.querySelector('.snav-item[data-tab="about"]').classList.add('active');
+        document.getElementById('tab_about').classList.add('active');
+    }
+
+    // 重启系统 — 复用启动动画风格
+    function restartSystem() {
+        if (!confirm('确认重启系统？服务会中断约3秒。')) return;
+        // 复用 bootOverlay 的设计风格
+        var mask = document.createElement('div');
+        mask.id = 'restartMask';
+        mask.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center';
+        mask.innerHTML =
+            '<div style="position:relative;width:80px;height:80px;margin-bottom:24px">' +
+                '<div style="position:absolute;inset:0;border:3px solid var(--border);border-radius:50%"></div>' +
+                '<div style="position:absolute;inset:0;border:3px solid transparent;border-top-color:var(--blue);border-radius:50%;animation:boot-spin 0.8s linear infinite"></div>' +
+                '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><img src="favicon.png?v=1" style="width:40px;height:40px"></div>' +
+            '</div>' +
+            '<div style="font-size:18px;font-weight:bold;color:var(--blue);margin-bottom:8px;text-shadow:0 0 12px rgba(0,122,204,0.3)">朱峰社区智能体</div>' +
+            '<div style="font-size:14px;color:var(--text2);margin-bottom:20px">系统重启中</div>' +
+            '<div style="width:200px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">' +
+                '<div id="restartBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:2px;transition:width 0.2s"></div>' +
+            '</div>' +
+            '<div id="restartPct" style="font-size:11px;color:var(--text2);opacity:0.5;margin-top:8px">0%</div>' +
+            '<div style="font-size:11px;color:var(--text2);opacity:0.5;margin-top:12px">zf3d.com 出品</div>';
+        document.body.appendChild(mask);
+        // 进度条动画
+        var bar = document.getElementById('restartBar');
+        var pct = document.getElementById('restartPct');
+        var progress = 0;
+        var progressTimer = setInterval(function() {
+            progress = Math.min(progress + 3, 90);
+            if (bar) bar.style.width = progress + '%';
+            if (pct) pct.textContent = progress + '%';
+        }, 80);
+        // 发送重启请求
+        fetch('/api/restart', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            // 轮询直到服务恢复
+            var tries = 0;
+            function check() {
+                tries++;
+                fetch('/api/status', {cache:'no-store'})
+                .then(function(r){
+                    if (r.ok) {
+                        clearInterval(progressTimer);
+                        if (bar) bar.style.width = '100%';
+                        if (pct) pct.textContent = '100%';
+                        setTimeout(function(){ window.location.reload(); }, 400);
+                    } else { setTimeout(check, 500); }
+                })
+                .catch(function(){ if (tries < 40) setTimeout(check, 500); });
+            }
+            setTimeout(check, 1500);
+        })
+        .catch(function(e){
+            clearInterval(progressTimer);
+            mask.remove();
+            alert('重启请求失败: ' + e.message);
+        });
+    }
     </script>
 </body>
 </html>

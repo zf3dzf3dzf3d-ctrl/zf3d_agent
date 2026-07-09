@@ -38,7 +38,6 @@ class 插件加载器类:
         """
         目录 = Path(插件目录)
         if not 目录.exists():
-            print(f"   ℹ️ 插件目录不存在: {插件目录}")
             return []
 
         全部实例 = []
@@ -51,15 +50,8 @@ class 插件加载器类:
                 if 实例列表:
                     self.已加载插件[py文件.name] = 实例列表
                     全部实例.extend(实例列表)
-                    名称列表 = [i.名称 for i in 实例列表]
-                    print(f"   📦 插件 [{py文件.name}] 加载 {len(实例列表)} 个操作")
             except Exception as e:
                 print(f"   ❌ 插件 [{py文件.name}] 加载失败: {e}")
-
-        if 全部实例:
-            print(f"   ✅ 插件热加载完成: 共 {len(全部实例)} 个操作")
-        else:
-            print(f"   ℹ️ 插件目录无可用插件: {插件目录}")
 
         return 全部实例
 

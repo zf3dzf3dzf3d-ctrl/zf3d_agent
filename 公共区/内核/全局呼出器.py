@@ -165,7 +165,6 @@ class 全局呼出器:
             err = ctypes.get_last_error()
             print(f"⚠️ 全局键盘钩子注册失败，错误码={err}")
             return
-        print("✅ 钩子已注册，等待 Ctrl+~ 触发...")
 
         msg = MSG()
         while self._运行:
