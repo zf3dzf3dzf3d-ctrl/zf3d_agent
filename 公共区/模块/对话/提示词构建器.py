@@ -13,12 +13,16 @@
 """
 import sys
 import json
+import time
 from pathlib import Path
 from datetime import datetime
 
 
 class 提示词构建器类:
     """系统提示词构建器"""
+
+    # 项目上下文TTL缓存: {路径: {"时间": float, "内容": str}}
+    _项目上下文缓存 = {}
 
     # 模型特性提示词 — 按模型名匹配，附加到基础提示词后
     _模型提示词模板 = {
@@ -563,7 +567,12 @@ class 提示词构建器类:
 """
 
     def _获取项目上下文(self, 项目根: Path) -> str:
-        """自动获取项目上下文（CLAUDE.md + 自动检测项目类型）"""
+        """自动获取项目上下文（CLAUDE.md + 自动检测项目类型），5秒TTL缓存"""
+        缓存键 = str(项目根)
+        缓存 = 提示词构建器类._项目上下文缓存.get(缓存键)
+        if 缓存 and time.time() - 缓存["时间"] < 5:
+            return 缓存["内容"]
+
         部分 = []
 
         # 1. 读取 CLAUDE.md
@@ -617,4 +626,6 @@ class 提示词构建器类:
         except Exception:
             pass
 
-        return "\n\n".join(部分)
+        结果 = "\n\n".join(部分)
+        提示词构建器类._项目上下文缓存[缓存键] = {"时间": time.time(), "内容": 结果}
+        return 结果

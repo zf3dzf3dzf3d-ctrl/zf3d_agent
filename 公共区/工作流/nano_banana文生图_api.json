@@ -1,0 +1,20 @@
+{
+  "1": {
+    "class_type": "GoogleAI_ImageNode",
+    "inputs": {
+      "prompt": "",
+      "model": "gemini-2.5-flash-image",
+      "size_preset": "720\u00d71280 (9:16) - 1K",
+      "seed": 0,
+      "randomize_seed": true,
+      "api_key": ""
+    }
+  },
+  "2": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["1", 0],
+      "filename_prefix": "NanoBanana"
+    }
+  }
+}

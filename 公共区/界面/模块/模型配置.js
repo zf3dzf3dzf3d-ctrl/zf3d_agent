@@ -3,6 +3,106 @@
  * 从 逻辑.js 拆分
  */
 
+// ============ 模型注册/充值指南 ============
+const _模型购买指南 = {
+    "DeepSeek(深度求索)": {
+        url: "https://platform.deepseek.com/",
+        注册: "手机号一键注册，无需实名",
+        充值: "控制台 → 充值 → 支付宝/微信，最低¥10",
+        价格: "约¥1/百万Token（极便宜）",
+        免费: "注册送¥10体验金",
+        推荐: "⭐推荐新手首选，最便宜"
+    },
+    "通义千问(阿里云)": {
+        url: "https://bailian.console.aliyun.com/",
+        注册: "支付宝/阿里云账号直接登录",
+        充值: "控制台 → 费用 → 充值，最低¥1",
+        价格: "约¥4/百万Token",
+        免费: "新用户免费Token额度",
+        推荐: "支持图片识别，国内速度快"
+    },
+    "智谱大模型(GLM)": {
+        url: "https://open.bigmodel.cn/",
+        注册: "手机号注册",
+        充值: "财务中心 → 在线充值 → 支付宝/微信",
+        价格: "glm-4-flash免费，glm-4约¥0.1/千次",
+        免费: "glm-4-flash模型完全免费",
+        推荐: "有免费模型可用"
+    },
+    "Kimi(月之暗面)": {
+        url: "https://platform.moonshot.cn/",
+        注册: "手机号注册",
+        充值: "财务管理 → 充值 → 支付宝",
+        价格: "约¥12/百万Token",
+        免费: "注册送¥15体验金",
+        推荐: "长文本处理强"
+    },
+    "豆包(火山大模型)": {
+        url: "https://www.volcengine.com/product/ark",
+        注册: "手机号注册 + 实名认证",
+        充值: "费用中心 → 充值 → 支付宝/微信",
+        价格: "约¥0.8/百万Token",
+        免费: "新用户送¥20体验金",
+        推荐: "便宜，同支持Seedream出图"
+    },
+    "OpenAI(ChatGPT)": {
+        url: "https://platform.openai.com/",
+        注册: "邮箱注册，需海外手机号验证",
+        充值: "Billing → Add payment → 国际信用卡",
+        价格: "gpt-4o-mini约$0.15/百万Token",
+        免费: "无免费额度",
+        推荐: "需科学上网+海外信用卡"
+    },
+    "Claude(Anthropic)": {
+        url: "https://console.anthropic.com/",
+        注册: "邮箱注册",
+        充值: "Settings → Billing → 信用卡",
+        价格: "claude-3.5约$3/百万Token",
+        免费: "新用户$5免费额度",
+        推荐: "代码能力最强，需科学上网"
+    },
+    "Gemini(Google)": {
+        url: "https://aistudio.google.com/apikey",
+        注册: "Google账号登录",
+        充值: "无需充值，免费额度内使用",
+        价格: "超出免费额度约$0.075/千次",
+        免费: "免费$10/天",
+        推荐: "免费额度大，需科学上网"
+    },
+    "OpenRouter(路由器)": {
+        url: "https://openrouter.ai/",
+        注册: "Google/GitHub账号登录",
+        充值: "Credits → Add credits → 信用卡",
+        价格: "按模型不同，约$0.2-5/百万Token",
+        免费: "部分模型免费",
+        推荐: "一个Key用400+模型，需科学上网"
+    },
+    "硅基流动(国内聚合)": {
+        url: "https://siliconflow.cn/",
+        注册: "手机号/GitHub注册",
+        充值: "控制台 → 充值 → 支付宝/微信",
+        价格: "约¥1-4/百万Token",
+        免费: "注册送¥14体验金",
+        推荐: "⭐国内聚合，一个Key用多个开源模型"
+    },
+    "AgnesAI(全模态免费)": {
+        url: "https://platform.agnes-ai.com/",
+        注册: "邮箱注册",
+        充值: "免费额度充足，暂无需充值",
+        价格: "免费",
+        免费: "免费文本+生图+生视频",
+        推荐: "全免费，支持生图"
+    },
+    "本地Qwen3(Ollama)": {
+        url: "https://ollama.com/",
+        注册: "无需注册，完全本地",
+        充值: "无需充值",
+        价格: "免费",
+        免费: "完全免费，但需要16GB+内存",
+        推荐: "零费用零隐私，需好电脑"
+    }
+};
+
 // ============ 模型配置管理 ============
 let modelConfigData = null;  // 缓存模型配置
 
@@ -118,7 +218,20 @@ function renderModelKeyEditor(d) {
     } else {
         模型名HTML = `<div style="margin-top:6px;"><label style="font-size:11px;color:var(--text2);">模型名称</label><input type="text" data-model="${m.名称}" data-key="_模型名称" class="dialog-input" placeholder="如 deepseek-chat" value="${已有模型名}" style="width:100%;margin-top:2px;" /></div>`;
     }
-    wrap.innerHTML = `${模型名HTML}${inputs}`;
+    // 购买指南
+    const 指南 = _模型购买指南[m.名称];
+    let 指南HTML = "";
+    if (指南) {
+        指南HTML = `<div style="margin-top:10px;padding:8px;background:var(--bg);border-radius:4px;font-size:11px;line-height:1.7;color:var(--text2);">
+            ${指南.推荐 ? `<div style="color:var(--green);font-weight:bold;margin-bottom:4px;">${指南.推荐}</div>` : ""}
+            <div>📋 <b>注册：</b><a href="${指南.url}" target="_blank" style="color:var(--blue);">${指南.url}</a></div>
+            <div>📝 <b>步骤：</b>${指南.注册}</div>
+            <div>💰 <b>充值：</b>${指南.充值}</div>
+            <div>💲 <b>价格：</b>${指南.价格}</div>
+            ${指南.免费 ? `<div style="color:var(--orange);">🎁 <b>免费：</b>${指南.免费}</div>` : ""}
+        </div>`;
+    }
+    wrap.innerHTML = `${模型名HTML}${inputs}${指南HTML}`;
     editor.appendChild(wrap);
 }
 

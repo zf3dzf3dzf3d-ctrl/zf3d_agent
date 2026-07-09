@@ -36,7 +36,6 @@ class 经验师类:
         self.经验目录.mkdir(parents=True, exist_ok=True)
         self.索引路径 = self.经验目录 / "_索引.json"
         self._加载索引()
-        print(f"  ✅ 经验师就绪（已管理 {len(self.索引['经验列表'])} 条经验）")
 
     def _加载索引(self):
         """从存储引擎加载经验索引"""

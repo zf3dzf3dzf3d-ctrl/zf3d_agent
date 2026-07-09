@@ -1,6 +1,5 @@
 /**
- * 员工浮窗 - 可拖拽气泡 + 员工列表 + 员工对话
- * 独立模块，通过API与后端交互
+ * 员工浮窗 - 节点工作流 + 员工列表（整合版）
  */
 (function() {
     'use strict';
@@ -17,59 +16,7 @@
     let chatHistory = {};  // {员工名: [{role, content}, ...]}
 
     function init() {
-        const bubble = document.createElement('div');
-        bubble.className = 'emp-bubble';
-        bubble.id = 'empBubble';
-        bubble.innerHTML = '👥<span class="emp-badge online" id="empBadge" style="display:none">0</span>';
-        bubble.title = '数字员工';
-        document.body.appendChild(bubble);
-
-        // 恢复上次位置（带边界检查）
-        const savedPos = localStorage.getItem('empBubblePos');
-        if (savedPos) {
-            try {
-                const pos = JSON.parse(savedPos);
-                const x = Math.max(0, Math.min(window.innerWidth - 36, pos.x));
-                const y = Math.max(0, Math.min(window.innerHeight - 36, pos.y));
-                bubble.style.left = x + 'px';
-                bubble.style.top = y + 'px';
-                bubble.style.right = 'auto';
-                bubble.style.transform = 'none';
-            } catch (e) {}
-        }
-
-        const panel = document.createElement('div');
-        panel.className = 'emp-panel';
-        panel.id = 'empPanel';
-        panel.innerHTML = `
-            <div class="emp-panel-header">
-                <span class="emp-panel-title">🏢 数字员工</span>
-                <button class="emp-panel-close" id="wfToggleBtn" onclick="window.empWidget.toggleWorkflow()" title="节点工作流">🔲</button>
-                <button class="emp-panel-close" onclick="window.empWidget.openCreatePanel()" title="创建员工">➕</button>
-                <button class="emp-panel-close" onclick="window.empWidget.togglePanel()" title="关闭">✕</button>
-            </div>
-            <div class="emp-list" id="empList"></div>
-        `;
-        document.body.appendChild(panel);
-
-        const chatOverlay = document.createElement('div');
-        chatOverlay.className = 'emp-chat-overlay';
-        chatOverlay.id = 'empChatOverlay';
-        chatOverlay.innerHTML = `
-            <div class="emp-chat-box">
-                <div class="emp-chat-header" id="empChatHeader"></div>
-                <div class="emp-chat-body" id="empChatBody">
-                    <div class="emp-chat-empty">开始与员工对话</div>
-                </div>
-                <div class="emp-chat-input">
-                    <textarea id="empChatInput" placeholder="输入消息..." rows="1"></textarea>
-                    <button id="empChatSend" onclick="window.empWidget.sendChat()">➤</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(chatOverlay);
-
-        // 节点工作流编辑器
+        // 节点工作流编辑器（含员工列表右侧栏）
         const wfOverlay = document.createElement('div');
         wfOverlay.className = 'emp-wf-overlay';
         wfOverlay.id = 'empWfOverlay';
@@ -80,12 +27,13 @@
                         <button class="emp-wf-tool-btn" id="wfFileMenuBtn" title="文件">📁</button>
                         <div class="emp-wf-file-menu" id="empWfFileMenu" style="display:none">
                             <div onclick="window.empWidget.clearWorkflow(); window.empWidget._closeFileMenu()">📄 新建</div>
-                            <div onclick="window.empWidget.loadWorkflowFile(); window.empWidget._closeFileMenu()">📂 加载</div>
+                            <div onclick="window.empWidget.loadWorkflowFile(); window.empWidget._closeFileMenu()">📂 打开</div>
+                            <div class="wf-recent-trigger" style="position:relative">🕒 最近打开 <span style="font-size:10px">▸</span>
+                                <div id="wfRecentMenu" style="display:none;position:absolute;left:100%;top:0;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:4px 0;min-width:140px;margin-left:2px"></div>
+                            </div>
                             <div onclick="window.empWidget.saveWorkflowFile(); window.empWidget._closeFileMenu()">💾 保存</div>
                             <div onclick="window.empWidget.saveWorkflowAs(); window.empWidget._closeFileMenu()">📋 另存为</div>
-                            <div onclick="document.getElementById('wfImportInput').click(); window.empWidget._closeFileMenu()">📥 导入</div>
-                            <div onclick="window.empWidget.exportWorkflow(); window.empWidget._closeFileMenu()">📤 导出</div>
-                            <div class="emp-wf-menu-sep" style="height:1px;background:var(--border);margin:4px 0;padding:0"></div>
+                            <div class="emp-wf-menu-sep"></div>
                             <div onclick="window.empWidget.closeWorkflow(); window.empWidget._closeFileMenu()" style="color:var(--red)">退出</div>
                         </div>
                     </div>
@@ -102,6 +50,8 @@
                         <button class="emp-wf-tool-btn" onclick="window.empWidget._toggleScissors()" title="剪刀模式(按住Y)" id="wfScissorsBtn">✂️</button>
                         <button class="emp-wf-tool-btn" onclick="window.empWidget.clearWorkflow()" title="清空">🗑️</button>
                         <span class="emp-wf-tool-sep"></span>
+                        <button class="emp-wf-tool-btn" onclick="window.empWidget._showTaskPanel()" title="定时任务">⏰</button>
+                        <span class="emp-wf-tool-sep"></span>
                         <button class="emp-wf-close-btn" onclick="window.empWidget.closeWorkflow()" title="关闭">✕</button>
                     </div>
                 </div>
@@ -115,6 +65,17 @@
                             <div class="emp-wf-selection-box" id="wfSelBox"></div>
                         </div>
                         <div class="emp-wf-log" id="empWfLog"></div>
+                    </div>
+                    <div class="emp-wf-sidebar" id="empWfSidebar">
+                        <div class="wf-sidebar-resize" id="wfSidebarResize"></div>
+                        <div class="emp-wf-sidebar-header">
+                            <span>🏢 数字员工</span>
+                            <div style="display:flex;gap:2px">
+                                <button class="emp-wf-tool-btn" onclick="window.empWidget.openCreatePanel()" title="创建员工" style="font-size:12px">➕</button>
+                                <button class="emp-wf-tool-btn" onclick="window.empWidget._addCategory()" title="新建分组" style="font-size:12px">📁</button>
+                            </div>
+                        </div>
+                        <div class="emp-list" id="empList"></div>
                     </div>
                 </div>
                 <div class="emp-wf-footer">
@@ -144,175 +105,21 @@
     }
 
     function bindEvents() {
-        const bubble = document.getElementById('empBubble');
-
-        // 左键和右键都激活面板
-        bubble.addEventListener('click', function(e) {
-            if (!dragData || !dragData.moved) togglePanel();
-        });
-        bubble.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            togglePanel();
-        });
-
-        // 气泡拖拽
-        bubble.addEventListener('mousedown', function(e) {
-            dragData = { x: e.clientX, y: e.clientY, moved: false, startX: bubble.offsetLeft, startY: bubble.offsetTop };
-            bubble.classList.add('dragging');
-
-            function onMove(ev) {
-                if (!dragData) return;
-                const dx = ev.clientX - dragData.x;
-                const dy = ev.clientY - dragData.y;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragData.moved = true;
-                if (dragData.moved) {
-                    let nx = Math.max(0, Math.min(window.innerWidth - 48, dragData.startX + dx));
-                    let ny = Math.max(0, Math.min(window.innerHeight - 48, dragData.startY + dy));
-                    bubble.style.left = nx + 'px';
-                    bubble.style.top = ny + 'px';
-                    bubble.style.transform = 'none';
-                    updatePanelPosition(nx, ny);
-                }
-            }
-            function onUp() {
-                bubble.classList.remove('dragging');
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                // 保存位置
-                localStorage.setItem('empBubblePos', JSON.stringify({x: bubble.offsetLeft, y: bubble.offsetTop}));
-                setTimeout(function() { dragData = null; }, 50);
-            }
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        });
-
-        // 聊天框+面板拖拽（通过header拖拽）
-        document.addEventListener('mousedown', function(e) {
-            if (e.target.tagName === 'BUTTON') return;
-            const isChatHeader = e.target.closest('#empChatHeader');
-            const isPanelHeader = e.target.closest('.emp-panel-header');
-            const dragHeader = isChatHeader || isPanelHeader;
-            if (!dragHeader) return;
-            const box = isChatHeader
-                ? document.getElementById('empChatOverlay').querySelector('.emp-chat-box')
-                : document.getElementById('empPanel');
-            if (!box) return;
-            const startX = e.clientX, startY = e.clientY;
-            const boxRect = box.getBoundingClientRect();
-            let moved = false;
-
-            function onMove(ev) {
-                const dx = ev.clientX - startX;
-                const dy = ev.clientY - startY;
-                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
-                if (moved) {
-                    box.style.position = 'fixed';
-                    box.style.left = Math.max(0, Math.min(window.innerWidth - boxRect.width, boxRect.left + dx)) + 'px';
-                    box.style.top = Math.max(0, Math.min(window.innerHeight - boxRect.height, boxRect.top + dy)) + 'px';
-                    box.style.transform = 'none';
-                    box.style.margin = '0';
-                }
-            }
-            function onUp() {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-                // 保存面板/聊天框位置
-                if (isChatHeader) {
-                    localStorage.setItem('empChatPos', JSON.stringify({x: parseInt(box.style.left), y: parseInt(box.style.top)}));
-                } else {
-                    localStorage.setItem('empPanelPos', JSON.stringify({x: parseInt(box.style.left), y: parseInt(box.style.top)}));
-                }
-            }
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        });
-
-        const input = document.getElementById('empChatInput');
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                window.empWidget.sendChat();
-            }
-        });
-        input.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-        });
-
-        document.getElementById('empChatOverlay').addEventListener('click', function(e) {
-            if (e.target === this) window.empWidget.closeChat();
-        });
+        // 员工列表右键菜单关闭
+        document.addEventListener('click', closeContextMenu);
     }
 
     // 面板位置自动调整：气泡在右半屏时面板向左展开
-    function updatePanelPosition(bubbleX, bubbleY) {
-        const panel = document.getElementById('empPanel');
-        const panelWidth = 240;
-        const isRight = bubbleX > window.innerWidth / 2;
-        if (isRight) {
-            panel.style.right = 'auto';
-            panel.style.left = (bubbleX - panelWidth - 8) + 'px';
-        } else {
-            panel.style.left = (bubbleX + 42) + 'px';
-        }
-        panel.style.top = Math.max(40, bubbleY) + 'px';
-        panel.style.transform = 'none';
-    }
-
     function togglePanel() {
-        panelOpen = !panelOpen;
-        const panel = document.getElementById('empPanel');
-        const bubble = document.getElementById('empBubble');
-        panel.classList.toggle('show', panelOpen);
-        if (panelOpen) {
-            // 恢复面板位置或使用默认位置
-            const savedPanelPos = localStorage.getItem('empPanelPos');
-            if (savedPanelPos) {
-                try {
-                    const pos = JSON.parse(savedPanelPos);
-                    panel.style.left = pos.x + 'px';
-                    panel.style.top = pos.y + 'px';
-                    panel.style.right = 'auto';
-                    panel.style.transform = 'none';
-                } catch (e) {
-                    // 默认位置已在CSS中设定
-                }
-            }
-            // 恢复面板宽高
-            const savedSize = localStorage.getItem('empPanelSize');
-            if (savedSize) {
-                try {
-                    const size = JSON.parse(savedSize);
-                    panel.style.width = size.w + 'px';
-                    panel.style.height = size.h + 'px';
-                } catch (e) {}
-            }
-            // 监听resize保存宽高
-            if (!panel._resizeBound) {
-                panel._resizeBound = true;
-                const resizeObserver = new ResizeObserver(function() {
-                    const rect = panel.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) {
-                        localStorage.setItem('empPanelSize', JSON.stringify({w: rect.width, h: rect.height}));
-                    }
-                });
-                resizeObserver.observe(panel);
-            }
-            // 无保存位置时CSS已设定 right:200px; top:15px
-            refresh();
-            // 自动打开节点工作流
-            if (!document.getElementById('empWfOverlay').classList.contains('show')) {
-                openWorkflow();
-            }
-        }
+        openWorkflow();
     }
 
-    // 面板打开时定时刷新
+    // 面板刷新（保留函数，工作流打开时刷新员工列表）
     let panelRefreshInterval = null;
     function startPanelRefresh() {
         if (panelRefreshInterval) return;
         panelRefreshInterval = setInterval(function() {
-            if (panelOpen) refresh();
+            if (document.getElementById('empWfOverlay') && document.getElementById('empWfOverlay').classList.contains('show')) refresh();
         }, 5000);
     }
 
@@ -396,10 +203,9 @@
         contextMenuEl.style.left = e.clientX + 'px';
         contextMenuEl.style.top = e.clientY + 'px';
         contextMenuEl.innerHTML =
-            '<div onclick="window.empWidget.openChat(\'' + name + '\'); window.empWidget.closeContextMenu();">💬 对话</div>' +
-            '<div onclick="window.empWidget.openEditPanel(\'' + name + '\')">✏️ 编辑资料</div>' +
-            '<div onclick="window.empWidget.clearSuperiors(\'' + name + '\')">🔓 清除上级</div>' +
-            '<div onclick="window.empWidget.clearSubordinates(\'' + name + '\')">🔓 清除下属</div>' +
+            '<div onclick="window.empWidget.openEditPanel(\'' + name + '\'); window.empWidget.closeContextMenu();">✏️ 编辑资料</div>' +
+            '<div onclick="window.empWidget.clearSuperiors(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除上级</div>' +
+            '<div onclick="window.empWidget.clearSubordinates(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除下属</div>' +
             '<div onclick="window.empWidget.deleteEmployee(\'' + name + '\'); window.empWidget.closeContextMenu();">🗑️ 删除员工</div>';
         document.body.appendChild(contextMenuEl);
     }
@@ -738,8 +544,7 @@
                     return (e.status || e.状态) === '在岗' && !(e.isMother || e.是母体);
                 }).length;
                 const badge = document.getElementById('empBadge');
-                badge.textContent = online;
-                badge.style.display = online > 0 ? 'flex' : 'none';
+                if (badge) { badge.style.display = 'none'; }
             }
             // 获取树形结构
             const treeResp = await fetch('/api/employee-tree');
@@ -840,9 +645,6 @@
         顶层.forEach(function(emp) { html += renderEmpTree(emp, 0); });
 
         // 添加分类按钮
-        html += '<div class="emp-list-divider"></div>';
-        html += '<button class="emp-category-add" onclick="window.empWidget._addCategory()">+ 新建分类</button>';
-
         list.innerHTML = html;
 
         // 绑定分类拖放
@@ -875,9 +677,11 @@
                 '<span class="emp-cat-drag" title="拖拽排序">⠿</span>' +
                 '<span class="emp-category-toggle" onclick="event.stopPropagation();window.empWidget._toggleCategory(\'' + cat.id + '\')" style="color:' + catColor + '">' + (collapsed ? '▶' : '▼') + '</span>' +
                 '<span class="emp-category-name-text" style="color:' + catColor + '">' + escapeHtml(cat.name) + countLabel + '</span>' +
-                '<button class="emp-cat-rename-btn" onclick="event.stopPropagation();window.empWidget._renameCategory(\'' + cat.id + '\')" title="重命名">✏️</button>' +
-                '<span class="emp-cat-color-dot" data-cat-color="' + cat.id + '" style="background:' + catColor + '" onclick="event.stopPropagation();window.empWidget._cycleCategoryColor(\'' + cat.id + '\')"></span>' +
-                '<button class="emp-category-del" draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();window.empWidget._deleteCategory(\'' + cat.id + '\')">✕</button>' +
+                '<div class="emp-cat-actions">' +
+                    '<button class="emp-cat-rename-btn" onclick="event.stopPropagation();window.empWidget._renameCategory(\'' + cat.id + '\')" title="重命名">✏️</button>' +
+                    '<span class="emp-cat-color-dot" data-cat-color="' + cat.id + '" style="background:' + catColor + '" onclick="event.stopPropagation();window.empWidget._cycleCategoryColor(\'' + cat.id + '\')" title="换颜色"></span>' +
+                    '<button class="emp-category-del" draggable="false" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();window.empWidget._deleteCategory(\'' + cat.id + '\')" title="删除">✕</button>' +
+                '</div>' +
             '</div>';
         if (!collapsed) {
             html += '<div class="emp-category-body" data-cat-drop="' + cat.id + '" style="border-left:2px solid ' + catColor + '40">';
@@ -913,8 +717,8 @@
         var actions = '';
         if (!isFixed) {
             actions = '<div class="emp-item-actions">' +
-                '<button class="emp-item-btn" onclick="event.stopPropagation();window.empWidget.openEditPanel(\'' + name + '\')" title="编辑">⚙️</button>' +
-                '<button class="emp-item-btn danger" onclick="event.stopPropagation();window.empWidget.deleteEmployee(\'' + name + '\')" title="删除">🗑️</button>' +
+                '<button class="emp-item-btn" onclick="event.stopPropagation();window.empWidget.openEditPanel(\'' + name + '\')" title="编辑">✏️</button>' +
+                '<button class="emp-item-btn danger" onclick="event.stopPropagation();window.empWidget.deleteEmployee(\'' + name + '\')" title="删除">✕</button>' +
             '</div>';
         }
         return '<div class="' + cls + '" draggable="true" data-name="' + name + '" ' +
@@ -923,7 +727,7 @@
             '<div class="emp-avatar">' + avatar + '</div>' +
             '<div class="emp-info"><div class="emp-name">' + name + '</div><div class="emp-role">' + role + '</div></div>' +
             actions +
-            '<div class="emp-status-dot ' + dotCls + '"></div></div>';
+            '</div>';
     }
 
     function bindCategoryDnd() {
@@ -1219,7 +1023,7 @@
                 body: JSON.stringify({姓名: name})
             });
         } catch (e) {}
-        openChat(name);
+        // 点击员工时直接拖到画布创建节点（不再打开聊天）
     }
 
     async function openChat(name) {
@@ -1301,6 +1105,40 @@
         input.value = '';
         input.placeholder = emp ? '输入消息...' : '描述你想要的员工...';
         setTimeout(function() { input.focus(); }, 100);
+
+        // 主聊天框可拖拽
+        const chatBox = document.getElementById('empChatOverlay').querySelector('.emp-chat-box');
+        const chatHdr = document.getElementById('empChatHeader');
+        if (chatHdr && chatBox) {
+            chatHdr.style.cursor = 'move';
+            chatHdr.onmousedown = function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                const sx = e.clientX, sy = e.clientY;
+                const r = chatBox.getBoundingClientRect();
+                let moved = false;
+                function mv(ev) {
+                    const dx = ev.clientX - sx, dy = ev.clientY - sy;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                    if (moved) {
+                        chatBox.style.position = 'fixed';
+                        chatBox.style.left = Math.max(0, Math.min(window.innerWidth - r.width, r.left + dx)) + 'px';
+                        chatBox.style.top = Math.max(0, Math.min(window.innerHeight - r.height, r.top + dy)) + 'px';
+                        chatBox.style.transform = 'none';
+                        chatBox.style.margin = '0';
+                    }
+                }
+                function up() {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                    if (moved) {
+                        const r2 = chatBox.getBoundingClientRect();
+                        localStorage.setItem('empChatPos', JSON.stringify({x: r2.left, y: r2.top}));
+                    }
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            };
+        }
     }
 
     function closeChat() {
@@ -1430,23 +1268,11 @@
     }
 
     function addEmployee() {
-        chatTarget = null;
-        openChat(null);
+        openCreatePanel();
     }
 
     function editEmployee(name) {
-        closeChat();
-        const mainInput = document.getElementById('chatInput');
-        if (mainInput) {
-            mainInput.value = '修改员工「' + name + '」的配置，先告诉我他现在的详情';
-            mainInput.focus();
-            showToast('已在主对话框输入，按回车发送');
-        } else {
-            openChat(null);
-            const input = document.getElementById('empChatInput');
-            input.value = '修改员工「' + name + '」的配置';
-            input.focus();
-        }
+        openEditPanel(name);
     }
 
     async function deleteEmployee(name) {
@@ -1709,7 +1535,6 @@
             '</div>' +
             '<div class="emp-notify-body">' + (typeof marked !== 'undefined' ? marked.parse(message) : message) + '</div>' +
             '<div class="emp-notify-actions">' +
-                '<button class="emp-notify-btn primary" onclick="window.empWidget.openChat(\'' + name + '\')">💬 回复</button>' +
                 '<button class="emp-notify-btn close" onclick="this.closest(\'.emp-notify\').remove()">✕ 关闭</button>' +
             '</div>';
         document.body.appendChild(el);
@@ -1985,6 +1810,32 @@
         const canvasWrap = document.getElementById('empWfCanvasWrap');
         if (!canvas) return;
 
+        // 侧边栏拖拽调宽
+        var sidebarResize = document.getElementById('wfSidebarResize');
+        var sidebar = document.getElementById('empWfSidebar');
+        if (sidebarResize && sidebar) {
+            sidebarResize.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var startX = e.clientX;
+                var startW = sidebar.offsetWidth;
+                function onMove(ev) {
+                    var newW = Math.max(120, Math.min(400, startW + (startX - ev.clientX)));
+                    sidebar.style.width = newW + 'px';
+                }
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    try { localStorage.setItem('empWfSidebarW', sidebar.style.width); } catch(e) {}
+                }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+            // 恢复宽度
+            var savedW = localStorage.getItem('empWfSidebarW');
+            if (savedW) sidebar.style.width = savedW;
+        }
+
         // 文件菜单按钮
         const fileMenuBtn = document.getElementById('wfFileMenuBtn');
         const fileMenu = document.getElementById('empWfFileMenu');
@@ -1992,10 +1843,26 @@
             fileMenuBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 fileMenu.style.display = fileMenu.style.display === 'none' ? 'block' : 'none';
+                if (fileMenu.style.display === 'block') _refreshRecentMenu();
             });
             document.addEventListener('click', function(e) {
                 if (!fileMenu.contains(e.target) && e.target !== fileMenuBtn) fileMenu.style.display = 'none';
             });
+            // 最近打开：hover展开子菜单
+            var recentTrigger = fileMenu.querySelector('.wf-recent-trigger');
+            var recentMenu = document.getElementById('wfRecentMenu');
+            if (recentTrigger && recentMenu) {
+                var _recentTimer = null;
+                recentTrigger.addEventListener('mouseenter', function() {
+                    if (_recentTimer) clearTimeout(_recentTimer);
+                    if (fileMenu.style.display === 'block') { _refreshRecentMenu(); recentMenu.style.display = 'block'; }
+                });
+                recentTrigger.addEventListener('mouseleave', function() {
+                    _recentTimer = setTimeout(function() { recentMenu.style.display = 'none'; }, 200);
+                });
+                recentMenu.addEventListener('mouseenter', function() { if (_recentTimer) clearTimeout(_recentTimer); });
+                recentMenu.addEventListener('mouseleave', function() { recentMenu.style.display = 'none'; });
+            }
         }
 
         // 中键平移 + 滚轮缩放
@@ -2276,7 +2143,8 @@
 
         // ===== 统一鼠标事件分发器 =====
         canvasWrap.addEventListener('mousedown', function(e) {
-            if (e.button !== 0 || wfPanning) return;
+            if (e.button === 2) return; // 右键不处理
+            if (wfPanning) return;
             // 拖拽文件时不触发画布操作
             if (e.target && e.target.tagName === 'HTML') return;
             const target = e.target;
@@ -2336,8 +2204,10 @@
                 if (frame) {
                     if (e.target.classList.contains('wf-frame-del')) { _wfDeleteFrame(fid); return; }
                     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-                    // 选中分组
+                    // 选中分组（清除节点选中，使D键能正确作用于分组）
                     wfSelectedFrame = fid;
+                    wfSelectedNodes = [];
+                    updateNodeSelection();
                     document.querySelectorAll('.wf-frame.selected').forEach(function(el) { el.classList.remove('selected'); });
                     frameEl.classList.add('selected');
                     const p = wfScreenToCanvas(e.clientX, e.clientY);
@@ -2350,6 +2220,10 @@
             // 节点header → 拖动或复制
             const headerEl = target.closest('.emp-wf-node-header');
             if (headerEl) {
+                // 清除分组选中
+                wfSelectedFrame = null;
+                document.querySelectorAll('.wf-frame.selected').forEach(function(el) { el.classList.remove('selected'); });
+
                 const nodeEl2 = headerEl.closest('.emp-wf-node');
                 // 验证点击确实在这个节点内（防止重叠节点误选）
                 if (nodeEl2) {
@@ -2419,9 +2293,15 @@
                 return;
             }
 
-            // 节点其他部分 → 选中
+            // 节点其他部分 → 选中并启用拖拽（但点击input/textarea/select时不拦截）
             const nodeEl = target.closest('.emp-wf-node');
             if (nodeEl) {
+                // 点击输入框/下拉框时不触发拖拽，让用户正常输入
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+                // 清除分组选中
+                wfSelectedFrame = null;
+                document.querySelectorAll('.wf-frame.selected').forEach(function(el) { el.classList.remove('selected'); });
+
                 const nid = nodeEl.id.replace('wfNode_', '');
                 if (e.altKey) {
                     wfSelectedNodes = wfSelectedNodes.filter(function(n) { return n !== nid; });
@@ -2431,6 +2311,13 @@
                     wfSelectedNodes = [nid];
                 }
                 updateNodeSelection();
+                // 同时启用拖拽（和header拖拽逻辑一致）
+                const dragNode = wfNodes.find(function(n) { return n.id === nid; });
+                if (dragNode) {
+                    const p = wfScreenToCanvas(e.clientX, e.clientY);
+                    wfDragNode = {id: nid, offsetX: p.x - dragNode.x, offsetY: p.y - dragNode.y, lastX: p.x, lastY: p.y};
+                }
+                e.preventDefault();
                 return;
             }
 
@@ -2446,6 +2333,9 @@
                 wfSelectedNodes = [];
                 updateNodeSelection();
             }
+            // 清除分组选中
+            wfSelectedFrame = null;
+            document.querySelectorAll('.wf-frame.selected').forEach(function(el) { el.classList.remove('selected'); });
             const p = wfScreenToCanvas(e.clientX, e.clientY);
             wfBoxSelect = {startX: p.x, startY: p.y, ctrl: e.ctrlKey, alt: e.altKey};
             const box = document.getElementById('wfSelBox');
@@ -2798,25 +2688,91 @@
             items: [
                 {name: "📝 文本输入", type: "prompt", config: {提示词: ""}},
                 {name: "🧩 文本拼接(零token)", type: "text", config: {指令: ""}},
+                {name: "🔔 弹窗提醒(零token)", type: "alert", config: {提醒内容: "", 声音: "default"}},
             ]
         },
-        "ComfyUI": {
+        "本地出图(ComfyUI)": {
             icon: "🎨",
-            subcategories: {
-                "图片": [
-                    {name: "⚡ z_image快速出图", type: "comfyui", config: {工作流: "z_image", 宽度: 960, 高度: 600}},
-                    {name: "⚡ qwen2512高质量出图", type: "comfyui", config: {工作流: "qwen2512", 宽度: 1328, 高度: 1328}},
-                    {name: "⚡ flux2出图", type: "comfyui", config: {工作流: "flux2", 宽度: 1024, 高度: 1024}},
-                    {name: "⚡ 自动出图(不指定工作流)", type: "comfyui", config: {}},
-                    {name: "✏️ 图片修改(qwen2511单图)", type: "comfyui-edit", config: {工作流: "qwen2511单图"}},
-                    {name: "✏️ 图片放大(2k_upscaler)", type: "comfyui-edit", config: {工作流: "2k_upscaler"}},
-                ],
-                "视频": [
-                    {name: "🎬 wan2.2文生视频", type: "comfyui-video", config: {工作流: "wan2.2文生视频"}},
-                    {name: "🎬 ltx2.3文生视频", type: "comfyui-video", config: {工作流: "ltx2.3文生视频"}},
-                    {name: "🎬 wan2.2图生视频", type: "comfyui-video", config: {工作流: "wan2.2图生视频"}},
-                ]
-            }
+            items: [
+                {name: "⚡ z_image快速出图", type: "comfyui", config: {工作流: "z_image", 宽度: 960, 高度: 600}},
+                {name: "⚡ qwen2512高质量出图", type: "comfyui", config: {工作流: "qwen2512", 宽度: 1328, 高度: 1328}},
+                {name: "⚡ flux2出图", type: "comfyui", config: {工作流: "flux2", 宽度: 1024, 高度: 1024}},
+                {name: "⚡ 自动出图(不指定工作流)", type: "comfyui", config: {}},
+            ]
+        },
+        "云端出图(免ComfyUI)": {
+            icon: "☁️",
+            items: [
+                {name: "🆓 AgnesAI(全免费)", type: "cloud_image", config: {服务商: "agnes", 宽度: 1024, 高度: 1024}},
+                {name: "🌟 Seedream(字节跳动)", type: "cloud_image", config: {服务商: "seedream", 宽度: 1024, 高度: 1024}},
+                {name: "🍌 Nano Banana(Google)", type: "cloud_image", config: {服务商: "nano_banana", 宽度: 720, 高度: 1280}},
+                {name: "🎯 Grok(xAI)", type: "cloud_image", config: {服务商: "grok", 宽度: 1024, 高度: 1024}},
+                {name: "🧠 GPT Image(OpenAI)", type: "cloud_image", config: {服务商: "gpt_image", 宽度: 1024, 高度: 1024}},
+            ]
+        },
+        "图片修改": {
+            icon: "✏️",
+            items: [
+                {name: "✏️ 图片修改(qwen2511单图)", type: "comfyui-edit", config: {工作流: "qwen2511单图"}},
+                {name: "✏️ 图片放大(2k_upscaler)", type: "comfyui-edit", config: {工作流: "2k_upscaler"}},
+            ]
+        },
+        "视频生成": {
+            icon: "🎬",
+            items: [
+                {name: "🎬 wan2.2文生视频", type: "comfyui-video", config: {工作流: "wan2.2文生视频"}},
+                {name: "🎬 ltx2.3文生视频", type: "comfyui-video", config: {工作流: "ltx2.3文生视频"}},
+                {name: "🎬 wan2.2图生视频", type: "comfyui-video", config: {工作流: "wan2.2图生视频"}},
+            ]
+        },
+        "文件操作": {
+            icon: "📁",
+            items: [
+                {name: "📄 读取文件", type: "file_read", config: {路径: ""}},
+                {name: "✏️ 写入文件", type: "file_write", config: {路径: "", 内容: ""}},
+                {name: "📁 创建文件夹", type: "file_mkdir", config: {路径: ""}},
+                {name: "🔍 搜索文件", type: "file_search", config: {关键词: "", 目录: ""}},
+            ]
+        },
+        "网络操作": {
+            icon: "🌐",
+            items: [
+                {name: "🔍 网络搜索", type: "web_search", config: {关键词: ""}},
+                {name: "📥 网页抓取", type: "web_fetch", config: {网址: ""}},
+                {name: "⬇️ 下载文件", type: "file_download", config: {网址: "", 保存路径: ""}},
+            ]
+        },
+        "系统操作": {
+            icon: "💻",
+            items: [
+                {name: "💻 运行命令", type: "run_command", config: {命令: ""}},
+                {name: "📊 系统信息", type: "system_info", config: {}},
+            ]
+        },
+        "图片处理": {
+            icon: "🖼️",
+            items: [
+                {name: "🖼️ 去水印", type: "image_watermark", config: {图片路径: "", 遮罩路径: ""}},
+                {name: "✂️ 裁剪图片", type: "image_crop", config: {图片路径: "", 左: 0, 上: 0, 右: 100, 下: 100}},
+                {name: "📐 缩放图片", type: "image_resize", config: {图片路径: "", 宽度: 800, 高度: 600}},
+                {name: "🔄 旋转图片", type: "image_rotate", config: {图片路径: "", 角度: 90}},
+            ]
+        },
+        "代码工具": {
+            icon: "🔎",
+            items: [
+                {name: "🔎 搜索代码", type: "code_search", config: {关键词: "", 目录: ""}},
+                {name: "📋 Glob搜索", type: "code_glob", config: {模式: "*.py", 目录: ""}},
+            ]
+        },
+        "媒体": {
+            icon: "🎵",
+            items: [
+                {name: "🎵 播放音乐", type: "play_music", config: {歌曲名: ""}},
+                {name: "🎬 播放视频", type: "play_video", config: {视频名: ""}},
+                {name: "🔊 朗读", type: "tts_speak", config: {文本: ""}},
+                {name: "🎬 视频转码", type: "video_convert", config: {输入路径: "", 输出路径: ""}},
+            ]
         }
     };
 
@@ -2916,22 +2872,13 @@
                 '<span class="wf-shop-cat-name">' + cat + '</span>' +
                 '<span class="wf-shop-cat-arrow">▶</span>';
             html += '<div class="wf-shop-submenu">';
-            if (catData.subcategories) {
-                // 二级分类：每个子分类一个小标题
-                for (var subcat in catData.subcategories) {
-                    var subitems = catData.subcategories[subcat];
-                    html += '<div class="wf-shop-subcat-header">' + subcat + '</div>';
-                    subitems.forEach(function(item) {
-                        html += '<div class="wf-shop-item" data-type="' + item.type + '" data-name="' + escapeHtml(item.name) + '" data-config=\'' + JSON.stringify(item.config).replace(/'/g, "&#39;") + '\' data-search="' + (cat + ' ' + subcat + ' ' + item.name).toLowerCase() + '">' + item.name + '</div>';
-                    });
-                }
-            } else if (catData.items) {
+            if (catData.items) {
                 catData.items.forEach(function(item) {
                     html += '<div class="wf-shop-item" data-type="' + item.type + '" data-name="' + escapeHtml(item.name) + '" data-config=\'' + JSON.stringify(item.config).replace(/'/g, "&#39;") + '\' data-search="' + (cat + ' ' + item.name).toLowerCase() + '">' + item.name + '</div>';
                 });
             }
-            // 自动扫描的ComfyUI工作流追加到ComfyUI分类下
-            if (cat === 'ComfyUI' && _comfyui工作流.length > 0) {
+            // 自动扫描的ComfyUI工作流追加到本地出图分类下
+            if (cat === '本地出图(ComfyUI)' && _comfyui工作流.length > 0) {
                 var 分组 = {};
                 _comfyui工作流.forEach(function(wf) {
                     var wfcat = wf.分类 || '其他';
@@ -2946,7 +2893,7 @@
                         html += '<div class="wf-shop-item" data-type="comfyui" data-name="' + escapeHtml(wf.名称) + '" data-config=\'' + config + '\' data-search="' + ('comfyui ' + wfcatName + ' ' + wf.名称).toLowerCase() + '">' + wf.名称 + '</div>';
                     });
                 }
-            } else if (cat === 'ComfyUI' && _comfyui提示) {
+            } else if (cat === '本地出图(ComfyUI)' && _comfyui提示) {
                 html += '<div class="wf-shop-item" style="opacity:0.6;cursor:default;font-size:11px" data-nosearch="1">💡 ' + escapeHtml(_comfyui提示.substring(0, 50)) + '...</div>';
             }
             html += '</div></div>';
@@ -3121,6 +3068,388 @@
                 }
             });
         }, 50);
+    }
+
+    // ========== 工作流定时任务 ==========
+    var _taskPanel = null;
+
+    async function _showTaskPanel() {
+        if (_taskPanel) { _taskPanel.remove(); _taskPanel = null; return; }
+        var tasks = [];
+        try {
+            var resp = await fetch('/api/wf-tasks', {method: 'GET'});
+            var data = await resp.json();
+            tasks = data.任务列表 || [];
+        } catch(e) {}
+
+        var ov = document.createElement('div');
+        ov.className = 'emp-chat-overlay';
+        ov.style.zIndex = '9300';
+        var currentWf = wfCurrentFileName || '(未命名)';
+        var itemsHtml = '';
+        tasks.forEach(function(t) {
+            var 状态图标 = t.启用 ? '✅' : '⏸️';
+            var 类型label = {'每日':'📅每日','每周':'📅每周','间隔':'⏱️间隔','每月':'📅每月','仅一次':'📌仅一次'}[t.类型] || t.类型;
+            var 详情 = '';
+            if (t.日期) { 详情 = t.日期 + ' ' + (t.时间 || '09:00'); }
+            else if (t.类型 === '每日') 详情 = '每天 ' + (t.时间 || '09:00');
+            else if (t.类型 === '每周') { var days = ['日','一','二','三','四','五','六']; var ds = (t.星期||[]).map(function(d){return days[d-1]||d}); 详情 = '周' + ds.join(',') + ' ' + (t.时间||''); }
+            else if (t.类型 === '间隔' || t.调度类型 === '间隔') 详情 = '每隔' + (t.间隔分钟||30) + '分钟提醒';
+            else if (t.类型 === '每月') 详情 = '每月 ' + (t.时间 || '09:00');
+            else if (t.类型 === '仅一次') 详情 = t.时间 || '';
+            var 下次 = t.下次执行 ? t.下次执行.substring(5) : '等待计算';
+            itemsHtml += '<div class="wf-task-item" data-id="' + t.id + '">' +
+                '<div class="wf-task-info">' + 状态图标 + ' ' + escapeHtml(t.名称) + '</div>' +
+                '<div class="wf-task-meta">' + 类型label + ' ' + 详情 + ' | 下次: ' + 下次 + '</div>' +
+                '<div class="wf-task-actions">' +
+                '<button onclick="window.empWidget._runTask(\'' + t.id + '\')" title="立即执行">▶</button>' +
+                '<button onclick="window.empWidget._editTask(\'' + t.id + '\')" title="修改">✏️</button>' +
+                '<button onclick="window.empWidget._toggleTask(\'' + t.id + '\')" title="启用/暂停">' + (t.启用?'⏸️':'▶️') + '</button>' +
+                '<button onclick="window.empWidget._delTask(\'' + t.id + '\')" title="删除">🗑️</button>' +
+                '</div></div>';
+        });
+        if (!itemsHtml) itemsHtml = '<div style="color:var(--text2);text-align:center;padding:20px;font-size:13px">暂无定时任务</div>';
+
+        var now = new Date();
+        var calYear = now.getFullYear(), calMonth = now.getMonth();
+
+        ov.innerHTML = '<div class="emp-chat-box" style="width:500px;height:560px;resize:both;overflow:hidden;min-width:400px;min-height:400px">' +
+            '<div class="emp-chat-header">' +
+                '<div class="emp-avatar">📅</div>' +
+                '<div><div class="emp-name">计划任务</div><div class="emp-role">当前工作流: ' + escapeHtml(currentWf) + '</div></div>' +
+                '<div class="emp-chat-actions"><button class="emp-chat-btn" onclick="this.closest(\'.emp-chat-overlay\').remove()">✕</button></div>' +
+            '</div>' +
+            '<div class="emp-chat-body" style="padding:12px;gap:8px;overflow-y:auto;flex:1">' +
+                // 日历头部
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+                    '<button id="calPrev" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:4px 8px">◀</button>' +
+                    '<select id="calYearSel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:12px"></select>' +
+                    '<select id="calMonthSel" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:2px 6px;border-radius:4px;font-size:12px"></select>' +
+                    '<button id="calNext" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:4px 8px">▶</button>' +
+                    '<button id="calToday" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:11px;padding:2px 10px;border-radius:4px">今天</button>' +
+                '</div>' +
+                // 星期标题
+                '<div id="calWeekHeader" style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:var(--text2);margin-bottom:4px"></div>' +
+                // 日历格子
+                '<div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px"></div>' +
+                // 时间+循环设置
+                '<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">' +
+                    '<span style="font-size:12px;color:var(--text2)">时间</span>' +
+                    '<input id="taskTime" type="time" value="09:00" style="width:100px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px">' +
+                    '<span style="font-size:12px;color:var(--text2)">重复</span>' +
+                    '<select id="taskRepeat" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px">' +
+                        '<option value="仅一次">仅一次</option><option value="每日">每日</option><option value="每周">每周</option><option value="每月">每月</option><option value="间隔">间隔</option>' +
+                    '</select>' +
+                    '<input id="taskInterval" type="number" value="30" min="1" placeholder="分钟" style="width:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:12px;display:none">' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">' +
+                    '<span style="font-size:11px;color:var(--blue);font-weight:bold" id="calSelectedDate">请点击日期</span>' +
+                    '<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text2);cursor:pointer;margin-left:auto">' +
+                        '<input type="checkbox" id="taskNotify" checked>通知</label>' +
+                '</div>' +
+                '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+                    '<button class="emp-chat-btn" style="background:var(--blue);color:#fff;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px" id="taskSaveBtn">⏰ 创建</button>' +
+                    '<div id="taskCount" style="font-size:11px;color:var(--text2);align-self:center"></div>' +
+                '</div>' +
+                // 已有任务
+                '<div style="border-top:1px solid var(--border);padding-top:8px" id="wfTaskListContainer">' +
+                    '<div style="font-size:12px;color:var(--text2);margin-bottom:6px">已创建任务：</div>' +
+                    itemsHtml +
+                '</div>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(ov);
+        ov.classList.add('show');
+        _taskPanel = ov;
+        ov.addEventListener('click', function(e) { if (e.target === ov) { ov.remove(); _taskPanel = null; } });
+
+        // header拖拽
+        var taskBox = ov.querySelector('.emp-chat-box');
+        var taskHeader = ov.querySelector('.emp-chat-header');
+        if (taskHeader && taskBox) {
+            taskHeader.style.cursor = 'move';
+            taskHeader.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                var sx = e.clientX, sy = e.clientY;
+                var r = taskBox.getBoundingClientRect();
+                var moved = false;
+                function mv(ev) {
+                    var dx = ev.clientX - sx, dy = ev.clientY - sy;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+                    if (moved) { taskBox.style.position = 'fixed'; taskBox.style.left = Math.max(0, Math.min(window.innerWidth - r.width, r.left + dx)) + 'px'; taskBox.style.top = Math.max(0, Math.min(window.innerHeight - r.height, r.top + dy)) + 'px'; taskBox.style.transform = 'none'; taskBox.style.margin = '0'; }
+                }
+                function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
+        }
+
+        // 日历渲染
+        function renderCal() {
+            var title = ov.querySelector('#calTitle');
+            var header = ov.querySelector('#calWeekHeader');
+            var grid = ov.querySelector('#calGrid');
+            var selected = ov.querySelector('#calSelectedDate');
+            var count = ov.querySelector('#taskCount');
+            var yearSel = ov.querySelector('#calYearSel');
+            var monthSel = ov.querySelector('#calMonthSel');
+            // 填充年份下拉
+            if (!yearSel.options.length) {
+                var yNow = new Date().getFullYear();
+                for (var y = yNow - 1; y <= yNow + 5; y++) yearSel.options.add(new Option(y + '年', y));
+            }
+            if (!monthSel.options.length) {
+                for (var m = 0; m < 12; m++) monthSel.options.add(new Option((m+1) + '月', m));
+            }
+            yearSel.value = calYear;
+            monthSel.value = calMonth;
+            header.innerHTML = '日一二三四五六'.split('').map(function(d){return '<span>' + d + '</span>';}).join('');
+            var firstDay = new Date(calYear, calMonth, 1).getDay();
+            var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+            var today = new Date();
+            var html = '';
+            for (var i = 0; i < firstDay; i++) html += '<span></span>';
+            for (var d = 1; d <= daysInMonth; d++) {
+                var cls = 'cal-day';
+                if (calYear === today.getFullYear() && calMonth === today.getMonth() && d === today.getDate()) cls += ' today';
+                if (calYear === _selYear && calMonth === _selMonth && d === _selDay) cls += ' selected';
+                // 有任务的日期标点
+                var dot = '';
+                if (_taskDateMap[(calYear+'-'+(calMonth+1)+'-'+d)]) dot = '<span class="cal-dot"></span>';
+                html += '<span class="' + cls + '" data-day="' + d + '">' + d + dot + '</span>';
+            }
+            grid.innerHTML = html;
+            // 统计当月任务数
+            var monthKey = calYear + '-' + (calMonth + 1);
+            var monthCount = 0;
+            tasks.forEach(function(t) { if (t.类型 === '仅一次' && (t.日期||'').startsWith(monthKey)) monthCount++; });
+            count.textContent = monthCount > 0 ? monthCount + '个本月任务' : '';
+            // 绑定点击
+            grid.querySelectorAll('.cal-day').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    _selYear = calYear; _selMonth = calMonth; _selDay = parseInt(this.dataset.day);
+                    var ds = _selYear + '-' + (_selMonth+1).toString().padStart(2,'0') + '-' + _selDay.toString().padStart(2,'0');
+                    selected.textContent = '已选: ' + ds;
+                    renderCal();
+                });
+            });
+        }
+        var _selYear = 0, _selMonth = 0, _selDay = 0;
+        var _taskDateMap = {};
+        tasks.forEach(function(t) {
+            if (t.日期) _taskDateMap[t.日期] = true;
+        });
+
+        renderCal();
+        ov.querySelector('#calPrev').addEventListener('click', function() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCal(); });
+        ov.querySelector('#calNext').addEventListener('click', function() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCal(); });
+        ov.querySelector('#calToday').addEventListener('click', function() { var t = new Date(); calYear = t.getFullYear(); calMonth = t.getMonth(); renderCal(); });
+        ov.querySelector('#calYearSel').addEventListener('change', function() { calYear = parseInt(this.value); renderCal(); });
+        ov.querySelector('#calMonthSel').addEventListener('change', function() { calMonth = parseInt(this.value); renderCal(); });
+        // 间隔模式显示分钟输入
+        var repeatSel = ov.querySelector('#taskRepeat');
+        repeatSel.addEventListener('change', function() {
+            ov.querySelector('#taskInterval').style.display = this.value === '间隔' ? '' : 'none';
+            ov.querySelector('#taskTime').style.display = this.value === '间隔' ? 'none' : '';
+        });
+
+        // 保存
+        ov.querySelector('#taskSaveBtn').addEventListener('click', async function() {
+            if (!wfCurrentFileName) {
+                var recent = _getRecentFiles();
+                if (recent.length > 0) { wfCurrentFileName = recent[0]; }
+                else { showToast('请先保存当前工作流', 'error'); return; }
+            }
+            if (!_selDay) { showToast('请先点击日历选择日期', 'error'); return; }
+            var 类型 = ov.querySelector('#taskRepeat').value;
+            var 时间 = ov.querySelector('#taskTime').value || '09:00';
+            var 间隔 = parseInt(ov.querySelector('#taskInterval').value) || 30;
+            var 日期 = _selYear + '-' + (_selMonth+1).toString().padStart(2,'0') + '-' + _selDay.toString().padStart(2,'0');
+            var 通知 = ov.querySelector('#taskNotify').checked;
+            var 名称 = wfCurrentFileName;
+            try {
+                var resp = await fetch('/api/wf-tasks', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({名称: 名称, 工作流文件: wfCurrentFileName, 类型: 类型, 时间: 时间, 日期: 类型 === '间隔' ? '' : 日期, 星期: [], 间隔分钟: 间隔, 通知: 通知})
+                });
+                var data = await resp.json();
+                if (data.成功) { showToast('已创建: ' + 名称 + ' 「' + 日期 + ' ' + 时间 + '」', 'success'); _taskDateMap[日期] = true; renderCal(); _refreshTaskList(); }
+                else { showToast('创建失败: ' + (data.错误 || '未知错误'), 'error'); }
+            } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
+        });
+    }
+
+    async function _runTask(tid) {
+        // 获取任务信息
+        var tasks = [];
+        try { var r = await fetch('/api/wf-tasks'); var d = await r.json(); tasks = d.任务列表 || []; } catch(e) {}
+        var task = tasks.find(function(t) { return t.id === tid; });
+        if (!task || !task.工作流文件) { showToast('任务信息不完整', 'error'); return; }
+        showToast('正在执行: ' + task.名称, 'info');
+        // 加载工作流文件
+        try {
+            var loadResp = await fetch('/api/wf-load', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({文件名: task.工作流文件})});
+            var loadData = await loadResp.json();
+            if (!loadData.成功 || !loadData.图) { showToast('无法加载工作流: ' + task.工作流文件, 'error'); return; }
+            var 图 = loadData.图;
+            var nodes = 图.nodes || [];
+            var conns = 图.conns || [];
+            if (nodes.length === 0) { showToast('工作流无节点', 'error'); return; }
+            // 执行工作流并监听SSE
+            var wd = '';
+            try { wd = currentRoot || ''; } catch(e) {}
+            var resp = await fetch('/api/employee-workflow', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({节点: nodes.map(function(n) { return {id: n.id, type: n.type, name: n.name, config: n.config, 员工名: n.config.员工名 || n.name, disabled: n.disabled || false}; }), 连接: conns.map(function(c) { var d = {from: c.from, to: c.to}; if (c.loop) d.loop = c.loop; return d; }), 当前文件夹: wd})
+            });
+            var reader = resp.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+            while (true) {
+                var r2 = await reader.read();
+                if (r2.done) break;
+                buffer += decoder.decode(r2.value, {stream: true});
+                var lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (var line of lines) {
+                    line = line.trim();
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        var evt = JSON.parse(line.substring(6));
+                        var type = evt.类型 || evt.type;
+                        // 弹窗提醒节点
+                        if (type === '节点完成' && evt.alert) {
+                            _showAlertPopup(evt.alert内容 || evt.输出 || '提醒', evt.alert声音 !== 'off');
+                        }
+                    } catch(e) {}
+                }
+            }
+            showToast('定时任务执行完成', 'success');
+        } catch(e) { showToast('执行失败: ' + e.message, 'error'); }
+        _refreshTaskList();
+    }
+
+    async function _toggleTask(tid) {
+        var tasks = [];
+        try { var r = await fetch('/api/wf-tasks'); var d = await r.json(); tasks = d.任务列表 || []; } catch(e) {}
+        var task = tasks.find(function(t) { return t.id === tid; });
+        if (!task) return;
+        await fetch('/api/wf-tasks', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: tid, 更新: {启用: !task.启用}})});
+        _refreshTaskList();
+    }
+
+    async function _delTask(tid) {
+        if (!confirm('确认删除此定时任务？')) return;
+        await fetch('/api/wf-tasks', {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id: tid})});
+        _refreshTaskList();
+    }
+
+    async function _editTask(tid) {
+        // 获取任务信息
+        var tasks = [];
+        try { var r = await fetch('/api/wf-tasks'); var d = await r.json(); tasks = d.任务列表 || []; } catch(e) {}
+        var task = tasks.find(function(t) { return t.id === tid; });
+        if (!task) return;
+        // 弹出编辑面板
+        var ov = document.createElement('div');
+        ov.className = 'emp-chat-overlay';
+        ov.style.zIndex = '9400';
+        ov.innerHTML = '<div class="emp-chat-box" style="width:380px;height:340px">' +
+            '<div class="emp-chat-header">' +
+                '<div class="emp-avatar">✏️</div>' +
+                '<div><div class="emp-name">修改任务</div><div class="emp-role">' + escapeHtml(task.名称) + '</div></div>' +
+                '<div class="emp-chat-actions"><button class="emp-chat-btn" onclick="this.closest(\'.emp-chat-overlay\').remove()">✕</button></div>' +
+            '</div>' +
+            '<div class="emp-chat-body" style="padding:16px;gap:10px">' +
+                '<div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">任务名称</label>' +
+                '<input id="editTaskName" type="text" value="' + escapeHtml(task.名称) + '" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"></div>' +
+                '<div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">时间</label>' +
+                '<input id="editTaskTime" type="time" value="' + (task.时间 || '09:00') + '" style="width:120px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"></div>' +
+                '<div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">日期 (仅一次/每月用)</label>' +
+                '<input id="editTaskDate" type="date" value="' + (task.日期 || '') + '" style="width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"></div>' +
+                '<div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">重复模式</label>' +
+                '<select id="editTaskType" style="width:120px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px">' +
+                '<option value="仅一次"' + (task.调度类型==='仅一次'?' selected':'') + '>仅一次</option>' +
+                '<option value="每日"' + (task.调度类型==='每日'?' selected':'') + '>每日</option>' +
+                '<option value="每周"' + (task.调度类型==='每周'?' selected':'') + '>每周</option>' +
+                '<option value="每月"' + (task.调度类型==='每月'?' selected':'') + '>每月</option>' +
+                '<option value="间隔"' + (task.调度类型==='间隔'?' selected':'') + '>间隔</option>' +
+                '</select></div>' +
+                '<div><label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">间隔分钟 (间隔模式用)</label>' +
+                '<input id="editTaskInterval" type="number" value="' + (task.间隔分钟 || 30) + '" min="1" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"></div>' +
+            '</div>' +
+            '<div class="emp-chat-input" style="justify-content:flex-end;padding:10px 16px">' +
+                '<button class="emp-chat-btn" style="background:var(--blue);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px" id="editTaskSave">💾 保存</button>' +
+            '</div>' +
+        '</div>';
+        document.body.appendChild(ov);
+        ov.classList.add('show');
+        ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+        ov.querySelector('#editTaskSave').addEventListener('click', async function() {
+            var 更新 = {
+                名称: ov.querySelector('#editTaskName').value.trim(),
+                时间: ov.querySelector('#editTaskTime').value,
+                日期: ov.querySelector('#editTaskDate').value,
+                调度类型: ov.querySelector('#editTaskType').value,
+                间隔分钟: parseInt(ov.querySelector('#editTaskInterval').value) || 30
+            };
+            await fetch('/api/wf-tasks', {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: tid, 更新: 更新})});
+            showToast('已修改', 'success');
+            ov.remove();
+            _refreshTaskList();
+        });
+    }
+
+    async function _refreshTaskList() {
+        // 只刷新任务列表部分，不关闭对话框
+        var container = _taskPanel ? _taskPanel.querySelector('#wfTaskListContainer') : null;
+        if (!container) return;
+        var tasks = [];
+        try {
+            var resp = await fetch('/api/wf-tasks', {method: 'GET'});
+            var data = await resp.json();
+            tasks = data.任务列表 || [];
+        } catch(e) {}
+        var itemsHtml = '';
+        tasks.forEach(function(t) {
+            var 状态图标 = t.启用 ? '✅' : '⏸️';
+            var 类型label = {'每日':'📅每日','每周':'📅每周','间隔':'⏱️间隔','每月':'📅每月','仅一次':'📌仅一次'}[t.类型] || t.类型;
+            var 详情 = '';
+            if (t.日期) { 详情 = t.日期 + ' ' + (t.时间 || '09:00'); }
+            else if (t.类型 === '每日') 详情 = '每天 ' + (t.时间 || '09:00');
+            else if (t.类型 === '每周') { var days = ['日','一','二','三','四','五','六']; var ds = (t.星期||[]).map(function(d){return days[d-1]||d}); 详情 = '周' + ds.join(',') + ' ' + (t.时间||''); }
+            else if (t.类型 === '间隔' || t.调度类型 === '间隔') 详情 = '每隔' + (t.间隔分钟||30) + '分钟提醒';
+            else if (t.类型 === '每月') 详情 = '每月 ' + (t.时间 || '09:00');
+            else if (t.类型 === '仅一次') 详情 = t.时间 || '';
+            var 下次 = t.下次执行 ? t.下次执行.substring(5) : '等待计算';
+            itemsHtml += '<div class="wf-task-item" data-id="' + t.id + '">' +
+                '<div class="wf-task-info">' + 状态图标 + ' ' + escapeHtml(t.名称) + '</div>' +
+                '<div class="wf-task-meta">' + 类型label + ' ' + 详情 + ' | 下次: ' + 下次 + '</div>' +
+                '<div class="wf-task-actions">' +
+                '<button onclick="window.empWidget._runTask(\'' + t.id + '\')" title="立即执行">▶</button>' +
+                '<button onclick="window.empWidget._editTask(\'' + t.id + '\')" title="修改">✏️</button>' +
+                '<button onclick="window.empWidget._toggleTask(\'' + t.id + '\')" title="启用/暂停">' + (t.启用?'⏸️':'▶️') + '</button>' +
+                '<button onclick="window.empWidget._delTask(\'' + t.id + '\')" title="删除">🗑️</button>' +
+                '</div></div>';
+        });
+        container.innerHTML = itemsHtml || '<div style="color:var(--text2);text-align:center;padding:20px;font-size:13px">暂无定时任务</div>';
+    }
+
+    // 通知轮询
+    var _taskNotifyInterval = null;
+    function _startTaskNotifyPolling() {
+        if (_taskNotifyInterval) return;
+        _taskNotifyInterval = setInterval(async function() {
+            try {
+                var resp = await fetch('/api/wf-task-notify', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+                var data = await resp.json();
+                if (data.通知 && data.通知.length > 0) {
+                    data.通知.forEach(function(n) {
+                        _showAlertPopup(n.消息 || '提醒', true);
+                    });
+                }
+            } catch(e) {}
+        }, 5000);
     }
 
     function _saveAsNodeTemplate() {
@@ -3345,6 +3674,10 @@
         } else if (node.type === 'text' || node.type === '文本') {
             bodyHtml = '<div class="field" style="color:var(--text2)">🧩零token文本拼接</div>' +
                        '<div class="field"><input type="text" value="' + escapeHtml(node.config.指令||'') + '" placeholder="固定文本/指令" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'指令\',this.value)"></div>';
+        } else if (node.type === 'alert') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">🔔零token弹窗提醒</div>' +
+                       '<div class="field"><textarea rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="提醒内容(可留空,用上游文本)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'提醒内容\',this.value)">' + escapeHtml(node.config.提醒内容||'') + '</textarea></div>' +
+                       '<div class="field" style="display:flex;align-items:center;gap:4px"><input type="checkbox" ' + (node.config.声音!=='off'?'checked':'') + ' onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'声音\',this.checked?\'default\':\'off\')" style="width:14px;height:14px"><span style="font-size:11px;color:var(--text2)">播放提示音</span></div>';
         } else if (node.type === 'comfyui' || node.type === '生图') {
             bodyHtml = '<div class="field" style="color:var(--text2)">⚡直接出图(零token)</div>' +
                        '<div class="field"><input type="text" value="' + escapeHtml(node.config.工作流||'') + '" placeholder="工作流名(可选,如z_image)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'工作流\',this.value)"></div>' +
@@ -3357,6 +3690,17 @@
             bodyHtml = '<div class="field" style="color:var(--text2)">🎬视频生成(零token)</div>' +
                        '<div class="field"><input type="text" value="' + escapeHtml(node.config.工作流||'') + '" placeholder="工作流名(如wan2.2文生视频)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'工作流\',this.value)"></div>' +
                        '<div class="field"><input type="text" value="' + escapeHtml(node.config.图片路径||'') + '" placeholder="图片路径(图生视频时填)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'图片路径\',this.value)"></div>';
+        } else if (node.type === 'cloud_image' || node.type === '云端出图') {
+            var _sv = node.config.服务商 || 'agnes';
+            bodyHtml = '<div class="field" style="color:var(--text2)">☁️云端API直接出图(零token,免ComfyUI)</div>' +
+                       '<div class="field"><select style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'服务商\',this.value)">' +
+                       '<option value="agnes"' + (_sv==='agnes'?' selected':'') + '>🆓 AgnesAI(全免费)</option>' +
+                       '<option value="seedream"' + (_sv==='seedream'?' selected':'') + '>🌟 Seedream(字节跳动)</option>' +
+                       '<option value="nano_banana"' + (_sv==='nano_banana'?' selected':'') + '>🍌 Nano Banana(Google)</option>' +
+                       '<option value="grok"' + (_sv==='grok'?' selected':'') + '>🎯 Grok(xAI)</option>' +
+                       '<option value="gpt_image"' + (_sv==='gpt_image'?' selected':'') + '>🧠 GPT Image(OpenAI)</option>' +
+                       '</select></div>' +
+                       '<div class="field" style="display:flex;gap:4px"><input type="number" value="' + (node.config.宽度||'1024') + '" placeholder="宽" style="width:50px" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'宽度\',this.value)"><input type="number" value="' + (node.config.高度||'1024') + '" placeholder="高" style="width:50px" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'高度\',this.value)"></div>';
         } else if (node.type === 'image') {
             var 图片列表 = node.config.图片列表 || [];
             if (图片列表.length === 0 && node.config.内容) 图片列表 = [node.config.内容];
@@ -3407,6 +3751,29 @@
                 bodyHtml = '<div class="wf-input-icon">' + 图标 + '</div>' +
                     '<div class="wf-input-name">' + 文件名 + '</div>';
             }
+        } else {
+            // 通用操作节点：根据config生成输入框
+            var _iconMap = {
+                'file_read':'📄读取文件','file_write':'✏️写入文件','file_mkdir':'📁创建文件夹','file_search':'🔍搜索文件',
+                'web_search':'🔍网络搜索','web_fetch':'📥网页抓取','file_download':'⬇️下载文件',
+                'run_command':'💻运行命令','system_info':'📊系统信息',
+                'image_watermark':'🖼️去水印','image_crop':'✂️裁剪','image_resize':'📐缩放','image_rotate':'🔄旋转',
+                'code_search':'🔎搜索代码','code_glob':'📋Glob搜索',
+                'play_music':'🎵播放音乐','play_video':'🎬播放视频','tts_speak':'🔊朗读','video_convert':'🎬视频转码'
+            };
+            var _label = _iconMap[node.type] || node.type;
+            bodyHtml = '<div class="field" style="color:var(--text2)">' + _label + '</div>';
+            Object.keys(node.config).forEach(function(key) {
+                var val = node.config[key] || '';
+                var isNum = typeof val === 'number' || key === '左' || key === '上' || key === '右' || key === '下' || key === '宽度' || key === '高度' || key === '角度';
+                if (isNum) {
+                    bodyHtml += '<div class="field"><input type="number" value="' + val + '" placeholder="' + key + '" style="width:60px" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'' + key + '\',this.value)"></div>';
+                } else if (val.length > 30) {
+                    bodyHtml += '<div class="field"><textarea rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="' + key + '" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'' + key + '\',this.value)">' + escapeHtml(val) + '</textarea></div>';
+                } else {
+                    bodyHtml += '<div class="field"><input type="text" value="' + escapeHtml(val) + '" placeholder="' + key + '" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'' + key + '\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>';
+                }
+            });
         }
 
         el.innerHTML =
@@ -3682,24 +4049,27 @@
         const overlay = document.getElementById('empWfOverlay');
         const panel = document.getElementById('empWfPanel');
         overlay.classList.add('show');
-        // 更新按钮图标为开启状态
-        var btn = document.getElementById('wfToggleBtn');
-        if (btn) { btn.textContent = '🔀'; btn.title = '节点工作流 (点击关闭)'; btn.style.color = 'var(--blue)'; }
 
-        // 恢复面板位置和大小
+        // 恢复面板位置和大小（带边界检查，防止被屏幕吃掉）
         const saved = localStorage.getItem('empWfPanelState');
         if (saved) {
             try {
                 const s = JSON.parse(saved);
-                if (s.x != null && s.y != null) {
-                    panel.style.left = s.x + 'px';
-                    panel.style.top = s.y + 'px';
-                    panel.style.transform = 'none';
+                var w = s.w || 760, h = s.h || 520;
+                var x = s.x, y = s.y;
+                // 如果没保存位置，居中
+                if (x == null || y == null) {
+                    x = (window.innerWidth - w) / 2;
+                    y = Math.max(0, (window.innerHeight - h) / 2);
                 }
-                if (s.w != null && s.h != null) {
-                    panel.style.width = s.w + 'px';
-                    panel.style.height = s.h + 'px';
-                }
+                // 边界检查：确保至少100px在屏幕内
+                x = Math.max(-(w - 100), Math.min(window.innerWidth - 100, x));
+                y = Math.max(0, Math.min(window.innerHeight - 40, y));
+                panel.style.left = x + 'px';
+                panel.style.top = y + 'px';
+                panel.style.transform = 'none';
+                panel.style.width = w + 'px';
+                panel.style.height = h + 'px';
             } catch (e) {}
         }
         // 监听resize保存大小
@@ -3708,8 +4078,20 @@
             const ro = new ResizeObserver(function() {
                 const rect = panel.getBoundingClientRect();
                 if (rect.width > 0 && rect.height > 0) {
+                    // 边界检查：如果面板被屏幕吃掉，拉回来
+                    var x = rect.left, y = rect.top, w = rect.width, h = rect.height;
+                    var needFix = false;
+                    if (x < -(w - 100)) { x = -(w - 100); needFix = true; }
+                    if (x > window.innerWidth - 100) { x = window.innerWidth - 100; needFix = true; }
+                    if (y < 0) { y = 0; needFix = true; }
+                    if (y > window.innerHeight - 40) { y = window.innerHeight - 40; needFix = true; }
+                    if (needFix) {
+                        panel.style.left = x + 'px';
+                        panel.style.top = y + 'px';
+                    }
                     const cur = JSON.parse(localStorage.getItem('empWfPanelState') || '{}');
                     cur.w = rect.width; cur.h = rect.height;
+                    cur.x = x; cur.y = y;
                     localStorage.setItem('empWfPanelState', JSON.stringify(cur));
                 }
             });
@@ -3721,10 +4103,8 @@
     }
 
     function closeWorkflow() {
+        autoSaveWorkflow();  // 关闭时自动保存
         document.getElementById('empWfOverlay').classList.remove('show');
-        // 更新按钮图标为关闭状态
-        var btn = document.getElementById('wfToggleBtn');
-        if (btn) { btn.textContent = '🔲'; btn.title = '节点工作流 (点击打开)'; btn.style.color = ''; }
     }
 
     function toggleWorkflow() {
@@ -3814,6 +4194,7 @@
                             if (st) { st.textContent = d.成功 !== false ? '✅ 完成' : '❌ 失败'; st.className = 'emp-wf-node-status ' + (d.成功 !== false ? 'done' : 'error'); }
                             showWfNodeResult(d.id, d.name, d.输入 || 上游输入, d.输出 || '', d.成功 !== false, d.图片 || '');
                             if (d.图片 && d.成功 !== false) _createImageNode(d.id, d.图片);
+                            if (d.alert) _showAlertPopup(d.alert内容 || d.输出 || '提醒', d.alert声音 !== 'off');
                         } else if (type === '完成') {
                             break;
                         }
@@ -4011,7 +4392,10 @@
     let wfCurrentFileName = null;  // 当前保存的文件名
 
     function autoSaveWorkflow() {
-        try { localStorage.setItem('empWfGraph', JSON.stringify(getWfData())); } catch(e) {}
+        try {
+            localStorage.setItem('empWfGraph', JSON.stringify(getWfData()));
+            localStorage.setItem('empWfFileName', wfCurrentFileName || '');
+        } catch(e) {}
         // 更新文件名显示
         const fnEl = document.getElementById('empWfFileName');
         if (fnEl) fnEl.textContent = wfCurrentFileName ? '📄 ' + wfCurrentFileName : '';
@@ -4066,11 +4450,62 @@
         updateWfInfo();
     }
 
+    // ========== 最近文件 ==========
+    function _getRecentFiles() {
+        try { return JSON.parse(localStorage.getItem('empWfRecent') || '[]'); } catch(e) { return []; }
+    }
+    function _addRecentFile(name) {
+        if (!name) return;
+        var list = _getRecentFiles().filter(function(n) { return n !== name; });
+        list.unshift(name);
+        list = list.slice(0, 3);
+        try { localStorage.setItem('empWfRecent', JSON.stringify(list)); } catch(e) {}
+    }
+    async function _refreshRecentMenu() {
+        var container = document.getElementById('wfRecentMenu');
+        if (!container) return;
+        var recent = _getRecentFiles();
+        if (recent.length === 0) { container.innerHTML = '<div style="padding:6px 16px;font-size:11px;color:var(--text2)">暂无记录</div>'; return; }
+        container.innerHTML = '';
+        recent.forEach(function(name) {
+            var div = document.createElement('div');
+            div.textContent = '🕒 ' + name;
+            div.style.cssText = 'padding:6px 16px;font-size:12px;color:var(--text);cursor:pointer';
+            div.onmouseenter = function() { div.style.background = 'var(--hover)'; div.style.color = 'var(--blue)'; };
+            div.onmouseleave = function() { div.style.background = ''; div.style.color = 'var(--text)'; };
+            div.onclick = function(e) { e.stopPropagation(); _loadWorkflowByName(name); window.empWidget._closeFileMenu(); };
+            container.appendChild(div);
+        });
+    }
+    async function _loadWorkflowByName(name) {
+        try {
+            var resp = await fetch('/api/wf-load', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})});
+            var data = await resp.json();
+            var files = data.列表 || [];
+            if (!files.includes(name)) { showToast('文件不存在: ' + name, 'error'); return; }
+            var loadResp = await fetch('/api/wf-load', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({文件名: name})});
+            var loadData = await loadResp.json();
+            if (loadData.成功 && loadData.图) {
+                loadWorkflowFromData(loadData.图);
+                wfCurrentFileName = name;
+                _addRecentFile(name);
+                var fnEl = document.getElementById('empWfFileName');
+                if (fnEl) fnEl.textContent = '📄 ' + name;
+                showToast('已加载: ' + name, 'success');
+            }
+        } catch(e) { showToast('加载失败: ' + e.message, 'error'); }
+    }
+
     function loadWorkflowAuto() {
         const saved = localStorage.getItem('empWfGraph');
         if (saved) {
             try {
                 loadWorkflowFromData(JSON.parse(saved));
+                // 恢复文件名
+                wfCurrentFileName = localStorage.getItem('empWfFileName') || null;
+                if (wfCurrentFileName) _addRecentFile(wfCurrentFileName);
+                const fnEl = document.getElementById('empWfFileName');
+                if (fnEl) fnEl.textContent = wfCurrentFileName ? '📄 ' + wfCurrentFileName : '';
             } catch(e) {}
         }
     }
@@ -4086,7 +4521,7 @@
             try {
                 const resp = await fetch('/api/wf-save', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({文件名: wfCurrentFileName, 图: getWfData()})
+                    body: JSON.stringify({文件名: wfCurrentFileName, 图: getWfData(), 覆盖: true})
                 });
                 const data = await resp.json();
                 if (data.成功 || data.success) {
@@ -4101,122 +4536,125 @@
     }
 
     async function saveWorkflowAs() {
-        // 先获取已有文件列表
-        var existList = [];
-        try {
-            var listResp = await fetch('/api/wf-load', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})});
-            var listData = await listResp.json();
-            if (listData.成功 || listData.success) existList = listData.列表 || [];
-        } catch(e) {}
-
-        const overlay = document.createElement('div');
-        overlay.className = 'emp-chat-overlay';
-        overlay.style.zIndex = '9300';
-        var defaultName = wfCurrentFileName || '工作流_' + new Date().toISOString().slice(0,10);
-        var itemsHtml = existList.map(function(name) {
-            return '<div class="wf-file-item" data-name="' + name + '" style="' + (name === defaultName ? 'border-color:var(--blue)' : '') + '">' +
-                '<span>📄 ' + name + '</span>' +
-                '<span style="font-size:10px;color:var(--text2)">点击覆盖</span></div>';
-        }).join('');
-        overlay.innerHTML = '<div class="emp-chat-box" style="width:360px;height:440px">' +
-            '<div class="emp-chat-header">' +
-                '<div class="emp-avatar">💾</div>' +
-                '<div><div class="emp-name">另存为</div><div class="emp-role">输入名称或点击已有文件覆盖</div></div>' +
-                '<div class="emp-chat-actions"><button class="emp-chat-btn" onclick="this.closest(\'.emp-chat-overlay\').remove()">✕</button></div>' +
-            '</div>' +
-            '<div class="emp-chat-body" style="padding:12px;gap:8px">' +
-                '<input id="wfSaveAsInput" type="text" value="' + defaultName + '" placeholder="文件名" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;font-family:inherit">' +
-                '<div style="font-size:11px;color:var(--text2);margin:2px 0">已有文件（点击覆盖）：</div>' +
-                '<div style="overflow-y:auto;flex:1">' + (itemsHtml || '<div style="color:var(--text2);font-size:12px;padding:8px">暂无文件</div>') + '</div>' +
-            '</div>' +
-            '<div class="emp-chat-input" style="justify-content:flex-end;padding:10px 16px">' +
-                '<button class="emp-chat-btn" style="background:var(--blue);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px" id="wfSaveAsBtn">💾 保存</button>' +
-            '</div>' +
-        '</div>';
-        document.body.appendChild(overlay);
-        overlay.classList.add('show');
-        overlay.addEventListener('click', function(e) { if (e.target === this) this.remove(); });
-        var input = overlay.querySelector('#wfSaveAsInput');
-        input.focus();
-        input.select();
-
-        async function doSave(name) {
-            if (!name) { showToast('文件名不能为空', 'error'); return; }
+        var data = JSON.stringify(getWfData(), null, 2);
+        var defaultName = (wfCurrentFileName || '工作流_' + new Date().toISOString().slice(0,10)) + '.json';
+        // 优先使用 File System Access API（Chrome/Edge）
+        if (window.showSaveFilePicker) {
+            var dirHandle = await _getWfDirHandle();
+            if (!dirHandle) return;
             try {
-                var resp = await fetch('/api/wf-save', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({文件名: name, 图: getWfData(), 覆盖: true})
+                var handle = await window.showSaveFilePicker({
+                    suggestedName: defaultName,
+                    types: [{ description: 'JSON 工作流', accept: { 'application/json': ['.json'] } }],
+                    startIn: dirHandle
                 });
-                var data = await resp.json();
-                if (data.成功 || data.success) {
+                var writable = await handle.createWritable();
+                await writable.write(data);
+                await writable.close();
+                // 同时保存到服务器
+                var name = handle.name.replace(/\.json$/i, '');
+                try {
+                    await fetch('/api/wf-save', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({文件名: name, 图: getWfData(), 覆盖: true})});
                     wfCurrentFileName = name;
+                    _addRecentFile(name);
                     autoSaveWorkflow();
-                    showToast('已保存: ' + name, 'success');
-                    overlay.remove();
-                } else { showToast('保存失败: ' + (data.错误 || ''), 'error'); }
-            } catch(e2) { showToast('保存失败: ' + e2.message, 'error'); }
+                    var fnEl = document.getElementById('empWfFileName');
+                    if (fnEl) fnEl.textContent = '📄 ' + name;
+                } catch(e) {}
+                showToast('已保存到: ' + handle.name, 'success');
+                return;
+            } catch(e) {
+                if (e.name === 'AbortError') return; // 用户取消
+            }
         }
+        // 回退：下载到本地下载目录
+        var blob = new Blob([data], {type: 'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = defaultName;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('已下载到本地: ' + defaultName, 'success');
+    }
 
-        overlay.querySelector('#wfSaveAsBtn').addEventListener('click', function() {
-            doSave(input.value.trim());
+    // 节点图目录handle（IndexedDB持久化，首次选一次，之后自动恢复）
+    var _wfDirHandle = null;
+    async function _getWfDirHandle() {
+        if (_wfDirHandle) return _wfDirHandle;
+        // 尝试从 IndexedDB 恢复
+        try {
+            _wfDirHandle = await _wfRestoreDirHandle();
+            if (_wfDirHandle) {
+                // 验证权限
+                var perm = await _wfDirHandle.queryPermission({mode: 'readwrite'});
+                if (perm === 'granted') return _wfDirHandle;
+                // 尝试重新申请
+                perm = await _wfDirHandle.requestPermission({mode: 'readwrite'});
+                if (perm === 'granted') return _wfDirHandle;
+                _wfDirHandle = null;
+            }
+        } catch(e) { _wfDirHandle = null; }
+        // 弹出目录选择器
+        try {
+            _wfDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            _wfSaveDirHandle(_wfDirHandle);
+            return _wfDirHandle;
+        } catch(e) {
+            return null; // 用户取消
+        }
+    }
+    function _wfRestoreDirHandle() {
+        return new Promise(function(resolve) {
+            var req = indexedDB.open('zf3dWfHandle', 1);
+            req.onupgradeneeded = function() { req.result.createObjectStore('handles'); };
+            req.onsuccess = function() {
+                var tx = req.result.transaction('handles', 'readonly');
+                var get = tx.objectStore('handles').get('wfDir');
+                get.onsuccess = function() { resolve(get.result); };
+                get.onerror = function() { resolve(null); };
+            };
+            req.onerror = function() { resolve(null); };
         });
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') { e.preventDefault(); doSave(input.value.trim()); }
-        });
-        overlay.querySelectorAll('.wf-file-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                var name = item.dataset.name;
-                if (confirm('覆盖文件「' + name + '」？')) doSave(name);
-            });
-        });
+    }
+    function _wfSaveDirHandle(handle) {
+        var req = indexedDB.open('zf3dWfHandle', 1);
+        req.onupgradeneeded = function() { req.result.createObjectStore('handles'); };
+        req.onsuccess = function() {
+            var tx = req.result.transaction('handles', 'readwrite');
+            tx.objectStore('handles').put(handle, 'wfDir');
+        };
     }
 
     async function loadWorkflowFile() {
-        try {
-            const resp = await fetch('/api/wf-load', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({})
-            });
-            const data = await resp.json();
-            if (!(data.成功 || data.success)) { showToast('载入失败', 'error'); return; }
-            const 列表 = data.列表 || [];
-            if (列表.length === 0) { showToast('节点图目录为空', 'info'); return; }
-            // 弹出选择列表
-            const overlay = document.createElement('div');
-            overlay.className = 'emp-chat-overlay';
-            overlay.style.zIndex = '9300';
-            let items = 列表.map(function(name) {
-                return '<div class="wf-file-item" data-name="' + name + '">' +
-                    '<span>📄 ' + name + '</span>' +
-                    '<button class="wf-file-del" data-del="' + name + '">🗑️</button></div>';
-            }).join('');
-            overlay.innerHTML = '<div class="emp-chat-box" style="width:360px;height:420px">' +
-                '<div class="emp-chat-header">' +
-                    '<div class="emp-avatar">📂</div>' +
-                    '<div><div class="emp-name">载入节点图</div><div class="emp-role">节点图/ 目录</div></div>' +
-                    '<div class="emp-chat-actions"><button class="emp-chat-btn" onclick="this.closest(\'.emp-chat-overlay\').remove()">✕</button></div>' +
-                '</div>' +
-                '<div class="emp-chat-body" style="padding:8px" id="wfFileList">' + items + '</div>' +
-            '</div>';
-            document.body.appendChild(overlay);
-            overlay.classList.add('show');
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) this.remove();
-                const item = e.target.closest('.wf-file-item');
-                if (item && !e.target.classList.contains('wf-file-del')) {
-                    const name = item.dataset.name;
-                    loadWfByName(name);
-                    overlay.remove();
-                }
-                if (e.target.classList.contains('wf-file-del')) {
-                    e.stopPropagation();
-                    const name = e.target.dataset.del;
-                    // 删除文件
-                    fetch('/api/wf-delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({文件名: name})})
-                    .then(function() { e.target.closest('.wf-file-item').remove(); });
-                }
-            });
-        } catch(e) { showToast('载入失败: ' + e.message, 'error'); }
+        if (window.showOpenFilePicker) {
+            var dirHandle = await _getWfDirHandle();
+            if (!dirHandle) return;
+            try {
+                var [handle] = await window.showOpenFilePicker({
+                    types: [{ description: 'JSON 工作流', accept: { 'application/json': ['.json'] } }],
+                    multiple: false,
+                    startIn: dirHandle
+                });
+                var file = await handle.getFile();
+                var text = await file.text();
+                var data = JSON.parse(text);
+                loadWorkflowFromData(data);
+                autoSaveWorkflow();
+                var name = file.name.replace(/\.json$/i, '');
+                wfCurrentFileName = name;
+                _addRecentFile(name);
+                var fnEl = document.getElementById('empWfFileName');
+                if (fnEl) fnEl.textContent = '📄 ' + name;
+                showToast('已打开: ' + file.name, 'success');
+                return;
+            } catch(e) {
+                if (e.name === 'AbortError') return;
+            }
+        }
+        var input = document.getElementById('wfImportInput');
+        if (!input) return;
+        input.click();
     }
 
     async function loadWfByName(name) {
@@ -4229,6 +4667,7 @@
             if (data.成功 || data.success) {
                 loadWorkflowFromData(data.图 || {});
                 wfCurrentFileName = name;
+                _addRecentFile(name);
                 showToast('已载入 ' + name, 'success');
             } else { showToast('载入失败', 'error'); }
         } catch(e) { showToast('载入失败: ' + e.message, 'error'); }
@@ -4375,6 +4814,8 @@
                                 _createImageNode(d.id, d.图片);
                             }
                             appendWfLog((d.成功 !== false ? '✅ ' : '❌ ') + d.name + (d.成功 !== false ? ' 完成' : ' 失败') + (d.输出 ? ': ' + d.输出.substring(0,60) : ''), d.成功 !== false ? 'success' : 'error');
+                            // 弹窗提醒节点
+                            if (d.alert) _showAlertPopup(d.alert内容 || d.输出 || '提醒', d.alert声音 !== 'off');
                         } else if (type === '进度') {
                             done = d.已完成 || d.current || done + 1;
                             total = d.总数 || d.total || total;
@@ -4469,16 +4910,89 @@
         execBtn.textContent = '🚀 执行';
     }
 
+    // ========== 弹窗提醒 ==========
+    function _showAlertPopup(content, playSound) {
+        // 播放提示音（用Web Audio API生成铃声）
+        if (playSound) {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                // 三声叮咚
+                [0, 0.3, 0.6].forEach(function(delay) {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = 880;
+                    osc.type = 'sine';
+                    gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+                    gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + delay + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+                    osc.start(ctx.currentTime + delay);
+                    osc.stop(ctx.currentTime + delay + 0.3);
+                });
+            } catch(e) {}
+        }
+        // 弹窗
+        var el = document.createElement('div');
+        el.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--bg2);border:2px solid var(--orange);border-radius:12px;padding:0;box-shadow:0 12px 48px rgba(0,0,0,0.6);min-width:320px;max-width:500px;animation:alert-in 0.3s ease-out';
+        el.innerHTML = '<div style="background:linear-gradient(135deg,var(--orange),#ff9800);padding:12px 20px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between">' +
+            '<span style="font-size:16px;font-weight:bold;color:#fff">🔔 提醒</span>' +
+            '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">✕</button>' +
+            '</div>' +
+            '<div style="padding:20px;font-size:14px;color:var(--text);line-height:1.6;white-space:pre-wrap;max-height:300px;overflow-y:auto">' + escapeHtml(content) + '</div>' +
+            '<div style="padding:8px 20px 16px;text-align:right">' +
+            '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:var(--blue);color:#fff;border:none;padding:8px 24px;border-radius:6px;cursor:pointer;font-size:13px">确定</button>' +
+            '</div>';
+        document.body.appendChild(el);
+        // 自动消失（15秒）
+        setTimeout(function() { if (el.parentNode) el.remove(); }, 15000);
+        // 点击背景关闭
+        document.addEventListener('mousedown', function closeAlert(e) {
+            if (!el.contains(e.target)) {
+                el.remove();
+                document.removeEventListener('mousedown', closeAlert);
+            }
+        });
+    }
+
+    // 添加弹窗动画
+    if (!document.getElementById('_alertAnimStyle')) {
+        var s = document.createElement('style');
+        s.id = '_alertAnimStyle';
+        s.textContent = '@keyframes alert-in{0%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}';
+        document.head.appendChild(s);
+    }
+
     function appendWfLog(msg, cls) {
         const log = document.getElementById('empWfLog');
         if (!log) return;
-        // 首次添加日志时插入工具栏
+        // 首次添加日志时插入拖拽条+工具栏
         if (!log.querySelector('.emp-wf-log-toolbar')) {
+            var dragbar = document.createElement('div');
+            dragbar.className = 'emp-wf-log-dragbar';
+            log.appendChild(dragbar);
             var tb = document.createElement('div');
             tb.className = 'emp-wf-log-toolbar';
             tb.innerHTML = '<button onclick="window.empWidget._wfLogCopy()" title="复制全部">📋</button>' +
                 '<button onclick="window.empWidget._wfLogToggle()" title="收起/展开" id="wfLogToggleBtn">▼</button>';
             log.appendChild(tb);
+            // 拖拽调整高度
+            dragbar.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var startY = e.clientY;
+                var startH = log.offsetHeight;
+                function mv(ev) {
+                    var newH = Math.max(28, Math.min(400, startH - (ev.clientY - startY)));
+                    log.style.height = newH + 'px';
+                }
+                function up() {
+                    document.removeEventListener('mousemove', mv);
+                    document.removeEventListener('mouseup', up);
+                }
+                document.addEventListener('mousemove', mv);
+                document.addEventListener('mouseup', up);
+            });
         }
         const entry = document.createElement('div');
         entry.className = 'wf-log-entry' + (cls ? ' ' + cls : '');
@@ -4603,6 +5117,8 @@
                 '<span class="wf-result-text">' + escapeHtml(trunc) + '</span></div>';
         }
         el.appendChild(result);
+        // 节点高度变化后重绘连线
+        redrawWfConnections();
 
         // 如果该节点的详情弹窗正打开着，自动刷新内容
         const popup = document.querySelector('.wf-popup');
@@ -4894,6 +5410,7 @@
         openWorkflow: openWorkflow, closeWorkflow: closeWorkflow, toggleWorkflow: toggleWorkflow, clearWorkflow: clearWorkflow,
         executeWorkflow: executeWorkflow, _wfDeleteNode: _wfDeleteNode, _runSingleNode: _runSingleNode, _wfUpdateConfig: _wfUpdateConfig,
         _imgGalleryNav: _imgGalleryNav, _imgExpand: _imgExpand, _imgCollapse: _imgCollapse, _imgSelect: _imgSelect,
+        _showTaskPanel: _showTaskPanel, _runTask: _runTask, _editTask: _editTask, _toggleTask: _toggleTask, _delTask: _delTask,
         _showImageViewer: _showImageViewer, _ivNav: _ivNav,
         _wfLogCopy: function() {
             var log = document.getElementById('empWfLog');
@@ -4921,16 +5438,16 @@
         _renameCategory: _renameCategory, _confirmRenameCategory: _confirmRenameCategory, _cycleCategoryColor: _cycleCategoryColor,
         _toggleTtsSettings: _toggleTtsSettings, _testEmpTTS: _testEmpTTS,
         _closeWfMenu: function() { var m = document.getElementById('empWfMenu'); if (m) m.style.display = 'none'; },
-        _closeFileMenu: function() { var m = document.getElementById('empWfFileMenu'); if (m) m.style.display = 'none'; },
+        _closeFileMenu: function() { var m = document.getElementById('empWfFileMenu'); if (m) m.style.display = 'none'; }, _loadWorkflowByName: _loadWorkflowByName,
         _toggleScissors: _toggleScissors,
         _saveConnConfig: _saveConnConfig,
         wfUndo: wfUndo, wfRedo: wfRedo
     };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); _startImgPolling(); document.addEventListener('click', closeContextMenu); });
+        document.addEventListener('DOMContentLoaded', function() { init(); bindDragDrop(); _startImgPolling(); _startTaskNotifyPolling(); document.addEventListener('click', closeContextMenu); });
     } else {
-        init(); startNotifyPolling(); startPanelRefresh(); bindDragDrop(); _startImgPolling(); document.addEventListener('click', closeContextMenu);
+        init(); bindDragDrop(); _startImgPolling(); _startTaskNotifyPolling(); document.addEventListener('click', closeContextMenu);
     }
     // 关闭页面前自动保存
     window.addEventListener('beforeunload', function() { autoSaveWorkflow(); });

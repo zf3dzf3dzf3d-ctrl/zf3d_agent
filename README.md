@@ -1,6 +1,6 @@
-﻿# ZF3D Agent v3
+﻿# ZF3D Agent v3.2
 
-> 全能桌面AI助手 — 节点工作流编排多AI协作、管理文件、浏览网页、编辑文档、AI生图/视频、图片加工、3D软件整合（3ds Max/Houdini/Blender）、自动化任务，276+操作，ReAct推理引擎，语义记忆，绕路师避坑学习，纯Python零依赖
+> 🚀 全能桌面AI助手 — 节点工作流编排多AI协作、管理文件、浏览网页、编辑文档、AI生图/视频、PS级图片加工、3D软件整合（3ds Max/Houdini/Blender）、自动化任务，276+操作，ReAct推理引擎，语义记忆，绕路师避坑学习，纯Python零依赖，复制即运行
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -8,12 +8,13 @@
 [![操作数](https://img.shields.io/badge/总操作-276+-blue.svg)](#)
 [![模型支持](https://img.shields.io/badge/模型支持-10+-orange.svg)](#)
 [![3D软件](https://img.shields.io/badge/3D软件-3dsMax%7CHoudini%7CBlender-purple.svg)](#)
+[![中文](https://img.shields.io/badge/全中文命名-red.svg)](#)
 
-一个帮你管理文件夹、图片、视频等所有文件的AI智能体。系统做手脚（调度、执行），大模型做大脑（思考、决策）。你只需写JSON配置，不改代码，一切行为由配置驱动。
+**一个帮你管理文件、图片、视频的AI智能体。系统做手脚（调度、执行），大模型做大脑（思考、决策）。你只需写JSON配置，不改代码，一切行为由配置驱动。零依赖、零安装、复制即运行。**
 
 ---
 
-## 🔀 节点工作流（v3.0新增）
+## 🔀 节点工作流（v3.0+）
 
 可视化编排多AI协作，让数字员工像流水线工人一样各司其职：
 
@@ -28,7 +29,7 @@
 - **撤销重做** — Ctrl+Z/Y，最多50步历史
 - **工作流保存/导入/导出** — JSON格式，团队间共享一个文件即可复现
 
-## 👥 数字员工系统（v3.0新增）
+## 👥 数字员工系统（v3.0+）
 
 每个员工都是独立人格，各司其职：
 
@@ -42,7 +43,7 @@
 
 ---
 
-## 🎮 3D软件整合（v3.1新增）
+## 🎮 3D软件整合（v3.1+）
 
 | 软件 | 接入方式 | 操作数 | 说明 |
 |------|---------|--------|------|
@@ -52,7 +53,7 @@
 
 三个软件互斥锁定，不会互相打架。按需连接，不用的不加载。
 
-## 🛡️ 绕路师（v3.1新增）
+## 🛡️ 绕路师（v3.1+）
 
 AI失败教训自动学习系统：
 - 任务失败时自动分析失败模式，LLM提炼绕路方案，存入SQLite
@@ -183,6 +184,8 @@ Word读取/修改/创建/段落操作、Excel文本替换、docx带格式HTML预
 
 ## 🚀 快速开始
 
+> **零依赖、零安装** — clone 后直接运行，不需要 `pip install` 任何包
+
 ### Windows 安装
 
 ```bash
@@ -200,7 +203,7 @@ cd zf3d_agent
 bash install.sh
 
 # 或解压便携包后安装
-tar xzf zf3d_agent_v3.0.2_linux.tar.gz
+tar xzf zf3d_agent_v3.2.1_linux.tar.gz
 cd zf3d_agent
 bash install.sh
 ```

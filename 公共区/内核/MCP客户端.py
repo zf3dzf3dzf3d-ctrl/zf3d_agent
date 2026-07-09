@@ -450,7 +450,7 @@ class MCP管理器类:
         # ① 检查 uv
         uv路径 = shutil.which("uv")
         if not uv路径:
-            print(f"   🔧 MCP [{名称}] uv未安装，正在自动安装...")
+            print(f"   ✅ MCP [{名称}] uv未安装，正在自动安装...")
             try:
                 result = subprocess.run(
                     [sys.executable, "-m", "pip", "install", "uv"],
@@ -492,7 +492,7 @@ class MCP管理器类:
         启动命令 = 服务.get("命令", [])
         if 启动命令 and 启动命令[0] == "uv":
             服务["命令"] = [uv路径] + 启动命令[1:]
-            print(f"   ℹ️ MCP [{名称}] 命令路径已修正: {uv路径}")
+            print(f"   ✅ MCP [{名称}] 命令路径已修正: {uv路径}")
 
         # 检查是否已安装（安装标记存在 = 插件已部署，跳过所有安装步骤）
         安装标记 = 服务.get("安装标记", "")
@@ -510,7 +510,7 @@ class MCP管理器类:
                 虚拟环境 = 项目路径 / ".venv"
 
                 if (项目路径 / "pyproject.toml").exists() and not (虚拟环境.exists() and 锁文件.exists()):
-                    print(f"   🔧 MCP [{名称}] 正在安装项目依赖 (uv sync)...")
+                    print(f"   ✅ MCP [{名称}] 正在安装项目依赖 (uv sync)...")
                     try:
                         result = subprocess.run(
                             [uv路径, "sync"],
@@ -529,7 +529,7 @@ class MCP管理器类:
             # ③ 复制gup插件和MAXScript（避免install.py的交互输入和UAC弹窗）
             if 项目目录:
                 项目路径 = Path(项目目录)
-                print(f"   🔧 MCP [{名称}] 正在部署插件...")
+                print(f"   ✅ MCP [{名称}] 正在部署插件...")
                 try:
                     gup源 = 项目路径 / "native" / "bin" / "mcp_bridge_2026.gup"
                     if not gup源.exists():
@@ -563,7 +563,7 @@ class MCP管理器类:
                                             else:
                                                 print(f"   ⚠️ MCP [{名称}] gup复制失败，可能需要手动以管理员身份运行install.py")
                                     else:
-                                        print(f"   ℹ️ MCP [{名称}] gup插件已存在")
+                                        print(f"   ✅ MCP [{名称}] gup插件已存在")
 
                                     # 复制MAXScript
                                     ms源 = 项目路径 / "maxscript" / "mcp_server.ms"
@@ -617,7 +617,7 @@ class MCP管理器类:
         """
         path = Path(配置路径)
         if not path.exists():
-            print(f"   ℹ️ MCP配置文件不存在: {配置路径}")
+            print(f"   ✅ MCP配置文件不存在: {配置路径}")
             return 0
 
         try:
@@ -653,17 +653,12 @@ class MCP管理器类:
 
             # 自动安装服务跳过启动时连接，等用户按需触发
             if 服务.get("自动安装", False):
-                print(f"   ⏳ MCP [{名称}] 待连接（用户说\"连接{名称}\"后自动安装）")
                 continue
 
             工具数 = self.连接单个服务(服务, 注册目标)
             总工具数 += 工具数
 
         self.总工具数 = 总工具数
-        if 总工具数 > 0:
-            print(f"   ✅ MCP服务加载完成: 共 {总工具数} 个工具")
-        else:
-            print(f"   ℹ️ MCP服务暂无可加载工具（自动安装服务待用户触发）")
 
         return 总工具数
 
@@ -679,7 +674,7 @@ class MCP管理器类:
 
         # 已连接则跳过
         if 名称 in self.客户端列表:
-            print(f"   ℹ️ MCP [{名称}] 已连接")
+            print(f"   ✅ MCP [{名称}] 已连接")
             return 0
 
         软件组 = 服务.get("软件组", None)
@@ -690,7 +685,7 @@ class MCP管理器类:
                 print(f"   ❌ MCP [{名称}] 环境安装失败")
                 return 0
 
-        print(f"   🔗 连接 MCP Server [{名称}]...")
+        print(f"   ✅ 连接 MCP Server [{名称}]...")
         客户端 = MCP客户端类(名称, 服务)
 
         if not 客户端.连接():

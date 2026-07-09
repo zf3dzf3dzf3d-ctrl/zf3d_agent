@@ -161,6 +161,48 @@ class 系统托盘:
         """更新托盘tooltip"""
         self._提示 = 文字[:127]
 
+    def 弹窗通知(self, 标题: str, 内容: str):
+        """弹出Windows原生气泡通知（即使浏览器关闭也能看到）"""
+        if not _IS_WINDOWS or not self._托盘添加成功:
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+            NIM_MODIFY = 0x00000001
+            # 用NOTIFYICONDATAW的szInfo字段弹出气泡
+            NOTIFYICONDATAW = type("NOTIFYICONDATAW", (ctypes.Structure,), {
+                "_fields_": [
+                    ("cbSize", wintypes.DWORD),
+                    ("hWnd", wintypes.HWND),
+                    ("uID", wintypes.UINT),
+                    ("uFlags", wintypes.UINT),
+                    ("uCallbackMessage", wintypes.UINT),
+                    ("hIcon", wintypes.HICON),
+                    ("szTip", wintypes.WCHAR * 128),
+                    ("dwState", wintypes.DWORD),
+                    ("dwStateMask", wintypes.DWORD),
+                    ("szInfo", wintypes.WCHAR * 256),
+                    ("uVersion", wintypes.UINT),
+                    ("szInfoTitle", wintypes.WCHAR * 64),
+                    ("dwInfoFlags", wintypes.DWORD),
+                ]
+            })
+            # 查找已注册的窗口句柄
+            hwnd = ctypes.windll.user32.FindWindowW("ZF3D_Agent_Tray", "智能体托盘")
+            if not hwnd:
+                return
+            nid = NOTIFYICONDATAW()
+            nid.cbSize = ctypes.sizeof(NOTIFYICONDATAW)
+            nid.hWnd = hwnd
+            nid.uID = 1
+            nid.uFlags = 0x00000010  # NIF_INFO
+            nid.szInfo = 内容[:255]
+            nid.szInfoTitle = 标题[:63]
+            nid.dwInfoFlags = 0x00000001  # NIIF_INFO
+            ctypes.windll.user32.Shell_NotifyIconW(NIM_MODIFY, ctypes.byref(nid))
+        except Exception:
+            pass
+
     def 停止(self):
         """停止托盘"""
         self._运行 = False

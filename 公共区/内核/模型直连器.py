@@ -6,6 +6,9 @@ v2.1新增: 指数退避重试 + LLM响应缓存
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
+import http.client
+import io
 import os
 import time
 import hashlib
@@ -104,6 +107,8 @@ class 模型直连器类:
     _统计锁 = threading.Lock()  # 统计线程安全锁
     _日志锁 = threading.Lock()  # LLM调用日志线程安全锁
     _LLM日志路径 = None  # 延迟初始化
+    _日志队列 = None  # 异步日志队列（延迟初始化）
+    _日志线程 = None  # 异步日志写入线程
 
     def __init__(self, 配置: dict, 密钥配置: dict = None):
         self.配置 = 配置
@@ -117,6 +122,12 @@ class 模型直连器类:
         日志目录 = 项目根 / "隐私区" / "我的日志"
         日志目录.mkdir(parents=True, exist_ok=True)
         模型直连器类._LLM日志路径 = 日志目录 / "LLM调用日志.jsonl"
+        # 初始化异步日志队列（只在第一次创建实例时启动后台线程）
+        if 模型直连器类._日志队列 is None:
+            import queue
+            模型直连器类._日志队列 = queue.Queue(maxsize=500)
+            模型直连器类._日志线程 = threading.Thread(target=模型直连器类._日志写入循环, daemon=True)
+            模型直连器类._日志线程.start()
         # 如果有模型配置列表，用当前模型的配置初始化；否则用顶层配置
         self._应用模型配置(self.当前模型名 or (self.模型配置列表[0]["名称"] if self.模型配置列表 else ""))
         # 全局配置（所有模型共享）
@@ -134,6 +145,84 @@ class 模型直连器类:
         self.规则 = 配置.get("规则", {})
         self.超时秒数 = self.规则.get("超时秒数", 30)
         self._API不可用 = False  # 余额不足/密钥过期等不可恢复错误标记
+        self._http连接 = None  # 持久HTTP连接
+        self._http连接URL = None  # 记录当前连接对应的URL
+
+    def _获取HTTP连接(self):
+        """获取或创建HTTP持久连接（连接池复用，省掉重复TCP+TLS握手）"""
+        if self._http连接 is None or self._http连接URL != self.接口地址:
+            self._关闭HTTP连接()
+            解析 = urllib.parse.urlparse(self.接口地址)
+            主机 = 解析.hostname
+            端口 = 解析.port or (443 if 解析.scheme == 'https' else 80)
+            路径 = 解析.path or '/'
+            if 解析.query:
+                路径 += '?' + 解析.query
+            if 解析.scheme == 'https':
+                self._http连接 = http.client.HTTPSConnection(主机, 端口, timeout=self.超时秒数)
+            else:
+                self._http连接 = http.client.HTTPConnection(主机, 端口, timeout=self.超时秒数)
+            self._http路径 = 路径
+            self._http连接URL = self.接口地址
+        return self._http连接
+
+    def _关闭HTTP连接(self):
+        """关闭持久连接"""
+        if self._http连接:
+            try:
+                self._http连接.close()
+            except Exception:
+                pass
+            self._http连接 = None
+            self._http连接URL = None
+
+    def _发送HTTP请求(self, 请求头: dict, 请求数据: bytes, 复用连接: bool = True):
+        """发送HTTP请求，复用持久连接，连接失效时自动重连重试一次
+        
+        参数:
+            复用连接: True=使用持久连接池(适合单线程), False=每次新建连接(适合后台并发)
+        
+        返回 http.client.HTTPResponse 对象
+        失败时抛出 urllib.error.HTTPError（4xx/5xx）或 urllib.error.URLError（连接失败）
+        """
+        for 尝试 in range(2):
+            try:
+                解析 = urllib.parse.urlparse(self.接口地址)
+                主机 = 解析.hostname
+                端口 = 解析.port or (443 if 解析.scheme == 'https' else 80)
+                路径 = 解析.path or '/'
+                if 解析.query:
+                    路径 += '?' + 解析.query
+                if 复用连接:
+                    conn = self._获取HTTP连接()
+                else:
+                    if 解析.scheme == 'https':
+                        conn = http.client.HTTPSConnection(主机, 端口, timeout=self.超时秒数)
+                    else:
+                        conn = http.client.HTTPConnection(主机, 端口, timeout=self.超时秒数)
+                conn.request(self.请求方法, 路径, body=请求数据, headers=请求头)
+                响应 = conn.getresponse()
+                if 响应.status >= 400:
+                    错误体 = 响应.read()
+                    raise urllib.error.HTTPError(
+                        self.接口地址, 响应.status, 响应.reason,
+                        请求头, io.BytesIO(错误体)
+                    )
+                return 响应
+            except urllib.error.HTTPError:
+                if not 复用连接:
+                    try: conn.close()
+                    except: pass
+                raise  # 4xx/5xx错误直接抛出，由调用方处理
+            except (http.client.HTTPException, ConnectionError, OSError) as e:
+                if not 复用连接:
+                    try: conn.close()
+                    except: pass
+                if 复用连接:
+                    self._关闭HTTP连接()
+                if 尝试 == 1:
+                    raise urllib.error.URLError(str(e))
+        return None
 
     def _应用模型配置(self, 模型名: str):
         """从模型配置列表中加载指定模型的配置"""
@@ -185,6 +274,8 @@ class 模型直连器类:
         self._应用模型配置(模型名)
         # 切换模型时重置API不可用标记（新模型可能余额正常）
         self._API不可用 = False
+        # 切换模型时关闭旧连接（不同模型可能不同API地址）
+        self._关闭HTTP连接()
         # 清空缓存（不同模型的缓存不通用）
         self.清空缓存()
         return {"成功": True, "当前模型": 模型名}
@@ -323,10 +414,7 @@ class 模型直连器类:
         开始时间 = time.time()
         try:
             请求数据 = json.dumps(请求体, ensure_ascii=False).encode("utf-8")
-            请求 = urllib.request.Request(
-                self.接口地址, data=请求数据, headers=请求头, method=self.请求方法
-            )
-            响应 = urllib.request.urlopen(请求, timeout=self.超时秒数)
+            响应 = self._发送HTTP请求(请求头, 请求数据)
 
             累积内容 = []
             工具调用列表 = []
@@ -491,7 +579,7 @@ class 模型直连器类:
             self._记录LLM调用日志(错误结果, 系统提示词, 消息列表)
             return 错误结果
 
-    def 发送消息(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None, 跳过缓存: bool = False) -> dict:
+    def 发送消息(self, 消息列表: list, 系统提示词: str = None, 工具列表: list = None, 工具选择: str = None, 跳过缓存: bool = False, 复用连接: bool = True) -> dict:
         """发送消息到大模型，返回完整响应（全透明）
         
         参数:
@@ -566,13 +654,7 @@ class 模型直连器类:
         for 尝试次数 in range(最大重试 + 1):
             try:
                 请求数据 = json.dumps(请求体, ensure_ascii=False).encode("utf-8")
-                请求 = urllib.request.Request(
-                    self.接口地址,
-                    data=请求数据,
-                    headers=请求头,
-                    method=self.请求方法
-                )
-                响应 = urllib.request.urlopen(请求, timeout=self.超时秒数)
+                响应 = self._发送HTTP请求(请求头, 请求数据, 复用连接=复用连接)
                 响应数据 = 响应.read().decode("utf-8")
                 响应JSON = json.loads(响应数据)
                 耗时毫秒 = int((time.time() - 开始时间) * 1000)
@@ -705,7 +787,7 @@ class 模型直连器类:
         return 最后错误
 
     def _记录LLM调用日志(self, 结果: dict, 系统提示词: str, 消息列表: list):
-        """将LLM调用原始请求/响应写入SQLite日志（全透明溯源）"""
+        """将LLM调用原始请求/响应推入异步队列（不阻塞LLM响应）"""
         try:
             # 深拷贝原始请求并掩码敏感信息
             原始请求 = 结果.get("原始请求")
@@ -747,13 +829,30 @@ class 模型直连器类:
                 "回复内容": 结果.get("回复内容", "")[:2000] if 结果.get("成功") else "",
                 "工具调用": 结果.get("工具调用", []) if 结果.get("成功") else []
             }
-            # 写入SQLite
-            from 存储引擎 import 获取存储引擎
-            引擎 = 获取存储引擎()
-            if 引擎:
-                引擎.插入LLM日志(日志条目)
+            # 推入异步队列（队列满时丢弃，不阻塞主线程）
+            if 模型直连器类._日志队列:
+                try:
+                    模型直连器类._日志队列.put_nowait(日志条目)
+                except Exception:
+                    pass  # 队列满，丢弃
         except Exception:
             pass
+
+    @classmethod
+    def _日志写入循环(cls):
+        """后台线程：从队列取日志写入SQLite"""
+        while True:
+            try:
+                条目 = cls._日志队列.get(timeout=1)
+                if 条目 is None:
+                    break
+                from 存储引擎 import 获取存储引擎
+                引擎 = 获取存储引擎()
+                if 引擎:
+                    引擎.插入LLM日志(条目)
+                cls._日志队列.task_done()
+            except Exception:
+                continue
 
     def 验证连通性(self) -> dict:
         """验证模型接口配置是否就绪（不发HTTP请求，实际连通性在对话时自然验证）"""

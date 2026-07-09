@@ -13,7 +13,7 @@ async function checkForUpdate() {
         const d = await res.json();
         if (d.有更新) {
             updateInfo = d;
-            // 静默自动下载并更新，不弹窗
+            // 静默自动下载并更新
             await silentUpdate(d);
         }
     } catch (e) {}

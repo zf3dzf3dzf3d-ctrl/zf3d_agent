@@ -60,7 +60,7 @@
      "env": [
        {"HOUDINI_BRIDGE_PORT": "45172"}
      ],
-     "path": "C:\\Users\\Administrator\\Desktop\\zf3d_Agent\\新系统_v2_开发版\\公共区\\插件\\Houdini"
+     "path": "<项目根目录>/公共区/插件/Houdini"
    }
    ```
 

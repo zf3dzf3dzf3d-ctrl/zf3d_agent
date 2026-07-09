@@ -169,7 +169,7 @@ class 技能加载器类:
         self.技能目录 = Path(目录路径)
         if not self.技能目录.exists():
             self.技能目录.mkdir(parents=True, exist_ok=True)
-            print(f"   ℹ️ 技能目录已创建: {目录路径}")
+            print(f"   ✅ 技能目录已创建: {目录路径}")
             return []
 
         加载列表 = []
@@ -181,7 +181,7 @@ class 技能加载器类:
                 try:
                     with zipfile.ZipFile(压缩包, "r") as zf:
                         zf.extractall(解压目录)
-                    print(f"   📦 技能包 [{压缩包.name}] 已解压")
+                    print(f"   ✅ 技能包 [{压缩包.name}] 已解压")
                 except Exception as e:
                     print(f"   ❌ 技能包 [{压缩包.name}] 解压失败: {e}")
                     continue
@@ -224,13 +224,6 @@ class 技能加载器类:
                 参考目录 = 子目录 / "references"
                 if 参考目录.exists():
                     技能.参考文档列表 = sorted(参考目录.glob("*.md"))
-
-                print(f"   📦 技能 [{技能.名称}] 已加载")
-
-        if 加载列表:
-            print(f"   ✅ 技能加载完成: 共 {len(加载列表)} 个技能")
-        else:
-            print(f"   ℹ️ 技能目录无可用技能: {目录路径}")
 
         # 加载使用记录并执行生命周期扫描
         self._加载使用记录()

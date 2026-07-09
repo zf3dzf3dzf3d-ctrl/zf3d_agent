@@ -90,8 +90,8 @@ class 记忆模块:
             from 存储引擎 import 获取存储引擎
             db路径 = str(项目根目录 / "隐私区" / "我的数据" / "智能体.db")
             self.存储引擎 = 获取存储引擎(db路径)
-            # 后台归纳没有摘要的旧对话
-            threading.Thread(target=self._归纳历史对话, daemon=True).start()
+            # 后台归纳延迟30秒启动，避免阻塞启动和刷屏
+            threading.Timer(30, self._归纳历史对话).start()
             # 启动后60秒执行经验提炼（不阻塞启动）
             threading.Timer(60, self._提炼用户模式).start()
             # 每6小时定期提炼+衰减+合并
@@ -104,7 +104,7 @@ class 记忆模块:
                     self._合并相似摘要()
             threading.Thread(target=_定期维护, daemon=True).start()
         except Exception as e:
-            print(f"  ⚠️ 记忆模块存储引擎注入失败: {e}")
+            print(f"   ⚠️ 记忆模块存储引擎注入失败: {e}")
 
         # 启动异步写入线程
         self._写入线程 = threading.Thread(target=self._写入循环, daemon=True)
@@ -655,7 +655,6 @@ tags: [{', '.join(标签)}]
             需归纳 = [d for d in 对话列表 if d["id"] not in 已归纳IDs and d.get("消息数", 0) >= 2]
             if not 需归纳:
                 return
-            print(f"  🧠 记忆模块：发现{len(需归纳)}个未归纳的旧对话，开始后台归纳...")
             已归纳数 = 0
             for d in 需归纳:
                 try:
@@ -663,10 +662,8 @@ tags: [{', '.join(标签)}]
                     已归纳数 += 1
                 except Exception:
                     continue
-            if 已归纳数:
-                print(f"  ✅ 记忆模块：已归纳{已归纳数}个旧对话")
-        except Exception as e:
-            print(f"  ⚠️ 历史对话归纳失败: {e}")
+        except Exception:
+            pass  # 静默，不刷屏
 
     def _归纳单个对话(self, 对话ID: str, 标题: str):
         """对单个SQLite对话生成摘要并存入摘要索引"""
@@ -697,10 +694,11 @@ tags: [{', '.join(标签)}]
 {对话文本}"""
         结果 = self.模型直连器.发送消息(
             [{"role": "user", "content": 摘要提示词}],
-            "你是摘要专家，输出纯JSON，不要markdown代码块。"
+            "你是摘要专家，输出纯JSON，不要markdown代码块。",
+            跳过缓存=True, 复用连接=False
         )
         if not 结果.get("成功"):
-            return
+            return  # 静默跳过，不打印错误
         回复 = 结果.get("回复内容", "")
         json匹配 = re.search(r'\{[\s\S]*\}', 回复)
         if json匹配:

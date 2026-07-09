@@ -21,6 +21,7 @@ function initSettings() {
             if (item.dataset.tab === "config") loadConfig();
             if (item.dataset.tab === "wheel") loadWheelConfig();
             if (item.dataset.tab === "voice") { loadVoiceConfig(); loadTTSConfig(); }
+            if (item.dataset.tab === "cloudimg") loadCloudKeys();
         });
     });
 }
@@ -808,4 +809,37 @@ function _startTTSInstallPolling() {
             }
         } catch (e) {}
     }, 2000);
+}
+
+// ============ 云端出图密钥 ============
+async function loadCloudKeys() {
+    try {
+        const res = await fetch("/api/config");
+        const c = await res.json();
+        const cfg = c.系统配置 || {};
+        const g = document.getElementById("cloudKey_Google"); if (g) g.value = cfg.Google_API密钥 || "";
+        const x = document.getElementById("cloudKey_Grok"); if (x) x.value = cfg.Grok_API密钥 || "";
+        const s = document.getElementById("cloudKey_Seedream"); if (s) s.value = cfg.Seedream_API密钥 || "";
+        const o = document.getElementById("cloudKey_OpenAI"); if (o) o.value = cfg.OpenAI_Image_API密钥 || "";
+    } catch (e) {}
+}
+
+async function saveCloudKeys() {
+    try {
+        const res = await fetch("/api/config");
+        const c = await res.json();
+        const cfg = c.系统配置 || {};
+        const g = document.getElementById("cloudKey_Google"); if (g) cfg.Google_API密钥 = g.value.trim();
+        const x = document.getElementById("cloudKey_Grok"); if (x) cfg.Grok_API密钥 = x.value.trim();
+        const s = document.getElementById("cloudKey_Seedream"); if (s) cfg.Seedream_API密钥 = s.value.trim();
+        const o = document.getElementById("cloudKey_OpenAI"); if (o) cfg.OpenAI_Image_API密钥 = o.value.trim();
+        await fetch("/api/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ "名称": "系统配置", "数据": cfg, "区域": "公共区" })
+        });
+        showToast("success", "✅ 云端出图密钥已保存", "节点图中的云端出图节点已可使用");
+    } catch (e) {
+        showToast("error", "❌ 保存失败", String(e));
+    }
 }

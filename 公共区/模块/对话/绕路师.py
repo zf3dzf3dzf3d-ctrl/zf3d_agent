@@ -27,9 +27,8 @@ class 绕路师类:
         try:
             from 存储引擎 import 获取存储引擎
             self.存储引擎 = 获取存储引擎()
-            print(f"  ✅ 绕路师就绪")
         except Exception as e:
-            print(f"  ⚠️ 绕路师初始化失败: {e}")
+            print(f"   ⚠️ 绕路师初始化失败: {e}")
 
     def 记录失败(self, 用户消息: str, 推理结果: dict):
         """任务失败时调用：分析失败模式 → LLM提炼绕路方案 → 存入绕路库"""
