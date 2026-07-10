@@ -11,8 +11,9 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 /* === 顶部栏 === */
 .topbar { display:flex; align-items:center; background:var(--bg3); border-bottom:1px solid var(--border); height:36px; padding:0 8px; flex-shrink:0; }
 .topbar-left, .topbar-right { display:flex; gap:2px; align-items:center; }
-.topbar-right { margin-left:auto; display:flex; gap:6px; align-items:center; }
-.topbar-icon { background:none; border:none; color:var(--text2); font-size:15px; cursor:pointer; padding:4px 8px; border-radius:3px; }
+.topbar-right { margin-left:auto; display:flex; gap:2px; align-items:center; }
+.topbar-center { margin-left:auto; margin-right:auto; display:flex; gap:2px; align-items:center; }
+.topbar-icon { background:none; border:none; color:var(--text2); font-size:15px; cursor:pointer; padding:0 8px; line-height:36px; border-radius:3px; }
 .topbar-icon:hover { background:var(--hover); color:var(--text); }
 .topbar-icon.active { color:var(--text); background:rgba(33,150,243,0.15); }
 .topbar-icon.has-update { animation: pulse-update 2s infinite; color:var(--green); }
@@ -25,7 +26,9 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .tts-volume-slider::-moz-range-thumb { width:14px; height:14px; background:var(--blue); border-radius:50%; cursor:pointer; border:none; }
 .tts-volume-value { font-size:12px; color:var(--text); font-family:Consolas,monospace; }
 @keyframes pulse-update { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
-.topbar-title { font-size:13px; color:var(--text2); margin:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.topbar-title { font-size:16px; font-weight:700; margin:0 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px; color:transparent; background:linear-gradient(90deg,#055bbe 0%,#1c80e0 20%,#31a2fe 40%,#ffffff 60%,#31a2fe 80%,#055bbe 100%); background-size:300% 100%; -webkit-background-clip:text; background-clip:text; animation:logoGradient 6s ease infinite; }
+@keyframes logoGradient { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+.topbar-logo { width:24px; height:24px; display:inline-block; flex-shrink:0; background:linear-gradient(90deg,#055bbe 0%,#1c80e0 20%,#31a2fe 40%,#ffffff 60%,#31a2fe 80%,#055bbe 100%); background-size:300% 100%; animation:logoGradient 6s ease infinite; -webkit-mask:url('favicon.png?v=2') center / contain no-repeat; mask:url('favicon.png?v=2') center / contain no-repeat; }
 
 /* 面板文字隐藏（窄屏或拖拽过窄时） */
 .panel-narrow > .panel-bar > span { display:none; }
@@ -96,7 +99,7 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .open-folder-bar button { background:var(--blue); color:white; border:none; padding:3px 10px; border-radius:2px; cursor:pointer; font-size:11px; }
 
 /* === 中间编辑器 === */
-.editor-panel { flex:1; min-width:100px; background:var(--bg); position:relative; overflow:visible; display:flex; flex-direction:column; }
+.editor-panel { flex:1; min-width:0; background:var(--bg); position:relative; overflow:visible; display:flex; flex-direction:column; }
 
 /* 编辑器工具栏 */
 .editor-toolbar { display:flex; align-items:center; gap:4px; padding:3px 8px; background:var(--bg3); border-bottom:1px solid var(--border); flex-shrink:0; font-size:12px; }
@@ -141,7 +144,14 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 /* 图片/画廊视图 */
 .media-view { flex:1; overflow-y:auto; padding:0 12px 12px 12px; display:flex; flex-direction:column; position:relative; }
 .gallery-header { display:flex; align-items:center; gap:8px; margin-bottom:12px; position:sticky; top:0; z-index:10; background:var(--bg); padding:6px 0; }
-.gallery-current-path { font-size:11px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gallery-current-path { font-size:11px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:text; }
+.gallery-path-input { font-size:13px; background:var(--input); border:1px solid var(--blue); color:var(--text); padding:3px 8px; border-radius:3px; outline:none; flex:1; min-width:80px; }
+.gallery-path-crumb { font-size:13px; color:var(--text2); cursor:pointer; padding:2px 6px; border-radius:2px; white-space:nowrap; }
+.gallery-path-crumb:hover { background:var(--hover); color:var(--blue); }
+.gallery-path-sep { font-size:13px; color:var(--text3); user-select:none; margin:0 2px; }
+.gallery-path-dropdown { position:fixed; background:var(--bg3); border:1px solid var(--border); border-radius:4px; box-shadow:0 4px 16px rgba(0,0,0,0.4); max-height:240px; overflow-y:auto; z-index:9999; min-width:140px; }
+.gallery-path-dropdown-item { padding:6px 14px; font-size:13px; cursor:pointer; color:var(--text2); white-space:nowrap; }
+.gallery-path-dropdown-item:hover { background:var(--hover); color:var(--blue); }
 .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px; }
 .gallery-item { position:relative; background:var(--bg2); border:1px solid var(--border); border-radius:6px; overflow:hidden; cursor:pointer; transition:border-color 0.15s; }
 .gallery-item:hover { border-color:var(--blue); }
@@ -976,3 +986,37 @@ pre:hover .code-copy-btn { opacity:1; }
 .donate-footer { padding:16px 28px; text-align:center; font-size:11px; color:var(--text2); border-top:1px solid var(--border); background:var(--bg4); display:flex; flex-direction:column; gap:3px; }
 .donate-qq { font-size:13px; color:var(--blue); font-weight:600; margin-bottom:4px; }
 .donate-box .settings-close-btn { border-radius:50%; width:36px; height:36px; font-size:18px; top:12px; right:12px; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+
+/* ============ 模型排行榜 ============ */
+.rank-btn { padding:4px 12px; border-radius:4px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:12px; transition:all .15s; }
+.rank-btn:hover { background:var(--bg3); border-color:var(--text2); }
+.rank-btn.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.ranking-item { display:grid; grid-template-columns:28px 1fr 90px 100px auto; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--border); transition:background .1s; }
+.ranking-item:hover { background:rgba(255,255,255,0.03); }
+.ranking-item.current { border-left:3px solid var(--blue); background:rgba(42,157,255,0.05); }
+.ranking-rank { font-size:15px; font-weight:bold; text-align:center; color:var(--text2); }
+.ranking-rank.top1 { color:#FFD700; } .ranking-rank.top2 { color:#C0C0C0; } .ranking-rank.top3 { color:#CD7F32; }
+.ranking-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.ranking-name { font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ranking-name.current { color:var(--blue); }
+.ranking-tag { font-size:10px; color:var(--text2); }
+.ranking-bar-wrap { display:flex; align-items:center; gap:4px; }
+.ranking-bar { width:60px; height:5px; border-radius:3px; background:var(--bg4); overflow:hidden; }
+.ranking-bar-fill { height:100%; border-radius:3px; transition:width .3s; }
+.ranking-score { font-size:11px; color:var(--text2); width:24px; text-align:right; }
+.ranking-price { font-size:11px; color:var(--text2); white-space:nowrap; text-align:right; line-height:1.4; }
+.ranking-price .free { color:var(--green); font-weight:600; }
+.sort-dir { font-size:10px; opacity:0.7; margin-left:2px; }
+.ranking-actions { display:flex; align-items:center; gap:4px; }
+.ranking-switch { padding:2px 10px; border-radius:4px; border:1px solid var(--blue); background:transparent; color:var(--blue); cursor:pointer; font-size:11px; transition:all .15s; }
+.ranking-switch:hover { background:var(--blue); color:#fff; }
+.ranking-switch.current { background:var(--blue); color:#fff; }
+.ranking-drag { cursor:grab; color:var(--text2); opacity:0.3; font-size:14px; user-select:none; }
+.ranking-drag:hover { opacity:1; }
+.ranking-item.dragging { opacity:0.4; }
+.ranking-item.drag-over-top { box-shadow:inset 0 2px 0 var(--blue); }
+.ranking-item.drag-over-bot { box-shadow:inset 0 -2px 0 var(--blue); }
+.rank-arrow { background:none; border:none; color:var(--text2); cursor:pointer; font-size:10px; padding:1px 3px; line-height:1; display:block; }
+.rank-arrow:hover { color:var(--blue); }
+.rank-arrow-sp { display:block; height:12px; }
+.ranking-rank-col { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; }

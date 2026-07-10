@@ -21,6 +21,7 @@ class 定时任务调度器:
         self.线程 = None
         self.网页端口 = 8765  # 本地Web服务端口（工作流任务调用）
         self.通知队列 = []  # 工作流任务通知 [{任务名, 状态, 时间, 消息}]
+        self.执行中 = set()  # 正在执行的任务ID，防止重复触发
         self._前端在线 = False  # 前端是否在线（轮询通知时设为True）
         self._最后前端访问 = None  # 最后一次前端访问时间
         self._加载任务()
@@ -259,10 +260,16 @@ class 定时任务调度器:
 
         # 工作流类型任务：通过HTTP调用工作流执行引擎
         if 任务.get("类型") == "工作流":
+            任务ID = 任务.get("id", "")
+            if 任务ID in self.执行中:
+                return  # 已在执行，跳过
+            self.执行中.add(任务ID)
             try:
                 self._执行工作流任务(任务)
             except Exception as e:
                 print(f"  ❌ 工作流任务失败 [{任务['名称']}]: {e}")
+            finally:
+                self.执行中.discard(任务ID)
             return
 
         if self.操作注册中心:
@@ -372,6 +379,9 @@ class 定时任务调度器:
             间隔分钟 = 任务.get("间隔分钟", 30)
             if not 最后触发:
                 return True  # 首次立即触发
+            # 正在执行中的任务不重复触发
+            if 任务.get("id") in self.执行中:
+                return False
             try:
                 上次 = datetime.fromisoformat(最后触发)
                 return (now - 上次).total_seconds() >= 间隔分钟 * 60
@@ -453,7 +463,9 @@ class 定时任务调度器:
                 "时间": datetime.now().strftime("%H:%M"),
                 "消息": 通知消息
             })
-            self._桌面通知(任务["名称"], 通知消息)
+            # 仅工作流失败时弹桌面通知，成功时alert节点已弹过，不重复
+            if not 成功:
+                self._桌面通知(任务["名称"], 通知消息)
         except Exception as e:
             print(f"  ❌ 工作流执行失败 [{任务['名称']}]: {e}")
             self.通知队列.append({

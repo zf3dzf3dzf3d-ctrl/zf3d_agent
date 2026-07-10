@@ -66,53 +66,113 @@ async function openFolder(path) {
     stopSlideshow();
     hideAudioPlayer();
     hideVideoPlayer();
-    currentRoot = path.replace(/[\/\\]+$/, "");
-    // Windows盘符(C:)需要补回反斜杠(C:\)，否则Python解析为"当前目录的C盘"
-    if (/^[A-Za-z]:$/.test(currentRoot)) {
-        currentRoot = currentRoot + "\\";
-    }
+    currentRoot = normPath(path);
     currentRootDisplay = currentRoot === "." ? "项目根目录" : currentRoot;
     if (currentRoot !== ".") localStorage.setItem("lastFolder", currentRoot);
-    try {
-        const res = await fetch(`/api/file-tree?path=${encodeURIComponent(currentRoot)}&depth=3`);
-        const d = await res.json();
-        if (d.成功) {
-            const tree = document.getElementById("fileTree");
-            tree.innerHTML = "";
-            // 我的电脑快捷入口（始终置顶）
-            const mcItem = document.createElement("div");
-            mcItem.className = "ti";
-            mcItem.style.borderBottom = "1px solid var(--border)";
-            mcItem.innerHTML = `<span class="arr"> </span><span class="ico">💻</span><span class="nm">我的电脑</span>`;
-            mcItem.addEventListener("click", e => { e.stopPropagation(); openMyComputer(); });
-            tree.appendChild(mcItem);
-            const root = d.树;
-            root.名称 = root.名称 || currentRootDisplay;
-            const rootEl = document.createElement("div");
-            const rootItem = document.createElement("div");
-            rootItem.className = "ti active";
-            rootItem.innerHTML = `<span class="arr">▼</span><span class="ico">📁</span><span class="nm">${root.名称}</span><button class="new-btn" title="新建文件夹">➕</button><button class="ren-btn" title="重命名此文件夹">✏️</button><button class="exp-btn" title="在Windows资源管理器中打开此文件夹">🗂️</button><button class="del-btn" title="删除此文件夹及其所有内容">🗑️</button>`;
-            rootEl.appendChild(rootItem);
-            setupDropTarget(rootItem, currentRoot);
-            rootItem.addEventListener("click", e => {
-                if (e.target.classList.contains("new-btn")) { e.stopPropagation(); newFolder(currentRoot); return; }
-                if (e.target.classList.contains("exp-btn")) { e.stopPropagation(); openInExplorer(currentRoot); return; }
-                if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(currentRoot, root.名称, true); return; }
-                if (e.target.classList.contains("ren-btn")) { e.stopPropagation(); renameItem(currentRoot, root.名称); return; }
-                e.stopPropagation();
-                showGallery(currentRoot);
-            });
-            const rootKids = document.createElement("div");
-            rootKids.className = "tc open";
-            if (root.子项) for (const c of root.子项) rootKids.appendChild(buildTreeNode(c, currentRoot));
-            rootEl.appendChild(rootKids);
-            tree.appendChild(rootEl);
-        } else {
-            document.getElementById("fileTree").innerHTML = `<div class="tree-hint">❌ ${d.错误 || "无法打开"}</div>`;
-        }
-    } catch (e) {
-        document.getElementById("fileTree").innerHTML = `<div class="tree-hint">❌ 连接错误</div>`;
+    // 不重建树，在持久树上导航+高亮
+    await navigateTree(currentRoot);
+    showGallery(currentRoot);
+}
+
+// 在持久树上导航到目标路径：懒加载+展开+高亮
+async function navigateTree(targetPath) {
+    const target = normPath(targetPath);
+    if (!target) return;
+    
+    // 如果树是空的或不在"我的电脑"模式，先初始化
+    const tree = document.getElementById("fileTree");
+    if (!tree.querySelector('.ti[data-path]')) {
+        await openMyComputer();
     }
+    
+    // 分解路径段：C:\Users\Admin → ['C:\', 'C:\Users', 'C:\Users\Admin']
+    const segments = [];
+    const driveMatch = target.match(/^([A-Za-z]:\\)(.*)$/);
+    if (!driveMatch) return; // 非Windows路径，无法导航
+    
+    const drive = driveMatch[1]; // C:\
+    segments.push(drive);
+    if (driveMatch[2]) {
+        const dirs = driveMatch[2].split("\\").filter(s => s);
+        let acc = drive;
+        for (const d of dirs) {
+            acc += d + "\\";
+            segments.push(acc);
+        }
+    }
+    
+    // 逐段确保节点存在并展开
+    for (let i = 0; i < segments.length; i++) {
+        const segPath = segments[i];
+        let node = null;
+        // 在DOM中查找该路径的节点
+        document.querySelectorAll(".ti[data-path]").forEach(item => {
+            if (samePath(item.dataset.path || "", segPath)) node = item;
+        });
+        
+        if (!node) {
+            // 节点不存在，需要从父节点懒加载
+            const parentPath = i > 0 ? segments[i - 1] : null;
+            let parentNode = null;
+            if (parentPath) {
+                document.querySelectorAll(".ti[data-path]").forEach(item => {
+                    if (samePath(item.dataset.path || "", parentPath)) parentNode = item;
+                });
+            }
+            if (parentNode) {
+                // 懒加载父节点的子项
+                const kids = parentNode.nextElementSibling;
+                if (kids && kids.classList.contains("tc") && !kids.dataset.loaded) {
+                    try {
+                        const res = await fetch(`/api/file-tree?path=${encodeURIComponent(normPath(parentPath))}&depth=1`);
+                        const d = await res.json();
+                        if (d.成功 && d.树) {
+                            kids.innerHTML = "";
+                            const 子节点列表 = d.树.子项 || [];
+                            for (const c of 子节点列表) kids.appendChild(buildTreeNode(c, normPath(parentPath)));
+                            kids.dataset.loaded = "1";
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                // 重新查找
+                document.querySelectorAll(".ti[data-path]").forEach(item => {
+                    if (samePath(item.dataset.path || "", segPath)) node = item;
+                });
+            }
+        }
+        
+        if (node) {
+            // 展开该节点及其所有父级
+            let parent = node.parentElement;
+            while (parent && parent.id !== "fileTree") {
+                if (parent.classList.contains("tc")) {
+                    parent.classList.add("open");
+                    const pitem = parent.previousElementSibling;
+                    if (pitem) {
+                        const arr = pitem.querySelector(".arr");
+                        if (arr) arr.textContent = "▼";
+                    }
+                }
+                parent = parent.parentElement;
+            }
+            // 展开自身（如果有子项容器）
+            const kids = node.nextElementSibling;
+            if (kids && kids.classList.contains("tc")) {
+                kids.classList.add("open");
+                const arr = node.querySelector(".arr");
+                if (arr) arr.textContent = "▼";
+            }
+        }
+    }
+    
+    // 高亮目标节点
+    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".ti[data-path]").forEach(item => {
+        if (samePath(item.dataset.path || "", target)) {
+            item.classList.add("active");
+            item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    });
 }
 
 async function openMyComputer() {
@@ -136,7 +196,10 @@ async function openMyComputer() {
     document.getElementById("audioPlayer").style.display = "none";
     document.getElementById("videoPlayer").style.display = "none";
     document.getElementById("galleryHeader").style.display = "flex";
-    document.getElementById("galleryCurrentPath").textContent = "我的电脑";
+    renderBreadcrumb("我的电脑");
+    document.getElementById("galleryPathInput").style.display = "none";
+    document.getElementById("galleryCurrentPath").style.display = "";
+    galleryPath = "我的电脑";
     updateViewToggleButtons();
     const grid = document.getElementById("galleryGrid");
     grid.innerHTML = '<div class="gallery-empty">加载中...</div>';
@@ -164,11 +227,42 @@ async function openMyComputer() {
             for (const drv of quickAccess) {
                 const label = drv.标签 || drv.盘符;
                 const icon = drv.图标 || "📁";
+                const drvPath = normPath(drv.路径);
                 const ti = document.createElement("div");
                 ti.className = "ti";
-                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>`;
-                ti.addEventListener("click", e => { e.stopPropagation(); openFolder(drv.路径); showGallery(drv.路径); });
-                mcKids.appendChild(ti);
+                ti.dataset.path = drvPath;
+                ti.innerHTML = `<span class="arr">▶</span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>`;
+                ti.addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+                    ti.classList.add("active");
+                    currentRoot = drvPath;
+                    showGallery(drvPath);
+                    // 懒加载子项
+                    const kids = ti.nextElementSibling;
+                    if (kids && kids.classList.contains("tc") && !kids.dataset.loaded) {
+                        try {
+                            const res = await fetch(`/api/file-tree?path=${encodeURIComponent(drvPath)}&depth=1`);
+                            const d2 = await res.json();
+                            if (d2.成功 && d2.树) {
+                                kids.innerHTML = "";
+                                for (const c of (d2.树.子项 || [])) kids.appendChild(buildTreeNode(c, drvPath));
+                                kids.dataset.loaded = "1";
+                            }
+                        } catch (e2) {}
+                    }
+                    if (kids && kids.classList.contains("tc")) {
+                        kids.classList.toggle("open");
+                        const arr = ti.querySelector(".arr");
+                        if (arr) arr.textContent = kids.classList.contains("open") ? "▼" : "▶";
+                    }
+                });
+                const kidsWrap = document.createElement("div");
+                kidsWrap.className = "tc";
+                const wrapper = document.createElement("div");
+                wrapper.appendChild(ti);
+                wrapper.appendChild(kidsWrap);
+                mcKids.appendChild(wrapper);
             }
         }
         if (diskList.length > 0) {
@@ -181,12 +275,43 @@ async function openMyComputer() {
                 const icon = drv.图标 || "💾";
                 let spaceInfo = "";
                 if (drv.总大小GB) spaceInfo = `${drv.已用GB}GB / ${drv.总大小GB}GB`;
+                const drvPath = normPath(drv.路径);
                 const ti = document.createElement("div");
                 ti.className = "ti";
+                ti.dataset.path = drvPath;
                 const spaceHtml = spaceInfo ? `<span class="ti-space">${spaceInfo}</span>` : "";
-                ti.innerHTML = `<span class="arr"> </span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>${spaceHtml}`;
-                ti.addEventListener("click", e => { e.stopPropagation(); openFolder(drv.路径); showGallery(drv.路径); });
-                mcKids.appendChild(ti);
+                ti.innerHTML = `<span class="arr">▶</span><span class="ico">${icon}</span><span class="nm">${_esc(label)}</span>${spaceHtml}`;
+                ti.addEventListener("click", async (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+                    ti.classList.add("active");
+                    currentRoot = drvPath;
+                    showGallery(drvPath);
+                    // 懒加载子项
+                    const kids = ti.nextElementSibling;
+                    if (kids && kids.classList.contains("tc") && !kids.dataset.loaded) {
+                        try {
+                            const res = await fetch(`/api/file-tree?path=${encodeURIComponent(drvPath)}&depth=1`);
+                            const d2 = await res.json();
+                            if (d2.成功 && d2.树) {
+                                kids.innerHTML = "";
+                                for (const c of (d2.树.子项 || [])) kids.appendChild(buildTreeNode(c, drvPath));
+                                kids.dataset.loaded = "1";
+                            }
+                        } catch (e2) {}
+                    }
+                    if (kids && kids.classList.contains("tc")) {
+                        kids.classList.toggle("open");
+                        const arr = ti.querySelector(".arr");
+                        if (arr) arr.textContent = kids.classList.contains("open") ? "▼" : "▶";
+                    }
+                });
+                const kidsWrap = document.createElement("div");
+                kidsWrap.className = "tc";
+                const wrapper = document.createElement("div");
+                wrapper.appendChild(ti);
+                wrapper.appendChild(kidsWrap);
+                mcKids.appendChild(wrapper);
             }
         }
         // --- 中间画廊 ---
@@ -202,7 +327,7 @@ async function openMyComputer() {
                 item.className = "gallery-item";
                 item.title = `打开 ${drv.路径}`;
                 item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${_esc(label)}</div>`;
-                item.addEventListener("click", () => { openFolder(drv.路径); showGallery(drv.路径); });
+                item.addEventListener("click", () => { currentRoot = drv.路径; showGallery(drv.路径); });
                 grid.appendChild(item);
             }
         }
@@ -221,7 +346,7 @@ async function openMyComputer() {
                 item.title = `打开 ${drv.路径}`;
                 const spaceLine = spaceInfo ? `<div class="gallery-name" style="font-size:10px;color:var(--text3);">${spaceInfo}</div>` : "";
                 item.innerHTML = `<div class="gallery-thumb">${icon}</div><div class="gallery-name">${_esc(label)}</div>${spaceLine}`;
-                item.addEventListener("click", () => { openFolder(drv.路径); showGallery(drv.路径); });
+                item.addEventListener("click", () => { currentRoot = drv.路径; showGallery(drv.路径); });
                 grid.appendChild(item);
             }
         }
@@ -261,8 +386,10 @@ function buildTreeNode(node, path) {
             if (e.target.classList.contains("del-btn")) { e.stopPropagation(); deleteItem(fullPath, node.名称, true); return; }
             if (e.target.classList.contains("ren-btn")) { e.stopPropagation(); renameItem(fullPath, node.名称); return; }
             e.stopPropagation();
+            // 先清除所有active，再高亮当前
+            document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
             showGallery(fullPath);
-            // 同步更新currentRoot，确保AI上下文正确
             currentRoot = fullPath;
             // 截断的文件夹需要懒加载子项
             if (truncated && !kids.dataset.loaded) {
@@ -277,7 +404,6 @@ function buildTreeNode(node, path) {
                     }
                     const open = kids.classList.toggle("open");
                     if (arr) arr.textContent = open ? "▼" : "▶";
-                    item.classList.toggle("active", open);
                 }).catch(() => {
                     if (arr) arr.textContent = "▶";
                 });
@@ -286,9 +412,22 @@ function buildTreeNode(node, path) {
             const open = kids.classList.toggle("open");
             const arr = item.querySelector(".arr");
             if (arr) arr.textContent = open ? "▼" : (hasKids ? "▶" : " ");
-            item.classList.toggle("active", open);
         });
-        item.addEventListener("dblclick", e => { e.stopPropagation(); openFolder(fullPath); showGallery(fullPath); });
+        item.addEventListener("dblclick", e => {
+            e.stopPropagation();
+            // 仿Windows：双击只进入子文件夹显示画廊+展开树，不重新设根
+            document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            showGallery(fullPath);
+            currentRoot = fullPath;
+            // 展开该节点
+            if (!kids.classList.contains("open")) {
+                kids.classList.add("open");
+                const arr = item.querySelector(".arr");
+                if (arr) arr.textContent = "▼";
+                item.classList.add("active");
+            }
+        });
     } else {
         const item = document.createElement("div");
         const fullPath = joinPath(path, node.名称);
@@ -420,10 +559,248 @@ function hideMediaView() {
     currentViewFile = null;
 }
 
+// ============ 面包屑路径栏 ============
+function renderBreadcrumb(folderPath) {
+    const el = document.getElementById("galleryCurrentPath");
+    if (!el) return;
+    el.innerHTML = "";
+    el.style.display = "";
+
+    // 分割路径
+    let parts = [];
+    if (folderPath === "我的电脑" || !folderPath) {
+        el.textContent = "我的电脑";
+        return;
+    }
+    // Windows路径: C:\Users\...
+    const norm = normPath(folderPath);
+    const driveMatch = norm.match(/^([A-Za-z]:\\)(.*)$/);
+    if (driveMatch) {
+        parts.push(driveMatch[1]); // C:\
+        if (driveMatch[2]) {
+            const dirs = driveMatch[2].split("\\").filter(s => s);
+            let acc = driveMatch[1];
+            for (const d of dirs) {
+                acc += d + "\\";
+                parts.push(acc);
+            }
+        }
+    } else {
+        // 非Windows路径格式，直接显示
+        el.textContent = folderPath || "我的电脑";
+        return;
+    }
+
+    // 渲染每段面包屑
+    parts.forEach((p, i) => {
+        const isLast = (i === parts.length - 1);
+        const name = (i === 0) ? p : p.split("\\").filter(s => s).pop();
+        
+        // 文字部分：点击进入该文件夹
+        const crumb = document.createElement("span");
+        crumb.className = "gallery-path-crumb";
+        crumb.textContent = name;
+        crumb.title = p;
+        crumb.addEventListener("click", () => {
+            openFolder(p);
+            showGallery(p);
+        });
+        el.appendChild(crumb);
+
+        // >下拉按钮：点击显示同级文件夹
+        if (!isLast) {
+            const drop = document.createElement("span");
+            drop.className = "gallery-path-crumb";
+            drop.textContent = "▸";
+            drop.style.fontSize = "9px";
+            drop.style.padding = "2px 3px";
+            drop.title = "显示同级文件夹";
+            drop.addEventListener("click", (e) => {
+                e.stopPropagation();
+                showPathDropdown(drop, p);
+            });
+            el.appendChild(drop);
+
+            // 分隔符
+            const sep = document.createElement("span");
+            sep.className = "gallery-path-sep";
+            sep.textContent = "";
+            el.appendChild(sep);
+        }
+    });
+
+    // 编辑按钮：点击进入路径输入模式
+    const editBtn = document.createElement("span");
+    editBtn.className = "gallery-path-crumb";
+    editBtn.textContent = "✏";
+    editBtn.style.fontSize = "11px";
+    editBtn.style.padding = "2px 4px";
+    editBtn.title = "点击输入路径";
+    editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        enterPathEditMode(folderPath);
+    });
+    el.appendChild(editBtn);
+}
+
+function showPathDropdown(anchorEl, currentPath) {
+
+    // 移除已有下拉
+
+    document.querySelectorAll(".gallery-path-dropdown").forEach(d => d.remove());
+
+
+    const normPathStr = normPath(currentPath) + "\\";
+
+
+    // 列出当前路径下的子文件夹
+
+    fetch(`/api/files?path=${encodeURIComponent(normPathStr)}`).then(r => r.json()).then(d => {
+        if (!d.成功) return;
+        const dirs = (d.内容 || []).filter(f => f.类型 === "目录");
+        const dropdown = document.createElement("div");
+        dropdown.className = "gallery-path-dropdown";
+        dirs.forEach(dir => {
+            const item = document.createElement("div");
+            item.className = "gallery-path-dropdown-item";
+            item.textContent = "📁 " + dir.名称;
+            const fullPath = normPathStr + dir.名称 + "\\";
+            item.addEventListener("click", () => {
+                dropdown.remove();
+                openFolder(fullPath);
+                showGallery(fullPath);
+            });
+            dropdown.appendChild(item);
+        });
+        if (dirs.length === 0) {
+            dropdown.innerHTML = '<div class="gallery-path-dropdown-item">无子文件夹</div>';
+        }
+        document.body.appendChild(dropdown);
+        const rect = anchorEl.getBoundingClientRect();
+        dropdown.style.left = rect.left + "px";
+        dropdown.style.top = (rect.bottom + 4) + "px";
+        // 点击外部关闭（用mousedown，在click之前触发）
+        setTimeout(() => {
+            const closeHandler = function(ev) {
+                if (!dropdown.contains(ev.target)) {
+                    dropdown.remove();
+                    document.removeEventListener("mousedown", closeHandler, true);
+                }
+            };
+            document.addEventListener("mousedown", closeHandler, true);
+        }, 50);
+    }).catch(() => {});
+}
+
+function enterPathEditMode(currentPath) {
+    const span = document.getElementById("galleryCurrentPath");
+    const input = document.getElementById("galleryPathInput");
+    if (!span || !input) return;
+    span.style.display = "none";
+    input.style.display = "";
+    input.value = normPath(currentPath);
+    input.focus();
+    input.select();
+
+    let exited = false;
+    function exitEditMode() {
+        if (exited) return;
+        exited = true;
+        input.style.display = "none";
+        span.style.display = "";
+        document.removeEventListener("mousedown", outsideClickHandler, true);
+    }
+
+    input.onkeydown = function(e) {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+            const val = input.value.trim();
+            if (val) {
+                exitEditMode();
+                openFolder(val);
+                showGallery(val);
+            }
+        } else if (e.key === "Escape") {
+            exitEditMode();
+        }
+    };
+    // 阻止input上的mousedown冒泡，防止外部点击监听误触发
+    input.addEventListener("mousedown", function(e) { e.stopPropagation(); }, true);
+
+    function outsideClickHandler(e) {
+        // 只在点击input外部时关闭
+        if (e.target !== input && !input.contains(e.target)) {
+            exitEditMode();
+        }
+    }
+    // 延迟绑定，避免触发编辑的click立刻关闭
+    setTimeout(() => {
+        document.addEventListener("mousedown", outsideClickHandler, true);
+    }, 100);
+
+    input.onblur = exitEditMode;
+}
+
+// 在左侧树中找到并展开指定路径的节点
+function expandTreeNode(targetPath) {
+    const items = document.querySelectorAll(".ti[data-path]");
+    for (const item of items) {
+        if (samePath(item.dataset.path || "", targetPath)) {
+            // 高亮当前
+            document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+            item.classList.add("active");
+            // 展开所有父级目录
+            let parent = item.parentElement;
+            while (parent && parent.id !== "fileTree") {
+                if (parent.classList.contains("tc")) {
+                    parent.classList.add("open");
+                    const parentItem = parent.previousElementSibling;
+                    if (parentItem) {
+                        const arr = parentItem.querySelector(".arr");
+                        if (arr) arr.textContent = "▼";
+                    }
+                }
+                parent = parent.parentElement;
+            }
+            // 展开该节点自身（如果有子项容器）
+            const kids = item.nextElementSibling;
+            if (kids && kids.classList.contains("tc")) {
+                if (kids.dataset.loaded === undefined && !kids.innerHTML.trim()) {
+                    const arr = item.querySelector(".arr");
+                    if (arr) arr.textContent = "⏳";
+                    fetch(`/api/file-tree?path=${encodeURIComponent(normPath(item.dataset.path))}&depth=1`).then(r => r.json()).then(d => {
+                        if (d.成功 && d.树) {
+                            kids.innerHTML = "";
+                            const 子节点列表 = d.树.子项 || [];
+                            for (const c of 子节点列表) kids.appendChild(buildTreeNode(c, item.dataset.path));
+                            kids.dataset.loaded = "1";
+                        }
+                        kids.classList.add("open");
+                        if (arr) arr.textContent = "▼";
+                        item.classList.add("active");
+                    }).catch(() => {
+                        if (arr) arr.textContent = "▶";
+                    });
+                } else {
+                    kids.classList.add("open");
+                    const arr = item.querySelector(".arr");
+                    if (arr) arr.textContent = "▼";
+                    item.classList.add("active");
+                }
+            }
+            item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            return;
+        }
+    }
+    // 节点不在DOM中（深度超过加载层级或懒加载未展开），清除旧active
+    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+}
+
 async function showGallery(folderPath) {
     if (selectedItems.size > 0) clearFileSelection();
-    galleryPath = folderPath;
-    setupGalleryBackgroundDrop(folderPath);
+    // 规范化路径（"我的电脑"除外）
+    galleryPath = (folderPath === "我的电脑") ? folderPath : normPath(folderPath);
+    setupGalleryBackgroundDrop(galleryPath);
     galleryPageNum = 0;
     const ep = document.getElementById("editorPanel");
     const eb = document.getElementById("toggleEditor");
@@ -440,7 +817,9 @@ async function showGallery(folderPath) {
     document.getElementById("videoPlayer").style.display = "none";
     document.getElementById("docViewer").style.display = "none";
     document.getElementById("galleryHeader").style.display = "";
-    document.getElementById("galleryCurrentPath").textContent = folderPath;
+    renderBreadcrumb(galleryPath);
+    document.getElementById("galleryPathInput").style.display = "none";
+    document.getElementById("galleryCurrentPath").style.display = "";
     updateViewToggleButtons();
     const grid = document.getElementById("galleryGrid");
     const list = document.getElementById("galleryList");
@@ -776,7 +1155,7 @@ function renderGalleryGrid() {
             item.innerHTML = `<div class="gallery-item-actions"><button class="gallery-action-btn act-rename" title="重命名">✏️</button></div><div class="gallery-thumb">📁</div><div class="gallery-name">${_esc(node.名称)}</div>`;
             item.querySelector(".act-rename").addEventListener("click", (e) => { e.stopPropagation(); renameItem(fullPath, node.名称); });
             attachFileTooltip(item, {名称: node.名称, 类型: "目录", 大小: 0, 创建时间: node.创建时间, 后缀: "", 路径: fullPath});
-            item.addEventListener("click", () => { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); });
+            item.addEventListener("click", () => { const p = joinPath(galleryPath, node.名称); showGallery(p); currentRoot = p; expandTreeNode(p); });
             setupDropTarget(item, fullPath);
             setupItemDraggable(item);
             grid.appendChild(item);
@@ -901,7 +1280,7 @@ function renderGalleryList() {
         const checkIcon = isSelected ? "☑" : "☐";
         row.innerHTML = `<span class="glr-check">${checkIcon}</span><span class="glr-icon">${icon}</span><span class="glr-name">${_esc(node.名称)}</span><span class="glr-size">${isDir ? "-" : formatSize(node.大小)}</span><span class="glr-type">${isDir ? "文件夹" : (node.后缀 || "")}</span><span class="glr-date">${node.创建时间 || "-"}</span><span class="glr-rename" title="重命名">✏️</span>`;
         row.addEventListener("click", () => {
-            if (isDir) { const p = joinPath(galleryPath, node.名称); openFolder(p); showGallery(p); return; }
+            if (isDir) { const p = joinPath(galleryPath, node.名称); showGallery(p); currentRoot = p; expandTreeNode(p); return; }
             const ext = node.后缀 || "";
             if (isImage(ext)) { const idx = galleryImages.findIndex(g => g.路径 === fullPath); showImage(fullPath, node.名称, idx); return; }
             if (isAudio(ext)) { const idx = audioPlaylist.findIndex(a => a.路径 === fullPath); showAudio(fullPath, node.名称, idx); return; }

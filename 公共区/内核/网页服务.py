@@ -2618,6 +2618,154 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     self._返回JSON({"错误": 结果.get("错误", "切换失败")})
             else:
                 self._返回JSON({"错误": "模型直连器未初始化"})
+        elif 路径 == "/api/model-ranking":
+            """模型排行榜：GET排行数据/POST保存顺序/POST同步排名"""
+            if not self.模型直连器:
+                self._返回JSON({"错误": "模型直连器未初始化"})
+            elif not 数据:
+                # GET: 返回排行数据
+                模型列表 = self.模型直连器.获取模型列表()
+                self._返回JSON({"成功": True, "模型列表": 模型列表, "当前模型": self.模型直连器.当前模型名})
+            elif 数据.get("顺序"):
+                # POST: 保存自定义顺序
+                结果 = self.模型直连器.保存排行顺序(数据["顺序"])
+                self._返回JSON(结果)
+            elif 数据.get("同步"):
+                # POST: 同步全球排名（多源搜索最新benchmark）
+                import urllib.request as _urq
+                import urllib.parse as _ups
+                import re as _re
+                import json as _json
+                更新分数 = {}
+                更新价格 = {}
+                错误列表 = []
+
+                # ---- 源1: Artificial Analysis API (JSON) ----
+                try:
+                    req1 = _urq.Request("https://artificialanalysis.ai/api/models", headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+                    resp1 = _urq.urlopen(req1, timeout=10)
+                    data1 = _json.loads(resp1.read().decode("utf-8", errors="replace"))
+                    if isinstance(data1, list):
+                        for item in data1:
+                            name = (item.get("name") or item.get("model") or "").lower()
+                            score = item.get("arena_score") or item.get("elo_score") or item.get("score")
+                            if score and 50 <= int(score) <= 100:
+                                if "fable" in name or "mythos" in name:
+                                    更新分数["Claude(Anthropic)"] = int(score)
+                                elif "gpt-5" in name or "gpt5" in name:
+                                    更新分数["OpenAI(ChatGPT)"] = int(score)
+                                elif "gemini" in name and "3" in name:
+                                    更新分数["Gemini(Google)"] = int(score)
+                                elif "grok" in name and "4" in name:
+                                    更新分数["Grok(xAI)"] = int(score)
+                                elif "deepseek" in name:
+                                    更新分数["DeepSeek(深度求索)"] = int(score)
+                                elif "mistral" in name and "large" in name:
+                                    更新分数["Mistral AI"] = int(score)
+                                elif "qwen" in name and "3" in name:
+                                    更新分数["通义千问(阿里云)"] = int(score)
+                                elif "glm" in name and "5" in name:
+                                    更新分数["智谱大模型(GLM)"] = int(score)
+                except Exception as e1:
+                    错误列表.append("源1(ArtificialAnalysis): %s" % str(e1)[:80])
+
+                # ---- 源2: HuggingFace LMSYS leaderboard 页面 ----
+                try:
+                    req2 = _urq.Request("https://huggingface.co/spaces/lmsys/chatbot-arena-leaderboard", headers={"User-Agent": "Mozilla/5.0"})
+                    resp2 = _urq.urlopen(req2, timeout=10)
+                    html2 = resp2.read().decode("utf-8", errors="replace")[:80000]
+                    # 匹配 "Claude Fable 5" 附近的 ELO 分数
+                    匹配规则 = [
+                        ("Claude(Anthropic)", r"[Cc]laude\s*[Ff]able\s*5?\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                        ("OpenAI(ChatGPT)", r"GPT.?5\.?\d?\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                        ("Gemini(Google)", r"[Gg]emini\s*3\.?\d?\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                        ("Grok(xAI)", r"[Gg]rok\s*4\.?\d*\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                        ("DeepSeek(深度求索)", r"[Dd]eepseek\s*V?\d?\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                        ("Mistral AI", r"[Mm]istral\s*[Ll]arge\D{0,20}?(\d{3,4})\b", 1200, 1600),
+                    ]
+                    for 模型名, 正则, 最小, 最大 in 匹配规则:
+                        m = _re.search(正则, html2)
+                        if m:
+                            原始分 = int(m.group(1))
+                            if 最小 <= 原始分 <= 最大:
+                                # ELO分数转0-100: (elo-1200)/4, 钳到50-100
+                                转换分 = max(50, min(100, int((原始分 - 1200) / 4)))
+                                if 模型名 not in 更新分数:
+                                    更新分数[模型名] = 转换分
+                except Exception as e2:
+                    错误列表.append("源2(HuggingFace): %s" % str(e2)[:80])
+
+                # ---- 源3: Bing搜索（Google在国内常被墙）----
+                try:
+                    查询 = "AI model benchmark ranking 2026 chatbot arena score Claude GPT Gemini DeepSeek"
+                    url3 = "https://www.bing.com/search?q=" + _ups.quote(查询) + "&setlang=en"
+                    req3 = _urq.Request(url3, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                    resp3 = _urq.urlopen(req3, timeout=10)
+                    html3 = resp3.read().decode("utf-8", errors="replace")[:80000]
+                    # 从搜索摘要中匹配模型+分数
+                    摘要规则 = [
+                        ("Claude(Anthropic)", r"[Cc]laude\s*[Ff]able\s*5?\D{0,30}?(\d{2,3})\b", 50, 100),
+                        ("OpenAI(ChatGPT)", r"GPT.?5\.?\d?\D{0,30}?(\d{2,3})\b", 50, 100),
+                        ("Gemini(Google)", r"[Gg]emini\s*3\.?\d?\D{0,30}?(\d{2,3})\b", 50, 100),
+                        ("Grok(xAI)", r"[Gg]rok\s*4\.?\d*\D{0,30}?(\d{2,3})\b", 50, 100),
+                        ("DeepSeek(深度求索)", r"[Dd]eepseek\D{0,30}?(\d{2,3})\b", 50, 100),
+                        ("Mistral AI", r"[Mm]istral\s*[Ll]arge\D{0,30}?(\d{2,3})\b", 50, 100),
+                    ]
+                    for 模型名, 正则, 最小, 最大 in 摘要规则:
+                        m = _re.search(正则, html3)
+                        if m:
+                            分数 = int(m.group(1))
+                            if 最小 <= 分数 <= 最大:
+                                if 模型名 not in 更新分数:
+                                    更新分数[模型名] = 分数
+                except Exception as e3:
+                    错误列表.append("源3(Bing): %s" % str(e3)[:80])
+
+                # ---- 源4: 各模型官方定价页（获取最新价格）----
+                try:
+                    # OpenAI pricing API (公开JSON)
+                    req4 = _urq.Request("https://openai.com/api/pricing/", headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+                    resp4 = _urq.urlopen(req4, timeout=8)
+                    html4 = resp4.read().decode("utf-8", errors="replace")[:30000]
+                    # 尝试匹配 GPT-5 价格
+                    gpt_match = _re.search(r'gpt.?5[^"]*?"?input"?\s*:\s*\$?([\d.]+).*?"?output"?\s*:\s*\$?([\d.]+)', html4, _re.I)
+                    if gpt_match:
+                        更新价格["OpenAI(ChatGPT)"] = {"价格输入": float(gpt_match.group(1)), "价格输出": float(gpt_match.group(2))}
+                except Exception as e4:
+                    错误列表.append("源4(OpenAI定价): %s" % str(e4)[:80])
+
+                # ---- 汇总结果 ----
+                消息 = ""
+                if 更新分数:
+                    self.模型直连器.更新实力分(更新分数)
+                    消息 += "实力分更新%d个: %s. " % (len(更新分数), str(更新分数))
+                else:
+                    消息 += "实力分未获取到新数据，保持默认值. "
+                if 更新价格:
+                    for 模型名, 价格 in 更新价格.items():
+                        for m in self.模型直连器.模型配置列表:
+                            if m.get("名称") == 模型名:
+                                m["价格输入"] = 价格["价格输入"]
+                                m["价格输出"] = 价格["价格输出"]
+                                break
+                    # 保存到json
+                    模型规则路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "模型规则.json"
+                    with open(模型规则路径, "r", encoding="utf-8") as f:
+                        规则 = _json.load(f)
+                    for m in 规则.get("模型配置列表", []):
+                        if m.get("名称") in 更新价格:
+                            m["价格输入"] = 更新价格[m["名称"]]["价格输入"]
+                            m["价格输出"] = 更新价格[m["名称"]]["价格输出"]
+                    with open(模型规则路径, "w", encoding="utf-8") as f:
+                        _json.dump(规则, f, ensure_ascii=False, indent=2)
+                    消息 += "价格更新%d个. " % len(更新价格)
+                else:
+                    消息 += "价格未获取到新数据，保持默认值. "
+                if 错误列表:
+                    消息 += "(部分源失败: %d/%d)" % (len(错误列表), 4)
+                self._返回JSON({"成功": True, "消息": 消息, "更新分数": 更新分数, "更新价格": 更新价格, "源错误": 错误列表})
+            else:
+                self._返回JSON({"错误": "未知操作"})
         elif 路径 == "/api/task-run":
             if self.模块注册 and "任务" in self.模块注册:
                 结果 = self.模块注册["任务"].运行(数据)

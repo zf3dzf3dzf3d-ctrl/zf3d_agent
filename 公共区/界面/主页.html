@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com; font-src 'self'; worker-src 'self'">
-    <title>朱峰社区智能体 v3.1.1</title>
+    <title>朱峰社区智能体 v3.2.2</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260708a">
+    <link rel="stylesheet" href="样式.css?v=20260711b">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=1">
@@ -34,15 +34,15 @@
     </style>
     <!-- 顶部栏 -->
     <div class="topbar">
-        <div class="topbar-left">
+        <span class="topbar-title"><span class="topbar-logo"></span>朱峰社区智能体</span>
+        <div class="topbar-right">
             <button class="topbar-icon" id="toggleFiles" title="显示/隐藏文件面板">📁</button>
             <button class="topbar-icon" id="toggleEditor" title="显示/隐藏编辑器面板">📝</button>
             <button class="topbar-icon" id="toggleChat" title="显示/隐藏对话面板">💬</button>
             <span class="topbar-sep"></span>
             <button class="topbar-icon" id="stockModeBtn" title="切换到股票模式" onclick="toggleStockMode()">📊</button>
-        </div>
-        <span class="topbar-title"><img src="favicon.png?v=2" style="width:20px;height:20px;vertical-align:middle;margin-right:4px;position:relative;top:-1px;">朱峰社区智能体</span>
-        <div class="topbar-right">
+            <button class="topbar-icon" title="访问朱峰社区网站" onclick="window.open('http://www.zf3d.com','_blank')">🌐</button>
+            <span style="width:140px;"></span>
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
             <button class="topbar-icon" id="wfToggleBtn" title="节点工作流" onclick="window.empWidget.toggleWorkflow()">🔀</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
@@ -107,6 +107,7 @@
                 <div class="gallery-header" id="galleryHeader">
                     <button class="bar-btn" onclick="goUpGallery()" title="返回上级文件夹，同时刷新左侧树和中间画廊">⬆️ <span class="btn-text">上级文件夹</span></button>
                     <span class="gallery-current-path" id="galleryCurrentPath"></span>
+                    <input type="text" class="gallery-path-input" id="galleryPathInput" style="display:none;" placeholder="输入路径回车跳转" />
                     <div class="gallery-sort-bar">
                         <button class="bar-btn" onclick="cycleSortKey()" id="sortBtn" title="切换排序方式"><span class="btn-text">名称</span></button>
                         <button class="bar-btn" onclick="toggleSortOrder()" id="sortOrderBtn" title="升序/降序切换">▲</button>
@@ -336,11 +337,13 @@
                 <div class="stab" id="tab_models">
                     <div class="scard">
                         <h3>🤖 当前模型: <span id="currentModelName" style="color:var(--blue)">加载中...</span></h3>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px;margin-bottom:6px;">
-                            <div style="font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:2px;">🇨🇳 国内</div>
-                            <div style="font-size:11px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:2px;">🌍 国外</div>
+                        <div id="rankingToolbar" style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center;">
+                            <button class="rank-btn" data-sort="price" onclick="setRankingSort('price')">💲 价格 <span class="sort-dir">↓</span></button>
+                            <button class="rank-btn active" data-sort="power" onclick="setRankingSort('power')">💪 实力 <span class="sort-dir">↓</span></button>
+                            <button class="rank-btn" data-sort="region" onclick="setRankingSort('region')">🌍 地区 <span class="sort-dir">↓</span></button>
+                            <button class="rank-btn" onclick="syncGlobalRanking()" style="margin-left:auto;">🔄 同步</button>
                         </div>
-                        <div id="modelList" style="display:flex;flex-direction:column;gap:8px;"></div>
+                        <div id="modelList" style="display:flex;flex-direction:column;gap:0;"></div>
                     </div>
                     <div class="scard">
                         <h3>🔑 模型密钥配置</h3>
@@ -558,7 +561,7 @@
                     <div style="background:var(--bg3);border-radius:8px;padding:28px;text-align:center;margin-bottom:12px;border:1px solid var(--border);">
                         <div style="font-size:22px;font-weight:bold;color:var(--text);">朱峰社区智能体</div>
                         <div style="font-size:13px;color:var(--text2);margin-top:6px;">让每一位创作者都拥有AI助手</div>
-                        <div style="font-size:11px;color:var(--text2);margin-top:4px;">v3.1.1 · MIT · zf3d.com</div>
+                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.2.2 · MIT · zf3d.com</div>
                     </div>
                     <!-- 两列布局 -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -652,11 +655,11 @@
     <script src="/monaco/vs/loader.js"></script>
     <script src="编辑器/编辑器.js?v=20260707c"></script>
     <script src="模块/全局状态.js?v=20260706a"></script>
-    <script src="模块/路径工具.js?v=20260627a"></script>
+    <script src="模块/路径工具.js?v=20260711a"></script>
     <script src="模块/撤销重做.js?v=20260707b"></script>
     <script src="模块/Toast通知.js?v=20260707a"></script>
     <script src="模块/自动更新.js?v=20260627b"></script>
-    <script src="模块/面板布局.js?v=20260704b"></script>
+    <script src="模块/面板布局.js?v=20260711b"></script>
     <script src="模块/语音播报.js?v=20260706c"></script>
     <script src="模块/语音输入.js?v=20260706g"></script>
     <script src="模块/对话核心.js?v=20260707e"></script>
@@ -668,12 +671,12 @@
     <script src="模块/Diff查看器.js?v=20260702c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
     <script src="模块/多对话管理.js?v=20260627d"></script>
-    <script src="模块/模型配置.js?v=20260708b"></script>
+    <script src="模块/模型配置.js?v=20260710d"></script>
     <script src="模块/设置面板.js?v=20260708b"></script>
-    <script src="模块/文件树.js?v=20260708a"></script>
+    <script src="模块/文件树.js?v=20260711c"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
-    <script src="模块/图片查看器.js?v=20260707a"></script>
+    <script src="模块/图片查看器.js?v=20260711a"></script>
     <script src="模块/多标签编辑器.js?v=20260707b"></script>
     <script src="模块/文件框选.js?v=20260707a"></script>
     <script src="模块/权限轮询.js?v=20260702a"></script>
@@ -806,7 +809,7 @@
         }
     }, 3000);
     </script>
-    <script src="员工浮窗.js?v=20260709i1"></script>
+    <script src="员工浮窗.js?v=20260710a"></script>
     <script>
     // 启动动画控制（加速版）
     (function(){

@@ -164,7 +164,17 @@ class 文件管理器类:
             return {"成功": False, "错误": "目录不存在"}
         内容 = []
         try:
-            for 子项 in sorted(目录路径.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            # 先收集所有项，跳过无权限的
+            子项列表 = []
+            try:
+                for 子项 in 目录路径.iterdir():
+                    try:
+                        子项列表.append(子项)
+                    except (OSError, PermissionError):
+                        continue
+            except (PermissionError, OSError):
+                pass  # iterdir本身可能部分失败，已收集的继续用
+            for 子项 in sorted(子项列表, key=lambda x: (not x.is_dir(), x.name.lower())):
                 try:
                     stat = 子项.stat()
                     内容.append({
@@ -174,10 +184,11 @@ class 文件管理器类:
                         "后缀": 子项.suffix.lower() if 子项.is_file() else "",
                         "创建时间": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
                     })
-                except OSError:
+                except (OSError, PermissionError):
                     continue
         except (PermissionError, OSError) as e:
-            return {"成功": False, "错误": f"无法读取目录: {str(e)}"}
+            if not 内容:
+                return {"成功": False, "错误": f"无法读取目录: {str(e)}"}
         self._记录审计("列目录", 路径, "成功")
         return {"成功": True, "内容": 内容}
 
@@ -203,9 +214,18 @@ class 文件管理器类:
             节点["截断"] = True
             return 节点
         try:
-            for 子项 in sorted(目录.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-                if 子项.name.startswith(".") or 子项.name == "__pycache__":
-                    continue
+            子项列表 = []
+            try:
+                for 子项 in 目录.iterdir():
+                    try:
+                        if 子项.name.startswith(".") or 子项.name == "__pycache__":
+                            continue
+                        子项列表.append(子项)
+                    except (OSError, PermissionError):
+                        continue
+            except (PermissionError, OSError):
+                pass
+            for 子项 in sorted(子项列表, key=lambda x: (not x.is_dir(), x.name.lower())):
                 try:
                     if 子项.is_dir():
                         节点["子项"].append(self._递归目录树(子项, 最大深度, 当前深度 + 1))
@@ -218,7 +238,7 @@ class 文件管理器类:
                             "后缀": 子项.suffix.lower(),
                             "创建时间": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M")
                         })
-                except OSError:
+                except (OSError, PermissionError):
                     continue
         except (PermissionError, OSError):
             节点["错误"] = "无权限"

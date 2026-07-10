@@ -173,76 +173,121 @@ document.getElementById("mediaView").addEventListener("contextmenu", (e) => e.pr
 document.getElementById("fileTree").addEventListener("contextmenu", (e) => e.preventDefault());
 
 function goUpFolder() {
-    if (!currentRoot) return;
-    // 如果已经是盘符根目录（如 C:\ D:\ E:\），往上进入"此电脑"视图
-    const 盘符匹配 = currentRoot.match(/^([A-Za-z]):[\/\\]?$/);
-    if (盘符匹配) {
-        // 切换到"此电脑"驱动器列表
-        loadDriveList();
+    // 统一使用galleryPath作为源，和goUpGallery一致
+    if (!galleryPath || galleryPath === "我的电脑") return;
+    const cur = normPath(galleryPath);
+    if (!cur) return;
+    if (/^[A-Za-z]:\\?$/.test(cur)) {
+        try { loadDriveList(); } catch(e) { console.error('loadDriveList error:', e); }
         return;
     }
-    const parent = currentRoot.replace(/[\/\\]+$/, "").replace(/[\/\\][^\/\\]+$/, "");
-    if (parent && parent !== currentRoot) {
-        // 如果上级变成了盘符根目录（如 C:\），也允许进入
-        openFolder(parent);
-        showGallery(parent);
+    const parent = parentPath(cur);
+    if (!parent) {
+        try { loadDriveList(); } catch(e) { console.error('loadDriveList error:', e); }
+        return;
     }
+    showGallery(parent);
+    currentRoot = parent;
+    // 左侧树：先清除所有active，再收起当前、高亮父级并展开其容器
+    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".ti[data-path]").forEach(item => {
+        if (samePath(item.dataset.path || "", cur)) {
+            const kids = item.nextElementSibling;
+            if (kids && kids.classList.contains("tc")) {
+                kids.classList.remove("open");
+                const arr = item.querySelector(".arr");
+                if (arr) arr.textContent = "▶";
+            }
+        }
+        if (samePath(item.dataset.path || "", parent)) {
+            item.classList.add("active");
+            // 展开父级容器
+            let p = item.parentElement;
+            while (p && p.id !== "fileTree") {
+                if (p.classList.contains("tc")) {
+                    p.classList.add("open");
+                    const pitem = p.previousElementSibling;
+                    if (pitem) {
+                        const arr = pitem.querySelector(".arr");
+                        if (arr) arr.textContent = "▼";
+                    }
+                }
+                p = p.parentElement;
+            }
+            item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    });
 }
 
 function goUpGallery() {
     if (!galleryPath) return;
-    // 如果已经是盘符根目录，往上进入"此电脑"视图
-    const 盘符匹配 = galleryPath.match(/^([A-Za-z]):[\/\\]?$/);
-    if (盘符匹配) {
-        loadDriveList();
+    // 已经在"我的电脑"最顶层，不再向上
+    if (galleryPath === "我的电脑" || !galleryPath) return;
+    // 规范化当前路径
+    const cur = normPath(galleryPath);
+    // 如果已经是盘符根目录（如 F:\ 或 F:），往上进入"我的电脑"视图
+    if (/^[A-Za-z]:\\?$/.test(cur)) {
+        try { loadDriveList(); } catch(e) { console.error('loadDriveList error:', e); }
         return;
     }
-    const parent = galleryPath.replace(/[\/\\]+$/, "").replace(/[\/\\][^\/\\]+$/, "");
-    if (parent && parent !== galleryPath) {
-        openFolder(parent);
-        showGallery(parent);
+    const parent = parentPath(cur);
+    if (!parent) {
+        try { loadDriveList(); } catch(e) { console.error('loadDriveList error:', e); }
+        return;
     }
-}
-
-// 加载驱动器列表（"此电脑"视图）
-async function loadDriveList() {
-    const tree = document.getElementById("fileTree");
-    tree.innerHTML = '<div class="tree-loading">加载驱动器...</div>';
-    try {
-        const res = await fetch("/api/drives");
-        const d = await res.json();
-        if (d.成功 && d.驱动器列表) {
-            currentRoot = null;
-            tree.innerHTML = "";
-            const header = document.createElement("div");
-            header.className = "ti active";
-            header.innerHTML = '<span class="arr">▼</span><span class="ico">💻</span><span class="nm">此电脑</span>';
-            tree.appendChild(header);
-            const kidsWrap = document.createElement("div");
-            kidsWrap.className = "tc open";
-            tree.appendChild(kidsWrap);
-            // 优先使用统一格式(含完整路径)，回退到驱动器列表
-            const drives = (d.驱动器 && d.驱动器.length > 0) ? d.驱动器 : d.驱动器列表.map(drv => ({盘符: drv.盘符, 路径: drv.盘符 + ":\\", 类型: drv.类型, 可用空间: drv.可用空间}));
-            for (const drv of drives) {
-                const item = document.createElement("div");
-                item.className = "ti";
-                const 盘符名 = drv.盘符 || drv.标签 || '';
-                item.innerHTML = `<span class="arr"> </span><span class="ico">💽</span><span class="nm">${escapeHtml(盘符名)}: ${escapeHtml(drv.类型 || '')} ${drv.可用空间 ? '(' + drv.可用空间 + ')' : ''}</span>`;
-                item.addEventListener("click", (e) => { e.stopPropagation(); openFolder(drv.路径 || (盘符名 + ":\\")); });
-                kidsWrap.appendChild(item);
+    
+    // 保存旧路径，showGallery会改变galleryPath
+    const oldPath = galleryPath;
+    showGallery(parent);
+    currentRoot = parent;
+    
+    // 左侧树：先清除所有active，再收起旧文件夹、高亮父文件夹
+    document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".ti[data-path]").forEach(item => {
+        if (samePath(item.dataset.path || "", oldPath)) {
+            const kids = item.nextElementSibling;
+            if (kids && kids.classList.contains("tc")) {
+                kids.classList.remove("open");
+                const arr = item.querySelector(".arr");
+                if (arr) arr.textContent = "▶";
             }
-        } else {
-            tree.innerHTML = '<div class="tree-empty">无法获取驱动器列表</div>';
         }
-    } catch (e) {
-        tree.innerHTML = '<div class="tree-empty">加载失败: ' + escapeHtml(e.message) + '</div>';
+        if (samePath(item.dataset.path || "", parent)) {
+            item.classList.add("active");
+            // 展开父级容器
+            let p = item.parentElement;
+            while (p && p.id !== "fileTree") {
+                if (p.classList.contains("tc")) {
+                    p.classList.add("open");
+                    const pitem = p.previousElementSibling;
+                    if (pitem) {
+                        const arr = pitem.querySelector(".arr");
+                        if (arr) arr.textContent = "▼";
+                    }
+                }
+                p = p.parentElement;
+            }
+            item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    });
+}
+
+// 加载驱动器列表 → 统一调用 openMyComputer()
+async function loadDriveList() {
+    if (typeof openMyComputer === 'function') {
+        await openMyComputer();
     }
 }
 
-function refreshTree() {
-    if (currentRoot) openFolder(currentRoot);
-    // 仅在编辑器无激活文件时才刷新画廊（避免替换后切走编辑器视图）
-    if (galleryPath && (typeof activeFileIdx === 'undefined' || activeFileIdx < 0)) showGallery(galleryPath);
+async function refreshTree() {
+    if (galleryPath && galleryPath !== "我的电脑") {
+        await openFolder(galleryPath);
+        if (typeof activeFileIdx === 'undefined' || activeFileIdx < 0) {
+            await showGallery(galleryPath);
+        }
+    } else if (galleryPath === "我的电脑") {
+        await openMyComputer();
+    }
 }
 
 async function openInExplorer(path) {

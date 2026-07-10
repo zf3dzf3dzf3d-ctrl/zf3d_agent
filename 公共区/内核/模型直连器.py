@@ -281,8 +281,21 @@ class 模型直连器类:
         return {"成功": True, "当前模型": 模型名}
 
     def 获取模型列表(self) -> list:
-        """返回所有可用模型名称列表"""
-        return [{"名称": m.get("名称", ""), "当前": m.get("名称") == self.当前模型名} for m in self.模型配置列表]
+        """返回所有可用模型列表（含排行数据）"""
+        结果 = []
+        for m in self.模型配置列表:
+            结果.append({
+                "名称": m.get("名称", ""),
+                "当前": m.get("名称") == self.当前模型名,
+                "实力分": m.get("实力分", 0),
+                "价格输入": m.get("价格输入", 0),
+                "价格输出": m.get("价格输出", 0),
+                "特色": m.get("特色", ""),
+                "免费额度": m.get("免费额度", False),
+                "支持vision": m.get("支持vision", False),
+                "支持function_calling": m.get("支持function_calling", False)
+            })
+        return 结果
 
     def 获取模型配置详情(self, 模型名: str = None) -> dict:
         """返回指定模型的配置详情（密钥掩码，模型名不掩码）"""
@@ -317,6 +330,58 @@ class 模型直连器类:
             if 值:
                 模型密钥[键] = 值
         return {"成功": True}
+
+    def 保存排行顺序(self, 顺序列表: list) -> dict:
+        """保存用户自定义排行顺序到模型规则.json"""
+        try:
+            # 按新顺序重排模型配置列表
+            新列表 = []
+            for 名称 in 顺序列表:
+                for m in self.模型配置列表:
+                    if m.get("名称") == 名称:
+                        新列表.append(m)
+                        break
+            # 补上不在顺序列表中的模型
+            for m in self.模型配置列表:
+                if m.get("名称") not in 顺序列表:
+                    新列表.append(m)
+            self.模型配置列表 = 新列表
+            # 写入json
+            import json as _json
+            from pathlib import Path as _Path
+            模型规则路径 = _Path(__file__).parent.parent.parent / "公共区" / "配置" / "模型规则.json"
+            with open(模型规则路径, "r", encoding="utf-8") as f:
+                配置 = _json.load(f)
+            配置["模型配置列表"] = 新列表
+            with open(模型规则路径, "w", encoding="utf-8") as f:
+                _json.dump(配置, f, ensure_ascii=False, indent=2)
+            return {"成功": True, "消息": f"已保存 {len(顺序列表)} 个模型的自定义顺序"}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
+
+    def 更新实力分(self, 分数字典: dict) -> dict:
+        """更新模型实力分并保存到模型规则.json"""
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            模型规则路径 = _Path(__file__).parent.parent.parent / "公共区" / "配置" / "模型规则.json"
+            with open(模型规则路径, "r", encoding="utf-8") as f:
+                配置 = _json.load(f)
+            更新数 = 0
+            for m in 配置.get("模型配置列表", []):
+                名称 = m.get("名称", "")
+                if 名称 in 分数字典:
+                    m["实力分"] = 分数字典[名称]
+                    更新数 += 1
+            with open(模型规则路径, "w", encoding="utf-8") as f:
+                _json.dump(配置, f, ensure_ascii=False, indent=2)
+            # 同步内存
+            for m in self.模型配置列表:
+                if m.get("名称") in 分数字典:
+                    m["实力分"] = 分数字典[m["名称"]]
+            return {"成功": True, "消息": f"已更新 {更新数} 个模型的实力分"}
+        except Exception as e:
+            return {"成功": False, "错误": str(e)}
 
     @classmethod
     def 获取Token统计(cls) -> dict:

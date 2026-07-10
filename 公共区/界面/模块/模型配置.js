@@ -104,84 +104,183 @@ const _模型购买指南 = {
 };
 
 // ============ 模型配置管理 ============
-let modelConfigData = null;  // 缓存模型配置
+var modelConfigData = null;
+var _rankingSort = 'power';   // price / power / region
+var _sortDir = 'desc';       // desc(降序) / asc(升序)
+
+// 国内模型名单
+var _国内模型 = {
+    "DeepSeek(深度求索)": true, "通义千问(阿里云)": true, "智谱大模型(GLM)": true,
+    "Kimi(月之暗面)": true, "豆包(火山大模型)": true, "百度文心(千帆)": true,
+    "讯飞星火(Spark)": true, "硅基流动(国内聚合)": true, "AgnesAI(全模态免费)": true
+};
+var _本地模型 = { "本地Qwen3(Ollama)": true };
+
+function _getCountryTag(name) {
+    if (_国内模型[name]) return '🇨🇳';
+    if (_本地模型[name]) return '🏠';
+    return '🌍';
+}
+
+function _getRegionOrder(name) {
+    if (_国内模型[name]) return 0;
+    if (_本地模型[name]) return 2;
+    return 1; // 国外
+}
 
 async function loadModelConfig() {
     try {
-        const res = await fetch("/api/model-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-        const d = await res.json();
+        var res = await fetch("/api/model-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        var d = await res.json();
         if (!d.成功) {
-            const curEl = document.getElementById("currentModelName");
+            var curEl = document.getElementById("currentModelName");
             if (curEl) curEl.textContent = "加载失败";
             showToast("error", "❌ 模型配置加载失败", d.错误 || "未知错误");
             return;
         }
         modelConfigData = d;
-        // 显示当前模型
-        const curEl = document.getElementById("currentModelName");
-        if (curEl) curEl.textContent = d.当前模型 || "未设置";
-        // 渲染模型列表（国内|国外|本地 三列分区布局）
-        const list = document.getElementById("modelList");
-        if (!list) return;
-        list.innerHTML = "";
-        list.style.cssText = "display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;";
-        const 国内模型 = ["DeepSeek(深度求索)", "通义千问(阿里云)", "智谱大模型(GLM)", "Kimi(月之暗面)", "豆包(火山大模型)"];
-        const 本地模型 = ["本地Qwen3(Ollama)"];
-        const allModels = d.模型列表 || [];
-        // 左列：国内，中列：国外，右列：本地+自定义
-        const 左列 = allModels.filter(m => 国内模型.includes(m.名称));
-        const 右列 = allModels.filter(m => 本地模型.includes(m.名称));
-        const 中列 = allModels.filter(m => !国内模型.includes(m.名称) && !本地模型.includes(m.名称));
-        const maxRows = Math.max(左列.length, 中列.length, 右列.length);
-        for (let i = 0; i < maxRows; i++) {
-            // 左列（国内）
-            if (i < 左列.length) {
-                const m = 左列[i];
-                const isCurrent = m.名称 === d.当前模型;
-                const el = document.createElement("div");
-                el.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border);" + (isCurrent ? "border-color:var(--blue);background:rgba(33,150,243,0.08);" : "");
-                el.innerHTML = `<span style="font-size:14px;">${isCurrent ? "✅" : "⚪"}</span><span style="font-weight:600;font-size:13px;">${m.名称}</span>`;
-                el.addEventListener("click", () => switchModel(m.名称));
-                list.appendChild(el);
-            } else {
-                const ph = document.createElement("div");
-                list.appendChild(ph);
-            }
-            // 中列（国外）
-            if (i < 中列.length) {
-                const m = 中列[i];
-                const isCurrent = m.名称 === d.当前模型;
-                const el = document.createElement("div");
-                el.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border);" + (isCurrent ? "border-color:var(--blue);background:rgba(33,150,243,0.08);" : "");
-                el.innerHTML = `<span style="font-size:14px;">${isCurrent ? "✅" : "⚪"}</span><span style="font-weight:600;font-size:13px;">${m.名称}</span>`;
-                el.addEventListener("click", () => switchModel(m.名称));
-                list.appendChild(el);
-            } else {
-                const ph = document.createElement("div");
-                list.appendChild(ph);
-            }
-            // 右列（本地+自定义）
-            if (i < 右列.length) {
-                const m = 右列[i];
-                const isCurrent = m.名称 === d.当前模型;
-                const el = document.createElement("div");
-                el.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--border);" + (isCurrent ? "border-color:var(--blue);background:rgba(33,150,243,0.08);" : "");
-                el.innerHTML = `<span style="font-size:14px;">${isCurrent ? "✅" : "⚪"}</span><span style="font-weight:600;font-size:13px;">${m.名称}</span>`;
-                el.addEventListener("click", () => switchModel(m.名称));
-                list.appendChild(el);
-            } else {
-                const ph = document.createElement("div");
-                list.appendChild(ph);
-            }
-        }
-        // 渲染密钥编辑器
+        var curEl2 = document.getElementById("currentModelName");
+        if (curEl2) curEl2.textContent = d.当前模型 || "未设置";
+        renderRankingList(d);
         renderModelKeyEditor(d);
-        // 加载工具密钥
         loadToolKeys();
     } catch (e) {
-        const curEl = document.getElementById("currentModelName");
-        if (curEl) curEl.textContent = "连接失败";
+        var curEl3 = document.getElementById("currentModelName");
+        if (curEl3) curEl3.textContent = "连接失败";
         showToast("error", "❌ 无法连接服务器", e.message);
+    }
+}
+
+function _getSortedList(d) {
+    var models = (d.模型列表 || []).slice();
+    var dir = (_sortDir === 'asc') ? 1 : -1;
+    if (_rankingSort === 'power') {
+        models.sort(function(a, b) { return dir * ((a.实力分 || 0) - (b.实力分 || 0)); });
+    } else if (_rankingSort === 'price') {
+        models.sort(function(a, b) {
+            var pa = (a.价格输入 || 0) + (a.价格输出 || 0);
+            var pb = (b.价格输入 || 0) + (b.价格输出 || 0);
+            return dir * (pa - pb);
+        });
+    } else if (_rankingSort === 'region') {
+        models.sort(function(a, b) {
+            var ra = _getRegionOrder(a.名称), rb = _getRegionOrder(b.名称);
+            if (ra !== rb) return dir * (ra - rb);
+            // 同地区内按实力分排
+            return -1 * ((a.实力分 || 0) - (b.实力分 || 0));
+        });
+    }
+    return models;
+}
+
+function _scoreColor(score) {
+    if (score >= 90) return '#4EC9B0';
+    if (score >= 75) return '#2A9DFF';
+    if (score >= 60) return '#CE9178';
+    if (score >= 40) return '#888';
+    return '#555';
+}
+
+function _fmtPrice(v) {
+    if (v === 0) return '0';
+    if (v < 0.01) return v.toFixed(4);
+    if (v < 1) return v.toFixed(3);
+    if (v % 1 === 0) return v.toString();
+    return v.toFixed(2);
+}
+
+function _priceText(m) {
+    var inp = m.价格输入, out = m.价格输出;
+    if (inp === undefined) inp = 0;
+    if (out === undefined) out = 0;
+    if (inp === 0 && out === 0) return '<span class="free">免费</span>';
+    return '<span style="color:#d4d4d4;">输入</span> $' + _fmtPrice(inp) +
+           '<span style="color:var(--text2);font-size:9px;">/M</span>' +
+           '<br><span style="color:#d4d4d4;">输出</span> $' + _fmtPrice(out) +
+           '<span style="color:var(--text2);font-size:9px;">/M</span>';
+}
+
+function renderRankingList(d) {
+    var list = document.getElementById("modelList");
+    if (!list) return;
+    list.innerHTML = "";
+    var models = _getSortedList(d);
+    var html = '';
+    for (var i = 0; i < models.length; i++) {
+        var m = models[i];
+        var isCurrent = m.名称 === d.当前模型;
+        var score = m.实力分 || 0;
+        var rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+        var barColor = _scoreColor(score);
+        var tags = [];
+        var country = _getCountryTag(m.名称);
+        if (m.特色) tags.push(m.特色);
+        if (m.免费额度) tags.push('🆓');
+        if (m.支持vision) tags.push('👁');
+        if (m.支持function_calling) tags.push('⚡');
+        var tagHTML = tags.length ? '<span class="ranking-tag">' + tags.join(' ') + '</span>' : '';
+        var rankCol = '<span class="ranking-rank ' + rankClass + '">' + (i + 1) + '</span>';
+        var switchBtn;
+        if (isCurrent) {
+            switchBtn = '<button class="ranking-switch current" disabled>✅ 使用中</button>';
+        } else {
+            var safeName = m.名称.replace(/'/g, "\\'");
+            switchBtn = '<button class="ranking-switch" onclick="switchModel(\'' + safeName + '\')">切换</button>';
+        }
+        html += '<div class="ranking-item' + (isCurrent ? ' current' : '') + '">' +
+            rankCol +
+            '<div class="ranking-info">' +
+                '<span class="ranking-name' + (isCurrent ? ' current' : '') + '">' + country + ' ' + m.名称 + '</span>' +
+                tagHTML +
+            '</div>' +
+            '<div class="ranking-bar-wrap">' +
+                '<div class="ranking-bar"><div class="ranking-bar-fill" style="width:' + score + '%;background:' + barColor + ';"></div></div>' +
+                '<span class="ranking-score">' + score + '</span>' +
+            '</div>' +
+            '<div class="ranking-price">' + _priceText(m) + '</div>' +
+            '<div class="ranking-actions">' + switchBtn + '</div>' +
+        '</div>';
+    }
+    list.innerHTML = html;
+}
+
+// ============ 排序切换（同一按钮再点切换升降序）============
+function setRankingSort(mode) {
+    if (_rankingSort === mode) {
+        // 同一排序按钮再点 → 切换升降序
+        _sortDir = (_sortDir === 'desc') ? 'asc' : 'desc';
+    } else {
+        _rankingSort = mode;
+        _sortDir = 'desc'; // 新排序默认降序
+    }
+    // 更新按钮高亮和箭头
+    var btns = document.querySelectorAll("#rankingToolbar .rank-btn[data-sort]");
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove("active");
+        var dirSpan = btns[i].querySelector(".sort-dir");
+        if (dirSpan) dirSpan.textContent = "";
+        if (btns[i].dataset.sort === mode) {
+            btns[i].classList.add("active");
+            if (dirSpan) dirSpan.textContent = (_sortDir === 'desc') ? '↓' : '↑';
+        }
+    }
+    if (modelConfigData) renderRankingList(modelConfigData);
+}
+
+// ============ 同步全球排名 ============
+async function syncGlobalRanking() {
+    showToast("info", "🔄 正在搜索全球排名...", "请稍候");
+    try {
+        var res = await fetch("/api/model-ranking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 同步: true }) });
+        var d = await res.json();
+        if (d.成功) {
+            showToast("success", "✅ 排名已同步", d.消息 || "实力分已更新");
+            loadModelConfig();
+        } else {
+            showToast("error", "❌ 同步失败", d.错误 || "未知错误");
+        }
+    } catch (e) {
+        showToast("error", "❌ 连接错误", e.message);
     }
 }
 
@@ -337,11 +436,13 @@ async function loadSystemStatus() {
     try {
         const res = await fetch("/api/status"); const s = await res.json();
         document.getElementById("statusInfo").textContent = `模式: ${s.对话?.工作模式 || "商量"} | 模型: ${s.当前模型 || "默认"}`;
-        // 同步版本号到标题
+        // 同步版本号到标题和关于页面
         if (s.版本 && s.版本 !== "未知") {
             document.title = `朱峰社区智能体 v${s.版本}`;
             const titleEl = document.querySelector(".topbar-title");
             if (titleEl) titleEl.innerHTML = titleEl.innerHTML.replace(/朱峰社区智能体( v[\d.]+)?/, `朱峰社区智能体 v${s.版本}`);
+            const aboutVer = document.getElementById("aboutVersion");
+            if (aboutVer) aboutVer.textContent = `v${s.版本} · MIT · zf3d.com`;
         }
     } catch (e) {}
 }

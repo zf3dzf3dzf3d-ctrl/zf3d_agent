@@ -540,6 +540,16 @@
             const data = await resp.json();
             if (data.success || data.成功) {
                 employees = data.data || data.数据 || [];
+                // 清理localStorage中已不存在的员工名（修复：分组显示数量但看不到员工）
+                var liveNames = {};
+                employees.forEach(function(e) { liveNames[e.name || e.姓名] = true; });
+                var changed = false;
+                empCategories.forEach(function(cat) {
+                    var before = (cat.employeeNames || []).length;
+                    cat.employeeNames = (cat.employeeNames || []).filter(function(n) { return liveNames[n]; });
+                    if (cat.employeeNames.length !== before) changed = true;
+                });
+                if (changed) saveCategories();
                 const online = employees.filter(function(e) {
                     return (e.status || e.状态) === '在岗' && !(e.isMother || e.是母体);
                 }).length;
@@ -3445,7 +3455,11 @@
                 var data = await resp.json();
                 if (data.通知 && data.通知.length > 0) {
                     data.通知.forEach(function(n) {
-                        _showAlertPopup(n.消息 || '提醒', true);
+                        // 只弹alert节点通知，工作流完成/失败通知不弹前端弹窗
+                        var msg = n.消息 || '';
+                        if (n.类型 === 'alert' || (!msg.includes('执行成功') && !msg.includes('执行失败'))) {
+                            _showAlertPopup(msg || '提醒', true);
+                        }
                     });
                 }
             } catch(e) {}
@@ -4640,9 +4654,9 @@
                 var text = await file.text();
                 var data = JSON.parse(text);
                 loadWorkflowFromData(data);
-                autoSaveWorkflow();
                 var name = file.name.replace(/\.json$/i, '');
                 wfCurrentFileName = name;
+                autoSaveWorkflow();
                 _addRecentFile(name);
                 var fnEl = document.getElementById('empWfFileName');
                 if (fnEl) fnEl.textContent = '📄 ' + name;
