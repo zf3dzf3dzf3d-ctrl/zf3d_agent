@@ -62,7 +62,7 @@ async function browseFolder() {
 }
 function openFolderByPath() { const p = document.getElementById("folderPathInput").value.trim(); if (p) openFolder(p); }
 
-async function openFolder(path) {
+async function openFolder(path, forceReload = false) {
     stopSlideshow();
     hideAudioPlayer();
     hideVideoPlayer();
@@ -70,12 +70,16 @@ async function openFolder(path) {
     currentRootDisplay = currentRoot === "." ? "项目根目录" : currentRoot;
     if (currentRoot !== ".") localStorage.setItem("lastFolder", currentRoot);
     // 不重建树，在持久树上导航+高亮
-    await navigateTree(currentRoot);
-    showGallery(currentRoot);
+    await navigateTree(currentRoot, forceReload);
+    // 仅在没有打开文件时才显示缩略图画廊，避免遮挡已打开的编辑器
+    if (typeof activeFileIdx === 'undefined' || activeFileIdx < 0) {
+        showGallery(currentRoot);
+    }
 }
 
 // 在持久树上导航到目标路径：懒加载+展开+高亮
-async function navigateTree(targetPath) {
+// forceReload=true 时强制重新加载已展开节点的子项（用于创建/删除/重命名后刷新）
+async function navigateTree(targetPath, forceReload = false) {
     const target = normPath(targetPath);
     if (!target) return;
     
@@ -110,26 +114,26 @@ async function navigateTree(targetPath) {
             if (samePath(item.dataset.path || "", segPath)) node = item;
         });
         
-        if (!node) {
-            // 节点不存在，需要从父节点懒加载
+        if (!node || (forceReload && i === segments.length - 1)) {
+            // 节点不存在，或需要强制刷新最后一级的子项
             const parentPath = i > 0 ? segments[i - 1] : null;
-            let parentNode = null;
-            if (parentPath) {
+            let parentNode = node || null;
+            if (!parentNode && parentPath) {
                 document.querySelectorAll(".ti[data-path]").forEach(item => {
                     if (samePath(item.dataset.path || "", parentPath)) parentNode = item;
                 });
             }
             if (parentNode) {
-                // 懒加载父节点的子项
+                // 懒加载父节点的子项（forceReload时清除loaded标记强制重载）
                 const kids = parentNode.nextElementSibling;
-                if (kids && kids.classList.contains("tc") && !kids.dataset.loaded) {
+                if (kids && kids.classList.contains("tc") && (!kids.dataset.loaded || forceReload)) {
                     try {
-                        const res = await fetch(`/api/file-tree?path=${encodeURIComponent(normPath(parentPath))}&depth=1`);
+                        const res = await fetch(`/api/file-tree?path=${encodeURIComponent(normPath(parentNode.dataset.path))}&depth=1`);
                         const d = await res.json();
                         if (d.成功 && d.树) {
                             kids.innerHTML = "";
                             const 子节点列表 = d.树.子项 || [];
-                            for (const c of 子节点列表) kids.appendChild(buildTreeNode(c, normPath(parentPath)));
+                            for (const c of 子节点列表) kids.appendChild(buildTreeNode(c, normPath(parentNode.dataset.path)));
                             kids.dataset.loaded = "1";
                         }
                     } catch (e) { /* ignore */ }
@@ -452,7 +456,7 @@ function buildTreeNode(node, path) {
             if (isVideo(node.后缀 || "")) { const idx = videoPlaylist.findIndex(v => v.路径 === fullPath); showVideo(fullPath, node.名称, idx); return; }
             if (isDocument(node.后缀 || "")) { showDocument(fullPath, node.名称); return; }
             const ext = (node.后缀 || "").toLowerCase();
-            const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext);
+            const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore",".asp",".sql",".xml",".conf",".cfg",".log"].includes(ext);
             if (!可编辑) { showToast("info", "🔒 不支持的格式", `「${_esc(node.名称)}」无法在此应用中打开`); return; }
             hideMediaView();
             openFileInEditor(path, node.名称);
@@ -493,7 +497,8 @@ async function newFolder(parentPath) {
         });
         const d = await resp.json();
         if (d.成功 || d.success) {
-            refreshTree();
+            // 强制刷新父文件夹的树节点（重新加载子项），并导航到新文件夹
+            await navigateTree(parentPath, true);
             showToast("已创建文件夹: " + 名称, "success");
         } else {
             alert("创建失败: " + (d.错误 || d.error || "未知错误"));
@@ -523,7 +528,7 @@ async function renameItem(path, name) {
 }
 
 function fileIcon(ext) {
-    const m = {".py":"🐍",".js":"📜",".css":"🎨",".html":"🌐",".json":"📋",".md":"📝",".bat":"⚙️",".sh":"⚙️",".txt":"📄",".cs":"🔵",".java":"☕",".ts":"🔷",".tsx":"⚛️",".jsx":"⚛️",".vue":"💚",".go":"🔹",".rs":"🦀",".cpp":"⚙️",".h":"📄",".yml":"📋",".yaml":"📋",".toml":"📋",".ini":"📋",".env":"🔒",".gitignore":"🚫",".png":"🖼️",".jpg":"🖼️",".jpeg":"🖼️",".gif":"🖼️",".webp":"🖼️",".bmp":"🖼️",".svg":"🖼️",".tga":"🖼️",".mp3":"🎵",".wav":"🎵",".ogg":"🎵",".m4a":"🎵",".flac":"🎵",".aac":"🎵",".opus":"🎵",".wma":"🎵",".mp4":"🎬",".webm":"🎬",".mkv":"🎬",".avi":"🎬",".wmv":"🎬",".mov":"🎬",".flv":"🎬",".ts":"🎬",".docx":"📄",".doc":"📄",".xlsx":"📊",".xls":"📊",".csv":"📊",".pdf":"📕"};
+    const m = {".py":"🐍",".js":"📜",".css":"🎨",".html":"🌐",".json":"📋",".md":"📝",".bat":"⚙️",".sh":"⚙️",".txt":"📄",".cs":"🔵",".java":"☕",".ts":"🔷",".tsx":"⚛️",".jsx":"⚛️",".vue":"💚",".go":"🔹",".rs":"🦀",".cpp":"⚙️",".h":"📄",".yml":"📋",".yaml":"📋",".toml":"📋",".ini":"📋",        ".env":"🔒",".gitignore":"🚫",".asp":"📄",".sql":"🗄️",".xml":"📋",".png":"🖼️",".jpg":"🖼️",".jpeg":"🖼️",".gif":"🖼️",".webp":"🖼️",".bmp":"🖼️",".svg":"🖼️",".tga":"🖼️",".mp3":"🎵",".wav":"🎵",".ogg":"🎵",".m4a":"🎵",".flac":"🎵",".aac":"🎵",".opus":"🎵",".wma":"🎵",".mp4":"🎬",".webm":"🎬",".mkv":"🎬",".avi":"🎬",".wmv":"🎬",".mov":"🎬",".flv":"🎬",".ts":"🎬",".docx":"📄",".doc":"📄",".xlsx":"📊",".xls":"📊",".csv":"📊",".pdf":"📕"};
     return m[ext] || "📄";
 }
 
@@ -1208,7 +1213,7 @@ function renderGalleryGrid() {
                 item.addEventListener("click", () => { showDocument(fullPath, node.名称); });
             } else {
                 const icon = fileIcon(ext);
-                const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext.toLowerCase());
+                const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore",".asp",".sql",".xml",".conf",".cfg",".log"].includes(ext.toLowerCase());
                 if (可编辑) {
                     item.innerHTML = `${_renameBtn}<div class="gallery-thumb gallery-thumb-text">${icon}</div><div class="gallery-name">${_esc(node.名称)}</div>`;
                     item.addEventListener("click", () => { hideMediaView(); openFileInEditor(galleryPath, node.名称); });
@@ -1286,7 +1291,7 @@ function renderGalleryList() {
             if (isAudio(ext)) { const idx = audioPlaylist.findIndex(a => a.路径 === fullPath); showAudio(fullPath, node.名称, idx); return; }
             if (isVideo(ext)) { const idx = videoPlaylist.findIndex(v => v.路径 === fullPath); showVideo(fullPath, node.名称, idx); return; }
             if (isDocument(ext)) { showDocument(fullPath, node.名称); return; }
-            const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore"].includes(ext.toLowerCase());
+            const 可编辑 = [".py",".js",".css",".html",".json",".md",".bat",".sh",".txt",".cs",".java",".ts",".tsx",".jsx",".vue",".go",".rs",".cpp",".h",".yml",".yaml",".toml",".ini",".env",".gitignore",".asp",".sql",".xml",".conf",".cfg",".log"].includes(ext.toLowerCase());
             if (可编辑) { hideMediaView(); openFileInEditor(galleryPath, node.名称); }
             else { showToast("info", "🔒 不支持的格式", `「${_esc(node.名称)}」无法在此应用中打开`); }
         });
@@ -1495,6 +1500,7 @@ function _formatTooltipType(node) {
         ".mp4": "MP4 视频", ".mkv": "MKV 视频", ".avi": "AVI 视频", ".wmv": "WMV 视频", ".mov": "MOV 视频",
         ".docx": "Word 文档", ".doc": "Word 文档", ".xlsx": "Excel 表格", ".xls": "Excel 表格",
         ".csv": "CSV 表格", ".pdf": "PDF 文档", ".zip": "ZIP 压缩包", ".7z": "7Z 压缩包",
+        ".asp": "ASP 网页", ".sql": "SQL 数据库", ".xml": "XML 文档",
         ".rar": "RAR 压缩包", ".tar": "TAR 压缩包", ".gz": "GZ 压缩包"
     };
     return typeMap[ext] || (ext ? ext.slice(1).toUpperCase() + " 文件" : "文件");
@@ -1532,6 +1538,9 @@ function showFileTooltip(e, node) {
         el.innerHTML = html;
         el.dataset.currentPath = path;
         el.style.display = "block";
+        el.style.visibility = "hidden";
+        el.style.left = "0px";
+        el.style.top = "0px";
 
         // 异步获取图片/视频宽高
         if (!isDir && path) {
@@ -1543,14 +1552,17 @@ function showFileTooltip(e, node) {
             _fetchFolderInfo(path, el);
         }
 
-        // 定位
-        const x = e.clientX + 14;
-        const y = e.clientY + 14;
-        const rect = el.getBoundingClientRect();
-        const maxX = window.innerWidth - rect.width - 8;
-        const maxY = window.innerHeight - rect.height - 8;
-        el.style.left = Math.min(x, maxX) + "px";
-        el.style.top = Math.min(y, maxY) + "px";
+        // 定位（先设visibility:hidden再读尺寸，避免强制回流）
+        requestAnimationFrame(() => {
+            const rect = el.getBoundingClientRect();
+            const x = e.clientX + 14;
+            const y = e.clientY + 14;
+            const maxX = window.innerWidth - rect.width - 8;
+            const maxY = window.innerHeight - rect.height - 8;
+            el.style.left = Math.min(x, maxX) + "px";
+            el.style.top = Math.min(y, maxY) + "px";
+            el.style.visibility = "visible";
+        });
     }, 150);
 }
 

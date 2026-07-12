@@ -42,6 +42,8 @@ class 文件管理器类:
         self.回收站保留天 = 7
         # v2.2: 隐私区敏感文件，AI读取需额外检查
         self._敏感文件 = {"密钥.json", "询问记录.json"}
+        self._变更预览队列 = []  # 变更预览待确认队列
+        self._跳过变更预览 = True  # 默认跳过变更预览（需前端手动开启）
         self._清理回收站()
 
     # ========== v2.1 事务化写入支持 ==========
@@ -141,6 +143,21 @@ class 文件管理器类:
         # dry_run模式：只校验不实际写入
         if dry_run:
             return {"成功": True, "dry_run": True, "提示": f"模拟写入 {路径} ({len(内容)}字符)"}
+
+        # AI调用时变更预览（非无人值守模式）
+        if AI调用 and not self._跳过变更预览:
+            旧内容 = ""
+            if 文件路径.exists():
+                try:
+                    with open(文件路径, "r", encoding="utf-8") as f:
+                        旧内容 = f.read()
+                except Exception:
+                    pass
+            预览结果 = self._请求变更预览(路径, 旧内容, 内容, "写入文件")
+            if not 预览结果.get("接受"):
+                return {"成功": False, "错误": "用户拒绝了此文件变更"}
+            if 预览结果.get("编辑内容"):
+                内容 = 预览结果["编辑内容"]
 
         def _写():
             文件路径.parent.mkdir(parents=True, exist_ok=True)
@@ -353,6 +370,12 @@ class 文件管理器类:
         # dry_run模式
         if dry_run:
             return {"成功": True, "dry_run": True, "详情": 预检详情, "提示": f"模拟批量替换 {路径}: {len(编辑列表)}项"}
+
+        # AI调用时变更预览
+        if AI调用 and not self._跳过变更预览:
+            预览结果 = self._请求变更预览(路径, 原始内容, f"[批量替换{len(编辑列表)}项]", "批量替换")
+            if not 预览结果.get("接受"):
+                return {"成功": False, "错误": "用户拒绝了此文件变更"}
 
         def _批量替换():
             with open(文件路径, "r", encoding="utf-8") as f:
@@ -678,6 +701,7 @@ class 文件管理器类:
                               if not str(Path(r["路径"]).parent) == 父目录]
             return
         elif 选择 == "拒绝":
+            self._授予权限(路径, [], "禁止")
             self._记录询问(路径, "拒绝", 操作)
             self._记录用户偏好(操作, "拒绝")
         self.待确认队列 = [r for r in self.待确认队列 if r["路径"] != 路径]
@@ -701,16 +725,17 @@ class 文件管理器类:
                 授权 = self._查找授权(路径)
                 if not 授权:
                     self.请求权限(路径, 操作)
-                    # 等待用户授权（最多30秒轮询）
-                    等待开始 = time.time()
-                    while time.time() - 等待开始 < 30:
+                    # 等待用户授权（120秒超时，用户拒绝或超时则返回不允许）
+                    _等待开始 = time.time()
+                    while True:
                         time.sleep(1)
                         授权 = self._查找授权(路径)
-                        if 授权 and 授权.get("授权类型") != "禁止":
+                        if 授权:
                             break
-                    else:
-                        return {"允许": False, "原因": f"授权超时（30秒未响应），请先在前端弹窗中授权读取路径: {路径}，然后重试"}
-                    if not 授权 or 授权.get("授权类型") == "禁止":
+                        if time.time() - _等待开始 > 120:
+                            self.待确认队列 = [r for r in self.待确认队列 if r["路径"] != 路径]
+                            return {"允许": False, "原因": f"用户120秒内未响应读取授权请求: {路径}。请改用其他方式（如直接输出内容让用户手动保存），或提醒用户在界面中点击授权。"}
+                    if 授权.get("授权类型") == "禁止":
                         return {"允许": False, "原因": f"用户拒绝了读取路径: {路径}"}
                 if 授权.get("授权类型") == "禁止":
                     return {"允许": False, "原因": "用户已禁止此路径"}
@@ -721,17 +746,18 @@ class 文件管理器类:
             if AI调用:
                 # 自动发起授权请求，前端会弹窗让用户选择
                 self.请求权限(路径, 操作)
-                # 等待用户授权（最多30秒轮询）
-                等待开始 = time.time()
-                while time.time() - 等待开始 < 30:
+                # 等待用户授权（120秒超时，用户拒绝或超时则返回不允许）
+                _等待开始 = time.time()
+                while True:
                     time.sleep(1)
                     授权 = self._查找授权(路径)
-                    if 授权 and 授权.get("授权类型") != "禁止":
-                        # 用户已授权，继续校验
+                    if 授权:
+                        # 用户已授权或已拒绝，继续校验
                         break
-                else:
-                    return {"允许": False, "原因": f"授权超时（30秒未响应），请先在前端弹窗中授权{操作}路径: {路径}，然后重试"}
-                if not 授权 or 授权.get("授权类型") == "禁止":
+                    if time.time() - _等待开始 > 120:
+                        self.待确认队列 = [r for r in self.待确认队列 if r["路径"] != 路径]
+                        return {"允许": False, "原因": f"用户120秒内未响应{操作}授权请求: {路径}。请改用其他方式（如直接输出代码内容让用户手动保存），或提醒用户在界面中点击授权。"}
+                if 授权.get("授权类型") == "禁止":
                     return {"允许": False, "原因": f"用户拒绝了{操作}路径: {路径}"}
             else:
                 return {"允许": True, "原因": "界面操作自动放行"}
@@ -960,3 +986,43 @@ class 文件管理器类:
 
     def 获取审计日志(self, 最近数: int = 50) -> list:
         return self.审计日志[-最近数:]
+
+    # ========== 变更预览（改前审批） ==========
+
+    def _请求变更预览(self, 路径: str, 旧内容: str, 新内容: str, 操作类型: str) -> dict:
+        """推送变更预览到前端，阻塞等待用户响应（最多60秒）"""
+        预览ID = f"change_{int(time.time()*1000)}"
+        预览请求 = {
+            "id": 预览ID,
+            "路径": 路径,
+            "操作": 操作类型,
+            "旧内容": 旧内容[:5000],
+            "新内容": 新内容[:5000] if isinstance(新内容, str) else str(新内容)[:5000],
+            "接受": False,
+            "编辑内容": None
+        }
+        self._变更预览队列.append(预览请求)
+        # 等待用户响应（最多60秒）
+        等待开始 = time.time()
+        while time.time() - 等待开始 < 60:
+            time.sleep(0.5)
+            if 预览请求.get("已响应"):
+                break
+        # 从队列移除
+        self._变更预览队列 = [r for r in self._变更预览队列 if r.get("id") != 预览ID]
+        return {"接受": 预览请求.get("接受", False), "编辑内容": 预览请求.get("编辑内容")}
+
+    def 获取变更预览(self) -> list:
+        """获取待确认的变更预览列表"""
+        return [{"id": r["id"], "路径": r["路径"], "操作": r["操作"],
+                 "旧内容": r["旧内容"][:2000], "新内容": r["新内容"][:2000]}
+                for r in self._变更预览队列 if not r.get("已响应")]
+
+    def 用户确认变更(self, 预览ID: str, 接受: bool, 编辑内容: str = None):
+        """用户响应变更预览"""
+        for r in self._变更预览队列:
+            if r.get("id") == 预览ID:
+                r["接受"] = 接受
+                r["编辑内容"] = 编辑内容
+                r["已响应"] = True
+                return

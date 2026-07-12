@@ -26,6 +26,8 @@ class 记忆模块:
         self.摘要计数 = 0
         self._摘要锁 = threading.Lock()  # 摘要生成线程安全锁
         self._索引锁 = threading.Lock()  # 索引数据读写锁（异步写入时保护）
+        self._用户正在对话 = False  # 用户正在对话时暂停后台归纳
+        self._归纳暂停 = False  # 外部控制暂停
         self.存储引擎 = None  # SQLite存储引擎（用于读取历史对话）
         # 异步写入队列
         import queue as _queue
@@ -90,18 +92,14 @@ class 记忆模块:
             from 存储引擎 import 获取存储引擎
             db路径 = str(项目根目录 / "隐私区" / "我的数据" / "智能体.db")
             self.存储引擎 = 获取存储引擎(db路径)
-            # 后台归纳延迟30秒启动，避免阻塞启动和刷屏
-            threading.Timer(30, self._归纳历史对话).start()
-            # 启动后60秒执行经验提炼（不阻塞启动）
-            threading.Timer(60, self._提炼用户模式).start()
-            # 每6小时定期提炼+衰减+合并
+            # 不再启动时自动归纳历史——改为任务结束后按需触发
+            # 每6小时只做衰减+合并（不调LLM）
             def _定期维护():
                 while True:
                     import time as _time
                     _time.sleep(6 * 3600)
-                    self._提炼用户模式()
                     self._衰减旧记忆()
-                    self._合并相似摘要()
+            threading.Thread(target=_定期维护, daemon=True).start()
             threading.Thread(target=_定期维护, daemon=True).start()
         except Exception as e:
             print(f"   ⚠️ 记忆模块存储引擎注入失败: {e}")
@@ -639,7 +637,7 @@ tags: [{', '.join(标签)}]
     # ============ SQLite历史对话归纳 ============
 
     def _归纳历史对话(self):
-        """扫描SQLite中所有对话，对没有摘要的旧对话生成摘要"""
+        """扫描SQLite中所有对话，对没有摘要的旧对话生成摘要（分批+限流，不阻塞用户对话）"""
         if not self.存储引擎 or not self.模型直连器:
             return
         try:
@@ -657,9 +655,22 @@ tags: [{', '.join(标签)}]
                 return
             已归纳数 = 0
             for d in 需归纳:
+                # 用户正在对话时暂停归纳，避免争抢LLM API
+                if self._用户正在对话 or self._归纳暂停:
+                    print(f"  [归纳] 用户正在对话，暂停后台归纳（已完成{已归纳数}/{len(需归纳)}）")
+                    return  # 退出，下次启动或定时任务再继续
                 try:
                     self._归纳单个对话(d["id"], d.get("标题", d["id"]))
                     已归纳数 += 1
+                    # 每归纳一个对话等待3秒，避免连续调用LLM占满API通道
+                    import time as _time
+                    _time.sleep(3)
+                    # 每批最多归纳5个，剩余等下次
+                    if 已归纳数 >= 5:
+                        print(f"  [归纳] 本批归纳{已归纳数}个，剩余{len(需归纳)-已归纳数}个待下次")
+                        # 5分钟后继续下一批
+                        threading.Timer(300, self._归纳历史对话).start()
+                        return
                 except Exception:
                     continue
         except Exception:

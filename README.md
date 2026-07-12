@@ -3,7 +3,7 @@
 > 🚀 全能桌面AI助手 — 节点工作流编排多AI协作、管理文件、浏览网页、编辑文档、AI生图/视频、PS级图片加工、3D软件整合（3ds Max/Houdini/Blender）、276+操作，纯Python零依赖，复制即运行
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-专有-red.svg)](LICENSE)
 [![零依赖](https://img.shields.io/badge/依赖-零-brightgreen.svg)](#)
 [![操作数](https://img.shields.io/badge/总操作-276+-blue.svg)](#)
 [![模型支持](https://img.shields.io/badge/模型支持-10+-orange.svg)](#)
@@ -26,21 +26,13 @@
 
 ## 🚀 快速开始
 
-> 不需要 `pip install`，不需要任何环境配置，clone 后直接运行。
+> 不需要 `pip install`，不需要任何环境配置，下载后直接运行。
 
 **Windows：**
-```bash
-git clone https://gitee.com/zf3d/zf3d_agent.git
-cd zf3d_agent
-启动.bat
-```
+下载 release 包，解压后运行 `启动.bat`
 
 **Linux：**
-```bash
-git clone https://gitee.com/zf3d/zf3d_agent.git
-cd zf3d_agent
-bash install.sh
-```
+下载 release 包，解压后运行 `bash install.sh`
 
 浏览器打开 http://localhost:8765 ，在设置页面填入你的API Key即可。
 
@@ -162,7 +154,7 @@ bash install.sh
 | Python版本 | 3.8+ |
 | 前端 | 纯HTML/CSS/JS，无框架 |
 | 存储 | SQLite + FTS5全文搜索 |
-| 许可证 | MIT |
+| 许可证 | 专有 |
 
 ---
 
@@ -209,12 +201,9 @@ bash install.sh
 
 ## 📜 License
 
-MIT License - 详见 [LICENSE](LICENSE)
+专有软件许可 - 详见 [LICENSE](LICENSE)
 
-## 🤝 贡献
+## 🤝 联系
 
-欢迎提交 Issue 和 Pull Request！
-
-- **GitHub**：https://github.com/zf3dzf3dzf3d-ctrl/zf3d_agent
-- **Gitee**：https://gitee.com/zf3d/zf3d_agent（国内推荐）
+- **官网**：https://www.zf3d.com
 - **QQ群**：290939358

@@ -281,7 +281,7 @@ async function loadDriveList() {
 
 async function refreshTree() {
     if (galleryPath && galleryPath !== "我的电脑") {
-        await openFolder(galleryPath);
+        await openFolder(galleryPath, true);
         if (typeof activeFileIdx === 'undefined' || activeFileIdx < 0) {
             await showGallery(galleryPath);
         }

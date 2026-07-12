@@ -389,6 +389,9 @@
 .emp-wf-port.output { right: 0; top: 50%; transform: translate(50%, -50%); }
 .emp-wf-port.output:hover { transform: translate(50%, -50%) scale(1.3); }
 .emp-wf-port.connected { border-color: var(--green); background: var(--green); }
+/* 多端口节点：输入端口取消absolute，用flex布局，文字在左圆点在右 */
+.emp-wf-multi-ports .emp-wf-port.input { position: relative; left: auto; top: auto; transform: none; }
+.emp-wf-multi-ports .emp-wf-port.input:hover { transform: scale(1.3); }
 .wf-node-resize { position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; cursor: nwse-resize; z-index: 15; opacity: 0.3; transition: opacity 0.15s; }
 .emp-wf-node:hover .wf-node-resize { opacity: 1; }
 .wf-node-resize::after { content: ''; position: absolute; bottom: 2px; right: 2px; width: 8px; height: 8px; border-right: 2px solid var(--text2); border-bottom: 2px solid var(--text2); border-radius: 0 0 4px 0; }
@@ -517,8 +520,8 @@
 
 /* 节点详情弹窗 */
 .wf-popup {
-    position: fixed; z-index: 9500; width: 340px; height: auto; max-height: 80vh;
-    min-width: 200px; min-height: 120px; max-width: 90vw; max-height: 80vh;
+    position: fixed; z-index: 9500; width: 340px; height: auto; max-height: 90vh;
+    min-width: 200px; min-height: 120px; max-width: 90vw;
     background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
     display: flex; flex-direction: column; overflow: hidden;
     box-shadow: 0 8px 32px rgba(0,0,0,0.6);
@@ -550,6 +553,7 @@
     background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.6); padding: 4px 0; min-width: 180px;
 }
+.wf-node-shop-menu .wf-shop-scroll { overflow-y: auto; overflow-x: visible; flex: 1; }
 .wf-shop-search-wrap { padding: 4px 8px 6px; border-bottom: 1px solid var(--border); margin-bottom: 2px; }
 .wf-shop-search {
     width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);

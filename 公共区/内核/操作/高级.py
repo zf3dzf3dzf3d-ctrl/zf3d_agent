@@ -1,5 +1,6 @@
 """
 高级操作模块 - 子代理/并行执行/串行流水线/Barrier/LoopUntilDry/后台执行
+🔒加密发布：含子代理/编程循环安全限制，发布时建议PyArmor加密
 """
 import json
 import time
@@ -167,8 +168,10 @@ class 子代理(操作基类):
         # 根据类型选择允许的操作集
         if 类型 == "reviewer":
             允许操作集 = reviewer只读操作
-        else:
+        elif 类型 == "explore":
             允许操作集 = explore只读操作
+        else:
+            允许操作集 = None  # general/plan不限制
 
         def _运行子代理():
             return self._子代理ReAct循环(任务描述, 系统提示, 注册中心, 类型, 允许操作集)
@@ -354,8 +357,10 @@ class 并行执行(操作基类):
             # 根据类型选择正确的允许操作集
             if 类型 == "reviewer":
                 允许操作集 = reviewer只读操作
-            else:
+            elif 类型 == "explore":
                 允许操作集 = explore只读操作
+            else:
+                允许操作集 = None  # general不限制
 
             子代理实例 = 子代理()
             子代理实例.模型直连器 = self.模型直连器
@@ -867,7 +872,7 @@ class 编程循环(操作基类):
             执行实例.模型直连器 = self.模型直连器
             执行实例.文件管理器 = self.文件管理器
             try:
-                执行结果 = 执行实例._子代理ReAct循环(执行任务, general提示, 注册中心, "general", explore只读操作)
+                执行结果 = 执行实例._子代理ReAct循环(执行任务, general提示, 注册中心, "general", None)
             except Exception as e:
                 return 操作结果.失败(f"执行阶段(第{轮次}轮)异常: {e}")
 
@@ -881,7 +886,7 @@ class 编程循环(操作基类):
                         break
             操作说明文本 = "\n\n".join(过滤说明)
             reviewer提示 += f"\n\n## 可用操作\n{操作说明文本}"
-            reviewer提示 += "\n\n## 回复格式\n使用JSON格式调用操作:\n```json\n{\"思考\": \"分析\", \"操作\": \"操作名称\", \"参数\": {}}\n```\n任务完成后输出审查报告。"
+            reviewer提示 += "\n\n## 回复格式\n使用JSON格式调用操作:\n```json\n{\"思考\": \"分析\", \"操作\": \"操作名称\", \"参数\": {}}\n```\n审查完成后，最后输出审查结论JSON:\n```json\n{\"有严重问题\": false, \"问题列表\": [\"问题1\", \"问题2\"]}\n```\n有严重问题=true表示存在高级别bug/逻辑错误/安全问题，false表示通过。"
 
             审查任务 = f"请审查以下任务的执行结果，找出bug和问题：\n\n原始任务: {任务描述}\n\n执行结果:\n{执行结果}"
 
@@ -893,8 +898,19 @@ class 编程循环(操作基类):
             except Exception as e:
                 return 操作结果.失败(f"质检阶段(第{轮次}轮)异常: {e}")
 
-            # 判断是否通过
-            无严重问题 = "高" not in 审查结果 or "未发现" in 审查结果 or "没有问题" in 审查结果
+            # 解析审查结论（优先JSON，回退字符串匹配）
+            无严重问题 = False
+            import json as _json
+            import re as _re
+            json匹配 = _re.search(r'\{[^{}]*"有严重问题"[^{}]*\}', 审查结果, _re.DOTALL)
+            if json匹配:
+                try:
+                    结论 = _json.loads(json匹配.group())
+                    无严重问题 = not 结论.get("有严重问题", True)
+                except _json.JSONDecodeError:
+                    无严重问题 = any(p in 审查结果 for p in ["未发现严重", "没有严重", "无严重", "没有问题", "未发现问题", "代码质量良好", "审查通过"])
+            else:
+                无严重问题 = any(p in 审查结果 for p in ["未发现严重", "没有严重", "无严重", "没有问题", "未发现问题", "代码质量良好", "审查通过"])
             if 无严重问题 and 轮次 >= 1:
                 汇总 = f"✅ 编程循环完成（{轮次}轮）\n\n📋 计划:\n{计划结果[:500]}\n\n🔨 执行结果:\n{执行结果[:500]}\n\n🔍 质检报告:\n{审查结果[:500]}"
                 return 操作结果.成功(汇总, 元数据={"操作类型": "编程循环", "轮数": 轮次, "通过": True})

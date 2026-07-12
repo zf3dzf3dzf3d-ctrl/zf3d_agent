@@ -1,6 +1,7 @@
 """
-网络操作模块 - 网页抓取/网络搜索/网页分析/图片分析
+网络操作模块 - 网页抓取/网络搜索/网页分析/图片分析/网站发布
 v2.2: Tavily API优先，无密钥时回退Bing爬虫
+🔒加密发布：网站发布含API密钥代理逻辑
 """
 import json
 import re as re_mod
@@ -348,3 +349,58 @@ class 图片分析(操作基类):
                 return 操作结果.失败(f"LLM分析失败: {结果.get('错误', '未知错误')}")
         except Exception as e:
             return 操作结果.失败(f"图片分析失败: {e}")
+
+
+class 网站发布(操作基类):
+    名称 = "网站发布"
+    描述 = "通过朱峰社区API发布内容。支持：发帖(post)、发文章(article)、发作品(work)、发评论(comment)、作品评价(review)、上传图片(upload)、AI生成文章(generate)、批量生成(bulk_generate)、查评论(comments)、查分类(list_categories)等。AIGC文章分类：100=AI图片, 101=AI视频, 102=AI游戏, 103=AI软件"
+    参数结构 = {
+        "操作": {"类型": "字符串", "必填": True, "说明": "API操作名：post/article/work/comment/review/upload/generate/bulk_generate/comments/messages/list_categories/checkin/checkin_status/edit/xinxi/tutorial/series/model/ext_video/software/material/zhaopin/qiuzhi"},
+        "参数": {"类型": "字符串", "必填": False, "说明": "JSON格式的额外参数，如 {\"title\":\"标题\", \"content\":\"内容\", \"category_id\":100}。各操作参数详见API文档"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        操作名 = 参数.get("操作", "")
+        额外参数 = 参数.get("参数", "")
+        if not 操作名:
+            return 操作结果.失败("操作名为空")
+        # 解析额外参数
+        import json as _json
+        请求参数 = {"a": 操作名}
+        if 额外参数:
+            try:
+                额外 = _json.loads(额外参数) if isinstance(额外参数, str) else 额外参数
+                if isinstance(额外, dict):
+                    请求参数.update(额外)
+            except _json.JSONDecodeError as e:
+                return 操作结果.失败(f"参数JSON解析失败: {e}")
+        # 通过本地后端API代理调用（密钥不暴露）
+        import urllib.request as _urlreq
+        import urllib.error as _urlerr
+        try:
+            数据字节 = _json.dumps(请求参数).encode("utf-8")
+            请求 = _urlreq.Request(
+                "http://localhost:8765/api/zf3d-api",
+                data=数据字节, method="POST"
+            )
+            请求.add_header("Content-Type", "application/json")
+            with _urlreq.urlopen(请求, timeout=30) as 响应:
+                结果 = _json.loads(响应.read().decode("utf-8"))
+            if 结果.get("success") or 结果.get("成功"):
+                数据 = 结果.get("data") or 结果.get("数据") or {}
+                消息 = 结果.get("message") or 结果.get("消息") or "操作成功"
+                if isinstance(数据, dict):
+                    if 数据.get("url"):
+                        消息 += f"\n🔗 {数据.get('url', '')}"
+                    if 数据.get("id"):
+                        消息 += f" (ID: {数据.get('id')})"
+                elif isinstance(数据, list):
+                    消息 += f" ({len(数据)}条结果)"
+                return 操作结果.成功(消息, 元数据={"操作类型": "网站发布", "操作": 操作名, "结果": 数据})
+            else:
+                错误 = 结果.get("message") or 结果.get("错误") or 结果.get("error") or "操作失败"
+                return 操作结果.失败(f"网站API返回: {错误}")
+        except _urlerr.HTTPError as e:
+            return 操作结果.失败(f"HTTP {e.code}: {e.read().decode('utf-8', errors='replace')[:200]}")
+        except Exception as e:
+            return 操作结果.失败(f"网站发布失败: {e}")

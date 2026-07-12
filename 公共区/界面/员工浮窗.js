@@ -1,5 +1,6 @@
 /**
  * 员工浮窗 - 节点工作流 + 员工列表（整合版）
+ * 🔒加密发布：含员工备份恢复/分组持久化逻辑，发布时必须JS混淆
  */
 (function() {
     'use strict';
@@ -33,6 +34,9 @@
                             </div>
                             <div onclick="window.empWidget.saveWorkflowFile(); window.empWidget._closeFileMenu()">💾 保存</div>
                             <div onclick="window.empWidget.saveWorkflowAs(); window.empWidget._closeFileMenu()">📋 另存为</div>
+                            <div class="emp-wf-menu-sep"></div>
+                            <div onclick="window.empWidget.saveTemplate(); window.empWidget._closeFileMenu()">📦 保存为模板</div>
+                            <div onclick="window.empWidget.loadTemplate(); window.empWidget._closeFileMenu()">📂 加载模板</div>
                             <div class="emp-wf-menu-sep"></div>
                             <div onclick="window.empWidget.closeWorkflow(); window.empWidget._closeFileMenu()" style="color:var(--red)">退出</div>
                         </div>
@@ -71,6 +75,8 @@
                         <div class="emp-wf-sidebar-header">
                             <span>🏢 数字员工</span>
                             <div style="display:flex;gap:2px">
+                                <button class="emp-wf-tool-btn" onclick="window.empWidget.saveEmpBackup()" title="备份员工" style="font-size:12px">💾</button>
+                                <button class="emp-wf-tool-btn" onclick="window.empWidget.restoreEmpBackup()" title="恢复员工" style="font-size:12px">📂</button>
                                 <button class="emp-wf-tool-btn" onclick="window.empWidget.openCreatePanel()" title="创建员工" style="font-size:12px">➕</button>
                                 <button class="emp-wf-tool-btn" onclick="window.empWidget._addCategory()" title="新建分组" style="font-size:12px">📁</button>
                             </div>
@@ -534,6 +540,8 @@
     }
 
     async function refresh() {
+        // 未登录网站时不请求employee API
+        if (!window.agentAuth || !window.agentAuth.isLoggedIn()) return;
         try {
             if (empCategories.length === 0) loadCategories();
             const resp = await fetch('/api/employee-list');
@@ -984,18 +992,56 @@
             });
         });
         try { localStorage.setItem('empCategories', JSON.stringify(empCategories)); } catch(e) {}
+        // 同步到后端文件（持久化，防止浏览器清缓存丢失分组）
+        try {
+            fetch('/api/employee-categories', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(empCategories)
+            });
+        } catch(e) {}
     }
     function loadCategories() {
-        try {
-            const saved = localStorage.getItem('empCategories');
-            if (saved) {
-                empCategories = JSON.parse(saved);
-                empCatId = Math.max(empCatId, ...empCategories.map(function(c) {
-                    const m = (c.id || '').match(/cat_(\d+)/);
-                    return m ? parseInt(m[1]) : 0;
-                }), 0);
-            }
-        } catch(e) {}
+        // 优先从后端文件加载（持久化），回退到 localStorage
+        fetch('/api/employee-categories')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success && data.data && data.data.length > 0) {
+                    empCategories = data.data;
+                    empCatId = Math.max(empCatId, ...empCategories.map(function(c) {
+                        const m = (c.id || '').match(/cat_(\d+)/);
+                        return m ? parseInt(m[1]) : 0;
+                    }), 0);
+                    // 同步到 localStorage 作为缓存
+                    try { localStorage.setItem('empCategories', JSON.stringify(empCategories)); } catch(e) {}
+                    if (typeof renderTree === 'function') renderTree(getTreeData());
+                } else {
+                    // 后端无数据，回退到 localStorage
+                    try {
+                        const saved = localStorage.getItem('empCategories');
+                        if (saved) {
+                            empCategories = JSON.parse(saved);
+                            empCatId = Math.max(empCatId, ...empCategories.map(function(c) {
+                                const m = (c.id || '').match(/cat_(\d+)/);
+                                return m ? parseInt(m[1]) : 0;
+                            }), 0);
+                        }
+                    } catch(e) {}
+                }
+            })
+            .catch(function() {
+                // 网络错误，回退到 localStorage
+                try {
+                    const saved = localStorage.getItem('empCategories');
+                    if (saved) {
+                        empCategories = JSON.parse(saved);
+                        empCatId = Math.max(empCatId, ...empCategories.map(function(c) {
+                            const m = (c.id || '').match(/cat_(\d+)/);
+                            return m ? parseInt(m[1]) : 0;
+                        }), 0);
+                    }
+                } catch(e) {}
+            });
     }
 
     function renderTreeNode(node, depth) {
@@ -1288,15 +1334,23 @@
     async function deleteEmployee(name) {
         if (!confirm('确认删除员工「' + name + '」？')) return;
         try {
-            await fetch('/api/employee-delete', {
+            const resp = await fetch('/api/employee-delete', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({姓名: name})
             });
-            closeChat();
-            refresh();
-            showToast('已删除「' + name + '」', 'success');
+            const data = await resp.json();
+            if (data.success || data.成功) {
+                closeChat();
+                showToast('已删除「' + name + '」', 'success');
+                await refresh();
+            } else {
+                // 删除失败也刷新列表，清除前端缓存的已不存在的员工
+                await refresh();
+                showToast('删除失败: ' + (data.错误 || data.error || '未知错误'), 'error');
+            }
         } catch (e) {
-            showToast('删除失败', 'error');
+            await refresh();
+            showToast('删除失败: ' + e.message, 'error');
         }
     }
 
@@ -1451,6 +1505,7 @@
         if (_imgPollInterval) return;
         _imgPollInterval = setInterval(function() {
             if (!document.getElementById('empWfOverlay').classList.contains('show')) return;
+            if (!window.agentAuth || !window.agentAuth.isLoggedIn()) return;
             // 1. 检查图片节点中已删除的图片
             var needRefresh = false;
             var imageNodes = wfNodes.filter(function(n) { return n.type === 'image' && n.config.图片列表 && n.config.图片列表.length > 0; });
@@ -1558,6 +1613,7 @@
     let wfSelectedNode = null;
     let wfConnectFrom = null;
     let wfConnectFromList = [];  // 多选时同时连线的节点列表
+    let wfConnectPort = null;  // 多端口连线时记录目标端口名
     let wfConnectMode = null;  // 'forward' = 输出→输入, 'reverse' = 输入→输出
     let wfDragNode = null;     // {id, offsetX, offsetY}
     let wfZoom = 1;
@@ -1895,7 +1951,7 @@
             wfPanX = mx - (mx - wfPanX) * (wfZoom / oldZoom);
             wfPanY = my - (my - wfPanY) * (wfZoom / oldZoom);
             applyWfTransform();
-        });
+        }, { passive: false });
 
         // 从员工列表拖入画布 / 文件拖入
         canvasWrap.addEventListener('dragenter', function(e) {
@@ -1959,7 +2015,8 @@
             if (e.target.tagName === 'path' && !e.target.classList.contains('temp')) {
                 const from = e.target.dataset.from;
                 const to = e.target.dataset.to;
-                wfConns = wfConns.filter(function(c) { return !(c.from === from && c.to === to); });
+                const port = e.target.dataset.port || '';
+                wfConns = wfConns.filter(function(c) { return !(c.from === from && c.to === to && (c.port || '') === port); });
                 redrawWfConnections();
                 updateWfInfo();
                 autoSaveWorkflow();
@@ -2179,14 +2236,20 @@
                 if (wfConnectFrom && wfConnectMode === 'forward') {
                     // 正在正向连线，点击输入端口完成
                     var toId = target.dataset.node;
+                    var portName = target.dataset.port || '';
                     if (wfConnectFrom !== toId) {
-                        var exists = wfConns.some(function(c) { return c.from === wfConnectFrom && c.to === toId; });
+                        // 多端口节点：同port只保留一条连线，不同port可多条
+                        var exists = wfConns.some(function(c) { return c.from === wfConnectFrom && c.to === toId && (c.port || '') === portName; });
                         if (!exists) {
-                            wfConns.push({from: wfConnectFrom, to: toId});
+                            // 移除同port的旧连线（同端口只允许一条输入）
+                            wfConns = wfConns.filter(function(c) { return !(c.to === toId && (c.port || '') === portName); });
+                            var newConn = {from: wfConnectFrom, to: toId};
+                            if (portName) newConn.port = portName;
+                            wfConns.push(newConn);
                             redrawWfConnections(); updateWfInfo(); autoSaveWorkflow();
                         }
                     }
-                    wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = [];
+                    wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = []; wfConnectPort = null; wfConnectPort = null;
                     var svgEl = document.getElementById('empWfSvg');
                     if (svgEl) { var t = svgEl.querySelector('path.temp'); if (t) t.remove(); }
                     redrawWfConnections();
@@ -2195,6 +2258,7 @@
                 // 否则开始反向连线（从输入端口拉出）
                 e.preventDefault(); e.stopPropagation();
                 var portNodeId = target.dataset.node;
+                wfConnectPort = target.dataset.port || null;  // 记录端口名
                 // 多选时全部参与反向连线
                 if (wfSelectedNodes.length > 1 && wfSelectedNodes.includes(portNodeId)) {
                     wfConnectFromList = wfSelectedNodes.slice();
@@ -2333,7 +2397,7 @@
 
             // 空白 → 框选
             if (wfConnectFrom) {
-                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = [];
+                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = []; wfConnectPort = null;
                 const svgEl = document.getElementById('empWfSvg');
                 if (svgEl) { const t = svgEl.querySelector('path.temp'); if (t) t.remove(); }
                 redrawWfConnections();
@@ -2426,6 +2490,10 @@
                     if (!fromEl) return;
                     var portSelector = wfConnectMode === 'reverse' ? '.emp-wf-port.input' : '.emp-wf-port.output';
                     var fromPort = fromEl.querySelector(portSelector);
+                    // 反向连线时按端口名精确匹配
+                    if (wfConnectMode === 'reverse' && wfConnectPort) {
+                        fromPort = fromEl.querySelector('.emp-wf-port.input[data-port="' + wfConnectPort + '"]') || fromPort;
+                    }
                     if (!fromPort) return;
                     var fromRect = fromPort.getBoundingClientRect();
                     var x1 = (fromRect.left + fromRect.width/2 - canvasRect.left) / wfZoom;
@@ -2469,6 +2537,7 @@
                 // 检查是否在端口上
                 if (under && under.classList && under.classList.contains('emp-wf-port')) {
                     toId = under.dataset.node;
+                    if (wfConnectMode === 'reverse') wfConnectPort = under.dataset.port || wfConnectPort;
                 } else {
                     // 检查是否在节点上（端口旁边的节点本体也算）
                     const nodeUnder = under ? under.closest('.emp-wf-node') : null;
@@ -2480,16 +2549,29 @@
                     nodesToConnect.forEach(function(fromId) {
                         if (!fromId || fromId === toId) return;
                         if (wfConnectMode === 'forward') {
-                            var exists = wfConns.some(function(c) { return c.from === fromId && c.to === toId; });
-                            if (!exists) { wfConns.push({from: fromId, to: toId}); added = true; }
+                            var targetPort = under && under.dataset ? (under.dataset.port || '') : '';
+                            var exists = wfConns.some(function(c) { return c.from === fromId && c.to === toId && (c.port || '') === targetPort; });
+                            if (!exists) {
+                                // 只移除同from同port的旧连线（不跨from移除）
+                                wfConns = wfConns.filter(function(c) { return !(c.from === fromId && c.to === toId && (c.port || '') === targetPort); });
+                                var newConn = {from: fromId, to: toId};
+                                if (targetPort) newConn.port = targetPort;
+                                wfConns.push(newConn); added = true;
+                            }
                         } else if (wfConnectMode === 'reverse') {
-                            var exists2 = wfConns.some(function(c) { return c.from === toId && c.to === fromId; });
-                            if (!exists2) { wfConns.push({from: toId, to: fromId}); added = true; }
+                            var revPort = wfConnectPort || '';
+                            var exists2 = wfConns.some(function(c) { return c.from === toId && c.to === fromId && (c.port || '') === revPort; });
+                            if (!exists2) {
+                                wfConns = wfConns.filter(function(c) { return !(c.from === toId && c.to === fromId && (c.port || '') === revPort); });
+                                var newConn2 = {from: toId, to: fromId};
+                                if (revPort) newConn2.port = revPort;
+                                wfConns.push(newConn2); added = true;
+                            }
                         }
                     });
                     if (added) { redrawWfConnections(); updateWfInfo(); autoSaveWorkflow(); }
                 }
-                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = [];
+                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = []; wfConnectPort = null;
                 // 清除所有临时线（不只是第一条）
                 if (svgForHit) { svgForHit.querySelectorAll('path.temp').forEach(function(p) { p.remove(); }); }
                 redrawWfConnections();
@@ -2605,7 +2687,7 @@
                 e.preventDefault();
             }
             if (e.key === 'Escape' && wfConnectFrom) {
-                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = [];
+                wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = []; wfConnectPort = null;
                 const svgEl = document.getElementById('empWfSvg');
                 if (svgEl) { const t = svgEl.querySelector('path.temp'); if (t) t.remove(); }
                 redrawWfConnections();
@@ -2699,6 +2781,7 @@
                 {name: "📝 文本输入", type: "prompt", config: {提示词: ""}},
                 {name: "🧩 文本拼接(零token)", type: "text", config: {指令: ""}},
                 {name: "🔔 弹窗提醒(零token)", type: "alert", config: {提醒内容: "", 声音: "default"}},
+                {name: "📋 打印任何(可复制)", type: "debug_print", config: {}},
             ]
         },
         "本地出图(ComfyUI)": {
@@ -2783,6 +2866,19 @@
                 {name: "🔊 朗读", type: "tts_speak", config: {文本: ""}},
                 {name: "🎬 视频转码", type: "video_convert", config: {输入路径: "", 输出路径: ""}},
             ]
+        },
+        "朱峰社区": {
+            icon: "📌",
+            items: [
+                {name: "💬 发论坛帖子", type: "zf3d_post", config: {标题: "", 内容: "", 板块: "46", 封面: ""}},
+                {name: "📰 发图文教程", type: "zf3d_article", config: {标题: "", 内容: "", 分类: "1", 来源: "智能体", 封面: ""}},
+                {name: "🖼️ 发AIGC文章", type: "zf3d_aigc", config: {标题: "", 内容: "", 分类: "100", 封面: ""}},
+                {name: "🤖 AI生成文章", type: "zf3d_generate", config: {主题: "", 类型: "image", 风格: "opinion"}},
+                {name: "📢 发公告消息", type: "zf3d_xinxi", config: {标题: "", 内容: "", 分类: "9"}},
+                {name: "⭐ 发作品评价", type: "zf3d_review", config: {作品ID: "", 优点: "", 缺点: "", 评分: "5"}},
+                {name: "💬 发评论", type: "zf3d_comment", config: {目标ID: "", 目标类型: "article", 评论: ""}},
+                {name: "🖼️ 上传图片", type: "zf3d_upload", config: {图片路径: "", 类型: "cover"}},
+            ]
         }
     };
 
@@ -2865,8 +2961,14 @@
         var mh = menu.offsetHeight || 200;
         document.body.removeChild(menu);
         menu.style.visibility = '';
+        // 如果菜单高度超过屏幕，限制高度并滚动
+        if (mh > window.innerHeight - 8) {
+            mh = window.innerHeight - 8;
+            menu.style.maxHeight = mh + 'px';
+            menu.style.overflowY = 'auto';
+        }
         menu.style.left = Math.min(mouseX, window.innerWidth - mw - 4) + 'px';
-        menu.style.top = Math.min(mouseY, window.innerHeight - mh - 4) + 'px';
+        menu.style.top = Math.max(4, Math.min(mouseY, window.innerHeight - mh - 4)) + 'px';
 
         var html = '<div class="wf-shop-search-wrap"><input type="text" class="wf-shop-search" placeholder="🔍 搜索节点..." id="wfShopSearch"></div>';
         var htmlList = '';
@@ -2991,37 +3093,39 @@
             setTimeout(function() { searchInput.focus(); }, 50);
         }
 
-        // 子菜单：紧贴分类右侧，顶部上移20px方便鼠标移入
+        // 子菜单：hover时用fixed定位脱离父级overflow裁切
         menu.querySelectorAll('.wf-shop-category').forEach(function(cat) {
             cat.addEventListener('mouseenter', function() {
                 var sub = cat.querySelector('.wf-shop-submenu');
                 if (sub) {
                     sub.style.display = 'block';
-                    sub.style.top = '-20px';
-                    sub.style.left = '100%';
+                    var catRect = cat.getBoundingClientRect();
+                    sub.style.position = 'fixed';
+                    sub.style.top = (catRect.top - 20) + 'px';
+                    sub.style.left = (catRect.right) + 'px';
                     sub.style.right = '';
                     sub.style.maxHeight = '';
                     var rect = sub.getBoundingClientRect();
                     // 右边超出 → 向左弹
                     if (rect.right > window.innerWidth) {
-                        sub.style.left = 'auto';
-                        sub.style.right = '100%';
+                        sub.style.left = '';
+                        sub.style.right = (window.innerWidth - catRect.left) + 'px';
                     }
                     // 顶部超出 → 不上移
                     if (rect.top < 0) {
-                        sub.style.top = '0px';
+                        sub.style.top = catRect.top + 'px';
                     }
                     // 底部超出 → 限制高度可滚动
                     var newRect = sub.getBoundingClientRect();
                     if (newRect.bottom > window.innerHeight) {
-                        sub.style.top = '0px';
-                        sub.style.maxHeight = (window.innerHeight - newRect.top - 8) + 'px';
+                        sub.style.top = Math.max(4, window.innerHeight - newRect.height - 4) + 'px';
+                        sub.style.maxHeight = (window.innerHeight - parseFloat(sub.style.top) - 8) + 'px';
                     }
                 }
             });
             cat.addEventListener('mouseleave', function() {
                 var sub = cat.querySelector('.wf-shop-submenu');
-                if (sub) { sub.style.display = ''; sub.style.top = ''; sub.style.left = ''; sub.style.right = ''; }
+                if (sub) { sub.style.display = ''; sub.style.position = ''; sub.style.top = ''; sub.style.left = ''; sub.style.right = ''; sub.style.maxHeight = ''; }
             });
         });
 
@@ -3310,7 +3414,7 @@
             try { wd = currentRoot || ''; } catch(e) {}
             var resp = await fetch('/api/employee-workflow', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({节点: nodes.map(function(n) { return {id: n.id, type: n.type, name: n.name, config: n.config, 员工名: n.config.员工名 || n.name, disabled: n.disabled || false}; }), 连接: conns.map(function(c) { var d = {from: c.from, to: c.to}; if (c.loop) d.loop = c.loop; return d; }), 当前文件夹: wd})
+                body: JSON.stringify({节点: nodes.map(function(n) { return {id: n.id, type: n.type, name: n.name, config: n.config, 员工名: n.config.员工名 || n.name, disabled: n.disabled || false}; }), 连接: conns.map(function(c) { var d = {from: c.from, to: c.to}; if (c.loop) d.loop = c.loop; if (c.port) d.port = c.port; return d; }), 当前文件夹: wd})
             });
             var reader = resp.body.getReader();
             var decoder = new TextDecoder();
@@ -3450,6 +3554,7 @@
     function _startTaskNotifyPolling() {
         if (_taskNotifyInterval) return;
         _taskNotifyInterval = setInterval(async function() {
+            if (!window.agentAuth || !window.agentAuth.isLoggedIn()) return;
             try {
                 var resp = await fetch('/api/wf-task-notify', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
                 var data = await resp.json();
@@ -3556,7 +3661,8 @@
             var toEl = document.getElementById('wfNode_' + c.to);
             if (!fromEl || !toEl) return true;
             var fromPort = fromEl.querySelector('.emp-wf-port.output');
-            var toPort = toEl.querySelector('.emp-wf-port.input');
+            var portName = c.port || '';
+            var toPort = portName ? toEl.querySelector('.emp-wf-port.input[data-port="' + portName + '"]') : toEl.querySelector('.emp-wf-port.input');
             var canvas = document.getElementById('empWfCanvas');
             var canvasRect = canvas.getBoundingClientRect();
             var fromRect = fromPort.getBoundingClientRect();
@@ -3685,6 +3791,8 @@
                        '<div class="field"><textarea rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="输入提示词..." oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'提示词\',this.value)">' + escapeHtml(node.config.提示词||'') + '</textarea></div>';
         } else if (node.type === 'print') {
             bodyHtml = '<div class="field" style="color:var(--text2)">显示上游输出</div>';
+        } else if (node.type === 'debug_print' || node.type === '打印任何') {
+            bodyHtml = '<div class="field" style="color:var(--text2)">📋 打印上游完整数据，双击节点可复制</div>';
         } else if (node.type === 'text' || node.type === '文本') {
             bodyHtml = '<div class="field" style="color:var(--text2)">🧩零token文本拼接</div>' +
                        '<div class="field"><input type="text" value="' + escapeHtml(node.config.指令||'') + '" placeholder="固定文本/指令" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'指令\',this.value)"></div>';
@@ -3773,8 +3881,59 @@
                 'run_command':'💻运行命令','system_info':'📊系统信息',
                 'image_watermark':'🖼️去水印','image_crop':'✂️裁剪','image_resize':'📐缩放','image_rotate':'🔄旋转',
                 'code_search':'🔎搜索代码','code_glob':'📋Glob搜索',
-                'play_music':'🎵播放音乐','play_video':'🎬播放视频','tts_speak':'🔊朗读','video_convert':'🎬视频转码'
+                'play_music':'🎵播放音乐','play_video':'🎬播放视频','tts_speak':'🔊朗读','video_convert':'🎬视频转码',
+                'zf3d_post':'💬发论坛帖子','zf3d_article':'📰发图文教程','zf3d_aigc':'🖼️发AIGC文章',
+                'zf3d_generate':'🤖AI生成文章','zf3d_xinxi':'📢发公告消息','zf3d_review':'⭐发作品评价',
+                'zf3d_comment':'💬发评论','zf3d_upload':'🖼️上传图片'
             };
+            if (node.type === 'zf3d_aigc') {
+                var _aigcCat = node.config.分类 || '100';
+                bodyHtml = '<div class="field" style="color:var(--text2)">🖼️发布AIGC文章到朱峰社区</div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.标题||'') + '" placeholder="标题" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'标题\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><textarea rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="内容(HTML格式,留空用上游)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'内容\',this.value)">' + escapeHtml(node.config.内容||'') + '</textarea></div>' +
+                    '<div class="field"><select style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'分类\',this.value)">' +
+                    '<option value="100"' + (_aigcCat==='100'?' selected':'') + '>🖼️ AI图片</option>' +
+                    '<option value="101"' + (_aigcCat==='101'?' selected':'') + '>🎬 AI视频</option>' +
+                    '<option value="102"' + (_aigcCat==='102'?' selected':'') + '>🎮 AI游戏</option>' +
+                    '<option value="103"' + (_aigcCat==='103'?' selected':'') + '>💾 AI软件</option>' +
+                    '</select></div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.封面||'') + '" placeholder="封面URL(可选)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'封面\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>';
+            } else if (node.type === 'zf3d_generate') {
+                var _genType = node.config.类型 || 'image';
+                var _genStyle = node.config.风格 || 'opinion';
+                bodyHtml = '<div class="field" style="color:var(--text2)">🤖AI自动生成文章并发布(网站侧AI)</div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.主题||'') + '" placeholder="主题(留空用上游)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'主题\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><select style="width:48%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'类型\',this.value)">' +
+                    '<option value="image"' + (_genType==='image'?' selected':'') + '>🖼️AI图片</option>' +
+                    '<option value="video"' + (_genType==='video'?' selected':'') + '>🎬AI视频</option>' +
+                    '<option value="game"' + (_genType==='game'?' selected':'') + '>🎮AI游戏</option>' +
+                    '</select><select style="width:48%;margin-left:2%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'风格\',this.value)">' +
+                    '<option value="opinion"' + (_genStyle==='opinion'?' selected':'') + '>观点</option>' +
+                    '<option value="tutorial"' + (_genStyle==='tutorial'?' selected':'') + '>教程</option>' +
+                    '<option value="review"' + (_genStyle==='review'?' selected':'') + '>评测</option>' +
+                    '<option value="story"' + (_genStyle==='story'?' selected':'') + '>故事</option>' +
+                    '</select></div>';
+            } else if (node.type === 'zf3d_review') {
+                bodyHtml = '<div class="field" style="color:var(--text2)">⭐评价作品(带评分)</div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.作品ID||'') + '" placeholder="作品ID(留空用上游)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'作品ID\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.优点||'') + '" placeholder="优点" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'优点\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.缺点||'') + '" placeholder="缺点" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'缺点\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><select style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'评分\',this.value)">' +
+                    '<option value="5"' + (node.config.评分==='5'?' selected':'') + '>⭐⭐⭐⭐⭐ 5星</option>' +
+                    '<option value="4"' + (node.config.评分==='4'?' selected':'') + '>⭐⭐⭐⭐ 4星</option>' +
+                    '<option value="3"' + (node.config.评分==='3'?' selected':'') + '>⭐⭐⭐ 3星</option>' +
+                    '<option value="2"' + (node.config.评分==='2'?' selected':'') + '>⭐⭐ 2星</option>' +
+                    '<option value="1"' + (node.config.评分==='1'?' selected':'') + '>⭐ 1星</option>' +
+                    '</select></div>';
+            } else if (node.type === 'zf3d_comment') {
+                var _cmtType = node.config.目标类型 || 'article';
+                bodyHtml = '<div class="field" style="color:var(--text2)">💬发评论/回复</div>' +
+                    '<div class="field"><input type="text" value="' + escapeHtml(node.config.目标ID||'') + '" placeholder="目标ID(留空用上游)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'目标ID\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>' +
+                    '<div class="field"><select style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" onchange="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'目标类型\',this.value)">' +
+                    ['article:图文','post:帖子','work:作品','tutorial:视频教程','ext_video:转载教程','software:软件','material:材质','info:消息'].map(function(t){var p=t.split(':');return '<option value="'+p[0]+'"' + (_cmtType===p[0]?' selected':'') + '>'+p[1]+'</option>'}).join('') +
+                    '</select></div>' +
+                    '<div class="field"><textarea rows="2" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px;resize:vertical;font-family:inherit" placeholder="评论内容(留空用上游)" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'评论\',this.value)">' + escapeHtml(node.config.评论||'') + '</textarea></div>';
+            } else {
             var _label = _iconMap[node.type] || node.type;
             bodyHtml = '<div class="field" style="color:var(--text2)">' + _label + '</div>';
             Object.keys(node.config).forEach(function(key) {
@@ -3788,10 +3947,37 @@
                     bodyHtml += '<div class="field"><input type="text" value="' + escapeHtml(val) + '" placeholder="' + key + '" oninput="window.empWidget._wfUpdateConfig(\'' + node.id + '\',\'' + key + '\',this.value)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:11px"></div>';
                 }
             });
+            }
         }
 
+        // 多端口节点定义：发布类节点有多个输入口
+        var _多端口节点 = {
+            'zf3d_aigc': [{port: 'title', label: '标题'}, {port: 'content', label: '内容'}, {port: 'cover', label: '封面'}],
+            'zf3d_post': [{port: 'title', label: '标题'}, {port: 'content', label: '内容'}, {port: 'cover', label: '封面'}],
+            'zf3d_article': [{port: 'title', label: '标题'}, {port: 'content', label: '内容'}, {port: 'cover', label: '封面'}],
+            'zf3d_generate': [{port: 'topic', label: '主题'}],
+            'zf3d_review': [{port: 'work_id', label: '作品ID'}, {port: 'content', label: '评价'}],
+            'zf3d_comment': [{port: 'target_id', label: '目标ID'}, {port: 'content', label: '评论'}],
+            'zf3d_upload': [{port: 'image', label: '图片路径'}]
+        };
+
         el.innerHTML =
-            '<div class="emp-wf-port input" data-node="' + node.id + '"></div>' +
+            (function() {
+                var ports = _多端口节点[node.type];
+                if (ports && ports.length > 0) {
+                    var portColors = {'title': '#4a9eff', 'content': '#50c878', 'cover': '#f39c12', 'topic': '#9b59b6', 'work_id': '#e74c3c', 'image': '#f39c12', 'target_id': '#e74c3c'};
+                    var html = '<div class="emp-wf-multi-ports" style="position:absolute;right:100%;top:0;height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px;z-index:20;padding-right:2px">';
+                    ports.forEach(function(p) {
+                        var pc = portColors[p.port] || '#888';
+                        html += '<div style="display:flex;align-items:center;position:relative;flex-direction:row-reverse;justify-content:flex-end">' +
+                            '<div class="emp-wf-port input" data-node="' + node.id + '" data-port="' + p.port + '" style="position:relative;border-color:' + pc + ';background:' + pc + '20"></div>' +
+                            '<span style="margin-right:4px;font-size:9px;color:' + pc + ';white-space:nowrap;pointer-events:none;background:var(--bg-card,#1a1a2e);padding:1px 4px;border-radius:3px;border:1px solid ' + pc + '40">' + p.label + '</span>' +
+                            '</div>';
+                    });
+                    return html + '</div>';
+                }
+                return '<div class="emp-wf-port input" data-node="' + node.id + '"></div>';
+            })() +
             '<div class="emp-wf-node-header" data-node="' + node.id + '">' +
                 '<span class="name">' + node.name + '</span>' +
                 '<span class="wf-node-run" onclick="event.stopPropagation();window.empWidget._runSingleNode(\'' + node.id + '\')" title="单独执行此节点">▶</span>' +
@@ -3882,7 +4068,8 @@
             var toRef = toFrame ? document.getElementById('wfFrame_' + toFrame.id) : toEl;
             if (!fromRef || !toRef) return;
             const fromPort = fromEl.querySelector('.emp-wf-port.output');
-            const toPort = toEl.querySelector('.emp-wf-port.input');
+            var portName = c.port || '';
+            const toPort = portName ? toEl.querySelector('.emp-wf-port.input[data-port="' + portName + '"]') : toEl.querySelector('.emp-wf-port.input');
             const canvas = document.getElementById('empWfCanvas');
             const canvasRect = canvas.getBoundingClientRect();
             // 非折叠：用端口的实际位置（小球到小球）
@@ -3909,13 +4096,15 @@
             hitPath.style.cursor = 'pointer';
             hitPath.dataset.from = c.from;
             hitPath.dataset.to = c.to;
+            hitPath.dataset.port = c.port || '';
             svg.appendChild(hitPath);
             // 可见路径
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', dStr);
             path.dataset.from = c.from;
             path.dataset.to = c.to;
-            path.id = 'wfPath_' + c.from + '_' + c.to;
+            path.dataset.port = c.port || '';
+            path.id = 'wfPath_' + c.from + '_' + c.to + (c.port ? '_' + c.port : '');
             path.style.pointerEvents = 'none';
             // 禁用节点的连线变灰虚线
             var fromNode = wfNodes.find(function(n) { return n.id === c.from; });
@@ -4134,7 +4323,7 @@
         wfNodes = [];
         wfConns = [];
         wfFrames = [];
-        wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = [];
+        wfConnectFrom = null; wfConnectMode = null; wfConnectFromList = []; wfConnectPort = null;
         wfCurrentFileName = null;
         document.querySelectorAll('.emp-wf-node').forEach(function(el) { el.remove(); });
         document.querySelectorAll('.wf-frame').forEach(function(el) { el.remove(); });
@@ -4752,6 +4941,7 @@
         const connsData = wfConns.map(function(c) {
             var d = {from: c.from, to: c.to};
             if (c.loop) d.loop = c.loop;
+            if (c.port) d.port = c.port;
             return d;
         });
 
@@ -5077,38 +5267,64 @@
             }
         });
         if (existingNode) {
-            // 追加图片到已有节点的图片列表
             if (!existingNode.config.图片列表) existingNode.config.图片列表 = [];
-            // 避免重复
             if (existingNode.config.图片列表.indexOf(imagePath) < 0) {
-                existingNode.config.图片列表.unshift(imagePath);  // 最新放最前
+                existingNode.config.图片列表.unshift(imagePath);
             }
-            existingNode.config.内容 = imagePath;  // 最新图片用于缩略图
+            existingNode.config.内容 = imagePath;
             existingNode.config.路径 = imagePath;
             existingNode.config.类型 = 'image';
-            // 重新渲染该节点
             var el = document.getElementById('wfNode_' + existingNode.id);
-            if (el) {
-                el.remove();
-                renderWfNode(existingNode);
-            }
+            if (el) { el.remove(); renderWfNode(existingNode); }
+            // 更新下游AIGC节点的封面
+            _updateDownstreamAigc(existingNode.id, imagePath);
             return;
         }
-        // 创建新图片节点
-        var px = sourceNode.x + 220;
-        var py = sourceNode.y;
-        var node = addWfNode('image', px, py, '🖼️ 生成图片', {
+        var node = addWfNode('image', sourceNode.x + 220, sourceNode.y, '🖼️ 生成图片', {
             文件名: imagePath.split('/').pop().split('\\').pop(),
-            内容: imagePath,
-            类型: 'image',
-            路径: imagePath,
-            图片列表: [imagePath]
+            内容: imagePath, 类型: 'image', 路径: imagePath, 图片列表: [imagePath]
         }, {});
-        // 自动连线
         wfConns.push({from: sourceNodeId, to: node.id});
-        redrawWfConnections();
-        updateWfInfo();
-        autoSaveWorkflow();
+        redrawWfConnections(); updateWfInfo(); autoSaveWorkflow();
+        // 更新下游AIGC节点的封面
+        _updateDownstreamAigc(node.id, imagePath);
+    }
+
+    function _updateDownstreamAigc(imageNodeId, imagePath) {
+        // 递归查找所有下游AIGC节点，把图片路径写入预览数据和封面输入框
+        var _已访问 = {};
+        function _递归找下游(nodeId) {
+            if (_已访问[nodeId]) return;
+            _已访问[nodeId] = true;
+            wfConns.filter(function(c) { return c.from === nodeId; }).forEach(function(c) {
+                var 下游 = wfNodes.find(function(n) { return n.id === c.to; });
+                if (!下游) return;
+                if (下游.type === 'zf3d_aigc') {
+                    // 更新预览数据JSON
+                    var r = 下游._result || {};
+                    var 预览标记 = (r.output || '').indexOf('__AIGC_PREVIEW__');
+                    if (预览标记 >= 0) {
+                        try {
+                            var 预览数据 = JSON.parse(r.output.substring(预览标记 + 16));
+                            预览数据.封面 = imagePath;
+                            r.output = r.output.substring(0, 预览标记 + 16) + JSON.stringify(预览数据);
+                        } catch(e) {}
+                    }
+                    // 更新config封面
+                    下游.config['封面'] = imagePath;
+                    // 更新输入框（如果弹窗打开着）
+                    var coverInput = document.getElementById('aigcCoverInput');
+                    if (coverInput) coverInput.value = imagePath;
+                    // 更新状态
+                    var st = document.getElementById('wfStatus_' + 下游.id);
+                    if (st) { st.textContent = '📋 预览就绪（✅封面）'; st.className = 'emp-wf-node-status done'; }
+                } else {
+                    // 递归继续找
+                    _递归找下游(c.to);
+                }
+            });
+        }
+        _递归找下游(imageNodeId);
     }
 
     function showWfNodeResult(nodeId, name, input, output, success, imagePath) {
@@ -5118,6 +5334,19 @@
         const node = wfNodes.find(function(n) { return n.id === nodeId; });
         if (node) {
             node._result = {input: input, output: output, success: success, image: imagePath || ''};
+            // AIGC节点：从输出中提取预览JSON，写回node.config
+            if (node.type === 'zf3d_aigc' && output) {
+                var pm = output.indexOf('__AIGC_PREVIEW__');
+                if (pm >= 0) {
+                    try {
+                        var pd = JSON.parse(output.substring(pm + 16));
+                        if (pd.标题) node.config['标题'] = pd.标题;
+                        if (pd.内容) node.config['内容'] = pd.内容;
+                        if (pd.封面) node.config['封面'] = pd.封面;
+                        if (pd.分类) node.config['分类'] = pd.分类;
+                    } catch(e) {}
+                }
+            }
         }
         // 节点底部显示简短状态
         const old = el.querySelector('.emp-wf-node-result');
@@ -5186,7 +5415,7 @@
             _imgViewer._panX = mx - (mx - _imgViewer._panX) * ratio;
             _imgViewer._panY = my - (my - _imgViewer._panY) * ratio;
             _applyIvTransform();
-        });
+        }, { passive: false });
 
         // 中键平移（仅平移，不做其他操作）
         var panning = false, panStart = null, panMoved = false;
@@ -5283,6 +5512,18 @@
         if (!node) return;
         const r = node._result || {input: '', output: '', success: null, image: ''};
         let html = '';
+        // debug_print节点：显示完整上游数据+复制按钮
+        if (node.type === 'debug_print' || node.type === '打印任何') {
+            var 完整数据 = r.output || '(无数据，请先执行工作流)';
+            html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+                '<span style="font-size:12px;color:var(--text2)">📋 上游完整数据（' + 完整数据.length + '字符）</span>' +
+                '<button onclick="var t=document.getElementById(\'debugPrintArea\');t.select();document.execCommand(\'copy\');showToast(\'已复制\',\'success\')" style="background:var(--blue,#007ACC);border:none;color:#fff;font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer">📋 全选复制</button>' +
+                '</div>' +
+                '<textarea id="debugPrintArea" style="width:100%;height:300px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:10px;font-size:12px;font-family:monospace;resize:vertical;white-space:pre-wrap;word-break:break-all" readonly>' + escapeHtml(完整数据) + '</textarea>';
+            const popup = showWfPopup(node.name + ' — 打印任何', html, mouseX, mouseY);
+            if (popup) popup.dataset.nodeId = nodeId;
+            return;
+        }
         // 图片预览（如果有图片路径）
         if (r.image) {
             html += '<div style="margin-bottom:12px"><div style="font-size:12px;color:var(--text2);margin-bottom:4px">🖼️ 生成图片</div>' +
@@ -5299,7 +5540,54 @@
             html += '<div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;color:var(--text2)">⬆️ 输出</span><button onclick="navigator.clipboard.writeText(document.getElementById(\'wfDetailOutput\').textContent).then(function(){showToast(\'已复制\',\'success\')})" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer">📋复制</button></div><div id="wfDetailOutput" class="wf-output-content" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;white-space:pre-wrap;font-size:13px;max-height:300px;overflow-y:auto">' + 输出html + '</div></div>';
         }
         if (!html) html = '<div style="color:var(--text2);text-align:center;padding:40px">该节点尚未执行，暂无输入输出数据<br><br>请点击底部"🚀执行"按钮运行工作流</div>';
-        const popup = showWfPopup(node.name + ' — 节点详情', html, mouseX, mouseY);
+
+        // AIGC发布节点：显示预览和发布按钮
+        if (node.type === 'zf3d_aigc') {
+            // AIGC发布节点：静态表单，填标题/内容/图片路径，点发布
+            var 已发布 = r.output && r.output.indexOf('发布成功') >= 0;
+            // 从上游或预览数据获取初始值
+            var 初始标题 = node.config['标题'] || '';
+            var 初始内容 = node.config['内容'] || '';
+            var 初始封面 = node.config['封面'] || _findUpstreamImage(nodeId) || '';
+            var 预览标记 = (r.output || '').indexOf('__AIGC_PREVIEW__');
+            if (预览标记 >= 0) {
+                try {
+                    var pd = JSON.parse(r.output.substring(预览标记 + 16));
+                    if (pd.标题) 初始标题 = pd.标题;
+                    if (pd.内容) 初始内容 = pd.内容;
+                    if (pd.封面) 初始封面 = pd.封面;
+                } catch(e) {}
+            }
+            // 属性值安全转义（只转义引号和尖括号）
+            function escAttr(s) { return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+            html = '<div style="margin-bottom:12px">' +
+                '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">📝 标题（≥5字）</div>' +
+                '<input type="text" id="aigcTitle" value="' + escAttr(初始标题) + '" placeholder="输入文章标题" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box">' +
+                '</div>' +
+                '<div style="margin-bottom:12px">' +
+                '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">📄 内容（≥20字，支持HTML）</div>' +
+                '<textarea id="aigcContent" rows="5" placeholder="输入文章内容" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box">' + escapeHtml(初始内容) + '</textarea>' +
+                '</div>' +
+                '<div style="margin-bottom:12px">' +
+                '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">🖼️ 封面图片路径</div>' +
+                '<input type="text" id="aigcCover" value="' + escAttr(初始封面) + '" placeholder="本地图片路径或URL" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px;font-size:12px;box-sizing:border-box">' +
+                (初始封面 ? '<img src="' + (初始封面.indexOf('http') === 0 ? 初始封面 : '/api/image?path=' + encodeURIComponent(初始封面)) + '" style="max-width:100%;max-height:150px;border-radius:4px;margin-top:4px" onerror="this.style.display=\'none\'">' : '') +
+                '</div>' +
+                '<div style="margin-bottom:12px">' +
+                '<div style="font-size:12px;color:var(--text2);margin-bottom:4px">📂 分类</div>' +
+                '<select id="aigcCategory" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px;font-size:12px;box-sizing:border-box">' +
+                '<option value="100"' + ((node.config['分类'] || '100') === '100' ? ' selected' : '') + '>🖼️ AI图片</option>' +
+                '<option value="101"' + (node.config['分类'] === '101' ? ' selected' : '') + '>🎬 AI视频</option>' +
+                '<option value="102"' + (node.config['分类'] === '102' ? ' selected' : '') + '>🎮 AI游戏</option>' +
+                '<option value="103"' + (node.config['分类'] === '103' ? ' selected' : '') + '>💾 AI软件</option>' +
+                '</select>' +
+                '</div>' +
+                (已发布 ? '<div style="text-align:center;padding:12px;font-size:14px;color:var(--green,#4ec9b0)">✅ 已发布</div>' :
+                '<button id="aigcPublishBtn" onclick="window.empWidget._confirmPublish(\'' + nodeId + '\')" style="width:100%;padding:12px;background:var(--blue,#007ACC);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:bold;cursor:pointer">🚀 确认发布</button>');
+        }
+
+        const popup = showWfPopup(node.name, html, mouseX, mouseY);
         if (popup) popup.dataset.nodeId = nodeId;
     }
 
@@ -5410,6 +5698,423 @@
         }).catch(() => {});
     }
 
+    // ========== 员工备份/恢复 ==========
+    async function saveEmpBackup() {
+        var 名称 = prompt('请输入备份名称：', '我的团队');
+        if (!名称) return;
+        try {
+            var resp = await fetch('/api/emp-backup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({文件名: 名称, 覆盖: true})
+            });
+            var data = await resp.json();
+            if (data.success || data.成功) {
+                showToast('已备份员工到「' + 名称 + '」', 'success');
+            } else if (data.已存在) {
+                if (confirm('备份「' + 名称 + '」已存在，是否覆盖？')) {
+                    var resp2 = await fetch('/api/emp-backup', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({文件名: 名称, 覆盖: true})
+                    });
+                    var data2 = await resp2.json();
+                    if (data2.success || data2.成功) {
+                        showToast('已覆盖备份「' + 名称 + '」', 'success');
+                    } else {
+                        alert('备份失败: ' + (data2.错误 || data2.error || ''));
+                    }
+                }
+            } else {
+                alert('备份失败: ' + (data.错误 || data.error || ''));
+            }
+        } catch(e) {
+            alert('备份失败: ' + e.message);
+        }
+    }
+
+    async function restoreEmpBackup() {
+        try {
+            var resp = await fetch('/api/emp-backup-list');
+            var data = await resp.json();
+            var 列表 = data.列表 || data.list || [];
+            if (列表.length === 0) {
+                alert('暂无备份文件');
+                return;
+            }
+            // 构建选择列表
+            var html = '<div style="padding:8px 0">';
+            html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;padding:0 16px">选择要恢复的备份：</div>';
+            列表.forEach(function(item) {
+                var 名 = item.备份名 || item.文件名 || '';
+                var 时间 = item.备份时间 || '';
+                var 员工数 = item.员工数 || 0;
+                var 分组数 = item.分组数 || 0;
+                var 文件名 = item.文件名 || '';
+                html += '<div class="emp-backup-item" data-name="' + encodeURIComponent(文件名) + '" style="padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border,#333);transition:background 0.15s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'transparent\'">' +
+                    '<div style="font-size:13px;color:var(--text,#ddd)">' + 名 + '</div>' +
+                    '<div style="font-size:11px;color:var(--text2,#888);margin-top:3px">' + 时间 + ' · ' + 员工数 + '个员工 · ' + 分组数 + '个分组</div>' +
+                    '</div>';
+            });
+            html += '</div>';
+            // 创建模态框
+            var overlay = document.createElement('div');
+            overlay.id = 'empBackupRestoreOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:var(--bg2,#1a1a2e);border:1px solid var(--border,#333);border-radius:12px;min-width:320px;max-width:400px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+            box.innerHTML = '<div style="padding:12px 16px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between;align-items:center">' +
+                '<span style="font-size:14px;font-weight:bold;color:var(--text,#ddd)">📂 恢复员工备份</span>' +
+                '<button onclick="document.getElementById(\'empBackupRestoreOverlay\').remove()" style="background:none;border:none;color:var(--text2,#888);font-size:18px;cursor:pointer">✕</button>' +
+                '</div>' + html;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+            // 绑定点击
+            box.querySelectorAll('.emp-backup-item').forEach(function(item) {
+                item.addEventListener('click', async function() {
+                    var 文件名 = decodeURIComponent(this.dataset.name);
+                    if (!confirm('确定从「' + 文件名 + '」恢复？当前员工和分组将被覆盖。')) return;
+                    overlay.remove();
+                    try {
+                        var resp = await fetch('/api/emp-restore', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({文件名: 文件名})
+                        });
+                        var data = await resp.json();
+                        if (data.success || data.成功) {
+                            // 恢复分组到前端
+                            if (data.分组 && data.分组.length > 0) {
+                                empCategories = data.分组;
+                                try { localStorage.setItem('empCategories', JSON.stringify(empCategories)); } catch(e) {}
+                            }
+                            showToast('已恢复 ' + (data.员工数 || 0) + ' 个员工', 'success');
+                            // 刷新员工列表
+                            setTimeout(function() { refresh(); }, 300);
+                        } else {
+                            alert('恢复失败: ' + (data.错误 || data.error || ''));
+                        }
+                    } catch(e) {
+                        alert('恢复失败: ' + e.message);
+                    }
+                });
+            });
+        } catch(e) {
+            alert('加载备份列表失败: ' + e.message);
+        }
+    }
+
+    // ========== 模板系统 ==========
+    async function saveTemplate() {
+        // 先加载已有模板列表，让用户选择覆盖或新建
+        try {
+            var resp = await fetch('/api/wf-template-list');
+            var data = await resp.json();
+            var 列表 = data.列表 || data.list || [];
+
+            var overlay = document.createElement('div');
+            overlay.id = 'empSaveTemplateOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:var(--bg2,#1a1a2e);border:1px solid var(--border,#333);border-radius:12px;min-width:320px;max-width:400px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+
+            var html = '<div style="padding:12px 16px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between;align-items:center">' +
+                '<span style="font-size:14px;font-weight:bold;color:var(--text,#ddd)">📦 保存模板</span>' +
+                '<button onclick="document.getElementById(\'empSaveTemplateOverlay\').remove()" style="background:none;border:none;color:var(--text2,#888);font-size:18px;cursor:pointer">✕</button>' +
+                '</div>';
+
+            // 新建按钮
+            html += '<div class="emp-tpl-new" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border,#333);transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,122,204,0.1)\'" onmouseout="this.style.background=\'transparent\'">' +
+                '<div style="font-size:13px;color:var(--blue,#007ACC);font-weight:bold">➕ 新建模板</div>' +
+                '</div>';
+
+            // 已有模板列表
+            if (列表.length > 0) {
+                html += '<div style="padding:4px 0">';
+                列表.forEach(function(item) {
+                    var 名 = item.模板名 || item.文件名 || '';
+                    var 描述 = item.描述 || '';
+                    var 时间 = item.创建时间 || '';
+                    var 文件名 = item.文件名 || '';
+                    var 是官方 = item.官方 || false;
+                    var 徽章 = 是官方 ? '<span style="font-size:9px;background:var(--blue,#007ACC);color:#fff;padding:1px 5px;border-radius:3px;margin-left:6px">官方</span>' : '';
+                    html += '<div class="emp-tpl-item" data-name="' + encodeURIComponent(文件名) + '" data-display="' + escapeHtml(名) + '" style="padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border,#333);transition:background 0.15s" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'transparent\'">' +
+                        '<div style="font-size:13px;color:var(--text,#ddd)">' + 名 + 徽章 + '</div>' +
+                        '<div style="font-size:11px;color:var(--text2,#888);margin-top:3px">' + 时间 + (描述 ? ' · ' + 描述 : '') + ' · 点击覆盖</div>' +
+                        '</div>';
+                });
+                html += '</div>';
+            }
+
+            box.innerHTML = html;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+            // 新建
+            box.querySelector('.emp-tpl-new').addEventListener('click', async function() {
+                overlay.remove();
+                var 名称 = prompt('请输入模板名称：', '我的模板');
+                if (!名称) return;
+                var 描述 = prompt('模板描述（可选）：', '') || '';
+                await _doSaveTemplate(名称, 描述);
+            });
+
+            // 覆盖已有
+            box.querySelectorAll('.emp-tpl-item').forEach(function(item) {
+                item.addEventListener('click', async function() {
+                    var 文件名 = decodeURIComponent(this.dataset.name);
+                    var 显示名 = this.dataset.display;
+                    overlay.remove();
+                    if (!confirm('覆盖模板「' + 显示名 + '」？')) return;
+                    await _doSaveTemplate(显示名, '');
+                });
+            });
+        } catch(e) {
+            // 列表加载失败，回退到手动输入
+            var 名称 = prompt('请输入模板名称：', '我的模板');
+            if (!名称) return;
+            var 描述 = prompt('模板描述（可选）：', '') || '';
+            await _doSaveTemplate(名称, 描述);
+        }
+    }
+
+    async function _doSaveTemplate(名称, 描述) {
+        try {
+            var resp = await fetch('/api/wf-template-save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({模板名: 名称, 描述: 描述, 官方: true, 节点图: getWfData(), 覆盖: true})
+            });
+            var data = await resp.json();
+            if (data.success || data.成功) {
+                showToast('模板「' + 名称 + '」已保存（含' + (data.员工数 || 0) + '个员工）', 'success');
+            } else {
+                alert('保存失败: ' + (data.错误 || data.error || ''));
+            }
+        } catch(e) {
+            alert('保存失败: ' + e.message);
+        }
+    }
+
+    async function loadTemplate() {
+        try {
+            var resp = await fetch('/api/wf-template-list');
+            var data = await resp.json();
+            var 列表 = data.列表 || data.list || [];
+            if (列表.length === 0) {
+                alert('暂无模板，请先保存一个模板');
+                return;
+            }
+            var html = '<div style="padding:8px 0">';
+            html += '<div style="font-size:12px;color:var(--text2);margin-bottom:8px;padding:0 16px">选择要加载的模板：</div>';
+            列表.forEach(function(item) {
+                var 名 = item.模板名 || item.文件名 || '';
+                var 描述 = item.描述 || '';
+                var 时间 = item.创建时间 || '';
+                var 节点数 = item.节点数 || 0;
+                var 员工数 = item.员工数 || 0;
+                var 文件名 = item.文件名 || '';
+                var 是官方 = item.官方 || false;
+                var 徽章 = 是官方 ? '<span style="font-size:9px;background:var(--blue,#007ACC);color:#fff;padding:1px 5px;border-radius:3px;margin-left:6px;font-weight:bold">官方</span>' : '';
+                html += '<div class="emp-template-item" data-name="' + encodeURIComponent(文件名) + '" style="padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border,#333);transition:background 0.15s;position:relative" onmouseover="this.style.background=\'rgba(255,255,255,0.08)\'" onmouseout="this.style.background=\'transparent\'">' +
+                    '<div style="font-size:13px;color:var(--text,#ddd)">' + 名 + 徽章 + '</div>' +
+                    '<div style="font-size:11px;color:var(--text2,#888);margin-top:3px">' + 时间 + ' · ' + 节点数 + '节点 · ' + 员工数 + '员工' + (描述 ? ' · ' + 描述 : '') + '</div>' +
+                    '<button class="emp-template-del" data-del="' + encodeURIComponent(文件名) + '" data-name="' + escapeHtml(名) + '" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text2,#888);font-size:14px;cursor:pointer;padding:4px;opacity:0;transition:opacity 0.15s" title="删除模板">🗑️</button>' +
+                    '</div>';
+            });
+            html += '</div>';
+            var overlay = document.createElement('div');
+            overlay.id = 'empTemplateOverlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center';
+            var box = document.createElement('div');
+            box.style.cssText = 'background:var(--bg2,#1a1a2e);border:1px solid var(--border,#333);border-radius:12px;min-width:320px;max-width:400px;max-height:60vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5)';
+            box.innerHTML = '<div style="padding:12px 16px;border-bottom:1px solid var(--border,#333);display:flex;justify-content:space-between;align-items:center">' +
+                '<span style="font-size:14px;font-weight:bold;color:var(--text,#ddd)">📂 加载模板</span>' +
+                '<button onclick="document.getElementById(\'empTemplateOverlay\').remove()" style="background:none;border:none;color:var(--text2,#888);font-size:18px;cursor:pointer">✕</button>' +
+                '</div>' + html;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) overlay.remove();
+            });
+            box.querySelectorAll('.emp-template-item').forEach(function(item) {
+                // hover显示删除按钮
+                item.addEventListener('mouseenter', function() {
+                    var del = this.querySelector('.emp-template-del');
+                    if (del) del.style.opacity = '1';
+                });
+                item.addEventListener('mouseleave', function() {
+                    var del = this.querySelector('.emp-template-del');
+                    if (del) del.style.opacity = '0';
+                });
+                // 删除按钮
+                var delBtn = item.querySelector('.emp-template-del');
+                if (delBtn) {
+                    delBtn.addEventListener('click', async function(e) {
+                        e.stopPropagation();
+                        var delName = decodeURIComponent(this.dataset.del);
+                        var dispName = this.dataset.name;
+                        if (!confirm('确定删除模板「' + dispName + '」？此操作不可恢复。')) return;
+                        try {
+                            var resp = await fetch('/api/wf-template-delete', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({文件名: delName})
+                            });
+                            var data = await resp.json();
+                            if (data.success || data.成功) {
+                                showToast('已删除模板「' + dispName + '」', 'success');
+                                item.remove();
+                            } else {
+                                alert('删除失败: ' + (data.错误 || data.error || ''));
+                            }
+                        } catch(e2) {
+                            alert('删除失败: ' + e2.message);
+                        }
+                    });
+                }
+                item.addEventListener('click', async function() {
+                    var 文件名 = decodeURIComponent(this.dataset.name);
+                    if (!confirm('加载模板「' + 文件名 + '」？\n将导入员工和分组，并加载节点图到画布。')) return;
+                    overlay.remove();
+                    try {
+                        var resp = await fetch('/api/wf-template-load', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({文件名: 文件名})
+                        });
+                        var data = await resp.json();
+                        if (data.success || data.成功) {
+                            // 加载节点图到画布
+                            if (data.节点图) {
+                                loadWorkflowFromData(data.节点图);
+                            }
+                            // 导入分组到前端
+                            if (data.分组 && data.分组.length > 0) {
+                                data.分组.forEach(function(g) {
+                                    if (!empCategories.find(function(c) { return c.name === g.name; })) {
+                                        empCategories.push(g);
+                                    }
+                                });
+                                saveCategories();
+                            }
+                            showToast('模板已加载' + (data.新增员工数 > 0 ? '，新增' + data.新增员工数 + '个员工' : ''), 'success');
+                            // 刷新员工列表
+                            setTimeout(function() { refresh(); }, 300);
+                        } else {
+                            alert('加载失败: ' + (data.错误 || data.error || ''));
+                        }
+                    } catch(e) {
+                        alert('加载失败: ' + e.message);
+                    }
+                });
+            });
+        } catch(e) {
+            alert('加载模板列表失败: ' + e.message);
+        }
+    }
+
+    // 查找AIGC节点上游的图片路径（递归查找image节点或comfyui节点）
+    function _findUpstreamImage(nodeId) {
+        var 上游 = wfConns.filter(function(c) { return c.to === nodeId; }).map(function(c) { return c.from; });
+        for (var i = 0; i < 上游.length; i++) {
+            var uid = 上游[i];
+            var n = wfNodes.find(function(x) { return x.id === uid; });
+            if (!n) continue;
+            // image节点
+            if (n.type === 'image' && n.config.路径) return n.config.路径;
+            if (n.type === 'image' && n.config.内容) return n.config.内容;
+            // 递归向上找
+            var 更上游 = _findUpstreamImage(uid);
+            if (更上游) return 更上游;
+        }
+        return null;
+    }
+
+    // 确认发布（从节点详情弹窗触发，直接调API发布）
+    var _发布中 = false;
+    async function _confirmPublish(nodeId) {
+        if (_发布中) return;
+        _发布中 = true;
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node) return;
+        var popup = document.querySelector('.wf-popup');
+        // 直接从表单输入框读取
+        var 标题 = (document.getElementById('aigcTitle') || {}).value || '';
+        var 内容 = (document.getElementById('aigcContent') || {}).value || '';
+        var 封面 = (document.getElementById('aigcCover') || {}).value || '';
+        var 分类 = (document.getElementById('aigcCategory') || {}).value || '100';
+        // 校验
+        var 纯标题 = 标题.replace(/<[^>]+>/g, '').trim();
+        if (纯标题.length < 5) { alert('标题太短（需至少5字，当前' + 纯标题.length + '字）'); return; }
+        var 纯内容 = 内容.replace(/<[^>]+>/g, '').trim();
+        if (纯内容.length < 20) { alert('内容太短（需至少20字，当前' + 纯内容.length + '字）'); return; }
+        if (!封面) { alert('请填写封面图片路径'); return; }
+        // 禁用发布按钮+转圈提示
+        var pubBtn = document.getElementById('aigcPublishBtn');
+        if (pubBtn) {
+            pubBtn.disabled = true;
+            pubBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:aigcSpin 0.6s linear infinite;vertical-align:middle;margin-right:6px"></span>发布中...';
+        }
+        // 添加旋转动画（如果还没有）
+        if (!document.getElementById('aigcSpinStyle')) {
+            var style = document.createElement('style');
+            style.id = 'aigcSpinStyle';
+            style.textContent = '@keyframes aigcSpin{to{transform:rotate(360deg)}}';
+            document.head.appendChild(style);
+        }
+        try {
+            var resp = await fetch('/api/zf3d-api', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    a: 'article',
+                    title: 标题,
+                    content: 内容,
+                    category_id: 分类,
+                    source: 'AI生成',
+                    cover: 封面
+                })
+            });
+            var data = await resp.json();
+            var result = '';
+            if (data.success || data.成功) {
+                var d = data.data || data.数据 || {};
+                result = '✅ 发布成功\nID: ' + (d.id || '?') + '\nURL: https://www.zf3d.com' + (d.url || '');
+            } else {
+                result = '❌ 发布失败: ' + (data.message || data.错误 || data.error || '');
+            }
+            // 更新弹窗：只移除发布按钮
+            if (pubBtn) pubBtn.remove();
+            var body = popup ? popup.querySelector('.wf-popup-body') : null;
+            if (body) {
+                var div = document.createElement('div');
+                div.style.cssText = 'text-align:center;padding:12px;font-size:14px;color:' + (result.indexOf('成功') >= 0 ? 'var(--green,#4ec9b0)' : 'var(--red,#e74c3c)');
+                div.style.whiteSpace = 'pre-wrap';
+                div.textContent = result;
+                body.appendChild(div);
+            }
+            if (result.indexOf('成功') >= 0) {
+                showToast('发布成功', 'success');
+                node._result = node._result || {};
+                node._result.output = result;
+                var statusEl = document.getElementById('wfStatus_' + nodeId);
+                if (statusEl) { statusEl.textContent = '✅ 已发布'; statusEl.className = 'emp-wf-node-status done'; }
+            } else {
+                showToast(result, 'error');
+                if (popup) { var btn3 = popup.querySelector('button'); if (btn3) { btn3.disabled = false; btn3.textContent = '🚀 确认发布'; } }
+            }
+        } catch(e) {
+            if (popup) { var btn4 = popup.querySelector('button'); if (btn4) { btn4.disabled = false; btn4.textContent = '🚀 确认发布'; } }
+            alert('发布失败: ' + e.message);
+        }
+        _发布中 = false;
+    }
+
     window.empWidget = {
         init: init, togglePanel: togglePanel, refresh: refresh,
         selectEmployee: selectEmployee, openChat: openChat, closeChat: closeChat,
@@ -5455,7 +6160,10 @@
         _closeFileMenu: function() { var m = document.getElementById('empWfFileMenu'); if (m) m.style.display = 'none'; }, _loadWorkflowByName: _loadWorkflowByName,
         _toggleScissors: _toggleScissors,
         _saveConnConfig: _saveConnConfig,
-        wfUndo: wfUndo, wfRedo: wfRedo
+        wfUndo: wfUndo, wfRedo: wfRedo,
+        saveEmpBackup: saveEmpBackup, restoreEmpBackup: restoreEmpBackup,
+        saveTemplate: saveTemplate, loadTemplate: loadTemplate,
+        _confirmPublish: _confirmPublish
     };
 
     if (document.readyState === 'loading') {
@@ -5464,5 +6172,20 @@
         init(); bindDragDrop(); _startImgPolling(); _startTaskNotifyPolling(); document.addEventListener('click', closeContextMenu);
     }
     // 关闭页面前自动保存
+    // Delete键删除当前选中的员工
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        // 节点工作流面板打开时不响应
+        var wfPanel = document.getElementById('empWfOverlay');
+        if (wfPanel && wfPanel.classList.contains('show')) return;
+        // 有弹窗时不响应
+        if (document.querySelector('.wf-popup, .emp-chat-overlay, #empBackupRestoreOverlay, #empTemplateOverlay, #empSaveTemplateOverlay')) return;
+        if (currentEmployee && currentEmployee !== '母体') {
+            e.preventDefault();
+            deleteEmployee(currentEmployee);
+        }
+    });
+
     window.addEventListener('beforeunload', function() { autoSaveWorkflow(); });
 })();

@@ -16,13 +16,11 @@ function showReasoningPanel() {
         panel.className = "reasoning-panel";
         panel.innerHTML = '<div class="reasoning-header" id="reasoningHeader"><span>⚡ AI推理过程</span><span class="rh-count" id="rhCount">0步</span></div><div class="reasoning-body" id="reasoningBody"></div>';
         chatMsg.parentNode.insertBefore(panel, chatMsg.nextSibling);
-        // 恢复上次高度
-        const savedH = localStorage.getItem('reasoningPanelHeight');
-        if (savedH) {
-            panel.style.maxHeight = savedH + 'px';
-            const body = document.getElementById('reasoningBody');
-            if (body) body.style.maxHeight = (savedH - 30) + 'px';
-        }
+        // 恢复上次高度（强制最小150px，避免被拖到极小后看不见）
+        const savedH = Math.max(150, parseInt(localStorage.getItem('reasoningPanelHeight')) || 240);
+        panel.style.maxHeight = savedH + 'px';
+        const body = document.getElementById('reasoningBody');
+        if (body) body.style.maxHeight = (savedH - 30) + 'px';
         // 拖拽调整大小
         const header = document.getElementById('reasoningHeader');
         let dragging = false, startY = 0, startH = 0;
@@ -38,7 +36,7 @@ function showReasoningPanel() {
         document.addEventListener('mousemove', function(e) {
             if (!dragging) return;
             const delta = startY - e.clientY;
-            let newH = Math.max(80, Math.min(600, startH + delta));
+            let newH = Math.max(150, Math.min(600, startH + delta));
             panel.style.maxHeight = newH + 'px';
             const body = document.getElementById('reasoningBody');
             if (body) body.style.maxHeight = (newH - 30) + 'px';

@@ -285,6 +285,37 @@ body { font-family: "Consolas", "Microsoft YaHei", monospace; background: var(--
 .token-cost-bar .tc-steps { color:var(--orange); }
 .token-cost-bar .tc-calls { color:var(--blue); }
 .token-cost-bar .tc-time { color:var(--text3); }
+
+/* Job进度面板 */
+/* 检查点续跑提示 */
+.resume-bar { display:flex; align-items:center; gap:10px; margin:8px 12px; padding:8px 12px; background:rgba(243,156,18,0.08); border:1px solid rgba(243,156,18,0.2); border-radius:8px; font-size:12px; color:var(--text); }
+.resume-bar span { flex:1; }
+
+.job-panel { margin:4px 12px; padding:8px 10px; background:rgba(74,158,255,0.05); border:1px solid rgba(74,158,255,0.15); border-radius:8px; font-size:12px; }
+.job-panel-header { font-weight:600; color:var(--blue); margin-bottom:6px; font-size:11px; }
+.job-item { padding:3px 6px; border-radius:4px; color:var(--text2); line-height:1.5; }
+.job-item.job-done { color:var(--text3); text-decoration:line-through; opacity:0.6; }
+.job-item.job-active { color:var(--text); background:rgba(74,158,255,0.1); font-weight:500; }
+
+/* 变更预览弹窗 */
+.diff-line-old { color:#f85149; padding:1px 4px; }
+.diff-line-new { color:#56d364; padding:1px 4px; }
+.diff-old, .diff-new { font-weight:600; margin:6px 0 2px; font-size:11px; color:var(--text2); }
+.diff-truncated { color:var(--text2); font-size:11px; padding:4px; text-align:center; }
+
+/* 计划审批弹窗 */
+.plan-step { padding:4px 8px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:13px; }
+.plan-step-num { display:inline-block; background:var(--blue); color:white; width:20px; height:20px; border-radius:50%; text-align:center; font-size:11px; line-height:20px; margin-right:6px; }
+.plan-step-op { color:var(--text2); font-size:11px; }
+.plan-success { margin-top:8px; padding:6px 8px; background:rgba(86,211,100,0.1); border-radius:4px; font-size:12px; }
+
+/* 通用弹窗按钮 */
+.dlg-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-size:13px; transition:0.15s; }
+.dlg-btn:hover { background:var(--border); }
+.dlg-btn.primary { background:var(--blue); color:white; border-color:var(--blue); }
+.dlg-btn.primary:hover { opacity:0.9; }
+.dlg-btn.danger { color:#f85149; }
+
 .msg { padding:8px 12px; border-radius:8px; max-width:90%; line-height:1.6; overflow-wrap:break-word; font-size:13px; }
 .msg-body { white-space: normal; }
 .msg-body p { margin:4px 0; }

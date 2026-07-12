@@ -96,6 +96,8 @@ async function sendMessage() {
     if (typeof aiModifiedFiles !== 'undefined') aiModifiedFiles.clear();
     // 重置 liveDiffHandled，让每轮对话都能触发精确 diff
     liveDiffHandled = false;
+    // 重置Job面板引用
+    _jobPanelEl = null;
     // 显示推理流容器（SSE模式下推理事件直接推送）
     showReasoningPanel();
     reasoningIndex = 0;
@@ -216,6 +218,22 @@ async function sendMessage() {
                             _updateThinkingDisplay("思考", `第${rec.内容.步数}步推理`, 20);
                         }
 
+                        // Job进度面板：计划生成/进度/完成/重规划时渲染
+                        if (rec.类型 === "计划生成" || rec.类型 === "计划进度" ||
+                            rec.类型 === "计划完成" || rec.类型 === "重规划") {
+                            if (rec.内容?.job列表) {
+                                renderJobPanel(rec.内容.job列表, rec.类型);
+                            }
+                        }
+                        // 计划审批弹窗
+                        if (rec.类型 === "计划审批" && rec.内容?.步骤列表) {
+                            showPlanApprovalDialog(rec.内容);
+                        }
+                        // 暂停通知
+                        if (rec.类型 === "暂停") {
+                            showPauseDialog();
+                        }
+
                         // 其他推理记录 → 进推理面板
                         reasoningStreamContent.push(rec);
                         appendReasoningRecord(rec);
@@ -241,6 +259,8 @@ async function sendMessage() {
                         耗时毫秒: d.llm调用记录?.reduce((s, r) => s + (r.耗时毫秒 || 0), 0) || 0
                     };
                     if (d.成功) {
+                        // 朗读立即触发（不等Markdown渲染和文件刷新，避免30秒延迟）
+                        if (voiceEnabled) speakText(d.回复);
                         // 最终Markdown渲染：平滑过渡而非突然替换
                         if (streamEl && streamText) {
                             // 先淡出纯文本
@@ -255,11 +275,9 @@ async function sendMessage() {
                                 streamBody.style.opacity = "1";
                             });
                             document.getElementById("msgList").scrollTop = document.getElementById("msgList").scrollHeight;
-                            if (voiceEnabled) speakText(d.回复);
                         } else {
                             // 无流式token的回退：直接显示，不再用假打字机
                             addMsg("assistant", d.回复);
-                            if (voiceEnabled) speakText(d.回复);
                         }
 
                         // 处理推理过程中的文件修改操作（从完整结果补充检测+触发Diff查看器）
@@ -427,5 +445,105 @@ function showTokenCost(stats) {
     bar.innerHTML = html;
     msgList.appendChild(bar);
     msgList.scrollTop = msgList.scrollHeight;
+}
+
+// ============ Job进度面板 ============
+let _jobPanelEl = null;
+
+function renderJobPanel(job列表, 事件类型) {
+    const msgList = document.getElementById("msgList");
+    if (!msgList) return;
+
+    const 完成数 = job列表.filter(j => j.状态 === "completed").length;
+    const 总数 = job列表.length;
+    const 状态图标 = {"pending": "⏳", "in_progress": "🔄", "completed": "✅", "failed": "❌"};
+
+    // 首次创建或重规划时创建新面板
+    if (!_jobPanelEl || 事件类型 === "计划生成" || 事件类型 === "重规划") {
+        _jobPanelEl = document.createElement("div");
+        _jobPanelEl.className = "job-panel";
+        msgList.appendChild(_jobPanelEl);
+    }
+
+    let html = `<div class="job-panel-header">📋 任务规划（${完成数}/${总数}已完成）</div>`;
+    for (const job of job列表) {
+        const 图标 = 状态图标[job.状态] || "❓";
+        const cls = job.状态 === "completed" ? "job-done" : (job.状态 === "in_progress" ? "job-active" : "");
+        html += `<div class="job-item ${cls}">${图标} #${job.序号} ${job.标题}</div>`;
+    }
+    _jobPanelEl.innerHTML = html;
+    msgList.scrollTop = msgList.scrollHeight;
+}
+
+// ============ 计划审批弹窗 ============
+function showPlanApprovalDialog(内容) {
+    const overlay = document.getElementById("planApprovalOverlay");
+    if (!overlay) return;
+    const body = document.getElementById("planApprovalBody");
+    let html = "";
+    (内容.步骤列表 || []).forEach((s, i) => {
+        html += `<div class="plan-step"><span class="plan-step-num">${i+1}</span> ${s.说明 || ''} <span class="plan-step-op">(${s.预计操作 || '?'})</span></div>`;
+    });
+    if (内容.成功标准) {
+        html += `<div class="plan-success"><b>成功标准:</b> ${内容.成功标准}</div>`;
+    }
+    body.innerHTML = html;
+    overlay.style.display = "flex";
+}
+
+async function respondPlanApproval(choice) {
+    const overlay = document.getElementById("planApprovalOverlay");
+    overlay.style.display = "none";
+    let 修改 = null;
+    if (choice === "modify") {
+        修改 = prompt("输入对计划的修改要求：");
+        if (修改 === null) return;
+        choice = "accept";
+    }
+    try {
+        await fetch("/api/plan-response", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({接受: choice === "accept", 修改})
+        });
+    } catch (e) {}
+}
+
+// ============ 暂停/修改/继续 ============
+function showPauseDialog() {
+    const overlay = document.getElementById("pauseOverlay");
+    if (!overlay) return;
+    overlay.style.display = "flex";
+    const input = document.getElementById("pauseModifyInput");
+    if (input) input.focus();
+}
+
+async function respondPause(choice) {
+    const overlay = document.getElementById("pauseOverlay");
+    const input = document.getElementById("pauseModifyInput");
+    let 指令 = "";
+    if (choice === "modify") {
+        指令 = input ? input.value.trim() : "";
+        if (!指令) return;
+    }
+    if (input) input.value = "";
+    overlay.style.display = "none";
+    try {
+        await fetch("/api/pause-modify", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({指令})
+        });
+    } catch (e) {}
+}
+
+// 暂停按钮：触发暂停
+function pauseAndModify() {
+    fetch("/api/pause", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({})
+    }).catch(() => {});
+    showPauseDialog();
 }
 

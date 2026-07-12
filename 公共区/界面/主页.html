@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com; font-src 'self'; worker-src 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.zf3d.com; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.zf3d.com; font-src 'self' data:; worker-src 'self' blob:">
     <title>朱峰社区智能体 v3.2.2</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260711b">
+    <link rel="stylesheet" href="样式.css?v=20260711f">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
-    <link rel="stylesheet" href="katex.min.css?v=1">
-    <link rel="stylesheet" href="员工浮窗.css?v=20260709b1">
+    <link rel="stylesheet" href="katex.min.css?v=2">
+    <link rel="stylesheet" href="员工浮窗.css?v=20260711b">
 </head>
 <body>
     <!-- 启动动画 -->
@@ -32,6 +32,32 @@
     <style>
         @keyframes boot-spin { to { transform: rotate(360deg); } }
     </style>
+    <!-- 网站登录遮罩 -->
+    <div id="loginOverlay" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center">
+        <form style="background:var(--bg-card,#1e1e2e);border:1px solid var(--border,#333);border-radius:12px;padding:32px 28px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.4);margin:0" onsubmit="event.preventDefault();window.agentAuth.doLogin()">
+            <div style="text-align:center;margin-bottom:20px">
+                <img src="favicon.png?v=1" style="width:48px;height:48px;margin-bottom:8px">
+                <div style="font-size:16px;font-weight:bold;color:var(--blue,#007acc)">朱峰社区智能体</div>
+                <div style="font-size:12px;color:var(--text2,#888);margin-top:4px">登录朱峰社区账号以解锁高级功能</div>
+            </div>
+            <div style="margin-bottom:14px">
+                <input id="loginUsername" type="text" autocomplete="username" placeholder="用户名 / 邮箱" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border,#444);border-radius:6px;background:var(--bg-input,#2a2a3a);color:var(--text,#ddd);font-size:14px;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+            </div>
+            <div style="margin-bottom:14px;position:relative">
+                <input id="loginPassword" type="password" autocomplete="current-password" placeholder="密码" style="width:100%;box-sizing:border-box;padding:10px 40px 10px 12px;border:1px solid var(--border,#444);border-radius:6px;background:var(--bg-input,#2a2a3a);color:var(--text,#ddd);font-size:14px;outline:none" onkeydown="if(event.key==='Enter')window.agentAuth.doLogin()">
+                <span id="pwdToggle" onclick="var inp=document.getElementById('loginPassword');inp.type=inp.type==='password'?'text':'password';this.textContent=inp.type==='password'?'👁':'🚫'" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;user-select:none">👁</span>
+            </div>
+            <div id="loginError" style="display:none;color:#e74c3c;font-size:12px;margin-bottom:10px;padding:6px 8px;background:rgba(231,76,60,0.1);border-radius:4px"></div>
+            <button id="loginBtn" type="submit" style="width:100%;padding:10px;border:none;border-radius:6px;background:var(--blue,#007acc);color:#fff;font-size:14px;font-weight:bold;cursor:pointer;transition:opacity 0.2s">登录</button>
+            <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
+                <a href="https://www.zf3d.com/login.html" target="_blank" style="color:var(--blue,#007acc);text-decoration:none">注册账号</a>
+                <a href="https://www.zf3d.com/login.html" target="_blank" style="color:var(--text2,#888);text-decoration:none">忘记密码？</a>
+            </div>
+            <div id="loginSkipBtn" style="text-align:center;margin-top:14px">
+                <a href="javascript:void(0)" onclick="window.agentAuth.hideLogin()" style="color:var(--text2,#888);font-size:12px;text-decoration:none">暂不登录，使用基础功能</a>
+            </div>
+        </form>
+    </div>
     <!-- 顶部栏 -->
     <div class="topbar">
         <span class="topbar-title"><span class="topbar-logo"></span>朱峰社区智能体</span>
@@ -44,10 +70,21 @@
             <button class="topbar-icon" title="访问朱峰社区网站" onclick="window.open('http://www.zf3d.com','_blank')">🌐</button>
             <span style="width:140px;"></span>
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
-            <button class="topbar-icon" id="wfToggleBtn" title="节点工作流" onclick="window.empWidget.toggleWorkflow()">🔀</button>
+            <button class="topbar-icon" id="wfToggleBtn" title="节点工作流（需登录）" onclick="window.agentAuth.requireLogin(() => window.empWidget.toggleWorkflow())">🔀</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
             <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openAbout()" style="font-size:15px;">❤️</button>
+            <span class="topbar-sep"></span>
+            <!-- 未登录：显示登录按钮 -->
+            <div id="loginEntry" style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:0 6px" onclick="window.agentAuth.showLogin()" title="登录朱峰社区">
+                <span style="font-size:14px">👤</span>
+                <span style="font-size:12px;color:var(--text2)">登录</span>
+            </div>
+            <!-- 已登录：显示用户信息 -->
+            <div id="userInfo" style="display:none;align-items:center;gap:6px;cursor:pointer;padding:0 6px" onclick="window.agentAuth.showUserMenu()" title="点击查看菜单">
+                <img id="userAvatar" src="" style="width:20px;height:20px;border-radius:50%;object-fit:cover">
+                <span id="userName" style="font-size:12px;color:var(--text)"></span>
+            </div>
         </div>
     </div>
 
@@ -505,7 +542,7 @@
                                     <b>获取：</b>访问 <a href="https://www.volcengine.com/product/ark" target="_blank" style="color:var(--blue)">火山方舟</a> → 手机号注册→实名认证→创建API Key<br>
                                     <b>费用：</b>~¥0.06/张，新用户送¥20
                                 </div>
-                                <input type="password" id="cloudKey_Seedream" class="dialog-input" placeholder="粘贴火山方舟API Key..." style="width:100%;font-family:monospace;font-size:12px;" />
+                                <input type="text" id="cloudKey_Seedream" class="dialog-input" placeholder="粘贴火山方舟API Key..." style="width:100%;font-family:monospace;font-size:12px;-webkit-text-security:disc;" autocomplete="off" />
                             </div>
                             <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🍌</span><b style="font-size:14px;">Nano Banana（Google）</b></div>
@@ -513,7 +550,7 @@
                                     <b>获取：</b>访问 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue)">Google AI Studio</a> → 免费创建Key（$10/天免费额度）<br>
                                     <b>注意：</b>中国大陆不在支持区域，需科学上网
                                 </div>
-                                <input type="password" id="cloudKey_Google" class="dialog-input" placeholder="粘贴Google API Key（AIza开头）..." style="width:100%;font-family:monospace;font-size:12px;" />
+                                <input type="text" id="cloudKey_Google" class="dialog-input" placeholder="粘贴Google API Key（AIza开头）..." style="width:100%;font-family:monospace;font-size:12px;-webkit-text-security:disc;" autocomplete="off" />
                             </div>
                             <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🎯</span><b style="font-size:14px;">Grok（xAI）</b></div>
@@ -521,7 +558,7 @@
                                     <b>获取：</b>访问 <a href="https://console.x.ai/" target="_blank" style="color:var(--blue)">xAI Console</a> → 注册→生成API Key<br>
                                     <b>费用：</b>~$0.02/张，需科学上网
                                 </div>
-                                <input type="password" id="cloudKey_Grok" class="dialog-input" placeholder="粘贴xAI API Key..." style="width:100%;font-family:monospace;font-size:12px;" />
+                                <input type="text" id="cloudKey_Grok" class="dialog-input" placeholder="粘贴xAI API Key..." style="width:100%;font-family:monospace;font-size:12px;-webkit-text-security:disc;" autocomplete="off" />
                             </div>
                             <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:18px;">🧠</span><b style="font-size:14px;">GPT Image（OpenAI）</b></div>
@@ -529,7 +566,7 @@
                                     <b>获取：</b>访问 <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--blue)">OpenAI Platform</a> → 创建API Key<br>
                                     <b>费用：</b>~$0.04/张，需海外信用卡+科学上网
                                 </div>
-                                <input type="password" id="cloudKey_OpenAI" class="dialog-input" placeholder="粘贴OpenAI API Key（sk-开头）..." style="width:100%;font-family:monospace;font-size:12px;" />
+                                <input type="text" id="cloudKey_OpenAI" class="dialog-input" placeholder="粘贴OpenAI API Key（sk-开头）..." style="width:100%;font-family:monospace;font-size:12px;-webkit-text-security:disc;" autocomplete="off" />
                             </div>
                         </div>
                         <button class="dlg-btn primary" onclick="saveCloudKeys()" style="margin-top:12px;">💾 保存密钥</button>
@@ -651,10 +688,11 @@
     <script src="xlsx.full.min.js?v=1" defer></script>
     <script src="mammoth.browser.min.js?v=1" defer></script>
     <script src="pdf.min.js?v=1" defer></script>
-    <!-- Monaco Editor (AMD loader, 本地离线) -->
-    <script src="/monaco/vs/loader.js"></script>
+    <!-- Monaco Editor (AMD loader, 本地离线) — defer确保在katex/mammoth之后加载，避免AMD define冲突 -->
+    <script src="/monaco/vs/loader.js" defer></script>
     <script src="编辑器/编辑器.js?v=20260707c"></script>
     <script src="模块/全局状态.js?v=20260706a"></script>
+    <script src="模块/网站登录.js?v=20260711i"></script>
     <script src="模块/路径工具.js?v=20260711a"></script>
     <script src="模块/撤销重做.js?v=20260707b"></script>
     <script src="模块/Toast通知.js?v=20260707a"></script>
@@ -662,30 +700,28 @@
     <script src="模块/面板布局.js?v=20260711b"></script>
     <script src="模块/语音播报.js?v=20260706c"></script>
     <script src="模块/语音输入.js?v=20260706g"></script>
-    <script src="模块/对话核心.js?v=20260707e"></script>
-    <script src="模块/推理流.js?v=20260707a"></script>
+    <script src="模块/对话核心.js?v=20260711c"></script>
+    <script src="模块/推理流.js?v=20260711b"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
     <script src="模块/录音.js?v=20260704h"></script>
     <script src="模块/录屏.js?v=20260704z"></script>
     <script src="模块/实时Diff.js?v=20260707e"></script>
     <script src="模块/Diff查看器.js?v=20260702c"></script>
     <script src="模块/消息渲染.js?v=20260627d"></script>
-    <script src="模块/多对话管理.js?v=20260627d"></script>
+    <script src="模块/多对话管理.js?v=20260711a"></script>
     <script src="模块/模型配置.js?v=20260710d"></script>
     <script src="模块/设置面板.js?v=20260708b"></script>
-    <script src="模块/文件树.js?v=20260711c"></script>
+    <script src="模块/文件树.js?v=20260711g"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
     <script src="模块/文档预览.js?v=20260627e"></script>
-    <script src="模块/图片查看器.js?v=20260711a"></script>
+    <script src="模块/图片查看器.js?v=20260711b"></script>
     <script src="模块/多标签编辑器.js?v=20260707b"></script>
     <script src="模块/文件框选.js?v=20260707a"></script>
-    <script src="模块/权限轮询.js?v=20260702a"></script>
+    <script src="模块/权限轮询.js?v=20260711c"></script>
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
     <script src="模块/下载面板.js?v=20260706b"></script>
     <script src="逻辑.js?v=20260627j"></script>
-
-    <script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
@@ -768,6 +804,52 @@
         </div>
     </div>
 
+    <!-- 变更预览弹窗 -->
+    <div class="overlay" id="changePreviewOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:700px;">
+            <h3>📝 变更预览 — 请确认</h3>
+            <div style="margin:8px 0;">
+                <span style="color:var(--text2);font-size:12px;">文件：</span>
+                <span id="changePreviewPath" style="font-family:monospace;font-size:13px;word-break:break-all;"></span>
+                <span style="color:var(--text2);font-size:12px;margin-left:12px;">操作：</span>
+                <span id="changePreviewOp" style="color:var(--blue);"></span>
+            </div>
+            <div id="changePreviewDiff" style="max-height:400px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:monospace;font-size:12px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                <button class="dlg-btn primary" onclick="respondChangePreview('accept')">✅ 接受</button>
+                <button class="dlg-btn" onclick="respondChangePreview('edit')">✏️ 编辑后接受</button>
+                <button class="dlg-btn danger" onclick="respondChangePreview('reject')">❌ 拒绝</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 计划审批弹窗 -->
+    <div class="overlay" id="planApprovalOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:560px;">
+            <h3>📋 执行计划 — 请确认</h3>
+            <div style="color:var(--text2);font-size:12px;margin-bottom:8px;">AI已生成执行计划，确认后将自动执行：</div>
+            <div id="planApprovalBody" style="background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:10px;max-height:350px;overflow-y:auto;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+                <button class="dlg-btn primary" onclick="respondPlanApproval('accept')">✅ 确认执行</button>
+                <button class="dlg-btn" onclick="respondPlanApproval('modify')">✏️ 修改要求</button>
+                <button class="dlg-btn danger" onclick="respondPlanApproval('cancel')">❌ 取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 暂停/修改弹窗 -->
+    <div class="overlay" id="pauseOverlay" style="display:none;">
+        <div class="dialog-box" style="max-width:480px;">
+            <h3>⏸️ 已暂停 — 修改指令或继续</h3>
+            <div style="color:var(--text2);font-size:12px;margin-bottom:8px;">任务已暂停，当前进度已保留。输入修改指令后继续，或直接继续：</div>
+            <textarea id="pauseModifyInput" style="width:100%;min-height:60px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;color:var(--text);font-size:13px;" placeholder="输入修改指令（可选）..."></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                <button class="dlg-btn primary" onclick="respondPause('modify')">📝 修改并继续</button>
+                <button class="dlg-btn" onclick="respondPause('continue')">▶️ 继续执行</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 文件悬浮提示 -->
     <div class="file-tooltip" id="fileTooltip" style="display:none;"></div>
 
@@ -809,7 +891,7 @@
         }
     }, 3000);
     </script>
-    <script src="员工浮窗.js?v=20260710a"></script>
+    <script src="员工浮窗.js?v=20260711h"></script>
     <script>
     // 启动动画控制（加速版）
     (function(){
@@ -830,6 +912,10 @@
             if (status) status.textContent = '启动完成';
             var ov = document.getElementById('bootOverlay');
             if (ov) { ov.style.opacity = '0'; setTimeout(function(){ ov.remove(); }, 200); }
+            // 启动后检查网站登录状态
+            if (window.agentAuth && window.agentAuth.init) {
+                window.agentAuth.init();
+            }
         }
         if (document.readyState === 'complete') {
             setTimeout(bootDone, 300);
@@ -900,33 +986,34 @@
             if (bar) bar.style.width = progress + '%';
             if (pct) pct.textContent = progress + '%';
         }, 80);
+        // 轮询直到服务恢复（不管fetch成功还是失败都开始轮询）
+        var tries = 0;
+        function check() {
+            tries++;
+            fetch('/api/status', {cache:'no-store'})
+            .then(function(r){
+                if (r.ok) {
+                    clearInterval(progressTimer);
+                    if (bar) bar.style.width = '100%';
+                    if (pct) pct.textContent = '100%';
+                    setTimeout(function(){ window.location.reload(); }, 400);
+                } else { if (tries < 60) setTimeout(check, 500); }
+            })
+            .catch(function(){ if (tries < 60) setTimeout(check, 500); });
+        }
         // 发送重启请求
         fetch('/api/restart', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            // 轮询直到服务恢复
-            var tries = 0;
-            function check() {
-                tries++;
-                fetch('/api/status', {cache:'no-store'})
-                .then(function(r){
-                    if (r.ok) {
-                        clearInterval(progressTimer);
-                        if (bar) bar.style.width = '100%';
-                        if (pct) pct.textContent = '100%';
-                        setTimeout(function(){ window.location.reload(); }, 400);
-                    } else { setTimeout(check, 500); }
-                })
-                .catch(function(){ if (tries < 40) setTimeout(check, 500); });
-            }
-            setTimeout(check, 1500);
-        })
-        .catch(function(e){
-            clearInterval(progressTimer);
-            mask.remove();
-            alert('重启请求失败: ' + e.message);
-        });
+        .then(function(){ setTimeout(check, 2000); })
+        .catch(function(){ setTimeout(check, 2000); });
     }
+
+    // Ctrl+Shift+R 快捷重启
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+            e.preventDefault();
+            restartSystem();
+        }
+    });
     </script>
 </body>
 </html>

@@ -131,15 +131,20 @@ class 上下文管理器类:
         return 遮蔽后
 
     def _遮蔽tool消息(self, tool消息):
-        """对单个tool消息应用observation masking，返回副本不修改原始"""
+        """对单个tool消息应用observation masking，返回副本不修改原始
+
+        保留操作名+成功/失败+100字前缀，让LLM知道之前做过什么、结果大概是什么
+        """
         内容 = tool消息.get("content", "")
-        if len(内容) <= 50:
+        if len(内容) <= 100:
             return tool消息
         import re
         操作匹配 = re.search(r'操作\[([^\]]+)\]', 内容)
         操作名 = 操作匹配.group(1) if 操作匹配 else "未知"
+        成功 = "✓" if "成功" in 内容[:20] or "true" in 内容[:20].lower() else "✗"
+        前缀 = 内容[:100].replace("\n", " ").strip()
         遮蔽消息 = dict(tool消息)
-        遮蔽消息["content"] = f"[已折叠] 操作[{操作名}]结果，原{len(内容)}字符"
+        遮蔽消息["content"] = f"[已折叠] {操作名}{成功} {前缀}... (原{len(内容)}字符)"
         return 遮蔽消息
 
     def 估算_token数(self, 文本: str) -> int:
@@ -170,19 +175,24 @@ class 上下文管理器类:
 
         裁剪后 = 消息列表[-保留数:]
         while self._估算_列表_token(裁剪后) > self.token预算 and len(裁剪后) > 4:
-            # 智能裁剪：跳过tool消息（role=tool），避免孤立tool_calls
-            # 找到第一个非tool消息对（user+assistant），删掉它们
-            删除数 = 0
-            for i in range(min(2, len(裁剪后))):
-                if 裁剪后[0].get("role") == "tool":
-                    裁剪后.pop(0)
-                    删除数 += 1
-                else:
-                    裁剪后.pop(0)
-                    删除数 += 1
-            # 如果只删了tool消息，再删一个非tool消息
-            if 删除数 == 0:
-                裁剪后 = 裁剪后[2:]
+            # 智能裁剪：弹出消息时检查tool_calls配对完整性
+            # 若弹出的assistant含tool_calls，后续对应的tool消息也必须一起弹出
+            弹出数 = 0
+            while len(裁剪后) > 4 and 弹出数 < 2:
+                if not 裁剪后:
+                    break
+                msg = 裁剪后.pop(0)
+                弹出数 += 1
+                # 若弹出的是assistant且含tool_calls，继续弹出后续的tool消息
+                if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                    while 裁剪后 and 裁剪后[0].get("role") == "tool":
+                        裁剪后.pop(0)
+                    # 已经弹出了配对，不再弹额外的
+                    弹出数 = 2
+                    break
+                # 若弹出的是tool消息（孤儿），直接弹出，继续
+                if msg.get("role") == "tool":
+                    continue
         return 裁剪后
 
     def _估算_列表_token(self, 消息列表) -> int:

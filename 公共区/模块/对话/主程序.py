@@ -127,6 +127,10 @@ class 对话模块:
             return {"成功": False, "错误": "消息为空"}
 
         with self._锁:
+            # 通知记忆模块暂停后台归纳（避免争抢LLM API）
+            记忆模块 = self.模块注册.get("记忆") if self.模块注册 else None
+            if 记忆模块:
+                记忆模块._用户正在对话 = True
             # 发布事件
             全局事件中心.发布("收到消息", {"角色": "用户", "内容": 用户消息})
             self.对话历史.append({"角色": "用户", "内容": 用户消息,
@@ -170,6 +174,9 @@ class 对话模块:
                     self.对话历史.append({"角色": "系统", "内容": f"💡 【任务反思】{反思内容}",
                                            "时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
                 # 生成经验卡片并存入SQLite（异步，不阻塞用户回复）
+                import threading as _t
+                # 本地模型（Ollama等）时延迟执行后台任务，避免争抢GPU资源
+                _是本地模型 = self._是本地模型()
                 if hasattr(self, '存储引擎') and self.存储引擎:
                     def _异步保存经验():
                         try:
@@ -187,9 +194,23 @@ class 对话模块:
                                     _json.dump(self.永久记忆, f, ensure_ascii=False, indent=2)
                         except Exception:
                             pass
-                    import threading as _t
-                    # 本地模型（Ollama等）时延迟执行后台任务，避免争抢GPU资源
-                    _是本地模型 = self._是本地模型()
+                    # 总结师：只对复杂任务(步数>4)结束后生成对话摘要
+                    记忆模块 = self.模块注册.get("记忆") if self.模块注册 else None
+                    if 记忆模块 and self.当前对话ID:
+                        def _异步总结对话():
+                            try:
+                                标题 = ""
+                                for d in self.对话列表:
+                                    if d.get("id") == self.当前对话ID:
+                                        标题 = d.get("标题", self.当前对话ID)
+                                        break
+                                记忆模块._归纳单个对话(self.当前对话ID, 标题)
+                            except Exception:
+                                pass
+                        if _是本地模型:
+                            _t.Timer(5.0, _异步总结对话).start()
+                        else:
+                            _t.Thread(target=_异步总结对话, daemon=True).start()
                     if _是本地模型:
                         _t.Timer(3.0, _异步保存经验).start()
                     else:
@@ -236,6 +257,10 @@ class 对话模块:
             })
             self._保存当前对话()
             self._新对话标志 = False
+            # 恢复记忆模块后台归纳
+            记忆模块 = self.模块注册.get("记忆") if self.模块注册 else None
+            if 记忆模块:
+                记忆模块._用户正在对话 = False
             return 推理结果
 
     def _执行对话(self, 用户消息: str) -> dict:
@@ -824,7 +849,7 @@ class 对话模块:
         self._取消标志 = True
         if self.当前对话ID:
             self._保存当前对话()
-            self._清除检查点()
+        # 不清除检查点——让检查点跟随对话保留，切换回来时可以续跑
         self._取消标志 = False
         self.推理流 = []
         self.推理流索引 = 0
@@ -972,7 +997,8 @@ class 对话模块:
         检查点 = 检查点信息["检查点"]
         self.对话历史 = 检查点.get("对话历史", [])
         用户消息 = 检查点.get("用户消息", "")
-        print(f"  🔄 从检查点续跑: 第{检查点['步数']}步")
+        保存步数 = 检查点.get("步数", 0)
+        print(f"  🔄 从检查点续跑: 第{保存步数}步")
         # 设置推理引擎回调
         self.推理引擎.设置回调(
             推理流回调=self._推入推理流,

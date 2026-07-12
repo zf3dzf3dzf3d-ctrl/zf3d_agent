@@ -4,7 +4,6 @@
  */
 
 // ============ 权限轮询 ============
-let _shownPermPaths = new Set();
 let _permPollTimer = null;
 let _permActive = false;  // 是否在任务执行中
 
@@ -12,11 +11,13 @@ function startPermPoll() {
     if (_permPollTimer) return;
     _permActive = true;
     pollPending();
+    pollChangePreview();
 }
 
 function stopPermPoll() {
     _permActive = false;
     if (_permPollTimer) { clearTimeout(_permPollTimer); _permPollTimer = null; }
+    _shownChangeIds.clear();
 }
 
 async function pollPending() {
@@ -26,17 +27,17 @@ async function pollPending() {
         const res = await fetch("/api/pending");
         const d = await res.json();
         if (d.待确认 && d.待确认.length > 0) {
-            for (const req of d.待确认) {
-                if (!_shownPermPaths.has(req.路径)) {
-                    _shownPermPaths.add(req.路径);
-                    showPermissionDialog(req);
-                }
+            // 检查弹窗当前是否在显示不同的路径（新的请求覆盖旧的）
+            const overlay = document.getElementById("permissionOverlay");
+            const currentPath = document.getElementById("permPath").textContent;
+            const newPath = d.待确认[0].路径;
+            if (overlay && (overlay.style.display !== "flex" || currentPath !== newPath)) {
+                showPermissionDialog(d.待确认[0]);
             }
         }
     } catch (e) {}
-    // 仅在活跃状态下继续轮询，5秒间隔
     if (_permActive) {
-        _permPollTimer = setTimeout(pollPending, 5000);
+        _permPollTimer = setTimeout(pollPending, 2000);
     }
 }
 
@@ -55,7 +56,6 @@ async function respondPermission(choice) {
     const actionMap = {"读取":"读","写入":"写","创建":"创建","删除":"删除"};
     const action = actionMap[actionRaw] || actionRaw;
     overlay.style.display = "none";
-    _shownPermPaths.delete(path);
     try {
         await fetch("/api/permission", {
             method: "POST",
@@ -198,5 +198,70 @@ async function cancelAskUser() {
             body: JSON.stringify({ id, 回答: {} })
         });
     } catch (e) {}
+}
+
+// ============ 变更预览轮询 ============
+let _shownChangeIds = new Set();
+
+async function pollChangePreview() {
+    if (!_permActive) return;
+    try {
+        const res = await fetch("/api/change-pending");
+        const d = await res.json();
+        if (d.变更预览 && d.变更预览.length > 0) {
+            for (const req of d.变更预览) {
+                if (!_shownChangeIds.has(req.id)) {
+                    _shownChangeIds.add(req.id);
+                    showChangePreviewDialog(req);
+                }
+            }
+        }
+    } catch (e) {}
+    if (_permActive) {
+        setTimeout(pollChangePreview, 1500);
+    }
+}
+
+function showChangePreviewDialog(req) {
+    const overlay = document.getElementById("changePreviewOverlay");
+    if (!overlay) return;
+    document.getElementById("changePreviewPath").textContent = req.路径 || "";
+    document.getElementById("changePreviewOp").textContent = req.操作 || "";
+    // 简单diff显示
+    const diffBody = document.getElementById("changePreviewDiff");
+    const 旧行 = (req.旧内容 || "").split("\n").slice(0, 20);
+    const 新行 = (req.新内容 || "").split("\n").slice(0, 20);
+    let html = '<div class="diff-old"><b>旧内容:</b></div>';
+    旧行.forEach(l => html += `<div class="diff-line-old">- ${l}</div>`);
+    html += '<div class="diff-new"><b>新内容:</b></div>';
+    新行.forEach(l => html += `<div class="diff-line-new">+ ${l}</div>`);
+    if ((req.新内容 || "").length > 2000) html += '<div class="diff-truncated">... (内容较多，仅显示前20行)</div>';
+    diffBody.innerHTML = html;
+    overlay.dataset.changeId = req.id;
+    overlay.style.display = "flex";
+}
+
+async function respondChangePreview(choice) {
+    const overlay = document.getElementById("changePreviewOverlay");
+    const id = overlay.dataset.changeId;
+    overlay.style.display = "none";
+    let 编辑内容 = null;
+    if (choice === "edit") {
+        编辑内容 = prompt("输入修改后的完整内容：");
+        if (编辑内容 === null) return; // 用户取消编辑
+        choice = "accept";
+    }
+    _shownChangeIds.delete(id);
+    try {
+        await fetch("/api/change-response", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({id, 接受: choice === "accept", 编辑内容})
+        });
+        const labels = {"accept": "✅ 已接受变更", "reject": "❌ 已拒绝变更"};
+        showToast("info", labels[choice] || choice, "");
+    } catch (e) {
+        showToast("error", "❌ 变更响应失败", e.message);
+    }
 }
 

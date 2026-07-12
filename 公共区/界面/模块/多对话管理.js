@@ -116,7 +116,45 @@ async function loadConvMessages() {
             for (const msg of d.历史) {
                 addMsg(msg.角色 || "assistant", msg.内容 || "", msg.时间 || "");
             }
+            // 检查是否有未完成的检查点（可续跑）
+            checkCheckpoint();
         }
     } catch (e) {}
+}
+
+async function checkCheckpoint() {
+    try {
+        const res = await fetch("/api/checkpoint-info");
+        const d = await res.json();
+        if (d.有检查点) {
+            const list = document.getElementById("msgList");
+            const bar = document.createElement("div");
+            bar.className = "resume-bar";
+            bar.innerHTML = '<span>⏸️ 上次任务未完成</span><button class="dlg-btn primary" onclick="resumeCheckpoint()">▶️ 继续执行</button><button class="dlg-btn" onclick="dismissCheckpoint()">✕ 忽略</button>';
+            list.appendChild(bar);
+            list.scrollTop = list.scrollHeight;
+        }
+    } catch (e) {}
+}
+
+async function resumeCheckpoint() {
+    try {
+        document.querySelectorAll(".resume-bar").forEach(el => el.remove());
+        showToast("success", "🔄 续跑中", "从上次中断处继续执行");
+        const res = await fetch("/api/resume-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const d = await res.json();
+        if (d.成功 && d.结果) {
+            addMsg("assistant", d.结果.回复 || "续跑完成");
+        } else {
+            showToast("error", "❌ 续跑失败", d.错误 || d.结果?.错误 || "未知错误");
+        }
+    } catch (e) {
+        showToast("error", "❌ 连接错误", e.message);
+    }
+}
+
+function dismissCheckpoint() {
+    document.querySelectorAll(".resume-bar").forEach(el => el.remove());
+    fetch("/api/clear-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
 }
 

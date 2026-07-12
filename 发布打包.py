@@ -58,25 +58,54 @@ def 打包发布():
         return
     print("✅ 无隐私泄露")
 
-    # 2. 读取版本号
+    # 2. 复制公共区到临时目录，在临时目录上加密（不破坏开发版源码）
+    print("\n📁 复制文件到临时打包目录...")
+    打包临时目录 = 项目根目录 / "_publish_temp"
+    if 打包临时目录.exists():
+        shutil.rmtree(打包临时目录)
+    # 复制公共区
+    shutil.copytree(公共区, 打包临时目录 / "公共区")
+    # 复制引擎管理
+    if 引擎管理.exists():
+        shutil.copytree(引擎管理, 打包临时目录 / "引擎管理")
+    # 复制根目录文件
+    for 文件 in 项目根目录.iterdir():
+        if 文件.is_file() and 文件.suffix in [".py", ".md", ".bat", ".sh"]:
+            if not 应排除(文件):
+                shutil.copy2(文件, 打包临时目录 / 文件.name)
+    # 复制public目录
+    public目录 = 项目根目录 / "public"
+    if public目录.exists():
+        shutil.copytree(public目录, 打包临时目录 / "public")
+
+    # 3. 在临时目录上加密
+    print("\n🔒 加密核心文件...")
+    加密核心文件(打包临时目录)
+
+    # 4. 读取版本号
     引擎配置 = {}
-    引擎配置路径 = 引擎管理 / "引擎配置.json"
+    引擎配置路径 = 打包临时目录 / "引擎管理" / "引擎配置.json"
     if 引擎配置路径.exists():
         with open(引擎配置路径, "r", encoding="utf-8") as f:
             引擎配置 = json.load(f)
     版本号 = 引擎配置.get("主引擎", {}).get("版本", "1.0.0")
 
-    # 3. 打包
+    # 5. 打包（从临时目录）
     输出文件名 = f"智能体_v2_发布_v{版本号}.zip"
     输出路径 = 项目根目录 / 输出文件名
 
     print(f"\n📦 打包中...")
     打包文件数 = 0
     with zipfile.ZipFile(输出路径, "w", zipfile.ZIP_DEFLATED) as zf:
-        for 文件 in 待打包文件:
-            相对路径 = str(文件.relative_to(项目根目录))
-            zf.write(文件, 相对路径)
-            打包文件数 += 1
+        for 文件 in 打包临时目录.rglob("*"):
+            if 文件.is_file() and not 应排除(文件):
+                相对路径 = str(文件.relative_to(打包临时目录))
+                zf.write(文件, 相对路径)
+                打包文件数 += 1
+
+    # 6. 清理临时目录
+    if 打包临时目录.exists():
+        shutil.rmtree(打包临时目录)
 
     print(f"✅ 打包完成: {输出文件名}")
     print(f"   文件数: {打包文件数}")
@@ -156,6 +185,125 @@ def 扫描隐私泄露(文件: Path) -> list:
     except Exception:
         pass
     return 泄露
+
+def 加密核心文件(项目根目录: Path):
+    """加密Python核心文件：PyArmor加密小文件，compile+混淆处理大文件"""
+    import subprocess, sys, os, shutil, compileall, py_compile
+
+    py核心文件 = [
+        "公共区/内核/模型直连器.py",
+        "公共区/模块/对话/提示词构建器.py",
+        "公共区/模块/对话/推理引擎.py",
+        "公共区/模块/对话/反思评估器.py",
+        "公共区/模块/对话/任务规划器.py",
+        "公共区/内核/网页服务.py",
+        "公共区/内核/操作/Git.py",
+        "公共区/内核/操作/代码.py",
+        "公共区/内核/操作/高级.py",
+        "公共区/内核/操作/网络.py",
+    ]
+
+    pyarmor = os.path.join(sys.prefix, "Scripts", "pyarmor.exe")
+    if not os.path.exists(pyarmor):
+        pyarmor = shutil.which("pyarmor")
+
+    加密成功数 = 0
+    临时输出 = 项目根目录 / "_pyarmor_output"
+    if 临时输出.exists():
+        shutil.rmtree(临时输出)
+
+    for 文件 in py核心文件:
+        源路径 = 项目根目录 / 文件
+        if not 源路径.exists():
+            print(f"  ⚠️ 跳过（不存在）: {文件}")
+            continue
+
+        # 先尝试PyArmor
+        用pyarmor = False
+        if pyarmor:
+            try:
+                结果 = subprocess.run(
+                    [pyarmor, "gen", "--output", str(临时输出), str(源路径)],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30
+                )
+                if 结果.returncode == 0:
+                    加密文件名 = 源路径.name
+                    加密后路径 = 临时输出 / 加密文件名
+                    if 加密后路径.exists():
+                        shutil.copy2(加密后路径, 源路径)
+                        加密成功数 += 1
+                        用pyarmor = True
+                        print(f"  🔒 PyArmor加密: {文件}")
+            except Exception:
+                pass
+
+        # PyArmor失败或未安装：用compile+混淆
+        if not 用pyarmor:
+            try:
+                _混淆py文件(源路径)
+                加密成功数 += 1
+                print(f"  🔒 compile混淆: {文件}")
+            except Exception as e:
+                print(f"  ❌ 加密失败: {文件} - {e}")
+
+    # 复制pyarmor运行时
+    runtime目录 = 临时输出 / "pyarmor_runtime_000000"
+    if runtime目录.exists():
+        目标runtime = 项目根目录 / "公共区" / "内核" / "pyarmor_runtime_000000"
+        if 目标runtime.exists():
+            shutil.rmtree(目标runtime)
+        shutil.copytree(runtime目录, 目标runtime)
+        print(f"  ✅ PyArmor运行时已复制")
+
+    if 临时输出.exists():
+        shutil.rmtree(临时输出)
+
+    print(f"  ✅ 加密完成: {加密成功数}/{len(py核心文件)}个文件")
+    return 加密成功数 > 0
+
+
+def _混淆py文件(文件路径: Path):
+    """Python源码混淆：去除注释/文档字符串+编译pyc+替换源码为加载器"""
+    import ast, marshal, zlib
+
+    源码 = 文件路径.read_text(encoding="utf-8")
+
+    # 1. 用AST去除文档字符串和注释
+    try:
+        树 = ast.parse(源码)
+        # 移除模块级docstring
+        if (树.body and isinstance(树.body[0], ast.Expr) and
+            isinstance(树.body[0].value, (ast.Constant, ast.Str))):
+            树.body.pop(0)
+        源码 = compile(树, str(文件路径), "exec")
+        # 编译成字节码
+        源码 = marshal.dumps(源码)
+        # zlib压缩
+        源码 = zlib.compress(源码, 9)
+        # base64编码
+        import base64
+        编码 = base64.b64encode(源码).decode("ascii")
+
+        # 2. 生成加载器代码
+        加载器 = f'''# Protected by ZF3D Agent
+import marshal,zlib,base64 as _b
+exec(marshal.loads(zlib.decompress(_b.b64decode("{编码}"))))
+'''
+        文件路径.write_text(加载器, encoding="utf-8")
+    except Exception as e:
+        # AST解析失败时用简单方式：编译pyc替换
+        pyc路径 = 文件路径.with_suffix('.pyc')
+        py_compile.compile(str(文件路径), str(pyc路径), doraise=True)
+        # 生成加载器
+        加载器 = f'''# Protected by ZF3D Agent
+import importlib.util as _u,sys as _s
+_spec = _u.spec_from_file_location("_m", r"{文件路径.name}c")
+_m = _u.module_from_spec(_spec)
+_s.modules["_m"] = _m
+_spec.loader.exec_module(_m)
+'''
+        文件路径.write_text(加载器, encoding="utf-8")
+
 
 if __name__ == "__main__":
     打包发布()

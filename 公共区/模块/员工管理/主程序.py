@@ -290,10 +290,13 @@ class 员工管理模块:
         return {"成功": False, "错误": f"员工 '{姓名}' 不存在"}
 
     def 删除员工(self, 姓名: str) -> dict:
+        姓名 = (姓名 or "").strip()
         if 姓名 == "母体":
             return {"成功": False, "错误": "母体不可删除"}
+        # 删除前重新加载配置，确保内存与文件一致
+        self._加载员工配置()
         for i, 员工 in enumerate(self.员工列表):
-            if 员工.get("姓名") == 姓名:
+            if (员工.get("姓名") or "").strip() == 姓名:
                 del self.员工列表[i]
                 if self.当前员工 == 姓名:
                     self.当前员工 = "母体"

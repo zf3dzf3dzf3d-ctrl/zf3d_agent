@@ -1,6 +1,7 @@
 """
 网页服务 - 内置Web服务+API接口
 API路径全部使用英文，避免中文URL编码问题
+🔒加密发布：含签到/员工备份恢复/网站认证等敏感API路由，发布时必须PyArmor加密
 """
 import json
 import os
@@ -13,9 +14,12 @@ import time
 import threading
 from datetime import datetime
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, unquote, quote, urlencode
 import urllib.request
+import urllib.error
+import urllib.parse
 from pathlib import Path
+import pathlib
 import zlib
 import array
 
@@ -509,6 +513,59 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     _录屏设置 = {"点击效果": False, "点击音效": False, "音效音量": 50, "帧率": 30, "音频模式": "system",
                   "麦克风音量": 1.0, "麦克风静音": False, "系统音量": 1.0, "系统静音": False,
                   "dshow设备名": ""}
+    _网站会话 = None  # {"token": "xxx", "用户": {...}, "登录时间": ...}
+    _会话文件 = None  # 持久化路径，启动时设置
+
+    @staticmethod
+    def _获取会话文件():
+        """获取会话持久化文件路径"""
+        if 网页请求处理器._会话文件:
+            return 网页请求处理器._会话文件
+        try:
+            项目根 = pathlib.Path(__file__).parent.parent.parent
+            网页请求处理器._会话文件 = 项目根 / "隐私区" / "我的配置" / "网站会话.json"
+        except Exception:
+            网页请求处理器._会话文件 = pathlib.Path("网站会话.json")
+        return 网页请求处理器._会话文件
+
+    @staticmethod
+    def _保存会话():
+        """将会话写入文件持久化"""
+        if not 网页请求处理器._网站会话:
+            return
+        try:
+            文件 = 网页请求处理器._获取会话文件()
+            文件.parent.mkdir(parents=True, exist_ok=True)
+            with open(文件, "w", encoding="utf-8") as f:
+                json.dump(网页请求处理器._网站会话, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _清除会话文件():
+        """删除会话文件"""
+        try:
+            文件 = 网页请求处理器._获取会话文件()
+            if 文件.exists():
+                文件.unlink()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _恢复会话():
+        """启动时从文件恢复会话"""
+        文件 = 网页请求处理器._获取会话文件()
+        if not 文件.exists():
+            return
+        try:
+            with open(文件, "r", encoding="utf-8") as f:
+                会话 = json.load(f)
+            token = 会话.get("token", "")
+            if token:
+                网页请求处理器._网站会话 = 会话
+                print(f"  ✓ 已恢复网站登录会话: {会话.get('用户', {}).get('username', '?')}")
+        except Exception:
+            pass
 
     def do_GET(self):
         self._http方法 = "GET"
@@ -629,12 +686,67 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 return True
         return False
 
+    def _检查网站登录(self) -> bool:
+        """检查是否已登录网站（用于门控高级功能）"""
+        return 网页请求处理器._网站会话 is not None
+
+    def _网站登录(self, 用户名: str, 密码: str) -> dict:
+        """调用网站API验证用户身份，返回结果dict"""
+        配置 = self.配置加载器.配置缓存.get("系统配置", {})
+        网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+        接口 = f"{网站地址}/api/auth.asp?a=agent_login"
+        # ASP的Param()只读QueryString和Form，不支持JSON body，用form-urlencoded
+        表单数据 = urlencode({"username": 用户名, "password": 密码}).encode("utf-8")
+        请求 = urllib.request.Request(接口, data=表单数据, method="POST")
+        请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+        try:
+            with urllib.request.urlopen(请求, timeout=15) as 响应:
+                内容 = 响应.read().decode("utf-8")
+                return json.loads(内容)
+        except urllib.error.HTTPError as e:
+            内容 = e.read().decode("utf-8", errors="replace")
+            try:
+                return json.loads(内容)
+            except json.JSONDecodeError:
+                return {"success": False, "error": f"HTTP {e.code}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def _网站验证token(self, token: str) -> dict:
+        """调用网站API验证token有效性"""
+        配置 = self.配置加载器.配置缓存.get("系统配置", {})
+        网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+        接口 = f"{网站地址}/api/auth.asp?a=agent_check&token={quote(token)}"
+        try:
+            with urllib.request.urlopen(接口, timeout=10) as 响应:
+                内容 = 响应.read().decode("utf-8")
+                return json.loads(内容)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def _处理API_GET(self, 路径: str, 解析结果):
         if not self._检查鉴权():
             self._返回JSON({"错误": "未授权：缺少或无效的令牌"}, 401)
             return
+        # 高级功能门控：节点工作流相关API需登录网站
+        _需登录路径 = (
+            路径.startswith("/api/wf-") or
+            (路径.startswith("/api/employee-") and 路径 != "/api/employee-categories")
+        )
+        # 备份/恢复API也不需要登录
+        if 路径 in ("/api/emp-backup", "/api/emp-restore", "/api/emp-backup-list", "/api/zf3d-api", "/api/wf-template-save", "/api/wf-template-load", "/api/wf-template-delete", "/api/wf-template-list"):
+            _需登录路径 = False
+        if _需登录路径 and not self._检查网站登录():
+            self._返回JSON({"错误": "此功能需要登录朱峰社区账号", "需要登录": True}, 403)
+            return
         if 路径 == "/api/config":
             self._返回JSON(self.配置加载器.配置缓存)
+        elif 路径 == "/api/agent-status":
+            会话 = 网页请求处理器._网站会话
+            if 会话:
+                self._返回JSON({"已登录": True, "用户": 会话.get("用户", {}), "登录时间": 会话.get("登录时间", "")})
+            else:
+                self._返回JSON({"已登录": False})
         elif 路径 == "/api/files":
             参数 = parse_qs(解析结果.query)
             目录 = 参数.get("path", ["./"])[0]
@@ -1047,6 +1159,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             self._返回JSON({"日志": self.文件管理器.获取审计日志()})
         elif 路径 == "/api/pending":
             self._返回JSON({"待确认": self.文件管理器.获取待确认()})
+        elif 路径 == "/api/change-pending":
+            self._返回JSON({"变更预览": self.文件管理器.获取变更预览() if self.文件管理器 else []})
         elif 路径 == "/api/modules":
             self._返回JSON({"模块": list(self.模块注册.keys()) if self.模块注册 else []})
         elif 路径 == "/api/dev-reload-sse":
@@ -1417,6 +1531,39 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": True, "配置": 配置})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/employee-categories":
+            """GET：读取员工分组配置（从文件持久化）"""
+            try:
+                分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+                if 分组路径.exists():
+                    with open(分组路径, "r", encoding="utf-8") as f:
+                        分组 = json.load(f)
+                    self._返回JSON({"成功": True, "数据": 分组})
+                else:
+                    self._返回JSON({"成功": True, "数据": []})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/emp-backup-list":
+            """GET：列出所有员工备份文件"""
+            try:
+                备份目录 = self.配置加载器.项目根目录 / "隐私区" / "我的数据" / "员工备份"
+                列表 = []
+                if 备份目录.exists():
+                    for f in sorted(备份目录.glob("员工备份_*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+                        try:
+                            数据 = json.loads(f.read_text(encoding="utf-8"))
+                            列表.append({
+                                "文件名": f.stem,
+                                "备份名": 数据.get("备份名", f.stem),
+                                "备份时间": 数据.get("备份时间", ""),
+                                "员工数": len(数据.get("员工配置", {}).get("员工列表", [])),
+                                "分组数": len(数据.get("员工分组", []))
+                            })
+                        except Exception:
+                            列表.append({"文件名": f.stem, "备份名": f.stem, "备份时间": "", "员工数": 0, "分组数": 0})
+                self._返回JSON({"成功": True, "列表": 列表})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/voice-status":
             """检查语音输入引擎状态"""
             系统配置 = self.配置加载器.配置缓存.get("系统配置", {})
@@ -1521,6 +1668,27 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         elif 路径 == "/api/tts-install-status":
             """查询TTS模型安装进度"""
             self._返回JSON({"成功": True, "状态": 网页请求处理器._tts安装状态})
+        elif 路径 == "/api/wf-template-list":
+            """GET：列出所有模板（含官方标记）"""
+            目录 = self.配置加载器.项目根目录 / "公共区" / "模板"
+            列表 = []
+            if 目录.exists():
+                for f in sorted(目录.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
+                    try:
+                        数据 = json.loads(f.read_text(encoding="utf-8"))
+                        列表.append({
+                            "文件名": f.stem,
+                            "模板名": 数据.get("模板名", f.stem),
+                            "描述": 数据.get("描述", ""),
+                            "创建时间": 数据.get("创建时间", ""),
+                            "节点数": len(数据.get("节点图", {}).get("nodes", [])),
+                            "员工数": len(数据.get("员工", [])),
+                            "官方": 数据.get("官方", False)
+                        })
+                    except Exception:
+                        pass
+            列表.sort(key=lambda x: (not x.get("官方", False), x.get("创建时间", "")), reverse=False)
+            self._返回JSON({"成功": True, "列表": 列表})
         else:
             print(f"  ❌ 未知GET API: {路径}")
             self._返回JSON({"错误": "未知API: " + 路径}, 404)
@@ -1675,29 +1843,216 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         if not self._检查鉴权():
             self._返回JSON({"错误": "未授权：缺少或无效的令牌"}, 401)
             return
+        if 路径 == "/api/agent-login":
+            用户名 = 数据.get("username", "")
+            密码 = 数据.get("password", "")
+            print(f"  🔍 [登录调试] 收到请求: username={用户名}, password长度={len(密码)}")
+            if not 用户名 or not 密码:
+                self._返回JSON({"成功": False, "错误": "用户名和密码不能为空"})
+                return
+            结果 = self._网站登录(用户名, 密码)
+            if 结果.get("success"):
+                数据对象 = 结果.get("data", {})
+                token = 数据对象.get("token", "")
+                用户信息 = 数据对象.get("user", {})
+                if token and 用户信息:
+                    网页请求处理器._网站会话 = {
+                        "token": token,
+                        "用户": 用户信息,
+                        "登录时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    网页请求处理器._保存会话()
+                    self._返回JSON({"成功": True, "用户": 用户信息})
+                else:
+                    self._返回JSON({"成功": False, "错误": "网站返回数据格式异常"})
+            else:
+                错误信息 = 结果.get("error", "登录失败")
+                self._返回JSON({"成功": False, "错误": 错误信息})
+            return
+        elif 路径 == "/api/agent-logout":
+            网页请求处理器._网站会话 = None
+            网页请求处理器._清除会话文件()
+            self._返回JSON({"成功": True, "消息": "已退出登录"})
+            return
+        elif 路径 == "/api/agent-checkin":
+            """签到：调用网站agent_api.asp?a=checkin"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录朱峰社区账号"})
+                return
+            配置 = self.配置加载器.配置缓存.get("系统配置", {})
+            网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+            api_key = 配置.get("网站认证", {}).get("agent_api_key", "")
+            if not api_key:
+                self._返回JSON({"成功": False, "错误": "未配置agent_api_key，请在系统配置中填写"})
+                return
+            接口 = f"{网站地址}/api/agent_api.asp?key={quote(api_key)}&a=checkin"
+            try:
+                with urllib.request.urlopen(接口, timeout=15) as 响应:
+                    内容 = 响应.read().decode("utf-8")
+                    结果 = json.loads(内容)
+                    self._返回JSON(结果)
+            except urllib.error.HTTPError as e:
+                内容 = e.read().decode("utf-8", errors="replace")
+                try:
+                    self._返回JSON(json.loads(内容))
+                except json.JSONDecodeError:
+                    self._返回JSON({"成功": False, "错误": f"HTTP {e.code}"})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+            return
+        elif 路径 == "/api/agent-checkin-status":
+            """查签到状态：调用网站agent_api.asp?a=checkin_status"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录朱峰社区账号"})
+                return
+            配置 = self.配置加载器.配置缓存.get("系统配置", {})
+            网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+            api_key = 配置.get("网站认证", {}).get("agent_api_key", "")
+            if not api_key:
+                self._返回JSON({"成功": False, "错误": "未配置agent_api_key"})
+                return
+            接口 = f"{网站地址}/api/agent_api.asp?key={quote(api_key)}&a=checkin_status"
+            try:
+                with urllib.request.urlopen(接口, timeout=15) as 响应:
+                    内容 = 响应.read().decode("utf-8")
+                    self._返回JSON(json.loads(内容))
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+            return
+        elif 路径 == "/api/zf3d-api":
+            """🔒通用网站API代理：智能体/节点工作流通过此接口调用网站agent_api.asp，密钥不暴露给前端"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录朱峰社区账号"})
+                return
+            配置 = self.配置加载器.配置缓存.get("系统配置", {})
+            网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+            api_key = 配置.get("网站认证", {}).get("agent_api_key", "")
+            if not api_key:
+                self._返回JSON({"成功": False, "错误": "未配置agent_api_key"})
+                return
+            操作 = 数据.get("a", "")
+            # 白名单：允许的操作（不含delete）
+            允许操作 = {
+                "post", "article", "xinxi", "tutorial", "series", "work", "model",
+                "ext_video", "software", "material", "zhaopin", "qiuzhi",
+                "comment", "review", "article_review", "comments", "messages", "list_categories",
+                "checkin", "checkin_status", "upload", "edit", "generate", "bulk_generate"
+            }
+            if 操作 not in 允许操作:
+                self._返回JSON({"成功": False, "错误": f"不允许的操作: {操作}"})
+                return
+            # 构建请求参数
+            参数 = {k: v for k, v in 数据.items() if k != "a"}
+            参数["key"] = api_key
+            参数["a"] = 操作
+            # 传入当前登录用户的user_id，让网站API记录发布者
+            会话 = 网页请求处理器._网站会话 or {}
+            当前用户ID = 会话.get("用户", {}).get("user_id", "")
+            if 当前用户ID:
+                参数["user_id"] = str(当前用户ID)
+            try:
+                # 如果是发文章且cover是本地路径，先上传图片
+                if 操作 in ("article", "post", "work") and 参数.get("cover", ""):
+                    封面值 = 参数["cover"]
+                    # 本地文件路径（不是URL）
+                    if not 封面值.startswith("http"):
+                        import os as _os_zf, base64 as _b64_zf
+                        封面路径 = 封面值.replace("\\\\", "\\").strip()
+                        if _os_zf.path.exists(封面路径):
+                            with open(封面路径, "rb") as _f_zf:
+                                _img_data = _b64_zf.b64encode(_f_zf.read()).decode("utf-8")
+                            _文件名 = _os_zf.path.basename(封面路径)
+                            _上传表单 = urlencode({"img": _img_data, "filename": _文件名, "type": "cover", "key": api_key, "a": "upload"}).encode("utf-8")
+                            _上传接口 = f"{网站地址}/api/agent_api.asp"
+                            _上传请求 = urllib.request.Request(_上传接口, data=_上传表单, method="POST")
+                            _上传请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                            try:
+                                with urllib.request.urlopen(_上传请求, timeout=60) as _上传响应:
+                                    _上传结果 = json.loads(_上传响应.read().decode("utf-8"))
+                                if _上传结果.get("success"):
+                                    参数["cover"] = f"{网站地址}{_上传结果.get('data', {}).get('url', '')}"
+                                else:
+                                    self._返回JSON({"成功": False, "错误": "封面上传失败: " + _上传结果.get("message", "")})
+                                    return
+                            except urllib.error.HTTPError as _upload_err:
+                                _err_body = _upload_err.read().decode("utf-8", errors="replace")[:200]
+                                self._返回JSON({"成功": False, "错误": f"封面上传HTTP {_upload_err.code}: {_err_body}"})
+                                return
+                            except Exception as _upload_ex:
+                                self._返回JSON({"成功": False, "错误": f"封面上传异常: {_upload_ex}"})
+                                return
+                        else:
+                            self._返回JSON({"成功": False, "错误": f"封面文件不存在: {封面路径}"})
+                            return
+                if 操作 == "upload":
+                    # 上传图片用POST form-urlencoded
+                    表单 = urlencode(参数).encode("utf-8")
+                    请求 = urllib.request.Request(
+                        f"{网站地址}/api/agent_api.asp",
+                        data=表单, method="POST"
+                    )
+                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                        self._返回JSON(json.loads(响应.read().decode("utf-8")))
+                else:
+                    # 其他操作用POST（避免GET URL过长）
+                    表单 = urlencode(参数).encode("utf-8")
+                    请求 = urllib.request.Request(
+                        f"{网站地址}/api/agent_api.asp",
+                        data=表单, method="POST"
+                    )
+                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                        self._返回JSON(json.loads(响应.read().decode("utf-8")))
+            except urllib.error.HTTPError as e:
+                内容 = e.read().decode("utf-8", errors="replace")
+                try:
+                    self._返回JSON(json.loads(内容))
+                except json.JSONDecodeError:
+                    self._返回JSON({"成功": False, "错误": f"HTTP {e.code}: {内容[:200]}"})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+            return
+        _需登录路径 = (
+            路径.startswith("/api/wf-") or
+            路径 in ("/api/employee-chat", "/api/employee-task", "/api/employee-workflow")
+        )
+        if _需登录路径 and not self._检查网站登录():
+            self._返回JSON({"错误": "此功能需要登录朱峰社区账号", "需要登录": True}, 403)
+            return
         if 路径 == "/api/restart":
             self._返回JSON({"成功": True, "消息": "重启中..."})
             def _延迟重启():
-                time.sleep(0.5)
+                time.sleep(1)
                 try:
                     import subprocess, sys, os
-                    # 获取项目根目录
                     项目根 = str(网页请求处理器.配置加载器.项目根目录)
                     python = sys.executable
                     启动脚本 = os.path.join(项目根, "公共区", "内核", "启动器.py")
-                    # 设置环境变量标记重启，使新进程不再自动打开浏览器
                     env = os.environ.copy()
                     env["_ZF3D_RESTART"] = "1"
-                    # 创建detached新进程
-                    if sys.platform == 'win32':
-                        subprocess.Popen([python, 启动脚本], cwd=项目根, env=env,
-                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)
-                    else:
-                        subprocess.Popen([python, 启动脚本], cwd=项目根, env=env,
-                                       start_new_session=True)
+                    # 写一个临时bat，确保路径和引号正确（bat用GBK编码）
+                    临时bat = os.path.join(项目根, "_restart_tmp.bat")
+                    bat内容 = (
+                        "@echo off\r\n"
+                        "timeout /t 1 /nobreak >nul\r\n"
+                        "taskkill /F /IM python.exe >nul 2>nul\r\n"
+                        "timeout /t 2 /nobreak >nul\r\n"
+                        'cd /d "' + 项目根 + '"\r\n'
+                        'set _ZF3D_RESTART=1\r\n'
+                        '"' + python + '" "' + 启动脚本 + '"\r\n'
+                        "del _restart_tmp.bat\r\n"
+                    )
+                    with open(临时bat, "w", encoding="gbk") as f:
+                        f.write(bat内容)
+                    subprocess.Popen(
+                        [临时bat],
+                        cwd=项目根,
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+                        close_fds=True
+                    )
                 except Exception as e:
                     print(f"⚠️ 重启失败: {e}")
-                # 立即强制退出当前进程（不走停止流程，避免端口释放延迟）
                 import os as _os
                 _os._exit(0)
             threading.Thread(target=_延迟重启, daemon=True).start()
@@ -1749,7 +2104,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             图片列表 = 数据.get("图片列表", [])
             有效 = []
             for p in 图片列表:
-                if p and _os_chk.exists(p):
+                if p and _os_chk.path.exists(p):
                     有效.append(p)
             self._返回JSON({"成功": True, "有效图片": 有效})
         elif 路径 == "/api/wf-poll-images":
@@ -2191,6 +2546,45 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 数据.get("选择", "拒绝")
             )
             self._返回JSON({"成功": True})
+        elif 路径 == "/api/change-response":
+            """用户响应变更预览（接受/拒绝/编辑）"""
+            if self.文件管理器:
+                self.文件管理器.用户确认变更(
+                    数据.get("id", ""),
+                    数据.get("接受", False),
+                    数据.get("编辑内容", None)
+                )
+                self._返回JSON({"成功": True})
+            else:
+                self._返回JSON({"成功": False, "错误": "文件管理器未初始化"})
+        elif 路径 == "/api/plan-response":
+            """用户响应计划审批"""
+            对话模块 = self.模块注册.get("对话")
+            if 对话模块 and hasattr(对话模块, '推理引擎'):
+                对话模块.推理引擎._计划审批响应 = {
+                    "接受": 数据.get("接受", False),
+                    "修改": 数据.get("修改", None)
+                }
+                self._返回JSON({"成功": True})
+            else:
+                self._返回JSON({"成功": False, "错误": "对话模块未就绪"})
+        elif 路径 == "/api/pause-modify":
+            """用户中途修改指令后继续（恢复执行）"""
+            对话模块 = self.模块注册.get("对话")
+            if 对话模块 and hasattr(对话模块, '推理引擎'):
+                对话模块.推理引擎._暂停修改指令 = 数据.get("指令", "")
+                对话模块.推理引擎._暂停标志 = False
+                self._返回JSON({"成功": True})
+            else:
+                self._返回JSON({"成功": False, "错误": "对话模块未就绪"})
+        elif 路径 == "/api/pause":
+            """用户请求暂停（设暂停标志，推理引擎下一步检查到后停止）"""
+            对话模块 = self.模块注册.get("对话")
+            if 对话模块 and hasattr(对话模块, '推理引擎'):
+                对话模块.推理引擎._暂停标志 = True
+                self._返回JSON({"成功": True})
+            else:
+                self._返回JSON({"成功": False, "错误": "对话模块未就绪"})
         elif 路径 == "/api/ask-user-response":
             """用户在前端提交询问回答"""
             from 操作.询问用户 import 询问用户
@@ -2237,6 +2631,215 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                     启动器.快速浮窗.文字色 = 数据.get("文字色", "#aaaacc")
                     启动器.快速浮窗.文字hover色 = 数据.get("文字hover色", "#ffffff")
                 self._返回JSON({"成功": True})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/employee-categories":
+            """POST：保存员工分组配置到文件（持久化）"""
+            分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+            try:
+                with open(分组路径, "w", encoding="utf-8") as f:
+                    json.dump(数据, f, ensure_ascii=False, indent=2)
+                self._返回JSON({"成功": True})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/emp-backup":
+            """POST：创建员工备份（员工配置+分组合并保存）"""
+            备份名 = 数据.get("文件名", "") or 数据.get("备份名", "")
+            if not 备份名:
+                备份名 = "未命名"
+            安全名 = "".join(c for c in 备份名 if c not in '/\\:*?"<>|') or "未命名"
+            备份目录 = self.配置加载器.项目根目录 / "隐私区" / "我的数据" / "员工备份"
+            备份目录.mkdir(parents=True, exist_ok=True)
+            文件路径 = 备份目录 / f"员工备份_{安全名}.json"
+            覆盖 = 数据.get("覆盖", False)
+            if 文件路径.exists() and not 覆盖:
+                self._返回JSON({"成功": False, "已存在": True})
+                return
+            try:
+                from datetime import datetime as _dt
+                # 读取当前员工配置
+                配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工配置.json"
+                员工配置 = json.loads(配置路径.read_text(encoding="utf-8")) if 配置路径.exists() else {}
+                # 读取当前员工分组
+                分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+                员工分组 = json.loads(分组路径.read_text(encoding="utf-8")) if 分组路径.exists() else []
+                # 合并保存
+                备份数据 = {
+                    "备份名": 安全名,
+                    "备份时间": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "员工配置": 员工配置,
+                    "员工分组": 员工分组
+                }
+                文件路径.write_text(json.dumps(备份数据, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._返回JSON({"成功": True, "文件名": 安全名})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/emp-restore":
+            """POST：从备份恢复员工配置+分组"""
+            文件名 = 数据.get("文件名", "")
+            if not 文件名:
+                self._返回JSON({"成功": False, "错误": "缺少文件名"})
+                return
+            安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or 文件名
+            # 兼容：文件名可能已含"员工备份_"前缀，也可能不含
+            备份目录 = self.配置加载器.项目根目录 / "隐私区" / "我的数据" / "员工备份"
+            备份路径 = 备份目录 / f"员工备份_{安全名}.json"
+            if not 备份路径.exists():
+                # 尝试直接用文件名作为完整文件名
+                备份路径 = 备份目录 / f"{安全名}.json"
+            if not 备份路径.exists():
+                self._返回JSON({"成功": False, "错误": f"备份文件不存在: {文件名}"})
+                return
+            try:
+                备份数据 = json.loads(备份路径.read_text(encoding="utf-8"))
+                员工配置 = 备份数据.get("员工配置", {})
+                员工分组 = 备份数据.get("员工分组", [])
+                # 恢复员工配置
+                配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工配置.json"
+                配置路径.write_text(json.dumps(员工配置, ensure_ascii=False, indent=2), encoding="utf-8")
+                # 恢复员工分组
+                分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+                分组路径.write_text(json.dumps(员工分组, ensure_ascii=False, indent=2), encoding="utf-8")
+                # 重新加载员工管理模块
+                if self.模块注册 and "员工管理" in self.模块注册:
+                    self.模块注册["员工管理"]._加载员工配置()
+                self._返回JSON({"成功": True, "员工数": len(员工配置.get("员工列表", [])), "分组数": len(员工分组), "分组": 员工分组})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-template-save":
+            """POST：保存模板（仅管理员可保存，保存的均为官方模板）"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录"})
+                return
+            会话 = 网页请求处理器._网站会话 or {}
+            用户组 = str(会话.get("用户", {}).get("user_group", ""))
+            用户名 = 会话.get("用户", {}).get("username", "")
+            是管理员 = 用户组 == "-1" or 用户名 == "水银管理员"
+            if not 是管理员:
+                self._返回JSON({"成功": False, "错误": "仅朱峰社区管理员可保存模板，普通用户可加载模板使用"})
+                return
+            from datetime import datetime as _dt
+            模板名 = 数据.get("模板名", "") or 数据.get("文件名", "")
+            if not 模板名:
+                self._返回JSON({"成功": False, "错误": "模板名不能为空"})
+                return
+            安全名 = "".join(c for c in 模板名 if c not in '/\\:*?"<>|') or "未命名"
+            目录 = self.配置加载器.项目根目录 / "公共区" / "模板"
+            目录.mkdir(parents=True, exist_ok=True)
+            文件路径 = 目录 / (安全名 + ".json")
+            覆盖 = 数据.get("覆盖", False)
+            if 文件路径.exists() and not 覆盖:
+                self._返回JSON({"成功": False, "已存在": True})
+                return
+            # 已存在的官方模板，只有管理员可覆盖
+            if 文件路径.exists():
+                try:
+                    旧数据 = json.loads(文件路径.read_text(encoding="utf-8"))
+                    if 旧数据.get("官方") and not 是管理员:
+                        self._返回JSON({"成功": False, "错误": "官方模板仅管理员可覆盖"})
+                        return
+                except Exception:
+                    pass
+            try:
+                配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工配置.json"
+                员工配置 = json.loads(配置路径.read_text(encoding="utf-8")) if 配置路径.exists() else {}
+                分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+                员工分组 = json.loads(分组路径.read_text(encoding="utf-8")) if 分组路径.exists() else []
+                节点图 = 数据.get("节点图", {})
+                用到的员工名 = set()
+                for n in 节点图.get("nodes", []):
+                    cfg = n.get("config", {})
+                    名 = cfg.get("员工名", "")
+                    if 名 and 名 != "母体":
+                        用到的员工名.add(名)
+                全部员工 = 员工配置.get("员工列表", [])
+                模板员工 = [e for e in 全部员工 if e.get("姓名") in 用到的员工名]
+                模板数据 = {
+                    "模板名": 安全名,
+                    "描述": 数据.get("描述", ""),
+                    "官方": True,
+                    "创建时间": _dt.now().strftime("%Y-%m-%d %H:%M"),
+                    "节点图": 节点图,
+                    "员工": 模板员工,
+                    "员工分组": 员工分组
+                }
+                文件路径.write_text(json.dumps(模板数据, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._返回JSON({"成功": True, "文件名": 安全名, "员工数": len(模板员工)})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-template-load":
+            """POST：加载模板（所有登录用户可用）"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录"})
+                return
+            文件名 = 数据.get("文件名", "")
+            if not 文件名:
+                self._返回JSON({"成功": False, "错误": "缺少文件名"})
+                return
+            安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or 文件名
+            模板路径 = self.配置加载器.项目根目录 / "公共区" / "模板" / (安全名 + ".json")
+            if not 模板路径.exists():
+                self._返回JSON({"成功": False, "错误": "模板不存在"})
+                return
+            try:
+                模板数据 = json.loads(模板路径.read_text(encoding="utf-8"))
+                模板员工 = 模板数据.get("员工", [])
+                模板分组 = 模板数据.get("员工分组", [])
+                节点图 = 模板数据.get("节点图", {})
+                配置路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工配置.json"
+                员工配置 = json.loads(配置路径.read_text(encoding="utf-8")) if 配置路径.exists() else {"员工列表": []}
+                现有员工名 = {e.get("姓名") for e in 员工配置.get("员工列表", [])}
+                新增数 = 0
+                for e in 模板员工:
+                    if e.get("姓名") not in 现有员工名:
+                        员工配置.setdefault("员工列表", []).append(e)
+                        现有员工名.add(e.get("姓名"))
+                        新增数 += 1
+                if 新增数 > 0:
+                    配置路径.write_text(json.dumps(员工配置, ensure_ascii=False, indent=2), encoding="utf-8")
+                    if self.模块注册 and "员工管理" in self.模块注册:
+                        self.模块注册["员工管理"]._加载员工配置()
+                if 模板分组:
+                    分组路径 = self.配置加载器.项目根目录 / "公共区" / "配置" / "员工分组.json"
+                    现有分组 = json.loads(分组路径.read_text(encoding="utf-8")) if 分组路径.exists() else []
+                    现有分组名 = {g.get("name") for g in 现有分组}
+                    for g in 模板分组:
+                        if g.get("name") not in 现有分组名:
+                            现有分组.append(g)
+                            现有分组名.add(g.get("name"))
+                    分组路径.write_text(json.dumps(现有分组, ensure_ascii=False, indent=2), encoding="utf-8")
+                self._返回JSON({"成功": True, "节点图": 节点图, "分组": 模板分组, "新增员工数": 新增数})
+            except Exception as e:
+                self._返回JSON({"成功": False, "错误": str(e)})
+        elif 路径 == "/api/wf-template-delete":
+            """POST：删除模板（官方模板仅管理员可删）"""
+            if not self._检查网站登录():
+                self._返回JSON({"成功": False, "错误": "请先登录"})
+                return
+            文件名 = 数据.get("文件名", "")
+            if not 文件名:
+                self._返回JSON({"成功": False, "错误": "缺少文件名"})
+                return
+            安全名 = "".join(c for c in 文件名 if c not in '/\\:*?"<>|') or 文件名
+            模板路径 = self.配置加载器.项目根目录 / "公共区" / "模板" / (安全名 + ".json")
+            if not 模板路径.exists():
+                self._返回JSON({"成功": False, "错误": "模板不存在"})
+                return
+            # 官方模板只有管理员可删
+            会话 = 网页请求处理器._网站会话 or {}
+            用户组 = str(会话.get("用户", {}).get("user_group", ""))
+            用户名 = 会话.get("用户", {}).get("username", "")
+            是管理员 = 用户组 == "-1" or 用户名 == "水银管理员"
+            try:
+                旧数据 = json.loads(模板路径.read_text(encoding="utf-8"))
+                if 旧数据.get("官方") and not 是管理员:
+                    self._返回JSON({"成功": False, "错误": "官方模板仅管理员可删除"})
+                    return
+            except Exception:
+                pass
+            try:
+                模板路径.unlink()
+                self._返回JSON({"成功": True, "消息": f"已删除模板: {安全名}"})
             except Exception as e:
                 self._返回JSON({"成功": False, "错误": str(e)})
         elif 路径 == "/api/reload-config":
@@ -3737,6 +4340,22 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         parts.append(f"【来自{node.get('name', uid)}】\n{out}")
                 return "\n\n".join(parts)
 
+            def _收集端口输入(nid, port_name):
+                """收集指定端口的上游输入（多端口节点用）"""
+                上游 = 入边.get(nid, [])
+                if not 上游:
+                    return ""
+                for uid in 上游:
+                    conn = 连线映射.get((uid, nid), {})
+                    if (conn.get("port") or "") == port_name:
+                        return 节点输出.get(uid, "")
+                # 没有匹配端口的连线，回退到无端口的连线
+                for uid in 上游:
+                    conn = 连线映射.get((uid, nid), {})
+                    if not conn.get("port"):
+                        return 节点输出.get(uid, "")
+                return ""
+
             def _wf写日志(nid, nname, ntype, 状态, 输入, 输出, 错误, 耗时):
                 """安全写入工作流日志"""
                 if not _wf存储: return
@@ -3881,6 +4500,19 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         # 输入节点：直接输出config中的内容
                         config = node.get("config", {})
                         输出 = config.get("内容", "")
+                        # 如果内容为空，可能图片还在生成中，等待最多30秒
+                        if not 输出:
+                            import time as _time_img
+                            for _ in range(30):
+                                _time_img.sleep(1)
+                                # 检查ComfyUI图片队列里有没有这个节点上游的图片
+                                for item in 网页请求处理器._comfyui图片队列:
+                                    if item.get("节点id") in [c.get("from") for c in 连接列表 if c.get("to") == nid]:
+                                        if item.get("图片路径"):
+                                            输出 = item["图片路径"]
+                                            break
+                                if 输出:
+                                    break
                         节点输出[nid] = 输出
                         _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 输出[:200] if 输出 else "(空)", "成功": True})
                         _wf写日志(nid, nname, ntype, "成功", "", 输出[:200], "", int((_time2.time()-_t0)*1000))
@@ -3890,6 +4522,13 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         节点输出[nid] = 上游输入
                         _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 上游输入, "成功": True})
                         _wf写日志(nid, nname, ntype, "成功", 上游输入, 上游输入, "", int((_time2.time()-_t0)*1000))
+
+                    elif ntype == "debug_print" or ntype == "打印任何":
+                        # 打印任何：输出上游完整数据，双击可复制
+                        上游输入 = _收集上游输入(nid)
+                        节点输出[nid] = 上游输入
+                        _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 上游输入, "成功": True})
+                        _wf写日志(nid, nname, ntype, "成功", "", 上游输入[:500], "", int((_time2.time()-_t0)*1000))
 
                     elif ntype == "prompt" or ntype == "文本输入":
                         # 文本输入节点：零token，直接输出用户填的提示词
@@ -4028,6 +4667,251 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                             _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": f"执行失败: {_op_err}", "成功": False})
                         _wf写日志(nid, nname, ntype, "成功" if 节点输出.get(nid) else "失败", str(参数)[:200], str(节点输出.get(nid, ""))[:500], "", int((_time2.time()-_t0)*1000))
 
+                    elif ntype in ("zf3d_post", "zf3d_article", "zf3d_xinxi", "zf3d_upload", "zf3d_aigc", "zf3d_generate", "zf3d_review", "zf3d_comment"):
+                        # 朱峰社区发帖节点：零token，直接调用网站API
+                        上游输入 = _收集上游输入(nid)
+                        # 多端口：按端口分别收集上游输入
+                        _端口输入 = {}
+                        for pn in ('title', 'content', 'cover', 'topic', 'work_id', 'image', 'target_id'):
+                            _端口输入[pn] = _收集端口输入(nid, pn)
+                        # 智能解析上游输出：提取URL作为封面（上传图片节点输出含URL）
+                        _上游URL = ""
+                        if 上游输入 and ("http" in 上游输入 or "url" in 上游输入.lower()):
+                            import re as _re_url
+                            _url匹配 = _re_url.search(r'https?://[^\s\n]+', 上游输入)
+                            if _url匹配:
+                                _上游URL = _url匹配.group()
+                        配置 = self.配置加载器.配置缓存.get("系统配置", {})
+                        网站配置 = 配置.get("网站认证", {})
+                        网站地址 = 网站配置.get("网站地址", "https://www.zf3d.com")
+                        api密钥 = 网站配置.get("agent_api_key", "") or 网站配置.get("API密钥", "")
+                        if not api密钥:
+                            节点输出[nid] = "❌ 未配置API密钥，请在系统配置→网站认证中设置"
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": 节点输出[nid], "成功": False})
+                            _wf写日志(nid, nname, ntype, "失败", "", 节点输出[nid], "", int((_time2.time()-_t0)*1000))
+                        else:
+                            try:
+                                if ntype == "zf3d_post":
+                                    标题 = config.get("标题", "") or _端口输入.get('title', '') or (上游输入[:50] if 上游输入 else "")
+                                    内容 = config.get("内容", "") or _端口输入.get('content', '') or 上游输入
+                                    板块 = config.get("板块", "46")
+                                    封面 = config.get("封面", "") or _上游URL
+                                    if not 标题 or not 内容:
+                                        raise Exception("标题和内容不能为空")
+                                    表单 = urlencode({"title": 标题, "content": 内容, "board_id": 板块, "cover": 封面}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=post&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ 帖子发布成功\nID: {d.get('id', '?')}\nURL: {网站地址}{d.get('url', '')}"
+                                    else:
+                                        raise Exception(结果.get("message", "发布失败"))
+
+                                elif ntype == "zf3d_article":
+                                    标题 = config.get("标题", "") or _端口输入.get('title', '') or (上游输入[:50] if 上游输入 else "")
+                                    内容 = config.get("内容", "") or _端口输入.get('content', '') or 上游输入
+                                    分类 = config.get("分类", "1")
+                                    来源 = config.get("来源", "智能体")
+                                    封面 = config.get("封面", "") or _上游URL
+                                    if not 标题 or not 内容:
+                                        raise Exception("标题和内容不能为空")
+                                    表单 = urlencode({"title": 标题, "content": 内容, "category_id": 分类, "source": 来源, "cover": 封面}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=article&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ 文章发布成功\nID: {d.get('id', '?')}\nURL: {网站地址}{d.get('url', '')}"
+                                    else:
+                                        raise Exception(结果.get("message", "发布失败"))
+
+                                elif ntype == "zf3d_xinxi":
+                                    标题 = config.get("标题", "") or (上游输入[:50] if 上游输入 else "")
+                                    内容 = config.get("内容", "") or 上游输入
+                                    分类 = config.get("分类", "9")
+                                    if not 标题 or not 内容:
+                                        raise Exception("标题和内容不能为空")
+                                    表单 = urlencode({"title": 标题, "content": 内容, "fenlei": 分类}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=xinxi&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ 公告发布成功\nID: {d.get('id', '?')}\nURL: {网站地址}{d.get('url', '')}"
+                                    else:
+                                        raise Exception(结果.get("message", "发布失败"))
+
+                                elif ntype == "zf3d_upload":
+                                    图片路径 = config.get("图片路径", "") or _端口输入.get('image', '')
+                                    上传类型 = config.get("类型", "cover")
+                                    if not 图片路径:
+                                        raise Exception("图片路径不能为空")
+                                    import base64 as _b64, os as _os2
+                                    if not _os2.path.exists(图片路径):
+                                        raise Exception(f"图片文件不存在: {图片路径}")
+                                    with open(图片路径, "rb") as _f:
+                                        img_data = _b64.b64encode(_f.read()).decode("utf-8")
+                                    文件名 = _os2.basename(图片路径)
+                                    表单 = urlencode({"img": img_data, "filename": 文件名, "type": 上传类型}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=upload&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=60) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        图片URL = f"{网站地址}{d.get('url', '')}"
+                                        输出 = f"✅ 图片上传成功\nURL: {图片URL}"
+                                    else:
+                                        raise Exception(结果.get("message", "上传失败"))
+
+                                elif ntype == "zf3d_aigc":
+                                    # AIGC文章发布：工作流执行时只收集数据不发布，等用户双击确认
+                                    import re as _re_clean2, json as _json_aigc
+                                    def _清上游前缀(文本):
+                                        return _re_clean2.sub(r'【来自[^】]*】\s*', '', 文本 or '').strip()
+                                    # 收集所有上游输入，按拓扑顺序排列
+                                    上游列表 = sorted(入边.get(nid, []), key=lambda uid: 层级.get(uid, 0))
+                                    _上游输出 = []
+                                    for uid in 上游列表:
+                                        out = 节点输出.get(uid, "")
+                                        if out:
+                                            _上游输出.append(_清上游前缀(out))
+                                    # 优先按端口取值（端口有值就不用config旧值）
+                                    _端口标题 = _清上游前缀(_端口输入.get('title', ''))
+                                    _端口内容 = _清上游前缀(_端口输入.get('content', ''))
+                                    _端口封面 = _端口输入.get('cover', '') or _上游URL
+                                    标题 = _端口标题 or config.get("标题", "")
+                                    内容 = _端口内容 or config.get("内容", "")
+                                    封面原始 = _端口封面 or config.get("封面", "")
+                                    # 端口取不到时按顺序回退：第1根线=标题，第2根线=内容
+                                    if not 标题 and len(_上游输出) >= 1:
+                                        标题 = _上游输出[0]
+                                    if not 内容 and len(_上游输出) >= 2:
+                                        内容 = _上游输出[1]
+                                    if not 封面原始 and len(_上游输出) >= 3:
+                                        封面原始 = _上游输出[2]
+                                    elif not 封面原始 and len(_上游输出) >= 1:
+                                        封面原始 = _上游输出[-1]
+                                    # 如果封面是本地图片路径，先上传到网站获取URL
+                                    import os as _os_aigc, base64 as _b64_aigc
+                                    _url匹配 = _re_clean2.search(r'https?://[^\s\n]+', 封面原始 or '')
+                                    if _url匹配:
+                                        封面 = _url匹配.group()
+                                    elif 封面原始 and _os_aigc.path.exists(封面原始.strip()):
+                                        # 本地图片文件，上传到网站
+                                        try:
+                                            with open(封面原始.strip(), "rb") as _f_img:
+                                                img_data = _b64_aigc.b64encode(_f_img.read()).decode("utf-8")
+                                            _文件名 = _os_aigc.basename(封面原始.strip())
+                                            _表单 = urlencode({"img": img_data, "filename": _文件名, "type": "cover"}).encode("utf-8")
+                                            _接口 = f"{网站地址}/api/agent_api.asp?a=upload&key={quote(api密钥)}"
+                                            _请求 = urllib.request.Request(_接口, data=_表单, method="POST")
+                                            _请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                            with urllib.request.urlopen(_请求, timeout=60) as _响应:
+                                                _上传结果 = json.loads(_响应.read().decode("utf-8"))
+                                            if _上传结果.get("success"):
+                                                封面 = f"{网站地址}{_上传结果.get('data', {}).get('url', '')}"
+                                            else:
+                                                封面 = ""
+                                        except Exception:
+                                            封面 = ""
+                                    else:
+                                        封面 = 封面原始
+                                    分类 = config.get("分类", "100")
+                                    # 存预览数据到节点输出，不发布（封面用原始路径，发布时再上传）
+                                    _预览数据 = {"标题": 标题, "内容": 内容, "封面": 封面原始 or _上游URL, "分类": 分类, "网站地址": 网站地址, "api密钥": api密钥}
+                                    # 写回node.config，让前端双击时能读到（存原始路径不是URL）
+                                    config["标题"] = 标题
+                                    config["内容"] = 内容
+                                    config["封面"] = 封面原始 or _上游URL
+                                    _纯文本 = _re_clean2.sub(r'<[^>]+>', '', 标题 or '').strip()
+                                    _内容纯文本 = _re_clean2.sub(r'<[^>]+>', '', 内容 or '').strip()
+                                    _状态 = []
+                                    _状态.append("✅标题" if len(_纯文本) >= 5 else f"❌标题({len(_纯文本)}字)")
+                                    _状态.append("✅内容" if len(_内容纯文本) >= 20 else f"❌内容({len(_内容纯文本)}字)")
+                                    _状态.append("✅封面" if 封面 else "❌封面")
+                                    输出 = f"📋 预览就绪（{' '.join(_状态)}）\n双击节点查看详情并发布\n标题: {标题[:50]}\n内容: {内容[:50]}...\n封面: {封面[:50] if 封面 else '(未设置)'}"
+                                    # 把预览数据JSON也存入输出，前端用__AIGC_PREVIEW__标记提取
+                                    节点输出[nid] = 输出 + "\n__AIGC_PREVIEW__" + _json_aigc.dumps(_预览数据, ensure_ascii=False)
+                                    # SSE推送节点完成（包含预览数据）
+                                    _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": 节点输出[nid], "成功": True})
+                                    _wf写日志(nid, nname, ntype, "成功", 上游输入[:200], 输出[:500], "", int((_time2.time()-_t0)*1000))
+
+                                elif ntype == "zf3d_generate":
+                                    # AI生成文章并发布
+                                    主题 = config.get("主题", "") or _端口输入.get('topic', '') or 上游输入
+                                    类型 = config.get("类型", "image")
+                                    风格 = config.get("风格", "opinion")
+                                    if not 主题:
+                                        raise Exception("主题不能为空")
+                                    表单 = urlencode({"topic": 主题, "type": 类型, "style": 风格}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=generate&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=120) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ AI生成并发布成功\n标题: {d.get('title', '?')}\nURL: {网站地址}{d.get('url', '')}"
+                                    else:
+                                        raise Exception(结果.get("message", "生成失败"))
+
+                                elif ntype == "zf3d_review":
+                                    # 作品评价
+                                    作品ID = config.get("作品ID", "") or _端口输入.get('work_id', '') or 上游输入
+                                    优点 = config.get("优点", "")
+                                    缺点 = config.get("缺点", "")
+                                    评分 = config.get("评分", "5")
+                                    if not 作品ID:
+                                        raise Exception("作品ID不能为空")
+                                    表单 = urlencode({"work_id": 作品ID, "pros": 优点, "cons": 缺点, "rating": 评分}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=review&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ 评价成功\n作品ID: {d.get('work_id', '?')}\n评分: {d.get('rating', '?')}星"
+                                    else:
+                                        raise Exception(结果.get("message", "评价失败"))
+
+                                elif ntype == "zf3d_comment":
+                                    # 发评论
+                                    目标ID = config.get("目标ID", "") or _端口输入.get('target_id', '') or 上游输入
+                                    目标类型 = config.get("目标类型", "article")
+                                    评论内容 = config.get("评论", "") or _端口输入.get('content', '') or 上游输入
+                                    if not 目标ID or not 评论内容:
+                                        raise Exception("目标ID和评论内容不能为空")
+                                    表单 = urlencode({"target_id": 目标ID, "target_type": 目标类型, "content": 评论内容}).encode("utf-8")
+                                    接口 = f"{网站地址}/api/agent_api.asp?a=comment&key={quote(api密钥)}"
+                                    请求 = urllib.request.Request(接口, data=表单, method="POST")
+                                    请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                    with urllib.request.urlopen(请求, timeout=30) as 响应:
+                                        结果 = json.loads(响应.read().decode("utf-8"))
+                                    if 结果.get("success"):
+                                        d = 结果.get("data", {})
+                                        输出 = f"✅ 评论成功\n目标: {d.get('target_type', '?')}#{d.get('target_id', '?')}\n评论ID: {d.get('id', '?')}"
+                                    else:
+                                        raise Exception(结果.get("message", "评论失败"))
+
+                                节点输出[nid] = 输出
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": 输出, "成功": True})
+                                _wf写日志(nid, nname, ntype, "成功", 上游输入[:200], 输出, "", int((_time2.time()-_t0)*1000))
+                            except Exception as _zf3d_err:
+                                错误 = str(_zf3d_err)
+                                节点输出[nid] = f"❌ {错误}"
+                                _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入[:200], "输出": f"❌ {错误}", "成功": False})
+                                _wf写日志(nid, nname, ntype, "失败", 上游输入[:200], 错误, "", int((_time2.time()-_t0)*1000))
+
                     elif ntype == "comfyui" or ntype == "生图":
                         # ComfyUI直出节点：不走LLM，直接调用ComfyUI出图，零token消耗
                         # 全局锁：同一时间只允许一个ComfyUI任务
@@ -4036,7 +4920,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         if not hasattr(网页请求处理器, '_comfyui全局锁'):
                             import threading as _th_lock
                             网页请求处理器._comfyui全局锁 = _th_lock.Lock()
-                        # 检查是否有任何ComfyUI任务正在执行
+                        # 清理可能残留的旧任务状态
+                        网页请求处理器._comfyui执行中 = {}
                         if 网页请求处理器._comfyui执行中:
                             节点输出[nid] = "⏳ 有其他ComfyUI任务在执行中，等待完成后再试"
                             _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": "", "输出": "⏳ 等待其他ComfyUI任务完成", "成功": False})
@@ -4099,6 +4984,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                                     节点输出[nid] = 输出文本
                                     _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 提示词[:200], "输出": 输出文本, "成功": True, "图片": ""})
 
+                                    # 异步轮询图片（后台线程）
                                     def _轮询图片(nid, prompt_id, 地址, 保存目录):
                                         import time as _time3
                                         for _ in range(120):
@@ -4286,7 +5172,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                                     if not _api_key:
                                         try:
                                             _密钥路径 = _os_ci.path.join(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.dirname(_os_ci.path.abspath(__file__)))), "隐私区", "我的配置", "密钥.json")
-                                            if _os_ci.exists(_密钥路径):
+                                            if _os_ci.path.exists(_密钥路径):
                                                 with open(_密钥路径, "r", encoding="utf-8-sig") as _kf:
                                                     _kd = _json_ci.load(_kf)
                                                 _api_key = _kd.get("密钥列表", {}).get("AgnesAI(全模态免费)", {}).get("API密钥", "")
@@ -5800,6 +6686,9 @@ class 网页服务类:
         # 设置当前模型名
         if 模型直连器:
             网页请求处理器.当前模型名 = 模型直连器.当前模型名
+
+        # 恢复上次登录会话
+        网页请求处理器._恢复会话()
 
         # 自定义线程服务器：客户端断开不崩溃
         class _健壮HTTPServer(ThreadingHTTPServer):
