@@ -766,11 +766,11 @@ class 文件管理器类:
         return {"允许": True, "原因": "权限校验通过"}
 
     def _查找授权(self, 路径: str) -> dict:
-        标准路径 = str(self._解析路径(路径))
+        标准路径 = str(self._解析路径(路径).resolve())
         for 授权项 in self.授权目录:
             授权路径 = 授权项.get("路径", "")
-            授权完整路径 = str(self._解析路径(授权路径))
-            if 标准路径.startswith(授权完整路径) or 标准路径 == 授权完整路径:
+            授权完整路径 = str(self._解析路径(授权路径).resolve())
+            if 标准路径 == 授权完整路径 or 标准路径.startswith(授权完整路径 + os.sep):
                 return 授权项
         return None
 
@@ -913,7 +913,7 @@ class 文件管理器类:
             根规范化 = self.项目根目录.resolve()
             # 检查解析后的路径是否在项目根目录内
             if not (规范化 == 根规范化 or str(规范化).startswith(str(根规范化) + os.sep)):
-                # 绝对路径在项目外 — 允许但不走相对路径逻辑
+                # 绝对路径在项目外 — 记录警告但仍返回，由_校验权限决定是否允许
                 pass
         except (OSError, RuntimeError):
             pass

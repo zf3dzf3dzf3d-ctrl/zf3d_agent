@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.zf3d.com; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.zf3d.com; font-src 'self' data:; worker-src 'self' blob:">
-    <title>朱峰社区智能体 v3.2.2</title>
+    <title>朱峰社区智能体 v3.3.3</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
     <link rel="stylesheet" href="样式.css?v=20260711f">
@@ -598,7 +598,7 @@
                     <div style="background:var(--bg3);border-radius:8px;padding:28px;text-align:center;margin-bottom:12px;border:1px solid var(--border);">
                         <div style="font-size:22px;font-weight:bold;color:var(--text);">朱峰社区智能体</div>
                         <div style="font-size:13px;color:var(--text2);margin-top:6px;">让每一位创作者都拥有AI助手</div>
-                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.2.2 · MIT · zf3d.com</div>
+                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.3.3 · MIT · zf3d.com</div>
                     </div>
                     <!-- 两列布局 -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -925,26 +925,16 @@
     })();
     </script>
     <script>
-    // 开发模式热重载：文件变化时自动刷新页面
+    // 开发模式热重载：仅当后端启用开发模式时连接，避免生产环境无效轮询
     (function(){
-        function devReloadConnect() {
+        fetch('/api/dev-reload-sse', {method: 'HEAD', signal: AbortSignal.timeout(3000)}).then(function(r) {
+            if (!r.ok) return; // 非开发模式，不连接
             var es = new EventSource('/api/dev-reload-sse');
             es.onmessage = function(e) {
-                try {
-                    var d = JSON.parse(e.data);
-                    if (d.type === 'reload') {
-                        console.log('[热重载] 检测到文件变化:', d.files.join(', '));
-                        es.close();
-                        location.reload();
-                    }
-                } catch(err) {}
+                try { var d = JSON.parse(e.data); if (d.type === 'reload') { es.close(); location.reload(); } } catch(err) {}
             };
-            es.onerror = function() {
-                es.close();
-                setTimeout(devReloadConnect, 3000);
-            };
-        }
-        devReloadConnect();
+            es.onerror = function() { es.close(); setTimeout(function(){ es = new EventSource('/api/dev-reload-sse'); }, 5000); };
+        }).catch(function(){});
     })();
 
     // 打开设置→关于页

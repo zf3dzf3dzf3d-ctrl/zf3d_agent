@@ -24,6 +24,26 @@ function showReasoningPanel() {
         // 拖拽调整大小
         const header = document.getElementById('reasoningHeader');
         let dragging = false, startY = 0, startH = 0;
+        // 使用命名函数以便后续移除
+        function _onMouseMove(e) {
+            if (!dragging) return;
+            const delta = startY - e.clientY;
+            let newH = Math.max(150, Math.min(600, startH + delta));
+            panel.style.maxHeight = newH + 'px';
+            const body = document.getElementById('reasoningBody');
+            if (body) body.style.maxHeight = (newH - 30) + 'px';
+        }
+        function _onMouseUp() {
+            if (dragging) {
+                dragging = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                localStorage.setItem('reasoningPanelHeight', panel.offsetHeight);
+                // 拖拽结束后移除监听器，避免泄漏
+                document.removeEventListener('mousemove', _onMouseMove);
+                document.removeEventListener('mouseup', _onMouseUp);
+            }
+        }
         header.addEventListener('mousedown', function(e) {
             if (e.target.id === 'rhCount') return;
             dragging = true;
@@ -32,22 +52,9 @@ function showReasoningPanel() {
             e.preventDefault();
             document.body.style.cursor = 'ns-resize';
             document.body.style.userSelect = 'none';
-        });
-        document.addEventListener('mousemove', function(e) {
-            if (!dragging) return;
-            const delta = startY - e.clientY;
-            let newH = Math.max(150, Math.min(600, startH + delta));
-            panel.style.maxHeight = newH + 'px';
-            const body = document.getElementById('reasoningBody');
-            if (body) body.style.maxHeight = (newH - 30) + 'px';
-        });
-        document.addEventListener('mouseup', function() {
-            if (dragging) {
-                dragging = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-                localStorage.setItem('reasoningPanelHeight', panel.offsetHeight);
-            }
+            // 每次拖拽开始时添加监听器，结束时移除
+            document.addEventListener('mousemove', _onMouseMove);
+            document.addEventListener('mouseup', _onMouseUp);
         });
     }
     panel.style.display = "block";

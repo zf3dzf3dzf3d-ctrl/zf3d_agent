@@ -107,7 +107,7 @@ class 浏览器引擎类:
 
     def _cdp树转嵌套(self, cdp树):
         """CDP扁平节点列表 → Playwright嵌套树格式"""
-        节点列表 = cdp_tree.get("nodes", []) if isinstance(cdp_tree, dict) else []
+        节点列表 = cdp树.get("nodes", []) if isinstance(cdp树, dict) else []
         if not 节点列表:
             return {}
         # 构建id→节点映射

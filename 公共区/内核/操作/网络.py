@@ -93,7 +93,23 @@ class 网页抓取(操作基类):
             import urllib.request
             请求 = urllib.request.Request(网址, headers={"User-Agent": "Mozilla/5.0"})
             响应 = urllib.request.urlopen(请求, timeout=15)
-            内容 = 响应.read().decode("utf-8", errors="replace")
+            原始字节 = 响应.read()
+            # 自动检测编码
+            编码 = "utf-8"
+            内容类型 = 响应.headers.get("Content-Type", "")
+            if "charset=" in 内容类型:
+                编码 = 内容类型.split("charset=")[-1].split(";")[0].strip()
+            if 编码.lower() not in ("utf-8", "utf8"):
+                try:
+                    内容 = 原始字节.decode(编码, errors="replace")
+                except (LookupError, UnicodeDecodeError):
+                    # 尝试GBK
+                    try:
+                        内容 = 原始字节.decode("gbk", errors="replace")
+                    except:
+                        内容 = 原始字节.decode("utf-8", errors="replace")
+            else:
+                内容 = 原始字节.decode("utf-8", errors="replace")
             文本 = re_mod.sub(r'<[^>]+>', '', 内容)
             文本 = re_mod.sub(r'\s+', ' ', 文本).strip()
             return 操作结果.成功(文本[:5000], {"操作类型": "网页抓取", "引擎": "urllib"})
@@ -249,7 +265,22 @@ class 网页分析(操作基类):
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 })
                 响应 = urllib.request.urlopen(请求, timeout=15)
-                原始内容 = 响应.read().decode("utf-8", errors="replace")
+                原始字节 = 响应.read()
+                # 自动检测编码
+                编码 = "utf-8"
+                内容类型 = 响应.headers.get("Content-Type", "")
+                if "charset=" in 内容类型:
+                    编码 = 内容类型.split("charset=")[-1].split(";")[0].strip()
+                if 编码.lower() not in ("utf-8", "utf8"):
+                    try:
+                        原始内容 = 原始字节.decode(编码, errors="replace")
+                    except (LookupError, UnicodeDecodeError):
+                        try:
+                            原始内容 = 原始字节.decode("gbk", errors="replace")
+                        except:
+                            原始内容 = 原始字节.decode("utf-8", errors="replace")
+                else:
+                    原始内容 = 原始字节.decode("utf-8", errors="replace")
 
                 内容 = re_mod.sub(r'<script[^>]*>.*?</script>', '', 原始内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)
                 内容 = re_mod.sub(r'<style[^>]*>.*?</style>', '', 内容, flags=re_mod.DOTALL | re_mod.IGNORECASE)

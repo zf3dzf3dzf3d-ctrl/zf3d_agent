@@ -100,7 +100,6 @@ class 记忆模块:
                     _time.sleep(6 * 3600)
                     self._衰减旧记忆()
             threading.Thread(target=_定期维护, daemon=True).start()
-            threading.Thread(target=_定期维护, daemon=True).start()
         except Exception as e:
             print(f"   ⚠️ 记忆模块存储引擎注入失败: {e}")
 
@@ -312,7 +311,9 @@ tags: [{', '.join(标签)}]
             return []
 
         相关 = []
-        条目 = self.索引数据.get("条目", {})
+        # 加锁读取，避免与并发写入冲突
+        with self._索引锁:
+            条目 = dict(self.索引数据.get("条目", {}))  # 浅拷贝快照
 
         # 提取消息中的关键词
         消息词集 = set()
@@ -532,7 +533,8 @@ tags: [{', '.join(标签)}]
 
                     # 更新摘要索引
                     self.摘要计数 += 1
-                    self.摘要索引.setdefault("索引", []).append({
+                    索引列表 = self.摘要索引.setdefault("索引", [])
+                    索引列表.append({
                         "编号": f"摘要_{self.摘要计数:03d}",
                         "事件编号": 事件编号,
                         "标题": 事件.get("事件标题", ""),
@@ -540,6 +542,9 @@ tags: [{', '.join(标签)}]
                         "关键词": 摘要数据.get("关键词", []),
                         "时间": datetime.now().isoformat()
                     })
+                    # 限制摘要索引上限，保留最近500条
+                    if len(索引列表) > 500:
+                        self.摘要索引["索引"] = 索引列表[-500:]
 
                     self._保存记忆库()
                     self._保存摘要索引()
@@ -640,6 +645,10 @@ tags: [{', '.join(标签)}]
         """扫描SQLite中所有对话，对没有摘要的旧对话生成摘要（分批+限流，不阻塞用户对话）"""
         if not self.存储引擎 or not self.模型直连器:
             return
+        # 重入保护：如果已在运行则跳过
+        if getattr(self, '_归纳运行中', False):
+            return
+        self._归纳运行中 = True
         try:
             对话列表 = self.存储引擎.查询对话索引()
             if not 对话列表:
@@ -675,8 +684,8 @@ tags: [{', '.join(标签)}]
                     continue
         except Exception:
             pass  # 静默，不刷屏
-
-    def _归纳单个对话(self, 对话ID: str, 标题: str):
+        finally:
+            self._归纳运行中 = False
         """对单个SQLite对话生成摘要并存入摘要索引"""
         消息列表 = self.存储引擎.查询对话消息(对话ID)
         if not 消息列表 or len(消息列表) < 2:
@@ -738,6 +747,10 @@ tags: [{', '.join(标签)}]
                 "权重": 权重,
                 "来源": "SQLite归纳"
             })
+            # 限制摘要索引上限，保留最近500条
+            索引列表 = self.摘要索引.get("索引", [])
+            if len(索引列表) > 500:
+                self.摘要索引["索引"] = 索引列表[-500:]
             self._保存摘要索引()
             # 同时存入记忆向量表（供语义搜索）
             try:

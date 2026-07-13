@@ -20,6 +20,7 @@ class 配置加载器类:
         self.配置文件路径列表 = []
         self.热重载线程 = None
         self.运行中 = False
+        self._配置锁 = threading.Lock()  # 配置读写锁
 
     def 加载全部配置(self) -> dict:
         """加载所有JSON配置文件"""
@@ -65,7 +66,8 @@ class 配置加载器类:
         for 名称, 路径 in 所有文件.items():
             配置[名称] = self._读取JSON(路径)
 
-        self.配置缓存 = 配置
+        with self._配置锁:
+            self.配置缓存 = 配置
         self.配置文件路径列表 = list(所有文件.values())
         self._记录修改时间()
         return 配置
@@ -160,10 +162,14 @@ class 配置加载器类:
             return {}
 
     def _写入JSON(self, 路径: Path, 数据: dict):
-        """写入JSON文件"""
+        """写入JSON文件（原子写入：先写临时文件再重命名）"""
         路径.parent.mkdir(parents=True, exist_ok=True)
-        with open(路径, "w", encoding="utf-8") as f:
+        临时路径 = 路径.with_suffix(路径.suffix + ".tmp")
+        with open(临时路径, "w", encoding="utf-8") as f:
             json.dump(数据, f, ensure_ascii=False, indent=2)
+        # 原子重命名（Windows下os.replace是原子操作）
+        import os
+        os.replace(str(临时路径), str(路径))
 
 
 class 全局事件中心类:

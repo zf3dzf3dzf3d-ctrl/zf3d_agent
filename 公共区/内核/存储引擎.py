@@ -562,7 +562,8 @@ class 存储引擎类:
         查询向量 = self._生成向量(查询文本)
         if not 查询向量:
             return []
-        rows = self._查询("SELECT 名称, 文本, 向量 FROM 记忆向量")
+        # 限制查询结果数量，避免全表扫描过慢
+        rows = self._查询("SELECT 名称, 文本, 向量 FROM 记忆向量 LIMIT 500")
         if not rows:
             return []
         # 计算查询向量的模
@@ -635,6 +636,15 @@ class 存储引擎类:
         """统计各特征在已有文档中出现的频率（用于IDF计算）"""
         if not 特征列表:
             return {"_总数": 1}
+        # 缓存文档频率（60秒过期），避免每次插入都全表扫描
+        缓存键 = "文档频率缓存"
+        缓存 = getattr(self, '_df缓存', None)
+        import time as _time
+        if 缓存 and _time.time() - 缓存.get("时间", 0) < 60:
+            df = 缓存["数据"]
+            # 确保请求的特征都在缓存中
+            if all(k in df for k in 特征列表):
+                return df
         rows = self._查询("SELECT 向量 FROM 记忆向量")
         总数 = len(rows)
         df = {"_总数": max(总数, 1)}
@@ -649,6 +659,8 @@ class 存储引擎类:
                         df[k] = df.get(k, 0) + 1
             except (json.JSONDecodeError, TypeError):
                 continue
+        # 更新缓存
+        self._df缓存 = {"数据": df, "时间": _time.time()}
         return df
 
     # ==================== 推理日志 ====================
@@ -1013,20 +1025,21 @@ class 存储引擎类:
                 "UPDATE 绕路记录 SET 出现次数=?, 最后命中=?, 失败原因=?, 绕路方案=? WHERE id=?",
                 [新次数, 时间, 失败原因, 绕路方案, existing[0][0]]
             )
+            # UPDATE时不重复插入FTS5（原记录已在搜索索引中）
         else:
             self._执行(
                 """INSERT INTO 绕路记录 (触发关键词, 失败操作, 失败原因, 绕路方案, 出现次数, 创建时间, 最后命中)
                    VALUES (?, ?, ?, ?, 1, ?, ?)""",
                 [触发关键词, 失败操作, 失败原因, 绕路方案, 时间, 时间]
             )
-        # 同步写入FTS5搜索索引
-        try:
-            self._执行(
-                "INSERT INTO 绕路搜索 (触发关键词, 失败操作, 失败原因, 绕路方案) VALUES (?, ?, ?, ?)",
-                [触发关键词, 失败操作, 失败原因, 绕路方案]
-            )
-        except Exception:
-            pass
+            # 仅INSERT时才写入FTS5搜索索引
+            try:
+                self._执行(
+                    "INSERT INTO 绕路搜索 (触发关键词, 失败操作, 失败原因, 绕路方案) VALUES (?, ?, ?, ?)",
+                    [触发关键词, 失败操作, 失败原因, 绕路方案]
+                )
+            except Exception:
+                pass
 
     def 搜索绕路(self, 关键词: str, limit: int = 3) -> list:
         """搜索匹配的绕路（避坑）记录"""

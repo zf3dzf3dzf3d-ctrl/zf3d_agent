@@ -14,7 +14,7 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 
 # 设置控制台窗口标题
 if sys.platform == 'win32':
-    os.system('title ZF3D Agent v3.2.2')
+    os.system('title ZF3D Agent v3.3.3')
 
 import importlib.util
 from pathlib import Path
@@ -84,7 +84,7 @@ class 启动器类:
         for 行 in 内容:
             banner.append("| " + 行 + " |")
         # 标题行
-        _标题 = "ZF3D Agent  v3.2.2"
+        _标题 = "ZF3D Agent  v3.3.3"
         _左 = (宽度 + 2 - len(_标题)) // 2
         _右 = 宽度 + 2 - len(_标题) - _左
         banner.extend([
@@ -104,7 +104,7 @@ class 启动器类:
             print("  " + line)
 
 
-        版本 = "v3.2.2"
+        版本 = "v3.3.3"
 
         启动步骤 = []
 
@@ -257,7 +257,7 @@ class 启动器类:
             try:
                 from 系统托盘 import 系统托盘 as 系统托盘类
                 self.系统托盘 = 系统托盘类(self)
-                self.系统托盘.启动("朱峰社区智能体 v3.2.2 运行中")
+                self.系统托盘.启动("朱峰社区智能体 v3.3.3 运行中")
                 启动步骤[-1] = ("📌", "系统托盘", "✅", "已创建")
             except Exception as e:
                 启动步骤[-1] = ("📌", "系统托盘", "⚠️", str(e)[:50])
@@ -585,6 +585,18 @@ class 启动器类:
             self.快速浮窗.停止()
         if hasattr(self, '进化引擎'):
             self.进化引擎.停止()
+        # 停止定时任务调度器
+        if hasattr(self, '定时任务调度器'):
+            try:
+                self.定时任务调度器.停止()
+            except Exception:
+                pass
+        # 停止配置热重载线程
+        if hasattr(self, '配置加载器'):
+            try:
+                self.配置加载器.停止热重载()
+            except Exception:
+                pass
         # 通知Ollama卸载模型释放显存
         if self.模型直连器 and "localhost:11434" in str(getattr(self.模型直连器, "接口地址", "")):
             try:

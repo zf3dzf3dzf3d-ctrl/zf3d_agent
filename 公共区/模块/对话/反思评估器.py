@@ -165,6 +165,12 @@ class 反思评估器类:
         if "messages with role" in 错误小写:
             return self.模型语义错误
 
+        # 服务器端错误（500/502/503）— 按网络错误处理（指数退避重试）
+        if "500" in 错误信息 or "502" in 错误信息 or "503" in 错误信息:
+            return self.网络错误
+        if "internal server error" in 错误小写 or "bad gateway" in 错误小写 or "service unavailable" in 错误小写:
+            return self.网络错误
+
         # 余额不足（402）
         if "402" in 错误信息 or "payment required" in 错误小写:
             return self.配置错误
@@ -206,7 +212,7 @@ class 反思评估器类:
                 "策略": "重试",
                 "退避秒": 退避秒,
                 "提示": f"网络错误，{退避秒}秒后重试",
-                "可恢复": 连续失败次数 < 3
+                "可恢复": 连续失败次数 < 4
             }
 
         if 错误类型 == self.限流错误:
@@ -216,7 +222,7 @@ class 反思评估器类:
                 "策略": "重试",
                 "退避秒": 退避秒,
                 "提示": f"API限流，{退避秒}秒后重试",
-                "可恢复": 连续失败次数 < 2
+                "可恢复": 连续失败次数 < 4
             }
 
         if 错误类型 == self.模型语义错误:

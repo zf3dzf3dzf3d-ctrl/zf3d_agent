@@ -1,701 +1,701 @@
 {
-  "当前模型": "DeepSeek(深度求索)",
-  "模型配置列表": [
-    {
-      "名称": "DeepSeek(深度求索)",
-      "上下文窗口": 65536,
-      "接口地址": "https://api.deepseek.com/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
+    "当前模型": "DeepSeek(深度求索)",
+    "模型配置列表": [
+        {
+            "名称": "DeepSeek(深度求索)",
+            "上下文窗口": 65536,
+            "接口地址": "https://api.deepseek.com/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "LLM_API_KEY",
+                "模型名称": "LLM_MODEL"
+            },
+            "支持vision": false,
+            "支持function_calling": true,
+            "默认模型名称": "deepseek-chat",
+            "实力分": 85,
+            "价格输入": 0.27,
+            "价格输出": 1.1,
+            "特色": "性价比之王",
+            "免费额度": false
+        },
+        {
+            "名称": "通义千问(阿里云)",
+            "上下文窗口": 131072,
+            "接口地址": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "DASHSCOPE_API_KEY",
+                "模型名称": "DASHSCOPE_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "默认模型名称": "qwen-plus",
+            "实力分": 84,
+            "价格输入": 0.11,
+            "价格输出": 1.26,
+            "特色": "开源最强",
+            "免费额度": true
+        },
+        {
+            "名称": "智谱大模型(GLM)",
+            "上下文窗口": 131072,
+            "接口地址": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "ZHIPU_API_KEY",
+                "模型名称": "ZHIPU_MODEL"
+            },
+            "支持vision": true,
+            "默认模型名称": "glm-4-flash",
+            "实力分": 83,
+            "价格输入": 0.5,
+            "价格输出": 2.0,
+            "特色": "代理任务强",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "Kimi(月之暗面)",
+            "上下文窗口": 131072,
+            "接口地址": "https://api.moonshot.cn/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "KIMI_API_KEY",
+                "模型名称": "KIMI_MODEL"
+            },
+            "支持vision": true,
+            "默认模型名称": "moonshot-v1-8k",
+            "实力分": 67,
+            "价格输入": 0.55,
+            "价格输出": 2.19,
+            "特色": "长文本强",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "豆包(火山大模型)",
+            "上下文窗口": 32768,
+            "接口地址": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "ARK_API_KEY",
+                "模型名称": "ARK_MODEL"
+            },
+            "支持vision": true,
+            "默认模型名称": "doubao-pro-32k",
+            "实力分": 68,
+            "价格输入": 0.14,
+            "价格输出": 0.28,
+            "特色": "最便宜国产",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "OpenAI(ChatGPT)",
+            "上下文窗口": 128000,
+            "接口地址": "https://api.openai.com/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "OPENAI_API_KEY",
+                "模型名称": "OPENAI_MODEL"
+            },
+            "支持vision": true,
+            "默认模型名称": "gpt-4o-mini",
+            "实力分": 95,
+            "价格输入": 1.75,
+            "价格输出": 14.0,
+            "特色": "综合最强",
+            "免费额度": false,
+            "支持function_calling": true
+        },
+        {
+            "名称": "Claude(Anthropic)",
+            "上下文窗口": 200000,
+            "接口地址": "https://api.anthropic.com/v1/messages",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "x-api-key": "${API密钥}",
+                "anthropic-version": "2023-06-01"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "max_tokens": 4096
+            },
+            "响应路径": "$.content[0].text",
+            "环境变量": {
+                "API密钥": "ANTHROPIC_API_KEY",
+                "模型名称": "ANTHROPIC_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "默认模型名称": "claude-sonnet-4-20250514",
+            "实力分": 98,
+            "价格输入": 10.0,
+            "价格输出": 50.0,
+            "特色": "地表最强",
+            "免费额度": false
+        },
+        {
+            "名称": "Gemini(Google)",
+            "上下文窗口": 1000000,
+            "接口地址": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "GEMINI_API_KEY",
+                "模型名称": "GEMINI_MODEL"
+            },
+            "支持vision": true,
+            "默认模型名称": "gemini-2.0-flash",
+            "实力分": 93,
+            "价格输入": 1.25,
+            "价格输出": 10.0,
+            "特色": "百万上下文",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "本地Qwen3(Ollama)",
+            "上下文窗口": 40960,
+            "接口地址": "http://localhost:11434/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json"
+            },
+            "请求模板": {
+                "model": "qwen3:14b",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {},
+            "默认模型名称": "qwen3:14b",
+            "实力分": 45,
+            "价格输入": 0,
+            "价格输出": 0,
+            "特色": "零隐私零费",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "OpenRouter(路由器)",
+            "上下文窗口": 131072,
+            "接口地址": "https://openrouter.ai/api/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}",
+                "HTTP-Referer": "https://zf3d.com",
+                "X-Title": "ZF3D Agent"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "OPENROUTER_API_KEY",
+                "模型名称": "OPENROUTER_MODEL"
+            },
+            "支持vision": true,
+            "说明": "OpenRouter路由器，一个密钥访问400+模型。模型名称格式如 deepseek/deepseek-chat、anthropic/claude-3.5-sonnet、google/gemini-flash-1.5、meta-llama/llama-3.1-70b-instruct 等",
+            "默认模型名称": "deepseek/deepseek-chat",
+            "实力分": 50,
+            "价格输入": 0.2,
+            "价格输出": 0.5,
+            "特色": "400+模型",
+            "免费额度": false,
+            "支持function_calling": true
+        },
+        {
+            "名称": "自定义模型",
+            "上下文窗口": 32768,
+            "接口地址": "",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "CUSTOM_API_KEY",
+                "模型名称": "CUSTOM_MODEL"
+            },
+            "默认模型名称": "",
+            "实力分": 0,
+            "价格输入": 0,
+            "价格输出": 0,
+            "特色": "自定义",
+            "免费额度": false
+        },
+        {
+            "名称": "硅基流动(国内聚合)",
+            "上下文窗口": 131072,
+            "接口地址": "https://api.siliconflow.cn/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "SILICONFLOW_API_KEY",
+                "模型名称": "SILICONFLOW_MODEL"
+            },
+            "支持vision": true,
+            "说明": "硅基流动，国内聚合API，注册即用。支持DeepSeek/Qwen/GLM/Llama等开源模型，国内访问速度快。模型名如 deepseek-ai/DeepSeek-V3、Qwen/Qwen2.5-72B-Instruct、THUDM/glm-4-9b-chat",
+            "默认模型名称": "deepseek-ai/DeepSeek-V3",
+            "实力分": 55,
+            "价格输入": 0.14,
+            "价格输出": 0.28,
+            "特色": "国内聚合",
+            "免费额度": true,
+            "支持function_calling": true
+        },
+        {
+            "名称": "AgnesAI(全模态免费)",
+            "上下文窗口": 256000,
+            "接口地址": "https://apihub.agnes-ai.com/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "AGNES_API_KEY",
+                "模型名称": "AGNES_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "说明": "AgnesAI，全球首个全模态免费API。文本对话+生图+生视频三合一，免费额度充足。API Key在 platform.agnes-ai.com 注册获取。",
+            "默认模型名称": "agnes-2.0-flash",
+            "生图": {
+                "接口地址": "https://apihub.agnes-ai.com/v1/images/generations",
+                "模型名称": "agnes-image-2.1-flash"
+            },
+            "生视频": {
+                "接口地址": "https://apihub.agnes-ai.com/v1/videos",
+                "模型名称": "agnes-video-v2.0",
+                "轮询地址": "https://apihub.agnes-ai.com/agnesapi?video_id="
+            },
+            "实力分": 60,
+            "价格输入": 0,
+            "价格输出": 0,
+            "特色": "全免费",
+            "免费额度": true
+        },
+        {
+            "名称": "Grok(xAI)",
+            "上下文窗口": 2000000,
+            "接口地址": "https://api.x.ai/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "XAI_API_KEY",
+                "模型名称": "XAI_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "说明": "xAI Grok，OpenAI兼容API。模型: grok-4(旗舰)、grok-4.20(均衡$2/$6)、grok-4.1-fast(超低价$0.20/$0.50)。200万上下文窗口。API Key在 console.x.ai 获取。",
+            "默认模型名称": "grok-4",
+            "实力分": 90,
+            "价格输入": 2.0,
+            "价格输出": 6.0,
+            "特色": "200万上下文",
+            "免费额度": false
+        },
+        {
+            "名称": "Mistral AI",
+            "上下文窗口": 256000,
+            "接口地址": "https://api.mistral.ai/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "MISTRAL_API_KEY",
+                "模型名称": "MISTRAL_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "说明": "Mistral AI，法国开源大模型。模型: mistral-large-latest(旗舰$0.50/$1.50)、mistral-small-latest(轻量$0.15/$0.60)。API Key在 console.mistral.ai 获取。",
+            "默认模型名称": "mistral-large-latest",
+            "实力分": 79,
+            "价格输入": 0.5,
+            "价格输出": 1.5,
+            "特色": "欧洲之光",
+            "免费额度": false
+        },
+        {
+            "名称": "百度文心(千帆)",
+            "上下文窗口": 128000,
+            "接口地址": "https://qianfan.baidubce.com/v2/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "QIANFAN_API_KEY",
+                "模型名称": "QIANFAN_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "说明": "百度千帆大模型平台，OpenAI兼容API。模型: ernie-5.0(最新旗舰)、ernie-4.5-turbo-128k、ernie-4.0-turbo-8k。API Key格式 bce-v3/xxx，在 console.bce.baidu.com 获取。",
+            "默认模型名称": "ernie-4.0-turbo-8k",
+            "实力分": 80,
+            "价格输入": 0.8,
+            "价格输出": 3.0,
+            "特色": "中文优化",
+            "免费额度": false
+        },
+        {
+            "名称": "讯飞星火(Spark)",
+            "上下文窗口": 32768,
+            "接口地址": "https://spark-api-open.xf-yun.com/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "SPARK_API_KEY",
+                "模型名称": "SPARK_MODEL"
+            },
+            "支持vision": false,
+            "支持function_calling": true,
+            "说明": "讯飞星火认知大模型，OpenAI兼容API。模型: 4.0Ultra(旗舰)、generalv3.5(Max)、max-32k、generalv3(Pro)、pro-128k、lite。API Password在 console.xfyun.cn 获取。",
+            "默认模型名称": "4.0Ultra",
+            "实力分": 75,
+            "价格输入": 0.5,
+            "价格输出": 2.0,
+            "特色": "语音强",
+            "免费额度": true
+        },
+        {
+            "名称": "Groq(极速推理)",
+            "上下文窗口": 131072,
+            "接口地址": "https://api.groq.com/openai/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "GROQ_API_KEY",
+                "模型名称": "GROQ_MODEL"
+            },
+            "支持vision": false,
+            "支持function_calling": true,
+            "说明": "Groq极速推理，LPU芯片700+token/s。模型: openai/gpt-oss-120b(旗舰$0.15/$0.60)、llama-3.1-8b-instant($0.05/$0.08)、llama-3.3-70b-versatile。免费额度充足。API Key在 console.groq.com 获取。",
+            "默认模型名称": "openai/gpt-oss-120b",
+            "实力分": 70,
+            "价格输入": 0.15,
+            "价格输出": 0.6,
+            "特色": "极速700t/s",
+            "免费额度": true
+        },
+        {
+            "名称": "Cohere(企业级)",
+            "上下文窗口": 256000,
+            "接口地址": "https://api.cohere.ai/compatibility/v1/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "COHERE_API_KEY",
+                "模型名称": "COHERE_MODEL"
+            },
+            "支持vision": true,
+            "支持function_calling": true,
+            "说明": "Cohere企业级AI，OpenAI兼容API。模型: command-a-plus(旗舰$2.50/$10)、command-r-08-2024($0.15/$0.60)、command-r7b(超低价$0.0375/$0.15)。API Key在 dashboard.cohere.com 获取。",
+            "默认模型名称": "command-a-plus",
+            "实力分": 78,
+            "价格输入": 2.5,
+            "价格输出": 10.0,
+            "特色": "企业级",
+            "免费额度": true
+        },
+        {
+            "名称": "Perplexity(联网搜索)",
+            "上下文窗口": 127072,
+            "接口地址": "https://api.perplexity.ai/chat/completions",
+            "请求方法": "POST",
+            "请求头": {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer ${API密钥}"
+            },
+            "请求模板": {
+                "model": "${模型名称}",
+                "messages": "${消息列表}",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            },
+            "响应路径": "$.choices[0].message.content",
+            "环境变量": {
+                "API密钥": "PERPLEXITY_API_KEY",
+                "模型名称": "PERPLEXITY_MODEL"
+            },
+            "支持vision": false,
+            "支持function_calling": false,
+            "说明": "Perplexity Sonar，自带联网搜索的AI模型，回答附带来源URL。模型: sonar-pro(旗舰$3/$15)、sonar(标准$1/$1)、sonar-reasoning(推理$2/$8)、sonar-reasoning-pro($3/$15)、sonar-deep-research($2/$8)。API Key在 console.perplexity.ai 获取。",
+            "默认模型名称": "sonar",
+            "实力分": 72,
+            "价格输入": 1.0,
+            "价格输出": 1.0,
+            "特色": "自带搜索",
+            "免费额度": false
+        }
+    ],
+    "请求方法": "POST",
+    "请求头": {
         "Content-Type": "application/json",
         "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
+    },
+    "请求模板": {
         "model": "${模型名称}",
         "messages": "${消息列表}",
         "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
+        "max_tokens": 4096
+    },
+    "响应路径": "$.choices[0].message.content",
+    "重试": {
+        "最大次数": 3,
+        "基础延迟秒": 1,
+        "最大延迟秒": 30
+    },
+    "缓存": {
+        "启用": true,
+        "最大条目": 200,
+        "TTL秒": 300
+    },
+    "规则": {
+        "系统提示词": "你是朱峰社区智能体(ZF3D Agent)，一个AI助手。你可以通过执行操作来帮助用户完成任务。任务完成即停，不做额外操作。\n\n## 思考原则\n1. 回复前先想：用户真正想知道什么？直接回答那个问题，不偏题\n2. 能1句话说明白的不用3句。能用表格不用段落文字\n3. 操作执行后只报告关键结论（成功/失败+原因），不贴完整操作输出\n4. 禁止过渡语：不说「好的我来看看」「我现在来帮你」「我已经完成了」等废话，直接做\n5. 禁止主动扩展：用户没问的不说，不主动建议「还需要我帮你看XX吗」\n6. 禁止重复总结：上一轮已经说过的内容不重复说\n\n## 防幻觉纪律（核心规则）\n- 先读再答：回答代码/文件问题前必须先读取相关代码，禁止凭记忆回答\n- 不猜路径：不确定文件路径/函数名时用搜索操作查找，禁止编造\n- 承认不确定：不确定就说「不确定，需要验证」，不要编看似合理的答案\n- 禁编内容：禁止编造URL、文件路径、函数名、参数名、API返回值\n- 修改前必读：修改文件前必须先读取当前内容，禁止凭记忆修改\n- 纠错透明：发现之前说错了直接承认「我之前说错了，实际是XX」\n\n## 回复排版规范\n回复用户时必须使用Markdown结构化排版，禁止平铺式大段文字：\n- 先给结论：开头用1-2句话直接回答，不要铺垫\n- 对比用表格，列举用要点列表，重点加粗\n- 超过3段内容用 ## 标题分节\n- 短句优先，每句不超30字\n- 代码用代码块包裹\n\n## 数字员工创建规则\n创建员工时：只设姓名、头像、角色名，不编具体职责。先问用户每个人负责什么，用户回答后再创建。用户说「创建团队：经理A，员工B/C/D」时，先用「询问用户」操作弹出对话框问每个人的职责，用户在对话框里回答后批量创建。\n创建完员工后，必须立即用「分配员工」操作把下属分配给领导。例如用户说「A管理B/C/D」，创建完B/C/D后必须调用3次分配操作把B→A、C→A、D→A。\n创建员工时不要创建任何MD文件或文档文件。不要创建团队名单、组织结构等文件。\n\n## 编程行为准则\n- 修改代码前先搜索定位（搜索代码/符号搜索/文件符号），不要盲读整个大文件\n- 大文件用offset+limit分页读取\n- 优先用替换文本/批量编辑而非整个文件重写\n- 修改后系统会自动验证语法，无需手动验证\n- Git提交消息包含时间戳\n- 遵循项目现有代码风格（缩进/命名/注释风格）\n- 可用「代码分析」操作检查Python文件的未使用导入、圈复杂度等\n- 可用「代码差异」操作预览变更前后差异",
+        "消息格式": "openai",
+        "最大历史数": 25,
+        "超时秒数": 300,
+        "最大推理步数": 80,
+        "工作模式": "商量",
+        "记忆注入模板": "【用户画像】\n${用户画像}\n\n【相关记忆】\n${相关事件摘要}\n\n【当前对话】\n${当前事件原始}\n\n【近期摘要】\n${近期事件摘要}"
+    },
+    "function_calling": {
+        "启用": true,
+        "tool_choice": "auto"
+    },
+    "环境变量": {
         "API密钥": "LLM_API_KEY",
         "模型名称": "LLM_MODEL"
-      },
-      "支持vision": false,
-      "支持function_calling": true,
-      "默认模型名称": "deepseek-chat",
-      "实力分": 85,
-      "价格输入": 0.27,
-      "价格输出": 1.1,
-      "特色": "性价比之王",
-      "免费额度": false
     },
-    {
-      "名称": "通义千问(阿里云)",
-      "上下文窗口": 131072,
-      "接口地址": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "DASHSCOPE_API_KEY",
-        "模型名称": "DASHSCOPE_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "默认模型名称": "qwen-plus",
-      "实力分": 84,
-      "价格输入": 0.11,
-      "价格输出": 1.26,
-      "特色": "开源最强",
-      "免费额度": true
+    "密钥文件路径": "./隐私区/我的配置/密钥.json",
+    "自我进化": {
+        "启用": false,
+        "工作引擎路径": "./隐私区/我的工作引擎/",
+        "进化触发": "手动",
+        "定时间隔分钟": 1,
+        "允许修改范围": [
+            "公共区/模块/*/主程序.py",
+            "公共区/模块/*/对话/*.py",
+            "公共区/模块/*/记忆/*.py",
+            "公共区/配置/*.json"
+        ],
+        "禁止修改范围": [
+            "公共区/内核/启动器.py",
+            "公共区/配置/文件权限.json",
+            "公共区/内核/进化引擎.py"
+        ],
+        "单次最大修改文件数": 5,
+        "自我检测项": [
+            "语法检查",
+            "导入检查",
+            "配置完整性",
+            "功能回归"
+        ],
+        "检测失败回滚": true,
+        "最大连续失败次数": 999,
+        "暂停后需人工恢复": true,
+        "三智能体": {
+            "测试员提示词": "你是代码测试员。分析Python代码，找出bug、性能问题、逻辑错误、安全隐患。关注目标导向，优先发现与目标相关的问题。\n输出JSON格式：\n{\"问题列表\": [{\"文件\": \"相对路径\", \"行号\": 0, \"问题描述\": \"...\", \"严重程度\": \"高/中/低\", \"建议修复\": \"...\"}]}\n如果没有问题，返回空列表。只输出JSON，不加其他文字。",
+            "开发者提示词": "你是开发者。根据测试员报告的问题修改代码。\n\n用替换片段的方式修改，不要输出整个文件。格式：\n{\"修改列表\": [{\"文件\": \"相对路径\", \"查找\": \"要替换的原始代码片段(必须与原文件完全一致)\", \"替换为\": \"修改后的代码片段\", \"修改说明\": \"...\"}]}\n\n规则：\n1. 查找的代码片段必须从原文件中精确复制（包括缩进）\n2. 替换为的代码片段必须语法正确\n3. 每次只替换最小必要的片段（几行到十几行），不要替换整个文件\n4. 如果不确定怎么改，返回空修改列表\n5. 只输出JSON，不加其他文字",
+            "审查员提示词": "你是代码审查员。审查开发者的修改是否正确解决了问题，是否引入新问题。检查：1.是否解决了原始问题 2.语法是否正确 3.是否引入新bug 4.代码风格是否一致。\n输出JSON格式：\n{\"通过\": true/false, \"审查意见\": \"...\", \"风险等级\": \"低/中/高\"}\n只输出JSON，不加其他文字。"
+        }
     },
-    {
-      "名称": "智谱大模型(GLM)",
-      "上下文窗口": 131072,
-      "接口地址": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "ZHIPU_API_KEY",
-        "模型名称": "ZHIPU_MODEL"
-      },
-      "支持vision": true,
-      "默认模型名称": "glm-4-flash",
-      "实力分": 83,
-      "价格输入": 0.5,
-      "价格输出": 2.0,
-      "特色": "代理任务强",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "Kimi(月之暗面)",
-      "上下文窗口": 131072,
-      "接口地址": "https://api.moonshot.cn/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "KIMI_API_KEY",
-        "模型名称": "KIMI_MODEL"
-      },
-      "支持vision": true,
-      "默认模型名称": "moonshot-v1-8k",
-      "实力分": 67,
-      "价格输入": 0.55,
-      "价格输出": 2.19,
-      "特色": "长文本强",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "豆包(火山大模型)",
-      "上下文窗口": 32768,
-      "接口地址": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "ARK_API_KEY",
-        "模型名称": "ARK_MODEL"
-      },
-      "支持vision": true,
-      "默认模型名称": "doubao-pro-32k",
-      "实力分": 68,
-      "价格输入": 0.14,
-      "价格输出": 0.28,
-      "特色": "最便宜国产",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "OpenAI(ChatGPT)",
-      "上下文窗口": 128000,
-      "接口地址": "https://api.openai.com/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "OPENAI_API_KEY",
-        "模型名称": "OPENAI_MODEL"
-      },
-      "支持vision": true,
-      "默认模型名称": "gpt-4o-mini",
-      "实力分": 95,
-      "价格输入": 1.75,
-      "价格输出": 14.0,
-      "特色": "综合最强",
-      "免费额度": false,
-      "支持function_calling": true
-    },
-    {
-      "名称": "Claude(Anthropic)",
-      "上下文窗口": 200000,
-      "接口地址": "https://api.anthropic.com/v1/messages",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "x-api-key": "${API密钥}",
-        "anthropic-version": "2023-06-01"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "max_tokens": 8192
-      },
-      "响应路径": "$.content[0].text",
-      "环境变量": {
-        "API密钥": "ANTHROPIC_API_KEY",
-        "模型名称": "ANTHROPIC_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "默认模型名称": "claude-sonnet-4-20250514",
-      "实力分": 98,
-      "价格输入": 10.0,
-      "价格输出": 50.0,
-      "特色": "地表最强",
-      "免费额度": false
-    },
-    {
-      "名称": "Gemini(Google)",
-      "上下文窗口": 1000000,
-      "接口地址": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "GEMINI_API_KEY",
-        "模型名称": "GEMINI_MODEL"
-      },
-      "支持vision": true,
-      "默认模型名称": "gemini-2.0-flash",
-      "实力分": 93,
-      "价格输入": 1.25,
-      "价格输出": 10.0,
-      "特色": "百万上下文",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "本地Qwen3(Ollama)",
-      "上下文窗口": 40960,
-      "接口地址": "http://localhost:11434/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json"
-      },
-      "请求模板": {
-        "model": "qwen3:14b",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {},
-      "默认模型名称": "qwen3:14b",
-      "实力分": 45,
-      "价格输入": 0,
-      "价格输出": 0,
-      "特色": "零隐私零费",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "OpenRouter(路由器)",
-      "上下文窗口": 131072,
-      "接口地址": "https://openrouter.ai/api/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}",
-        "HTTP-Referer": "https://zf3d.com",
-        "X-Title": "ZF3D Agent"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "OPENROUTER_API_KEY",
-        "模型名称": "OPENROUTER_MODEL"
-      },
-      "支持vision": true,
-      "说明": "OpenRouter路由器，一个密钥访问400+模型。模型名称格式如 deepseek/deepseek-chat、anthropic/claude-3.5-sonnet、google/gemini-flash-1.5、meta-llama/llama-3.1-70b-instruct 等",
-      "默认模型名称": "deepseek/deepseek-chat",
-      "实力分": 50,
-      "价格输入": 0.2,
-      "价格输出": 0.5,
-      "特色": "400+模型",
-      "免费额度": false,
-      "支持function_calling": true
-    },
-    {
-      "名称": "自定义模型",
-      "上下文窗口": 32768,
-      "接口地址": "",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "CUSTOM_API_KEY",
-        "模型名称": "CUSTOM_MODEL"
-      },
-      "默认模型名称": "",
-      "实力分": 0,
-      "价格输入": 0,
-      "价格输出": 0,
-      "特色": "自定义",
-      "免费额度": false
-    },
-    {
-      "名称": "硅基流动(国内聚合)",
-      "上下文窗口": 131072,
-      "接口地址": "https://api.siliconflow.cn/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "SILICONFLOW_API_KEY",
-        "模型名称": "SILICONFLOW_MODEL"
-      },
-      "支持vision": true,
-      "说明": "硅基流动，国内聚合API，注册即用。支持DeepSeek/Qwen/GLM/Llama等开源模型，国内访问速度快。模型名如 deepseek-ai/DeepSeek-V3、Qwen/Qwen2.5-72B-Instruct、THUDM/glm-4-9b-chat",
-      "默认模型名称": "deepseek-ai/DeepSeek-V3",
-      "实力分": 55,
-      "价格输入": 0.14,
-      "价格输出": 0.28,
-      "特色": "国内聚合",
-      "免费额度": true,
-      "支持function_calling": true
-    },
-    {
-      "名称": "AgnesAI(全模态免费)",
-      "上下文窗口": 256000,
-      "接口地址": "https://apihub.agnes-ai.com/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "AGNES_API_KEY",
-        "模型名称": "AGNES_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "说明": "AgnesAI，全球首个全模态免费API。文本对话+生图+生视频三合一，免费额度充足。API Key在 platform.agnes-ai.com 注册获取。",
-      "默认模型名称": "agnes-2.0-flash",
-      "生图": {
-        "接口地址": "https://apihub.agnes-ai.com/v1/images/generations",
-        "模型名称": "agnes-image-2.1-flash"
-      },
-      "生视频": {
-        "接口地址": "https://apihub.agnes-ai.com/v1/videos",
-        "模型名称": "agnes-video-v2.0",
-        "轮询地址": "https://apihub.agnes-ai.com/agnesapi?video_id="
-      },
-      "实力分": 60,
-      "价格输入": 0,
-      "价格输出": 0,
-      "特色": "全免费",
-      "免费额度": true
-    },
-    {
-      "名称": "Grok(xAI)",
-      "上下文窗口": 2000000,
-      "接口地址": "https://api.x.ai/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "XAI_API_KEY",
-        "模型名称": "XAI_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "说明": "xAI Grok，OpenAI兼容API。模型: grok-4(旗舰)、grok-4.20(均衡$2/$6)、grok-4.1-fast(超低价$0.20/$0.50)。200万上下文窗口。API Key在 console.x.ai 获取。",
-      "默认模型名称": "grok-4",
-      "实力分": 90,
-      "价格输入": 2.0,
-      "价格输出": 6.0,
-      "特色": "200万上下文",
-      "免费额度": false
-    },
-    {
-      "名称": "Mistral AI",
-      "上下文窗口": 256000,
-      "接口地址": "https://api.mistral.ai/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "MISTRAL_API_KEY",
-        "模型名称": "MISTRAL_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "说明": "Mistral AI，法国开源大模型。模型: mistral-large-latest(旗舰$0.50/$1.50)、mistral-small-latest(轻量$0.15/$0.60)。API Key在 console.mistral.ai 获取。",
-      "默认模型名称": "mistral-large-latest",
-      "实力分": 79,
-      "价格输入": 0.5,
-      "价格输出": 1.5,
-      "特色": "欧洲之光",
-      "免费额度": false
-    },
-    {
-      "名称": "百度文心(千帆)",
-      "上下文窗口": 128000,
-      "接口地址": "https://qianfan.baidubce.com/v2/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "QIANFAN_API_KEY",
-        "模型名称": "QIANFAN_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "说明": "百度千帆大模型平台，OpenAI兼容API。模型: ernie-5.0(最新旗舰)、ernie-4.5-turbo-128k、ernie-4.0-turbo-8k。API Key格式 bce-v3/xxx，在 console.bce.baidu.com 获取。",
-      "默认模型名称": "ernie-4.0-turbo-8k",
-      "实力分": 80,
-      "价格输入": 0.8,
-      "价格输出": 3.0,
-      "特色": "中文优化",
-      "免费额度": false
-    },
-    {
-      "名称": "讯飞星火(Spark)",
-      "上下文窗口": 32768,
-      "接口地址": "https://spark-api-open.xf-yun.com/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "SPARK_API_KEY",
-        "模型名称": "SPARK_MODEL"
-      },
-      "支持vision": false,
-      "支持function_calling": true,
-      "说明": "讯飞星火认知大模型，OpenAI兼容API。模型: 4.0Ultra(旗舰)、generalv3.5(Max)、max-32k、generalv3(Pro)、pro-128k、lite。API Password在 console.xfyun.cn 获取。",
-      "默认模型名称": "4.0Ultra",
-      "实力分": 75,
-      "价格输入": 0.5,
-      "价格输出": 2.0,
-      "特色": "语音强",
-      "免费额度": true
-    },
-    {
-      "名称": "Groq(极速推理)",
-      "上下文窗口": 131072,
-      "接口地址": "https://api.groq.com/openai/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "GROQ_API_KEY",
-        "模型名称": "GROQ_MODEL"
-      },
-      "支持vision": false,
-      "支持function_calling": true,
-      "说明": "Groq极速推理，LPU芯片700+token/s。模型: openai/gpt-oss-120b(旗舰$0.15/$0.60)、llama-3.1-8b-instant($0.05/$0.08)、llama-3.3-70b-versatile。免费额度充足。API Key在 console.groq.com 获取。",
-      "默认模型名称": "openai/gpt-oss-120b",
-      "实力分": 70,
-      "价格输入": 0.15,
-      "价格输出": 0.6,
-      "特色": "极速700t/s",
-      "免费额度": true
-    },
-    {
-      "名称": "Cohere(企业级)",
-      "上下文窗口": 256000,
-      "接口地址": "https://api.cohere.ai/compatibility/v1/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "COHERE_API_KEY",
-        "模型名称": "COHERE_MODEL"
-      },
-      "支持vision": true,
-      "支持function_calling": true,
-      "说明": "Cohere企业级AI，OpenAI兼容API。模型: command-a-plus(旗舰$2.50/$10)、command-r-08-2024($0.15/$0.60)、command-r7b(超低价$0.0375/$0.15)。API Key在 dashboard.cohere.com 获取。",
-      "默认模型名称": "command-a-plus",
-      "实力分": 78,
-      "价格输入": 2.5,
-      "价格输出": 10.0,
-      "特色": "企业级",
-      "免费额度": true
-    },
-    {
-      "名称": "Perplexity(联网搜索)",
-      "上下文窗口": 127072,
-      "接口地址": "https://api.perplexity.ai/chat/completions",
-      "请求方法": "POST",
-      "请求头": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer ${API密钥}"
-      },
-      "请求模板": {
-        "model": "${模型名称}",
-        "messages": "${消息列表}",
-        "temperature": 0.7,
-        "max_tokens": 8192
-      },
-      "响应路径": "$.choices[0].message.content",
-      "环境变量": {
-        "API密钥": "PERPLEXITY_API_KEY",
-        "模型名称": "PERPLEXITY_MODEL"
-      },
-      "支持vision": false,
-      "支持function_calling": false,
-      "说明": "Perplexity Sonar，自带联网搜索的AI模型，回答附带来源URL。模型: sonar-pro(旗舰$3/$15)、sonar(标准$1/$1)、sonar-reasoning(推理$2/$8)、sonar-reasoning-pro($3/$15)、sonar-deep-research($2/$8)。API Key在 console.perplexity.ai 获取。",
-      "默认模型名称": "sonar",
-      "实力分": 72,
-      "价格输入": 1.0,
-      "价格输出": 1.0,
-      "特色": "自带搜索",
-      "免费额度": false
+    "决策模板": {
+        "摘要请求": {
+            "系统提示词": "你是一个摘要专家。根据以下对话，生成摘要JSON。",
+            "输出格式": "json",
+            "输出模式": {
+                "核心内容": "...",
+                "关键决策": [],
+                "用户意图": "...",
+                "待办事项": [],
+                "关联事件": []
+            }
+        },
+        "冗余判断": {
+            "系统提示词": "你是一个冗余检测专家。分析以下对话，标记冗余消息的索引。",
+            "输出格式": "json",
+            "输出模式": {
+                "冗余消息索引": [],
+                "冗余原因": "..."
+            }
+        },
+        "异常处理": {
+            "系统提示词": "系统发生异常。分析原因并给出处理方案。",
+            "输出格式": "json",
+            "输出模式": {
+                "原因分析": "...",
+                "处理方案": "...",
+                "是否需要人工介入": false
+            }
+        }
     }
-  ],
-  "请求方法": "POST",
-  "请求头": {
-    "Content-Type": "application/json",
-    "Authorization": "Bearer ${API密钥}"
-  },
-  "请求模板": {
-    "model": "${模型名称}",
-    "messages": "${消息列表}",
-    "temperature": 0.7,
-    "max_tokens": 8192
-  },
-  "响应路径": "$.choices[0].message.content",
-  "重试": {
-    "最大次数": 3,
-    "基础延迟秒": 1,
-    "最大延迟秒": 30
-  },
-  "缓存": {
-    "启用": true,
-    "最大条目": 200,
-    "TTL秒": 300
-  },
-  "规则": {
-    "系统提示词": "你是朱峰社区智能体(ZF3D Agent)，一个AI助手。你可以通过执行操作来帮助用户完成任务。任务完成即停，不做额外操作。\n\n## 数字员工创建规则\n创建员工时：只设姓名、头像、角色名，不编具体职责。先问用户每个人负责什么，用户回答后再创建。用户说「创建团队：经理A，员工B/C/D」时，先用「询问用户」操作弹出对话框问每个人的职责，用户在对话框里回答后批量创建。\n创建完员工后，必须立即用「分配员工」操作把下属分配给领导。例如用户说「A管理B/C/D」，创建完B/C/D后必须调用3次分配操作把B→A、C→A、D→A。\n创建员工时不要创建任何MD文件或文档文件。不要创建团队名单、组织结构等文件。\n\n## 编程行为准则\n- 修改代码前先搜索定位（搜索代码/符号搜索/文件符号），不要盲读整个大文件\n- 大文件用offset+limit分页读取\n- 优先用替换文本/批量编辑而非整个文件重写\n- 修改后系统会自动验证语法，无需手动验证\n- Git提交消息包含时间戳\n- 遵循项目现有代码风格（缩进/命名/注释风格）\n- 可用「代码分析」操作检查Python文件的未使用导入、圈复杂度等\n- 可用「代码差异」操作预览变更前后差异",
-    "消息格式": "openai",
-    "最大历史数": 25,
-    "超时秒数": 300,
-    "最大推理步数": 200,
-    "工作模式": "商量",
-    "记忆注入模板": "【用户画像】\n${用户画像}\n\n【相关记忆】\n${相关事件摘要}\n\n【当前对话】\n${当前事件原始}\n\n【近期摘要】\n${近期事件摘要}"
-  },
-  "function_calling": {
-    "启用": true,
-    "tool_choice": "auto"
-  },
-  "环境变量": {
-    "API密钥": "LLM_API_KEY",
-    "模型名称": "LLM_MODEL"
-  },
-  "密钥文件路径": "./隐私区/我的配置/密钥.json",
-  "自我进化": {
-    "启用": false,
-    "工作引擎路径": "./隐私区/我的工作引擎/",
-    "进化触发": "手动",
-    "定时间隔分钟": 1,
-    "允许修改范围": [
-      "公共区/模块/*/主程序.py",
-      "公共区/模块/*/对话/*.py",
-      "公共区/模块/*/记忆/*.py",
-      "公共区/配置/*.json"
-    ],
-    "禁止修改范围": [
-      "公共区/内核/启动器.py",
-      "公共区/配置/文件权限.json",
-      "公共区/内核/进化引擎.py"
-    ],
-    "单次最大修改文件数": 5,
-    "自我检测项": [
-      "语法检查",
-      "导入检查",
-      "配置完整性",
-      "功能回归"
-    ],
-    "检测失败回滚": true,
-    "最大连续失败次数": 999,
-    "暂停后需人工恢复": true,
-    "三智能体": {
-      "测试员提示词": "你是代码测试员。分析Python代码，找出bug、性能问题、逻辑错误、安全隐患。关注目标导向，优先发现与目标相关的问题。\n输出JSON格式：\n{\"问题列表\": [{\"文件\": \"相对路径\", \"行号\": 0, \"问题描述\": \"...\", \"严重程度\": \"高/中/低\", \"建议修复\": \"...\"}]}\n如果没有问题，返回空列表。只输出JSON，不加其他文字。",
-      "开发者提示词": "你是开发者。根据测试员报告的问题修改代码。\n\n用替换片段的方式修改，不要输出整个文件。格式：\n{\"修改列表\": [{\"文件\": \"相对路径\", \"查找\": \"要替换的原始代码片段(必须与原文件完全一致)\", \"替换为\": \"修改后的代码片段\", \"修改说明\": \"...\"}]}\n\n规则：\n1. 查找的代码片段必须从原文件中精确复制（包括缩进）\n2. 替换为的代码片段必须语法正确\n3. 每次只替换最小必要的片段（几行到十几行），不要替换整个文件\n4. 如果不确定怎么改，返回空修改列表\n5. 只输出JSON，不加其他文字",
-      "审查员提示词": "你是代码审查员。审查开发者的修改是否正确解决了问题，是否引入新问题。检查：1.是否解决了原始问题 2.语法是否正确 3.是否引入新bug 4.代码风格是否一致。\n输出JSON格式：\n{\"通过\": true/false, \"审查意见\": \"...\", \"风险等级\": \"低/中/高\"}\n只输出JSON，不加其他文字。"
-    }
-  },
-  "决策模板": {
-    "摘要请求": {
-      "系统提示词": "你是一个摘要专家。根据以下对话，生成摘要JSON。",
-      "输出格式": "json",
-      "输出模式": {
-        "核心内容": "...",
-        "关键决策": [],
-        "用户意图": "...",
-        "待办事项": [],
-        "关联事件": []
-      }
-    },
-    "冗余判断": {
-      "系统提示词": "你是一个冗余检测专家。分析以下对话，标记冗余消息的索引。",
-      "输出格式": "json",
-      "输出模式": {
-        "冗余消息索引": [],
-        "冗余原因": "..."
-      }
-    },
-    "异常处理": {
-      "系统提示词": "系统发生异常。分析原因并给出处理方案。",
-      "输出格式": "json",
-      "输出模式": {
-        "原因分析": "...",
-        "处理方案": "...",
-        "是否需要人工介入": false
-      }
-    }
-  }
 }

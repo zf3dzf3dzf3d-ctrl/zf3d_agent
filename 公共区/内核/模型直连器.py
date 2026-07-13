@@ -110,6 +110,19 @@ class 模型直连器类:
     _日志队列 = None  # 异步日志队列（延迟初始化）
     _日志线程 = None  # 异步日志写入线程
 
+    @staticmethod
+    def _脱敏请求头(请求头: dict) -> dict:
+        """脱敏请求头中的敏感信息（Authorization/API Key）"""
+        if not 请求头:
+            return {}
+        脱敏 = {}
+        for k, v in 请求头.items():
+            if k.lower() in ("authorization", "x-api-key", "api-key"):
+                脱敏[k] = "***掩码***"
+            else:
+                脱敏[k] = v
+        return 脱敏
+
     def __init__(self, 配置: dict, 密钥配置: dict = None):
         self.配置 = 配置
         # 自动解密/迁移密钥
@@ -604,7 +617,7 @@ class 模型直连器类:
                 "成功": True,
                 "回复内容": 回复内容,
                 "工具调用": 工具调用结果,
-                "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                 "原始响应": {"choices": [{"message": 助手消息, "finish_reason": "tool_calls" if 工具调用结果 else "stop"}], "chunks": len(原始块列表)},
                 "响应状态": 200,
                 "耗时毫秒": 耗时毫秒,
@@ -623,7 +636,7 @@ class 模型直连器类:
             错误结果 = {
                 "成功": False,
                 "错误": f"HTTP {e.code}: {错误详情[:500]}" if 错误详情 else f"HTTP错误: {e.code}",
-                "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                 "原始响应": 错误详情,
                 "耗时毫秒": int((time.time() - 开始时间) * 1000)
             }
@@ -637,7 +650,7 @@ class 模型直连器类:
             错误结果 = {
                 "成功": False,
                 "错误": f"流式请求失败: {str(e)}",
-                "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                 "原始响应": None,
                 "耗时毫秒": int((time.time() - 开始时间) * 1000)
             }
@@ -756,7 +769,7 @@ class 模型直连器类:
                     "成功": True,
                     "回复内容": 回复内容,
                     "工具调用": 工具调用列表,
-                    "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                    "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                     "原始响应": 响应JSON,
                     "响应状态": 响应.status,
                     "耗时毫秒": 耗时毫秒,
@@ -797,7 +810,7 @@ class 模型直连器类:
                     最后错误 = {
                         "成功": False,
                         "错误": f"HTTP {e.code}: {错误详情[:500]}" if 错误详情 else f"HTTP错误: {e.code}",
-                        "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                        "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                         "原始响应": 错误详情,
                         "耗时毫秒": int((time.time() - 开始时间) * 1000)
                     }
@@ -805,7 +818,7 @@ class 模型直连器类:
                 最后错误 = {
                     "成功": False,
                     "错误": f"HTTP {e.code}: {错误详情[:500]}" if 错误详情 else f"HTTP错误: {e.code}",
-                    "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                    "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                     "原始响应": 错误详情,
                     "耗时毫秒": int((time.time() - 开始时间) * 1000)
                 }
@@ -820,7 +833,7 @@ class 模型直连器类:
                 最后错误 = {
                     "成功": False,
                     "错误": f"连接错误: {str(e.reason)}",
-                    "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                    "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                     "原始响应": None,
                     "耗时毫秒": int((time.time() - 开始时间) * 1000)
                 }
@@ -835,7 +848,7 @@ class 模型直连器类:
                 最后错误 = {
                     "成功": False,
                     "错误": f"未知错误: {str(e)}",
-                    "原始请求": {"url": self.接口地址, "headers": 请求头, "body": 请求体},
+                    "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                     "原始响应": None,
                     "耗时毫秒": int((time.time() - 开始时间) * 1000)
                 }

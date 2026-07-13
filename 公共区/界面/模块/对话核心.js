@@ -410,8 +410,13 @@ async function sendMessage() {
     } catch (e) {
         if (e.name === 'AbortError') {
             addMsg("system", "⏹ 已停止生成");
+        } else if (e.name === 'TypeError' && e.message.includes('fetch')) {
+            // 网络断开/服务器不可达
+            addMsg("assistant", "❌ 网络连接失败，请检查智能体是否仍在运行后重新发送消息。");
+        } else if (e.message && e.message.includes('aborted')) {
+            addMsg("system", "⏹ 已停止生成");
         } else {
-            addMsg("assistant", `❌ 连接错误: ${e.message}`);
+            addMsg("assistant", `❌ 连接异常: ${e.message || '未知错误'}。请检查网络后重试。`);
         }
     }
     // 停止推理流轮询（SSE模式下不再需要，但保留兼容）

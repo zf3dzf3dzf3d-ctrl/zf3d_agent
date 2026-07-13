@@ -581,28 +581,37 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             if 路径 == "/" or 路径 == "/index.html":
                 self._返回文件(self.界面目录 / "主页.html", "text/html", 查询串)
-            elif ".." in 路径:
-                # 防止路径穿越攻击
+            elif ".." in 路径 or "\x00" in 路径:
+                # 防止路径穿越攻击和空字节注入
                 self.send_response(403)
                 self.end_headers()
                 self.wfile.write("forbidden".encode("utf-8"))
-            elif 路径.endswith(".css"):
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), "text/css", 查询串)
-            elif 路径.endswith(".js"):
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), "application/javascript", 查询串)
-            elif 路径.startswith("/monaco/"):
-                # Monaco Editor 静态文件（JS/CSS/字体等）
-                文件路径 = self.界面目录 / 路径.lstrip("/")
-                文件类型 = self._猜测类型(路径)
-                if 路径.endswith(".js"):
-                    文件类型 = "application/javascript"
-                elif 路径.endswith(".css"):
-                    文件类型 = "text/css"
-                self._返回文件(文件路径, 文件类型, 查询串)
-            elif 路径.startswith("/api/"):
-                self._处理API_GET(路径, 解析结果)
             else:
-                self._返回文件(self.界面目录 / 路径.lstrip("/"), self._猜测类型(路径), 查询串)
+                # 统一路径安全校验：resolve后必须仍在界面目录内
+                相对路径 = 路径.lstrip("/")
+                完整路径 = (self.界面目录 / 相对路径).resolve()
+                try:
+                    完整路径.relative_to(self.界面目录.resolve())
+                except ValueError:
+                    self.send_response(403)
+                    self.end_headers()
+                    self.wfile.write("forbidden".encode("utf-8"))
+                    return
+                if 路径.endswith(".css"):
+                    self._返回文件(完整路径, "text/css", 查询串)
+                elif 路径.endswith(".js"):
+                    self._返回文件(完整路径, "application/javascript", 查询串)
+                elif 路径.startswith("/monaco/"):
+                    文件类型 = self._猜测类型(路径)
+                    if 路径.endswith(".js"):
+                        文件类型 = "application/javascript"
+                    elif 路径.endswith(".css"):
+                        文件类型 = "text/css"
+                    self._返回文件(完整路径, 文件类型, 查询串)
+                elif 路径.startswith("/api/"):
+                    self._处理API_GET(路径, 解析结果)
+                else:
+                    self._返回文件(完整路径, self._猜测类型(路径), 查询串)
         except Exception as e:
             if isinstance(e, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError, OSError)):
                 return  # 客户端已断开/连接异常，无需处理
@@ -632,6 +641,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             路径 = unquote(解析结果.path)
             if 路径.startswith("/api/"):
                 内容长度 = int(self.headers.get("Content-Length", 0))
+                if 内容长度 > 100 * 1024 * 1024:  # 100MB上限
+                    self.send_response(413)
+                    self.end_headers()
+                    self.wfile.write('{"error":"请求体过大"}'.encode("utf-8"))
+                    return
                 原始体 = self.rfile.read(内容长度) if 内容长度 > 0 else b"{}"
                 ctype = self.headers.get("Content-Type", "")
                 if "multipart/form-data" in ctype:
@@ -2431,6 +2445,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             if not 保存路径:
                 self._返回JSON({"成功": False, "错误": "缺少路径"})
                 return
+            # 路径安全校验：禁止路径穿越
+            if ".." in 保存路径 or "\x00" in 保存路径:
+                self._返回JSON({"成功": False, "错误": "非法路径"})
+                return
             # 数据字段是 base64 编码的图片
             图片数据 = 数据.get("数据", "")
             if not 图片数据:
@@ -2442,6 +2460,9 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             try:
                 import base64
                 字节 = base64.b64decode(图片数据)
+                if len(字节) > 50 * 1024 * 1024:  # 50MB上限
+                    self._返回JSON({"成功": False, "错误": "图片过大"})
+                    return
                 # 确保目录存在
                 目录 = os.path.dirname(保存路径)
                 if 目录 and not os.path.exists(目录):

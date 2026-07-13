@@ -207,6 +207,17 @@ class 上下文管理器类:
         3. 如果masking后仍然超token预算，再fallback到LLM摘要
         4. LLM摘要只处理masked后的精简版，token消耗减半
         """
+        # 重入保护：防止多线程同时压缩
+        if self._压缩锁:
+            return 对话历史
+        self._压缩锁 = True
+        try:
+            return self._执行压缩(对话历史, 模型直连器)
+        finally:
+            self._压缩锁 = False
+
+    def _执行压缩(self, 对话历史: list, 模型直连器=None) -> list:
+        """实际执行压缩逻辑"""
         # === token溢出检测（优先于消息条数阈值） ===
         当前token = sum(self.估算_token数(m.get("内容", "")) for m in 对话历史)
         if 当前token <= self.token预算 and len(对话历史) < self.压缩阈值:
