@@ -4,6 +4,10 @@
 """
 import json
 import time
+import os
+import sys
+import tempfile
+import subprocess
 import re as re_mod
 import threading
 import concurrent.futures
@@ -11,10 +15,11 @@ from pathlib import Path
 from .基类 import 操作结果, 操作基类
 
 
-# ============ 后台任务系统 ============
+# ============ 后台任务系统 v2 ============
+# v2改进：输出持久化到文件 + 实时进度查看 + 停止任务 + 完成事件广播
 
 class _后台任务管理器:
-    """后台任务管理（内存级）"""
+    """后台任务管理 v2 — 输出持久化+实时进度+停止+完成事件"""
     _实例 = None
 
     def __new__(cls):
@@ -22,33 +27,124 @@ class _后台任务管理器:
             cls._实例 = super().__new__(cls)
             cls._实例._tasks = {}
             cls._实例._next_id = 1
+            cls._实例._lock = threading.Lock()
         return cls._实例
 
-    def 提交(self, func, args=()):
+    def 提交(self, func, args=(), 操作名="", 操作参数=""):
+        """提交后台任务，func签名: func(输出文件路径, stop_event)"""
         task_id = f"bg_{self._next_id}"
         self._next_id += 1
-        self._tasks[task_id] = {"status": "running", "result": None, "error": None}
+        输出文件 = tempfile.mktemp(prefix=f"bg_{task_id}_", suffix=".log")
+        stop_event = threading.Event()
+
+        with self._lock:
+            self._tasks[task_id] = {
+                "status": "running",
+                "result": None,
+                "error": None,
+                "output_file": 输出文件,
+                "stop_event": stop_event,
+                "thread": None,
+                "start_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": None,
+                "操作名": 操作名,
+                "操作参数": 操作参数[:500] if isinstance(操作参数, str) else "",
+            }
 
         def wrapper():
             try:
-                result = func(*args)
-                self._tasks[task_id]["status"] = "completed"
+                with open(输出文件, "w", encoding="utf-8") as f:
+                    f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] 任务开始: {操作名}\n")
+                result = func(输出文件, stop_event)
+                # 停止()可能已将状态设为stopped，不要覆盖
+                if self._tasks[task_id]["status"] != "stopped":
+                    self._tasks[task_id]["status"] = "completed"
                 self._tasks[task_id]["result"] = result
+                self._tasks[task_id]["end_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
             except Exception as e:
                 self._tasks[task_id]["status"] = "failed"
                 self._tasks[task_id]["error"] = str(e)
+                self._tasks[task_id]["end_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                try:
+                    with open(输出文件, "a", encoding="utf-8") as f:
+                        f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] 任务失败: {e}\n")
+                except Exception:
+                    pass
+            finally:
+                try:
+                    from 配置加载器 import 全局事件中心
+                    全局事件中心.发布("后台任务完成", {
+                        "task_id": task_id,
+                        "status": self._tasks[task_id]["status"],
+                        "操作名": 操作名,
+                    })
+                except Exception:
+                    pass
 
         t = threading.Thread(target=wrapper, daemon=True)
+        self._tasks[task_id]["thread"] = t
         t.start()
         return task_id
 
     def 获取(self, task_id):
         return self._tasks.get(task_id)
 
+    def 获取进度(self, task_id, tail_lines=20):
+        """读取输出文件末尾N行，返回实时进度"""
+        task = self._tasks.get(task_id)
+        if not task:
+            return None
+        输出文件 = task.get("output_file", "")
+        if not 输出文件 or not os.path.exists(输出文件):
+            return {"status": task["status"], "lines": [], "total_lines": 0}
+        try:
+            with open(输出文件, "r", encoding="utf-8") as f:
+                all_lines = f.readlines()
+            return {
+                "status": task["status"],
+                "lines": [l.rstrip("\n\r") for l in all_lines[-tail_lines:]],
+                "total_lines": len(all_lines),
+            }
+        except Exception:
+            return {"status": task["status"], "lines": [], "total_lines": 0}
+
+    def 停止(self, task_id):
+        """设置停止标志，任务在下个检查点退出"""
+        task = self._tasks.get(task_id)
+        if not task:
+            return False
+        if task["status"] != "running":
+            return False
+        task["stop_event"].set()
+        task["status"] = "stopped"
+        task["end_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        输出文件 = task.get("output_file", "")
+        if 输出文件:
+            try:
+                with open(输出文件, "a", encoding="utf-8") as f:
+                    f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] 任务已被用户停止\n")
+            except Exception:
+                pass
+        return True
+
+    def 列表(self):
+        """返回所有任务摘要"""
+        with self._lock:
+            return [
+                {
+                    "task_id": tid,
+                    "status": t["status"],
+                    "操作名": t.get("操作名", ""),
+                    "start_time": t.get("start_time", ""),
+                    "end_time": t.get("end_time", ""),
+                }
+                for tid, t in self._tasks.items()
+            ]
+
 
 class 后台执行(操作基类):
     名称 = "后台执行"
-    描述 = "在后台线程中执行一个操作，立即返回task_id，不阻塞当前流程。适合长时间运行的操作(测试/构建/搜索)"
+    描述 = "在后台线程中执行一个操作，立即返回task_id，不阻塞当前流程。适合长时间运行的操作(测试/构建/搜索)。运行命令类操作可实时查看输出进度。"
     参数结构 = {
         "操作名": {"类型": "字符串", "必填": True, "说明": "要后台执行的操作名称"},
         "参数": {"类型": "字符串", "必填": False, "说明": "操作参数(JSON对象)"}
@@ -59,7 +155,7 @@ class 后台执行(操作基类):
         操作参数字符串 = 参数.get("参数", "{}")
         try:
             操作参数 = json.loads(操作参数字符串) if isinstance(操作参数字符串, str) else 操作参数字符串
-        except:
+        except Exception:
             操作参数 = {}
 
         from 操作注册中心 import 操作注册中心类
@@ -69,20 +165,74 @@ class 后台执行(操作基类):
 
         管理器 = _后台任务管理器()
 
-        def _执行操作():
+        def _执行操作(输出文件, stop_event):
+            # 运行命令：实时捕获stdout到输出文件
+            if 操作名 in ("运行命令", "run_command"):
+                命令 = 操作参数.get("命令", "")
+                超时 = 操作参数.get("超时秒数", 300)
+                工作目录 = 操作参数.get("工作目录", "")
+                if not 命令:
+                    return "命令为空"
+                if not 工作目录 and self.文件管理器:
+                    工作目录 = str(self.文件管理器.项目根目录)
+                创建标志 = 0
+                if sys.platform == 'win32':
+                    创建标志 = subprocess.CREATE_NEW_PROCESS_GROUP
+                子进程环境 = os.environ.copy()
+                子进程环境["PYTHONIOENCODING"] = "utf-8"
+                popen参数 = dict(
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, encoding='utf-8', errors='replace',
+                    cwd=工作目录 if 工作目录 else None,
+                    creationflags=创建标志,
+                    env=子进程环境
+                )
+                if sys.platform != 'win32':
+                    popen参数["start_new_session"] = True
+                进程 = subprocess.Popen(命令, shell=True, **popen参数)
+                with open(输出文件, "a", encoding="utf-8") as f:
+                    while True:
+                        if stop_event.is_set():
+                            进程.kill()
+                            f.write("\n[用户停止] 进程已被终止\n")
+                            break
+                        line = 进程.stdout.readline()
+                        if not line:
+                            if 进程.poll() is not None:
+                                break
+                            time.sleep(0.01)
+                            continue
+                        f.write(line)
+                        f.flush()
+                    try:
+                        进程.wait(timeout=10)
+                    except Exception:
+                        pass
+                退出码 = 进程.returncode
+                if stop_event.is_set():
+                    return f"命令已被用户停止，退出码: {退出码}"
+                if 退出码 != 0:
+                    return f"命令失败，退出码: {退出码}"
+                return f"命令执行完成，退出码: {退出码}"
+            # 其他操作：执行后写入结果
             结果 = 注册中心.执行(操作名, 操作参数)
-            return 结果.get("数据", "") if 结果.get("成功") else f"失败: {结果.get('错误', '')}"
+            数据 = 结果.get("数据", "") if 结果.get("成功") else f"失败: {结果.get('错误', '')}"
+            with open(输出文件, "a", encoding="utf-8") as f:
+                f.write(数据[:5000])
+            return 数据
 
-        task_id = 管理器.提交(_执行操作)
+        task_id = 管理器.提交(_执行操作, 操作名=操作名, 操作参数=json.dumps(操作参数, ensure_ascii=False))
         return 操作结果.成功(
             f"后台任务已提交: {task_id}\n操作: {操作名}\n参数: {json.dumps(操作参数, ensure_ascii=False)[:200]}\n"
-            f"使用「获取后台结果」操作(task_id={task_id})查询结果。"
+            f"使用「查看后台进度」(task_id={task_id})查看实时输出，\n"
+            f"使用「获取后台结果」(task_id={task_id})获取最终结果，\n"
+            f"使用「停止后台任务」(task_id={task_id})停止任务。"
         )
 
 
 class 获取后台结果(操作基类):
     名称 = "获取后台结果"
-    描述 = "查询后台任务的执行状态和结果"
+    描述 = "查询后台任务的执行状态和结果。running状态会附带最近输出，无需等待完成即可看到进度。"
     参数结构 = {
         "task_id": {"类型": "字符串", "必填": True, "说明": "后台任务ID"}
     }
@@ -95,11 +245,69 @@ class 获取后台结果(操作基类):
             return 操作结果.失败(f"任务 {task_id} 不存在")
         状态 = task["status"]
         if 状态 == "running":
-            return 操作结果.成功(f"⏳ 任务 {task_id} 仍在运行中...")
+            进度 = 管理器.获取进度(task_id, tail_lines=10)
+            lines_text = "\n".join(进度.get("lines", [])) if 进度 else ""
+            return 操作结果.成功(
+                f"⏳ 任务 {task_id} 仍在运行中...\n"
+                f"开始时间: {task.get('start_time', '')}\n"
+                f"最近输出({进度.get('total_lines', 0)}行):\n{lines_text}"
+            )
         elif 状态 == "completed":
             return 操作结果.成功(f"✅ 任务 {task_id} 已完成:\n{task.get('result', '')}")
+        elif 状态 == "stopped":
+            return 操作结果.成功(f"⏹️ 任务 {task_id} 已被停止\n开始: {task.get('start_time', '')} 停止: {task.get('end_time', '')}")
         else:
             return 操作结果.失败(f"❌ 任务 {task_id} 失败:\n{task.get('error', '未知错误')}")
+
+
+class 查看后台进度(操作基类):
+    名称 = "查看后台进度"
+    描述 = "查看后台任务的实时输出进度（输出文件末尾N行）。适合监控长时间运行的后台任务。"
+    参数结构 = {
+        "task_id": {"类型": "字符串", "必填": True, "说明": "后台任务ID"},
+        "行数": {"类型": "整数", "必填": False, "说明": "查看末尾多少行，默认20"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        管理器 = _后台任务管理器()
+        task_id = 参数.get("task_id", "")
+        tail_lines = 参数.get("行数", 20)
+        task = 管理器.获取(task_id)
+        if not task:
+            return 操作结果.失败(f"任务 {task_id} 不存在")
+        进度 = 管理器.获取进度(task_id, tail_lines=tail_lines)
+        if not 进度:
+            return 操作结果.失败(f"无法读取任务 {task_id} 的进度")
+        lines_text = "\n".join(进度.get("lines", []))
+        状态图标 = {"running": "⏳", "completed": "✅", "failed": "❌", "stopped": "⏹️"}.get(进度["status"], "?")
+        return 操作结果.成功(
+            f"{状态图标} 任务 {task_id} 状态: {进度['status']}\n"
+            f"操作: {task.get('操作名', '')}  开始: {task.get('start_time', '')}\n"
+            f"总输出行数: {进度.get('total_lines', 0)}\n"
+            f"--- 最近{tail_lines}行 ---\n{lines_text}"
+        )
+
+
+class 停止后台任务(操作基类):
+    名称 = "停止后台任务"
+    描述 = "停止一个正在运行的后台任务。运行命令类任务会终止子进程。"
+    参数结构 = {
+        "task_id": {"类型": "字符串", "必填": True, "说明": "要停止的后台任务ID"}
+    }
+
+    def 执行(self, 参数: dict) -> 操作结果:
+        管理器 = _后台任务管理器()
+        task_id = 参数.get("task_id", "")
+        task = 管理器.获取(task_id)
+        if not task:
+            return 操作结果.失败(f"任务 {task_id} 不存在")
+        if task["status"] != "running":
+            return 操作结果.失败(f"任务 {task_id} 当前状态为 {task['status']}，无法停止")
+        成功 = 管理器.停止(task_id)
+        if 成功:
+            return 操作结果.成功(f"⏹️ 任务 {task_id} 已发送停止信号")
+        else:
+            return 操作结果.失败(f"停止任务 {task_id} 失败")
 
 
 # ============ 子代理系统 ============

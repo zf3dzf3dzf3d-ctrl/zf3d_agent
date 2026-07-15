@@ -259,6 +259,45 @@ def 加密核心文件(项目根目录: Path):
         shutil.rmtree(临时输出)
 
     print(f"  ✅ 加密完成: {加密成功数}/{len(py核心文件)}个文件")
+
+    # === JS混淆 ===
+    js核心文件 = [
+        "公共区/界面/员工浮窗.js",
+        "公共区/界面/模块/网站登录.js",
+        "公共区/界面/模块/动画工坊.js",
+    ]
+    js混淆器 = shutil.which("javascript-obfuscator")
+    if js混淆器:
+        js成功数 = 0
+        for js文件 in js核心文件:
+            js路径 = 项目根目录 / js文件
+            if not js路径.exists():
+                print(f"  ⚠️ 跳过（不存在）: {js文件}")
+                continue
+            try:
+                结果 = subprocess.run(
+                    [js混淆器, str(js路径), "--output", str(js路径),
+                     "--compact", "true",
+                     "--string-array", "true",
+                     "--string-array-encoding", "base64",
+                     "--string-array-threshold", "0.75",
+                     "--identifier-names-generator", "hexadecimal",
+                     "--rename-globals", "false",
+                     "--reserved-names", "require,exports,module,define,amd",
+                     "--self-defending", "true"],
+                    capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30
+                )
+                if 结果.returncode == 0:
+                    js成功数 += 1
+                    print(f"  🔒 JS混淆: {js文件}")
+                else:
+                    print(f"  ⚠️ JS混淆失败: {js文件} - {结果.stderr[:100]}")
+            except Exception as e:
+                print(f"  ⚠️ JS混淆异常: {js文件} - {e}")
+        print(f"  ✅ JS混淆完成: {js成功数}/{len(js核心文件)}个文件")
+    else:
+        print("  ⚠️ 未安装 javascript-obfuscator，跳过JS混淆")
+
     return 加密成功数 > 0
 
 

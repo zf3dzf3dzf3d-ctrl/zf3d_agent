@@ -1,4 +1,4 @@
-# ZF3D Agent v3.3.5
+# ZF3D Agent v3.3.6
 
 > 🚀 全能桌面AI助手 — 节点工作流编排多AI协作、管理文件、浏览网页、编辑文档、AI生图/视频、PS级图片加工、3D软件整合（3ds Max/Houdini/Blender）、276+操作，纯Python零依赖，复制即运行
 

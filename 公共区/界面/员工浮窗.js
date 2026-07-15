@@ -3188,9 +3188,12 @@
 
     // ========== 工作流定时任务 ==========
     var _taskPanel = null;
+    var _taskPanelLoading = false;
 
     async function _showTaskPanel() {
         if (_taskPanel) { _taskPanel.remove(); _taskPanel = null; return; }
+        if (_taskPanelLoading) return;
+        _taskPanelLoading = true;
         var tasks = [];
         try {
             var resp = await fetch('/api/wf-tasks', {method: 'GET'});
@@ -3283,6 +3286,7 @@
         document.body.appendChild(ov);
         ov.classList.add('show');
         _taskPanel = ov;
+        _taskPanelLoading = false;
         ov.addEventListener('click', function(e) { if (e.target === ov) { ov.remove(); _taskPanel = null; } });
 
         // header拖拽
@@ -12404,6 +12408,15 @@
                             console.log('[WF进度]', d.name || d.id, d.消息 || d.msg || '');
                             var stEl = document.getElementById('wfStatus_' + d.id);
                             if (stEl) { stEl.textContent = d.消息 || d.msg || '执行中...'; stEl.className = 'emp-wf-node-status running'; }
+                            var msgText = d.消息 || d.msg || '';
+                            if (msgText.indexOf('重试') !== -1) {
+                                var nodeEl = document.getElementById('wfNode_' + d.id);
+                                if (nodeEl) {
+                                    nodeEl.classList.add('retrying');
+                                    setTimeout(function() { nodeEl.classList.remove('retrying'); nodeEl.classList.add('running'); }, 2400);
+                                }
+                                appendWfLog('🔄 ' + (d.name || '') + ' ' + msgText, 'error');
+                            }
                         } else if (type === '进度') {
                             done = d.已完成 || d.current || done + 1;
                             total = d.总数 || d.total || total;

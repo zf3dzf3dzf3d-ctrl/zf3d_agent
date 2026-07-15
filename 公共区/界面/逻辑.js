@@ -28,5 +28,11 @@
  *   模块/权限轮询.js    — 权限轮询+AI询问弹窗
  *   模块/股票模式.js    — 股票K线/分时/板块/资金
  *   模块/数据管理面板.js — 数据管理+批量下载
+ *   模块/后台任务通知.js — 后台任务轮询+完成Toast通知
  */
+
+// 页面加载后启动后台任务轮询
+window.addEventListener("DOMContentLoaded", function() {
+    startBgTaskPoll();
+});
 

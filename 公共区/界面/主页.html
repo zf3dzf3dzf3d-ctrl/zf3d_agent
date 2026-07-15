@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.zf3d.com; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.zf3d.com; font-src 'self' data:; worker-src 'self' blob:">
-    <title>朱峰社区智能体 v3.3.5</title>
+    <title>朱峰社区智能体 v3.3.7</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
     <link rel="stylesheet" href="样式.css?v=20260711f">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=2">
-    <link rel="stylesheet" href="员工浮窗.css?v=20260711b">
+    <link rel="stylesheet" href="员工浮窗.css?v=20260715a">
+    <script src="lottie.min.js?v=1"></script>
 </head>
 <body>
     <!-- 启动动画 -->
@@ -31,6 +32,8 @@
     </div>
     <style>
         @keyframes boot-spin { to { transform: rotate(360deg); } }
+        @keyframes boot-pulse { 0%,100%{opacity:0.4;transform:scale(0.95)} 50%{opacity:1;transform:scale(1.05)} }
+        @keyframes boot-ring { 0%{stroke-dashoffset:200} 100%{stroke-dashoffset:0} }
     </style>
     <!-- 网站登录遮罩 -->
     <div id="loginOverlay" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center">
@@ -72,6 +75,7 @@
             <button class="topbar-icon" id="updateBtn" title="检查更新" style="display:none;">🔄</button>
             <button class="topbar-icon" id="wfToggleBtn" title="节点工作流（需登录）" onclick="window.agentAuth.requireLogin(() => window.empWidget.toggleWorkflow())">🔀</button>
             <button class="topbar-icon" id="ttsToggleBtn" title="语音播报：开">🔊</button>
+
             <button class="topbar-icon" id="settingsBtn" title="打开设置面板">⚙️</button>
             <button class="topbar-icon" id="donateBtn" title="支持作者 ❤️" onclick="openAbout()" style="font-size:15px;">❤️</button>
             <span class="topbar-sep"></span>
@@ -153,6 +157,7 @@
                         <button class="bar-btn" id="toggleSelectAllBtn" onclick="toggleSelectAll()" title="全选/取消选择 (Ctrl+A / Ctrl+D)">☑️ <span class="btn-text">全选</span></button>
                         <button class="bar-btn" id="recordBtn" title="录制系统音频（右键选择录音设备）">🔴</button>
                         <button class="bar-btn" id="screenRecordBtn" title="录制屏幕视频（右键设置）">🎬</button>
+                        <button class="bar-btn" title="动画工坊 — 一句话生成矢量动画" onclick="window.lottieWorkshop.open()">🎞️</button>
                         <button class="bar-btn" id="batchDeleteBtn" onclick="batchDeleteSelected()" title="删除选中项" style="display:none;">🗑️</button>
                         <button class="bar-btn" id="batchMoveBtn" onclick="batchMoveSelected()" title="移动选中项" style="display:none;">📦</button>
                         <button class="bar-btn" id="batchCopyBtn" onclick="batchCopySelected()" title="复制选中项" style="display:none;">📋</button>
@@ -598,7 +603,7 @@
                     <div style="background:var(--bg3);border-radius:8px;padding:28px;text-align:center;margin-bottom:12px;border:1px solid var(--border);">
                         <div style="font-size:22px;font-weight:bold;color:var(--text);">朱峰社区智能体</div>
                         <div style="font-size:13px;color:var(--text2);margin-top:6px;">让每一位创作者都拥有AI助手</div>
-                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.3.5 · MIT · zf3d.com</div>
+                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.3.7 · MIT · zf3d.com</div>
                     </div>
                     <!-- 两列布局 -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -721,7 +726,9 @@
     <script src="模块/股票模式.js?v=20260630i"></script>
     <script src="模块/数据管理面板.js?v=20260629b"></script>
     <script src="模块/下载面板.js?v=20260706b"></script>
-    <script src="逻辑.js?v=20260627j"></script>
+    <script src="模块/后台任务通知.js?v=20260715a"></script>
+    <script src="模块/动画工坊.js?v=20260715j"></script>
+    <script src="逻辑.js?v=20260715a"></script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
@@ -891,7 +898,7 @@
         }
     }, 3000);
     </script>
-    <script src="员工浮窗.js?v=20260711h"></script>
+    <script src="员工浮窗.js?v=20260715a"></script>
     <script>
     // 启动动画控制（加速版）
     (function(){

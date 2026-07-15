@@ -340,10 +340,12 @@
 .emp-wf-node.disabled { opacity: 0.6; border-style: dashed; border-color: var(--text2); filter: grayscale(0.6); z-index: 3; }
 .emp-wf-node.disabled::after { content: '🚫禁用'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 16px; font-weight: bold; color: var(--red); text-shadow: 0 0 8px rgba(0,0,0,0.8); z-index: 20; pointer-events: none; }
 .emp-wf-node.running { border-color: var(--orange); box-shadow: 0 0 12px rgba(206,145,120,0.4); animation: wf-pulse 1.5s infinite; }
+.emp-wf-node.retrying { border-color: #f1c40f; animation: wf-retry-flash 0.8s ease-in-out 3; }
 .emp-wf-node.pending { border-color: var(--border); opacity: 0.5; }
 .emp-wf-node.done { border-color: var(--green); box-shadow: 0 0 8px rgba(78,201,176,0.3); }
 .emp-wf-node.error { border-color: var(--red); box-shadow: 0 0 8px rgba(241,76,76,0.3); }
 @keyframes wf-pulse { 0%,100% { box-shadow: 0 0 8px rgba(206,145,120,0.3); } 50% { box-shadow: 0 0 16px rgba(206,145,120,0.6); } }
+@keyframes wf-retry-flash { 0%,100% { box-shadow: 0 0 4px rgba(241,196,15,0.2); } 50% { box-shadow: 0 0 16px rgba(241,196,15,0.7); border-color: #f39c12; } }
 
 .emp-wf-node-header {
     display: flex; align-items: center; gap: 6px; padding: 6px 10px;

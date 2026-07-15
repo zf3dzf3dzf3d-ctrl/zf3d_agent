@@ -197,11 +197,35 @@ def _查找工作流文件(关键词: str) -> str:
     if not 匹配列表:
         return None
 
-    # 4. 优先返回API格式文件
-    for 路径 in 匹配列表:
-        if "_api" in os.path.basename(路径).lower() or _是否API格式(路径):
-            _工作流路径缓存[关键词] = 路径
-            return 路径
+    # 4. 优先返回API格式文件（按匹配度排序：文件名完全包含关键词优先，文生图>控制>编辑）
+    def _匹配分数(路径):
+        """计算匹配分数：文件名包含关键词的字符越多越好，文生图优先于控制/编辑"""
+        文件名 = os.path.basename(路径).lower()
+        分数 = 0
+        # 关键词是文件名的子串 → 加分
+        if 关键词 in 文件名:
+            分数 += 100
+        else:
+            # 逐词匹配
+            for 词 in 关键词.split():
+                if 词 in 文件名:
+                    分数 += 10
+        # API格式加分
+        if "_api" in 文件名:
+            分数 += 50
+        # 文生图优先（避免匹配到图生图/控制/编辑工作流）
+        if "文生图" in 文件名 or "text_to_image" in 文件名:
+            分数 += 30
+        # 控制/编辑/图生图降分（文生图场景下不应该选这些）
+        if any(kw in 文件名 for kw in ["控制", "编辑", "图生图", "image_edit", "control"]):
+            分数 -= 20
+        return 分数
+
+    api_文件 = [p for p in 匹配列表 if "_api" in os.path.basename(p).lower() or _是否API格式(p)]
+    if api_文件:
+        api_文件.sort(key=lambda p: _匹配分数(p), reverse=True)
+        _工作流路径缓存[关键词] = api_文件[0]
+        return api_文件[0]
 
     # 5. 没有API格式，返回第一个
     _工作流路径缓存[关键词] = 匹配列表[0]

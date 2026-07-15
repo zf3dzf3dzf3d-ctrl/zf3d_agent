@@ -1584,6 +1584,31 @@ class 快速浮窗:
         self._回答文本.bind("<Control-a>", _全选)
         self._回答文本.bind("<Control-A>", _全选)
 
+        # 右键菜单：复制/全选/复制全部
+        def _显示右键菜单(e):
+            菜单 = tk.Menu(self._弹窗, tearoff=0, bg="#1c1c28", fg="#aaaacc",
+                          activebackground="#333355", activeforeground="white",
+                          bd=0, relief="flat")
+            def _复制():
+                try:
+                    选中 = self._回答文本.get("sel.first", "sel.last")
+                    self._弹窗.clipboard_clear()
+                    self._弹窗.clipboard_append(选中)
+                except tk.TclError:
+                    pass
+            def _全选文本():
+                self._回答文本.tag_add("sel", "1.0", "end")
+            def _复制全部():
+                self._弹窗.clipboard_clear()
+                self._弹窗.clipboard_append(self._回答文本.get("1.0", "end-1c"))
+            菜单.add_command(label="📋 复制", command=_复制)
+            菜单.add_command(label="📋 全选", command=_全选文本)
+            菜单.add_separator()
+            菜单.add_command(label="📋 复制全部", command=_复制全部)
+            菜单.tk_popup(e.x_root, e.y_root)
+            return "break"
+        self._回答文本.bind("<Button-3>", _显示右键菜单)
+
         # 多轮对话标签样式：用户亮蓝靠右有背景，机器人白色靠左有背景
         self._回答文本.tag_config("user", foreground="#aaccff",
             font=("Microsoft YaHei UI", 10), spacing1=8, spacing3=8,
@@ -1665,7 +1690,9 @@ class 快速浮窗:
 
         self._画布.unbind("<Motion>")
         self._画布.unbind("<Leave>")
-        self._画布.bind("<Button-1>", lambda e: None)
+        self._画布.unbind("<Button-1>")
+        self._画布.unbind("<Button-3>")
+        self._画布.unbind("<MouseWheel>")
         self._弹窗.unbind("<FocusOut>")
         self._弹窗.bind("<Escape>", lambda e: self._关闭())
 
