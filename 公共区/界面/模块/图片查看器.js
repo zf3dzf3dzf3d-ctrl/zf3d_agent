@@ -147,6 +147,7 @@
         if (e.key === "ArrowLeft") prevImage();
         else if (e.key === "ArrowRight") nextImage();
         else if (e.key === "Escape") { stopSlideshow(); backToGallery(); }
+        else if (e.key === "Delete") { e.preventDefault(); deleteCurrentImage(); }
     });
 })();
 

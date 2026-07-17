@@ -51,6 +51,10 @@ document.addEventListener("click", (e) => {
 });
 
 async function newConversation() {
+    // 先停止当前对话（SSE流+后端取消），防止旧线程持锁导致新对话卡死
+    if (isChatting) stopChat();
+    isChatting = false;
+    setThinkingState(false);
     try {
         const res = await fetch("/api/conversation-new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
         const d = await res.json();
@@ -70,6 +74,10 @@ async function newConversation() {
 
 async function switchConv(id) {
     if (id === currentConvID) return;
+    // 先停止当前对话（SSE流+后端取消），防止旧线程持锁导致切换后卡死
+    if (isChatting) stopChat();
+    isChatting = false;
+    setThinkingState(false);
     try {
         const res = await fetch("/api/conversation-switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await res.json();

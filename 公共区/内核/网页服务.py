@@ -529,15 +529,40 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         return 网页请求处理器._会话文件
 
     @staticmethod
+    def _会话加密(明文: str) -> str:
+        """XOR加密+base64编码，密钥绑定机器"""
+        import base64 as _b64, hashlib as _hl, platform as _pf
+        密钥 = _hl.md5((_pf.node() + _pf.machine() + os.environ.get("USERNAME", "") + os.environ.get("USER", "")).encode()).hexdigest()
+        明文bytes = 明文.encode()
+        密钥bytes = 密钥.encode()
+        加密bytes = bytes(明文bytes[i] ^ 密钥bytes[i % len(密钥bytes)] for i in range(len(明文bytes)))
+        return _b64.b64encode(加密bytes).decode()
+
+    @staticmethod
+    def _会话解密(密文: str) -> str:
+        """base64解码+XOR解密"""
+        import base64 as _b64, hashlib as _hl, platform as _pf
+        密钥 = _hl.md5((_pf.node() + _pf.machine() + os.environ.get("USERNAME", "") + os.environ.get("USER", "")).encode()).hexdigest()
+        try:
+            加密bytes = _b64.b64decode(密文)
+            密钥bytes = 密钥.encode()
+            明文bytes = bytes(加密bytes[i] ^ 密钥bytes[i % len(密钥bytes)] for i in range(len(加密bytes)))
+            return 明文bytes.decode()
+        except Exception:
+            return ""
+
+    @staticmethod
     def _保存会话():
-        """将会话写入文件持久化"""
+        """将会话加密后写入文件持久化（防篡改）"""
         if not 网页请求处理器._网站会话:
             return
         try:
             文件 = 网页请求处理器._获取会话文件()
             文件.parent.mkdir(parents=True, exist_ok=True)
+            明文 = json.dumps(网页请求处理器._网站会话, ensure_ascii=False)
+            密文 = 网页请求处理器._会话加密(明文)
             with open(文件, "w", encoding="utf-8") as f:
-                json.dump(网页请求处理器._网站会话, f, ensure_ascii=False, indent=2)
+                json.dump({"加密": True, "数据": 密文}, f, ensure_ascii=False)
         except Exception:
             pass
 
@@ -553,17 +578,27 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
     @staticmethod
     def _恢复会话():
-        """启动时从文件恢复会话"""
+        """启动时从加密文件恢复会话"""
         文件 = 网页请求处理器._获取会话文件()
         if not 文件.exists():
             return
         try:
             with open(文件, "r", encoding="utf-8") as f:
-                会话 = json.load(f)
+                原始 = json.load(f)
+            # 兼容：加密格式 {"加密": True, "数据": "base64..."} 或旧版明文格式
+            if 原始.get("加密") and 原始.get("数据"):
+                明文 = 网页请求处理器._会话解密(原始["数据"])
+                会话 = json.loads(明文) if 明文 else {}
+            else:
+                # 旧版明文格式，直接读取后迁移到加密格式
+                会话 = 原始
             token = 会话.get("token", "")
             if token:
                 网页请求处理器._网站会话 = 会话
                 print(f"  ✓ 已恢复网站登录会话: {会话.get('用户', {}).get('username', '?')}")
+                # 如果是旧版明文，重新加密保存
+                if not 原始.get("加密"):
+                    网页请求处理器._保存会话()
         except Exception:
             pass
 
@@ -767,7 +802,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             (路径.startswith("/api/employee-") and 路径 != "/api/employee-categories")
         )
         # 备份/恢复API也不需要登录
-        if 路径 in ("/api/emp-backup", "/api/emp-restore", "/api/emp-backup-list", "/api/zf3d-api", "/api/wf-template-save", "/api/wf-template-load", "/api/wf-template-delete", "/api/wf-template-list"):
+        if 路径 in ("/api/emp-backup", "/api/emp-restore", "/api/emp-backup-list", "/api/zf3d-api", "/api/wf-template-save", "/api/wf-template-load", "/api/wf-template-delete", "/api/wf-template-list", "/api/check-vip", "/api/agent-status"):
             _需登录路径 = False
         if _需登录路径 and not self._检查网站登录():
             self._返回JSON({"错误": "此功能需要登录朱峰社区账号", "需要登录": True}, 403)
@@ -780,6 +815,32 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"已登录": True, "用户": 会话.get("用户", {}), "登录时间": 会话.get("登录时间", "")})
             else:
                 self._返回JSON({"已登录": False})
+        elif 路径 == "/api/check-vip":
+            """后端VIP/管理员校验（前端不自行判断，每次调此API）"""
+            会话 = 网页请求处理器._网站会话
+            if not 会话:
+                self._返回JSON({"已登录": False, "is_vip": False, "is_admin": False, "原因": "未登录"})
+                return
+            用户 = 会话.get("用户", {})
+            用户组 = str(用户.get("user_group", ""))
+            是管理员 = 用户组 == "-1"
+            if 是管理员:
+                self._返回JSON({"已登录": True, "is_vip": True, "is_admin": True})
+                return
+            vip_start = 用户.get("vip_start", "")
+            vip_end = 用户.get("vip_end", "")
+            if not vip_start or not vip_end:
+                self._返回JSON({"已登录": True, "is_vip": False, "is_admin": False, "原因": "未开通VIP"})
+                return
+            try:
+                from datetime import datetime as _dt
+                if _dt.now() > _dt.strptime(vip_end.split(" ")[0], "%Y-%m-%d"):
+                    self._返回JSON({"已登录": True, "is_vip": False, "is_admin": False, "原因": "VIP已过期"})
+                    return
+            except Exception:
+                self._返回JSON({"已登录": True, "is_vip": False, "is_admin": False, "原因": "VIP状态校验失败"})
+                return
+            self._返回JSON({"已登录": True, "is_vip": True, "is_admin": False})
         elif 路径 == "/api/bg-tasks":
             """获取后台任务列表（供前端轮询，任务完成时弹Toast通知）"""
             try:
@@ -1283,7 +1344,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": False, "错误": "定时任务调度器未就绪"})
                 return
             if 调度器:
-                self._返回JSON({"成功": True, "任务列表": 调度器.获取工作流任务列表()})
+                self._返回JSON({"成功": True, "任务列表": 调度器.任务列表})
             else:
                 self._返回JSON({"成功": False, "错误": "定时任务调度器未就绪"})
         elif 路径 == "/api/history":
@@ -1968,19 +2029,24 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 self._返回JSON({"成功": False, "错误": "请先登录朱峰社区账号"})
                 return
             用户 = 会话.get("用户", {})
-            vip_start = 用户.get("vip_start", "")
-            vip_end = 用户.get("vip_end", "")
-            if not vip_start or not vip_end:
-                self._返回JSON({"成功": False, "错误": "此功能为VIP会员专属，请开通VIP后使用"})
-                return
-            try:
-                from datetime import datetime as _dt
-                if _dt.now() > _dt.strptime(vip_end.split(" ")[0], "%Y-%m-%d"):
-                    self._返回JSON({"成功": False, "错误": "您的VIP已过期，请续费后使用"})
+            # 管理员（user_group=-1）跳过VIP校验
+            用户组 = str(用户.get("user_group", ""))
+            if 用户组 == "-1":
+                pass  # 管理员直接放行，不做VIP校验
+            else:
+                vip_start = 用户.get("vip_start", "")
+                vip_end = 用户.get("vip_end", "")
+                if not vip_start or not vip_end:
+                    self._返回JSON({"成功": False, "错误": "此功能为VIP会员专属，请开通VIP后使用"})
                     return
-            except Exception:
-                self._返回JSON({"成功": False, "错误": "VIP状态校验失败，请重新登录"})
-                return
+                try:
+                    from datetime import datetime as _dt
+                    if _dt.now() > _dt.strptime(vip_end.split(" ")[0], "%Y-%m-%d"):
+                        self._返回JSON({"成功": False, "错误": "您的VIP已过期，请续费后使用"})
+                        return
+                except Exception:
+                    self._返回JSON({"成功": False, "错误": "VIP状态校验失败，请重新登录"})
+                    return
 
             描述 = 数据.get("描述", "")
             原始代码 = 数据.get("原始代码", "")
@@ -10966,7 +11032,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             会话 = 网页请求处理器._网站会话 or {}
             用户组 = str(会话.get("用户", {}).get("user_group", ""))
             用户名 = 会话.get("用户", {}).get("username", "")
-            是管理员 = 用户组 == "-1" or 用户名 == "水银管理员"
+            是管理员 = 用户组 == "-1"
             if not 是管理员:
                 self._返回JSON({"成功": False, "错误": "仅朱峰社区管理员可保存模板，普通用户可加载模板使用"})
                 return
@@ -11098,7 +11164,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             会话 = 网页请求处理器._网站会话 or {}
             用户组 = str(会话.get("用户", {}).get("user_group", ""))
             用户名 = 会话.get("用户", {}).get("username", "")
-            是管理员 = 用户组 == "-1" or 用户名 == "水银管理员"
+            是管理员 = 用户组 == "-1"
             try:
                 旧数据 = json.loads(模板路径.read_text(encoding="utf-8"))
                 if 旧数据.get("官方") and not 是管理员:
@@ -12476,6 +12542,29 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     def _处理员工工作流(self, 数据: dict):
         """节点工作流执行引擎 — 拓扑排序+并行分支，SSE推送每个节点状态"""
         try:
+            # 后端VIP/管理员校验（防前端篡改绕过）
+            会话 = 网页请求处理器._网站会话
+            if not 会话:
+                self._返回JSON({"成功": False, "错误": "请先登录朱峰社区账号"})
+                return
+            用户 = 会话.get("用户", {})
+            用户组 = str(用户.get("user_group", ""))
+            是管理员 = 用户组 == "-1"
+            if not 是管理员:
+                vip_start = 用户.get("vip_start", "")
+                vip_end = 用户.get("vip_end", "")
+                if not vip_start or not vip_end:
+                    self._返回JSON({"成功": False, "错误": "节点工作流为VIP会员专属功能，请开通VIP后使用"})
+                    return
+                try:
+                    from datetime import datetime as _dt_wf
+                    if _dt_wf.now() > _dt_wf.strptime(vip_end.split(" ")[0], "%Y-%m-%d"):
+                        self._返回JSON({"成功": False, "错误": "您的VIP已过期，请续费后使用节点工作流"})
+                        return
+                except Exception:
+                    self._返回JSON({"成功": False, "错误": "VIP状态校验失败，请重新登录"})
+                    return
+
             节点列表 = 数据.get("节点", [])
             连接列表 = 数据.get("连接", [])
             当前文件夹 = 数据.get("当前文件夹", "")
@@ -30563,8 +30652,6 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             if self.模块注册 and "对话" in self.模块注册:
                 对话模块 = self.模块注册["对话"]
-                # 重置取消标志（防止上次取消后新建对话仍处于取消状态）
-                对话模块._取消标志 = False
                 # 将文件上下文注入对话模块
                 if 文件上下文提示:
                     对话模块.文件上下文 = 文件上下文提示
@@ -31513,50 +31600,244 @@ class 网页服务类:
         # 恢复上次登录会话
         网页请求处理器._恢复会话()
 
+        # 生成机器ID（供心跳和远程命令轮询共用）
+        import hashlib as _hl, uuid as _uu
+        _全局机器ID = _hl.md5(str(_uu.getnode()).encode()).hexdigest()[:16]
+
         # ── 上报启动心跳到网站（后台静默，不阻塞） ──
         def _上报心跳():
+            import time as _time, urllib.request as _ur, urllib.parse as _up
+            _版本 = "unknown"
             try:
-                import hashlib, uuid, urllib.request as _ur, urllib.parse as _up
-                # 生成匿名机器ID（MAC地址哈希，不泄露真实MAC）
-                _mac = uuid.getnode()
-                _machine_id = hashlib.md5(str(_mac).encode()).hexdigest()[:16]
-                # 读取版本号
-                _版本 = "unknown"
+                _引擎配置路径 = str(配置加载器.项目根目录 / "引擎管理" / "引擎配置.json")
+                with open(_引擎配置路径, "r", encoding="utf-8-sig") as _f:
+                    _引擎配置 = json.load(_f)
+                _版本 = _引擎配置.get("主引擎", {}).get("版本", "unknown")
+            except Exception:
+                pass
+            _系统配置 = 配置加载器.配置缓存.get("系统配置", {})
+            _网站地址 = _系统配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+            _api_key = _系统配置.get("网站认证", {}).get("agent_api_key", "")
+            if not _api_key:
+                return
+            _time.sleep(3)  # 等3秒让会话恢复完成
+            while True:
                 try:
-                    _引擎配置路径 = str(配置加载器.项目根目录 / "引擎管理" / "引擎配置.json")
-                    with open(_引擎配置路径, "r", encoding="utf-8-sig") as _f:
-                        _引擎配置 = json.load(_f)
-                    _版本 = _引擎配置.get("主引擎", {}).get("版本", "unknown")
+                    _已登录 = 0
+                    _用户名 = ""
+                    _会话 = 网页请求处理器._网站会话
+                    if _会话:
+                        _已登录 = 1
+                        _用户名 = _会话.get("用户", {}).get("username", "")
+                    _参数 = _up.urlencode({
+                        "machine_id": _全局机器ID,
+                        "version": _版本,
+                        "logged_in": str(_已登录),
+                        "username": _用户名
+                    }).encode("utf-8")
+                    _接口 = f"{_网站地址}/api/agent_api.asp?key={_up.quote(_api_key)}&a=heartbeat"
+                    _请求 = _ur.Request(_接口, data=_参数, method="POST")
+                    _请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    _ur.urlopen(_请求, timeout=10)
                 except Exception:
                     pass
-                # 读取网站配置
-                _系统配置 = 配置加载器.配置缓存.get("系统配置", {})
-                _网站地址 = _系统配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
-                _api_key = _系统配置.get("网站认证", {}).get("agent_api_key", "")
-                if not _api_key:
-                    return
-                # 检查是否已登录
-                _已登录 = 0
-                _用户名 = ""
-                _会话 = 网页请求处理器._网站会话
-                if _会话:
-                    _已登录 = 1
-                    _用户名 = _会话.get("用户", {}).get("username", "")
-                # 发送心跳（key和a放URL，其余放POST body）
-                _参数 = _up.urlencode({
-                    "machine_id": _machine_id,
-                    "version": _版本,
-                    "logged_in": str(_已登录),
-                    "username": _用户名
-                }).encode("utf-8")
-                _接口 = f"{_网站地址}/api/agent_api.asp?key={_up.quote(_api_key)}&a=heartbeat"
-                _请求 = _ur.Request(_接口, data=_参数, method="POST")
-                _请求.add_header("Content-Type", "application/x-www-form-urlencoded")
-                _ur.urlopen(_请求, timeout=10)
-            except Exception:
-                pass  # 静默失败，不影响启动
+                _time.sleep(120)  # 每2分钟发一次心跳
         _th2 = __import__("threading")
         _th2.Thread(target=_上报心跳, daemon=True).start()
+
+        # ── 远程命令轮询线程（手机→网站→智能体） ──
+        def _远程命令轮询():
+            import time as _time, json as _json, urllib.request as _ur2, urllib.parse as _up2
+            _系统配置 = 配置加载器.配置缓存.get("系统配置", {})
+            _网站地址 = _系统配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
+            _api_key = _系统配置.get("网站认证", {}).get("agent_api_key", "")
+            _远程配置 = _系统配置.get("远程控制", {})
+            _启用 = _远程配置.get("启用", True)
+            _间隔 = _远程配置.get("轮询间隔秒", 3)
+            if not _api_key or not _启用:
+                return
+            _time.sleep(5)  # 启动后等5秒再开始轮询
+            while True:
+                try:
+                    _接口 = f"{_网站地址}/api/agent_api.asp?a=get_commands"
+                    _参数 = _up2.urlencode({"key": _api_key, "machine_id": _全局机器ID}).encode("utf-8")
+                    _请求 = _ur2.Request(_接口, data=_参数, method="POST")
+                    _请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    with _ur2.urlopen(_请求, timeout=10) as _响应:
+                        _结果 = _json.loads(_响应.read().decode("utf-8"))
+                    if _结果.get("success") and _结果.get("commands"):
+                        for _cmd in _结果["commands"]:
+                            _cmd_id = _cmd["id"]
+                            _cmd_type = _cmd["type"]
+                            _cmd_data = _cmd.get("data", "{}")
+                            try:
+                                _cmd_data = _json.loads(_cmd_data) if isinstance(_cmd_data, str) and _cmd_data else {}
+                            except Exception:
+                                _cmd_data = {}
+                            _cmd_result = ""
+                            _cmd_success = 1
+                            try:
+                                if _cmd_type == "chat":
+                                    _消息 = _cmd_data.get("message", "")
+                                    if _消息:
+                                        # 走本地 /api/chat 接口（完整对话体验：记忆+上下文+技能）
+                                        _chat_payload = _json.dumps({"消息": _消息, "上下文": {"当前文件夹": "C:\\"}}).encode("utf-8")
+                                        _chat_req = _ur2.Request(
+                                            "http://127.0.0.1:8765/api/chat",
+                                            data=_chat_payload, method="POST"
+                                        )
+                                        _chat_req.add_header("Content-Type", "application/json")
+                                        _chat_req.add_header("Accept", "text/event-stream")
+                                        _chat_reply = ""
+                                        _思考过程 = []
+                                        with _ur2.urlopen(_chat_req, timeout=None) as _chat_resp:
+                                            while True:
+                                                _line = _chat_resp.readline()
+                                                if not _line:
+                                                    break
+                                                _line = _line.decode("utf-8", errors="replace").strip()
+                                                if not _line.startswith("data: "):
+                                                    continue
+                                                try:
+                                                    _ev = _json.loads(_line[6:])
+                                                    _ev类型 = _ev.get("类型", "")
+                                                    if _ev类型 == "思考":
+                                                        _思考内容 = _ev.get("内容", "")
+                                                        if _思考内容:
+                                                            _思考过程.append("💭 " + _思考内容[:200])
+                                                    elif _ev类型 == "操作调用":
+                                                        _操作名 = _ev.get("操作", "")
+                                                        _操作参数 = _ev.get("参数", {})
+                                                        _参数摘要 = ", ".join(f"{k}={str(v)[:30]}" for k, v in _操作参数.items() if v)
+                                                        _思考过程.append(f"🔧 {_操作名}({_参数摘要})")
+                                                    elif _ev类型 == "操作结果":
+                                                        _成功 = _ev.get("成功", False)
+                                                        _结果 = _ev.get("结果", "")
+                                                        _思考过程.append(f"  {'✅' if _成功 else '❌'} {_str(_结果)[:100]}")
+                                                    elif _ev类型 == "完成":
+                                                        _chat_reply = _ev.get("结果", {}).get("回复", "")
+                                                        break
+                                                except Exception:
+                                                    pass
+                                        # 回复内容 + 思考过程
+                                        if _思考过程:
+                                            _cmd_result = (_chat_reply or "(无回复)") + "\n\n--- 思考过程 ---\n" + "\n".join(_思考过程)
+                                        else:
+                                            _cmd_result = _chat_reply or "(无回复)"
+                                    else:
+                                        _cmd_result = "消息为空"
+                                        _cmd_success = 0
+                                elif _cmd_type == "task_list":
+                                    # 走本地API获取任务列表（最可靠）
+                                    try:
+                                        _tl_req = _ur2.Request("http://127.0.0.1:8765/api/wf-tasks", method="GET")
+                                        with _ur2.urlopen(_tl_req, timeout=10) as _tl_resp:
+                                            _tl_data = _json.loads(_tl_resp.read().decode("utf-8"))
+                                        _cmd_result = _json.dumps(_tl_data, ensure_ascii=False)
+                                    except Exception as _tl_ex:
+                                        _cmd_result = f"获取任务列表失败: {_tl_ex}"
+                                        _cmd_success = 0
+                                elif _cmd_type == "task_toggle":
+                                    _任务ID = _cmd_data.get("task_id", "")
+                                    _启用标志 = _cmd_data.get("enable", True)
+                                    _调度器 = getattr(网页请求处理器, '_定时任务调度器', None)
+                                    if _调度器 and hasattr(_调度器, '更新工作流任务'):
+                                        _调度器.更新工作流任务(_任务ID, {"启用": _启用标志})
+                                        _cmd_result = f"任务「{_任务ID}」已{'启用' if _启用标志 else '禁用'}"
+                                    else:
+                                        _cmd_result = "调度器未就绪"
+                                        _cmd_success = 0
+                                elif _cmd_type == "task_params":
+                                    # 获取暴露的节点参数（支持按task_id过滤）
+                                    _任务ID = _cmd_data.get("task_id", "")
+                                    _目标工作流 = ""
+                                    if _任务ID:
+                                        # 从调度器获取任务→找到工作流文件
+                                        _调度器 = getattr(网页请求处理器, '_定时任务调度器', None)
+                                        if _调度器:
+                                            _任务项 = None
+                                            for _t in _调度器.任务列表:
+                                                if _t.get("id") == _任务ID:
+                                                    _任务项 = _t
+                                                    break
+                                            if _任务项:
+                                                _目标工作流 = _任务项.get("工作流文件", "") or _任务项.get("名称", "")
+                                    try:
+                                        _节点图目录 = 配置加载器.项目根目录 / "节点图"
+                                        _params = []
+                                        for _wf文件 in _节点图目录.glob("*.json"):
+                                            _wf名 = _wf文件.stem
+                                            if _目标工作流 and _wf名 != _目标工作流:
+                                                continue
+                                            try:
+                                                with open(_wf文件, "r", encoding="utf-8") as _pf:
+                                                    _wf数据 = _json.load(_pf)
+                                                for _nd in (_wf数据.get("nodes", []) if isinstance(_wf数据, dict) else _wf数据):
+                                                    if _nd.get("exposed") and _nd.get("config"):
+                                                        _params.append({
+                                                            "工作流": _wf名,
+                                                            "节点ID": _nd.get("id", ""),
+                                                            "节点名": _nd.get("name", ""),
+                                                            "参数": _nd.get("config", {})
+                                                        })
+                                            except Exception:
+                                                pass
+                                        _cmd_result = _json.dumps(_params, ensure_ascii=False)
+                                    except Exception as _pex:
+                                        _cmd_result = f"获取参数失败: {_pex}"
+                                        _cmd_success = 0
+                                elif _cmd_type == "task_update_param":
+                                    # 更新暴露的节点参数
+                                    _工作流名 = _cmd_data.get("workflow", "")
+                                    _节点ID = _cmd_data.get("node_id", "")
+                                    _参数键 = _cmd_data.get("key", "")
+                                    _参数值 = _cmd_data.get("value", "")
+                                    try:
+                                        _节点图目录 = 配置加载器.项目根目录 / "节点图"
+                                        _wf文件 = _节点图目录 / f"{_工作流名}.json"
+                                        if _wf文件.exists():
+                                            with open(_wf文件, "r", encoding="utf-8") as _pf:
+                                                _wf数据 = _json.load(_pf)
+                                            _nodes = _wf数据.get("nodes", []) if isinstance(_wf数据, dict) else _wf数据
+                                            for _nd in _nodes:
+                                                if _nd.get("id") == _节点ID:
+                                                    if not _nd.get("config"):
+                                                        _nd["config"] = {}
+                                                    _nd["config"][_参数键] = _参数值
+                                                    break
+                                            with open(_wf文件, "w", encoding="utf-8") as _pf:
+                                                _json.dump(_wf数据, _pf, ensure_ascii=False, indent=2)
+                                            _cmd_result = f"参数「{_参数键}」已更新为「{_str(_参数值)[:50]}」"
+                                        else:
+                                            _cmd_result = f"工作流不存在: {_工作流名}"
+                                            _cmd_success = 0
+                                    except Exception as _uex:
+                                        _cmd_result = f"更新参数失败: {_uex}"
+                                        _cmd_success = 0
+                                else:
+                                    _cmd_result = f"未知命令类型: {_cmd_type}"
+                                    _cmd_success = 0
+                            except Exception as _cmd_ex:
+                                _cmd_result = f"执行异常: {_cmd_ex}"
+                                _cmd_success = 0
+                            # 上报结果
+                            try:
+                                _结果接口 = f"{_网站地址}/api/agent_api.asp?a=command_result"
+                                _结果参数 = _up2.urlencode({
+                                    "key": _api_key,
+                                    "command_id": str(_cmd_id),
+                                    "result": (_cmd_result or "")[:8000],
+                                    "success": str(_cmd_success)
+                                }).encode("utf-8")
+                                _结果请求 = _ur2.Request(_结果接口, data=_结果参数, method="POST")
+                                _结果请求.add_header("Content-Type", "application/x-www-form-urlencoded")
+                                _ur2.urlopen(_结果请求, timeout=10)
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                _time.sleep(_间隔)
+        _th2.Thread(target=_远程命令轮询, daemon=True).start()
 
         # 自定义线程服务器：客户端断开不崩溃
         class _健壮HTTPServer(ThreadingHTTPServer):

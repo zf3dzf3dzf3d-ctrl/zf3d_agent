@@ -1415,6 +1415,30 @@ function nextImage() {
     resetSlideshowTimer();
 }
 
+async function deleteCurrentImage() {
+    if (galleryImages.length === 0 || currentImageIdx < 0) return;
+    const img = galleryImages[currentImageIdx];
+    if (!confirm(`确定要删除图片「${img.名称}」吗？\n此操作不可撤销！`)) return;
+    try {
+        const res = await fetch("/api/file-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 路径: img.路径 }) });
+        const d = await res.json();
+        if (d.成功) {
+            galleryImages.splice(currentImageIdx, 1);
+            delete imageTransforms[currentImageIdx];
+            if (galleryImages.length === 0) {
+                backToGallery();
+            } else {
+                const newIdx = Math.min(currentImageIdx, galleryImages.length - 1);
+                fadeToImage(newIdx);
+            }
+        } else {
+            alert("删除失败: " + (d.错误 || "未知错误"));
+        }
+    } catch (e) {
+        alert("删除失败: " + e.message);
+    }
+}
+
 function toggleSlideshow() {
     const btn = document.getElementById("slideshowBtn");
     if (slideshowTimer) {

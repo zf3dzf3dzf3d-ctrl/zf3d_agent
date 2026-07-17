@@ -3024,6 +3024,47 @@
             });
             html += '</div></div>';
         }
+        // 数字员工分类（从 empCategories + employees 动态渲染）
+        if (employees.length > 0) {
+            var _已分类 = {};
+            empCategories.forEach(function(cat) {
+                (cat.employeeNames || []).forEach(function(n) { _已分类[n] = true; });
+            });
+            html += '<div class="wf-shop-category" data-cat="数字员工">' +
+                '<span class="wf-shop-cat-icon">👥</span>' +
+                '<span class="wf-shop-cat-name">数字员工</span>' +
+                '<span class="wf-shop-cat-arrow">▶</span>';
+            html += '<div class="wf-shop-submenu">';
+            // 按分组渲染
+            empCategories.forEach(function(cat) {
+                var names = (cat.employeeNames || []).filter(function(n) {
+                    return employees.find(function(e) { return (e.name||e.姓名) === n; });
+                });
+                if (names.length === 0) return;
+                html += '<div class="wf-shop-subcat-header">' + escapeHtml(cat.name) + ' (' + names.length + ')</div>';
+                names.forEach(function(name) {
+                    var emp = employees.find(function(e) { return (e.name||e.姓名) === name; });
+                    if (!emp) return;
+                    var avatar = emp.avatar || emp.头像 || '🙂';
+                    var config = JSON.stringify({员工名: name, 指令: ''}).replace(/'/g, "&#39;");
+                    html += '<div class="wf-shop-item" data-type="employee" data-name="' + escapeHtml(avatar + ' ' + name) + '" data-config=\'' + config + '\' data-search="' + ('数字员工 ' + cat.name + ' ' + name).toLowerCase() + '">' + avatar + ' ' + escapeHtml(name) + '</div>';
+                });
+            });
+            // 未分组员工
+            var _未分组 = employees.filter(function(e) {
+                return !(e.isMother || e.是母体) && !_已分类[(e.name||e.姓名)];
+            });
+            if (_未分组.length > 0) {
+                html += '<div class="wf-shop-subcat-header">未分组 (' + _未分组.length + ')</div>';
+                _未分组.forEach(function(emp) {
+                    var name = emp.name || emp.姓名;
+                    var avatar = emp.avatar || emp.头像 || '🙂';
+                    var config = JSON.stringify({员工名: name, 指令: ''}).replace(/'/g, "&#39;");
+                    html += '<div class="wf-shop-item" data-type="employee" data-name="' + escapeHtml(avatar + ' ' + name) + '" data-config=\'' + config + '\' data-search="' + ('数字员工 未分组 ' + name).toLowerCase() + '">' + avatar + ' ' + escapeHtml(name) + '</div>';
+                });
+            }
+            html += '</div></div>';
+        }
         // 保存选中为节点
         if (wfSelectedNodes.length > 0) {
             html += '<div class="wf-shop-sep" data-nosearch="1"></div>';
@@ -3167,6 +3208,14 @@
                             showToast('已加载: ' + name, 'success');
                         }
                     }).catch(function() {});
+                } else if (type === 'employee') {
+                    // 从 employees 数组查找补全 avatar/role
+                    var empName = config.员工名 || name.replace(/^[^\s]+\s/, '');
+                    var emp = employees.find(function(e) { return (e.name||e.姓名) === empName; });
+                    var avatar = emp ? (emp.avatar||emp.头像||'🙂') : '🙂';
+                    var role = emp ? (emp.role||emp.角色||'') : '';
+                    addWfNode(type, p.x, p.y, name, config, {员工名: empName, avatar: avatar, role: role});
+                    showToast('已创建: ' + name, 'success');
                 } else {
                     addWfNode(type, p.x, p.y, name, config, {});
                     showToast('已创建: ' + name, 'success');
@@ -3224,6 +3273,7 @@
                 '<div class="wf-task-actions">' +
                 '<button onclick="window.empWidget._runTask(\'' + t.id + '\')" title="立即执行">▶</button>' +
                 '<button onclick="window.empWidget._editTask(\'' + t.id + '\')" title="修改">✏️</button>' +
+                '<button onclick="window.empWidget._showTaskParams(\'' + t.id + '\')" title="暴露参数">📡</button>' +
                 '<button onclick="window.empWidget._toggleTask(\'' + t.id + '\')" title="启用/暂停">' + (t.启用?'⏸️':'▶️') + '</button>' +
                 '<button onclick="window.empWidget._delTask(\'' + t.id + '\')" title="删除">🗑️</button>' +
                 '</div></div>';
@@ -10924,6 +10974,7 @@
                 '<div class="wf-task-actions">' +
                 '<button onclick="window.empWidget._runTask(\'' + t.id + '\')" title="立即执行">▶</button>' +
                 '<button onclick="window.empWidget._editTask(\'' + t.id + '\')" title="修改">✏️</button>' +
+                '<button onclick="window.empWidget._showTaskParams(\'' + t.id + '\')" title="暴露参数">📡</button>' +
                 '<button onclick="window.empWidget._toggleTask(\'' + t.id + '\')" title="启用/暂停">' + (t.启用?'⏸️':'▶️') + '</button>' +
                 '<button onclick="window.empWidget._delTask(\'' + t.id + '\')" title="删除">🗑️</button>' +
                 '</div></div>';
@@ -11363,6 +11414,7 @@
             })() +
             '<div class="emp-wf-node-header" data-node="' + node.id + '">' +
                 '<span class="name">' + node.name + '</span>' +
+                '<span class="wf-node-run" onclick="event.stopPropagation();window.empWidget._toggleExpose(\'' + node.id + '\')" title="' + (node.exposed ? '取消暴露参数' : '暴露参数到远程') + '" style="' + (node.exposed ? 'color:#f59e0b' : '') + '">' + (node.exposed ? '📡' : '📌') + '</span>' +
                 '<span class="wf-node-run" onclick="event.stopPropagation();window.empWidget._runSingleNode(\'' + node.id + '\')" title="单独执行此节点">▶</span>' +
                 '<span class="del" onclick="window.empWidget._wfDeleteNode(\'' + node.id + '\')">✕</span>' +
             '</div>' +
@@ -11631,6 +11683,27 @@
         if (info) info.textContent = '节点: ' + wfNodes.length + ' | 连接: ' + wfConns.length;
     }
 
+    function _showVipGuide(title, desc, detail) {
+        if (document.getElementById('wfVipGuideOverlay')) return;
+        var ov = document.createElement('div');
+        ov.id = 'wfVipGuideOverlay';
+        ov.className = 'overlay';
+        ov.style.cssText = 'display:flex;z-index:10001;';
+        ov.innerHTML =
+            '<div class="dialog-box" style="max-width:400px;width:88%;text-align:center;">' +
+                '<div style="font-size:48px;margin-bottom:8px;">🔀</div>' +
+                '<h3 style="margin:0 0 8px 0;">' + title + '</h3>' +
+                '<p style="font-size:13px;color:var(--text2);margin:0 0 4px 0;">' + desc + '</p>' +
+                '<p style="font-size:12px;color:var(--text2);margin:0 0 16px 0;">' + detail + '</p>' +
+                '<div style="display:flex;gap:8px;justify-content:center;">' +
+                    '<button class="dlg-btn primary" onclick="window.open(\'https://www.zf3d.com/vip.asp\', \'_blank\')" style="padding:8px 24px;">💎 立即开通/续费</button>' +
+                '</div>' +
+                '<button class="dlg-btn" onclick="document.getElementById(\'wfVipGuideOverlay\').remove()" style="margin-top:8px;">稍后再说</button>' +
+            '</div>';
+        document.body.appendChild(ov);
+        ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+    }
+
     function openWorkflow() {
         const overlay = document.getElementById('empWfOverlay');
         const panel = document.getElementById('empWfPanel');
@@ -11693,7 +11766,34 @@
         document.getElementById('empWfOverlay').classList.remove('show');
     }
 
-    function toggleWorkflow() {
+    async function toggleWorkflow() {
+        // 后端VIP/管理员校验（不信任前端JS变量，每次调后端API验证）
+        if (!window.agentAuth || !window.agentAuth.isLoggedIn()) {
+            showToast('请先登录朱峰社区账号', 'error');
+            if (window.agentAuth) window.agentAuth.showLogin();
+            return;
+        }
+        try {
+            var resp = await fetch('/api/check-vip');
+            var data = await resp.json();
+            if (!data.已登录) {
+                showToast('请先登录朱峰社区账号', 'error');
+                if (window.agentAuth) window.agentAuth.showLogin();
+                return;
+            }
+            if (!data.is_vip && !data.is_admin) {
+                var 原因 = data.原因 || '未开通VIP';
+                if (原因.indexOf('过期') >= 0) {
+                    _showVipGuide('续费VIP会员', '🔀 您的VIP已过期', '续费VIP后即可继续使用节点工作流编辑器');
+                } else {
+                    _showVipGuide('开通VIP会员', '🔀 节点工作流为VIP会员专属功能', '开通VIP后即可使用节点工作流编辑器，可视化拖拽连线编排AI工作流');
+                }
+                return;
+            }
+        } catch(e) {
+            showToast('校验失败: ' + e.message, 'error');
+            return;
+        }
         if (document.getElementById('empWfOverlay').classList.contains('show')) {
             closeWorkflow();
         } else {
@@ -12341,7 +12441,7 @@
         execBtn.disabled = false;
         execBtn.textContent = '⏹ 停止';
         const logEl = document.getElementById('empWfLog');
-        if (logEl) logEl.innerHTML = '';
+        if (logEl) { logEl.innerHTML = ''; logEl.style.height = ''; logEl.classList.remove('collapsed'); }
         appendWfLog('🚀 工作流开始执行，共 ' + nodesData.length + ' 个节点', 'header');
 
         let wd = '';
@@ -13526,6 +13626,137 @@
         _发布中 = false;
     }
 
+    function _toggleExpose(nodeId) {
+        var node = wfNodes.find(function(n) { return n.id === nodeId; });
+        if (!node) return;
+        node.exposed = !node.exposed;
+        autoSaveWorkflow();
+        // 更新按钮图标和样式
+        var el = document.getElementById('wfNode_' + nodeId);
+        if (el) {
+            var btn = el.querySelector('.emp-wf-node-header .wf-node-run[title*="暴露"], .emp-wf-node-header .wf-node-run[title*="取消"]');
+            if (btn) {
+                btn.title = node.exposed ? '取消暴露参数' : '暴露参数到远程';
+                btn.style.color = node.exposed ? '#f59e0b' : '';
+                btn.textContent = node.exposed ? '📡' : '📌';
+            }
+        }
+        showToast(node.exposed ? '📡 已暴露参数，手机远程可修改' : '📌 已取消暴露', node.exposed ? 'success' : 'info');
+    }
+
+    function _showTaskParams(taskId) {
+        // 获取任务列表，找到对应任务的工作流文件
+        fetch('/api/wf-tasks', {method: 'GET'})
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var 任务列表 = data.任务列表 || data.tasks || [];
+            var task = 任务列表.find(function(t) { return t.id === taskId; });
+            if (!task) { showToast('任务不存在', 'error'); return; }
+            var wfName = task.工作流文件 || task.名称;
+            if (!wfName) { showToast('该任务无关联工作流', 'error'); return; }
+            // 加载工作流文件
+            fetch('/api/wf-load', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({文件名: wfName})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(wfData) {
+                var 图 = wfData.图 || wfData.data || {};
+                var nodes = 图.nodes || [];
+                var exposed = nodes.filter(function(n) { return n.exposed && n.config; });
+                if (exposed.length === 0) {
+                    showToast('该工作流没有暴露参数的节点（在节点上点📌暴露）', 'error');
+                    return;
+                }
+                // 构建参数面板HTML
+                var paramsHtml = '<div style="margin-bottom:8px;font-size:11px;color:var(--text2)">工作流: ' + escapeHtml(wfName) + '</div>';
+                exposed.forEach(function(nd) {
+                    paramsHtml += '<div style="background:var(--bg);border-radius:6px;padding:8px;margin-bottom:8px">' +
+                        '<div style="font-size:12px;font-weight:600;margin-bottom:6px">' + escapeHtml(nd.name) + '</div>';
+                    Object.keys(nd.config).forEach(function(key) {
+                        var val = nd.config[key];
+                        if (typeof val === 'object' || Array.isArray(val)) return; // 跳过复杂类型
+                        val = String(val || '');
+                        if (['员工名','头像','id','状态','独立记忆','工具调用'].indexOf(key) >= 0) {
+                            // 只读字段
+                            paramsHtml += '<div style="margin-bottom:4px"><div style="font-size:10px;color:var(--text2)">' + escapeHtml(key) + '</div>' +
+                                '<div style="padding:4px;font-size:11px;color:#8b8bb5;opacity:0.6">' + escapeHtml(val) + '</div></div>';
+                        } else if (val.length > 100) {
+                            paramsHtml += '<div style="margin-bottom:4px"><div style="font-size:10px;color:var(--text2)">' + escapeHtml(key) + '</div>' +
+                                '<textarea style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px;resize:vertical;font-family:inherit" rows="2" data-wf="' + escapeHtml(wfName) + '" data-node="' + nd.id + '" data-key="' + escapeHtml(key) + '">' + escapeHtml(val) + '</textarea></div>';
+                        } else {
+                            paramsHtml += '<div style="margin-bottom:4px"><div style="font-size:10px;color:var(--text2)">' + escapeHtml(key) + '</div>' +
+                                '<input type="text" value="' + escapeHtml(val) + '" style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px;font-size:11px" data-wf="' + escapeHtml(wfName) + '" data-node="' + nd.id + '" data-key="' + escapeHtml(key) + '"></div>';
+                        }
+                    });
+                    paramsHtml += '</div>';
+                });
+                // 弹窗
+                var old = document.getElementById('taskParamsOverlay');
+                if (old) old.remove();
+                var ov = document.createElement('div');
+                ov.id = 'taskParamsOverlay';
+                ov.className = 'overlay';
+                ov.style.cssText = 'display:flex;z-index:10001;';
+                ov.innerHTML = '<div class="dialog-box" style="max-width:500px;width:90%;max-height:80vh;overflow-y:auto">' +
+                    '<h3 style="margin:0 0 12px 0">📡 任务参数</h3>' +
+                    '<div>' + paramsHtml + '</div>' +
+                    '<div style="display:flex;gap:8px;margin-top:12px">' +
+                    '<button class="dlg-btn primary" id="taskParamsSaveBtn" style="flex:1;padding:10px">💾 保存</button>' +
+                    '<button class="dlg-btn" onclick="document.getElementById(\'taskParamsOverlay\').remove()" style="padding:10px 16px">取消</button>' +
+                    '</div></div>';
+                document.body.appendChild(ov);
+                // 保存按钮
+                document.getElementById('taskParamsSaveBtn').onclick = function() {
+                    var inputs = ov.querySelectorAll('input[data-wf], textarea[data-wf]');
+                    var changes = {};
+                    inputs.forEach(function(inp) {
+                        var wf = inp.dataset.wf, node = inp.dataset.node, key = inp.dataset.key;
+                        if (!changes[wf]) changes[wf] = {};
+                        if (!changes[wf][node]) changes[wf][node] = {};
+                        changes[wf][node][key] = inp.value;
+                    });
+                    // 逐个工作流保存
+                    var promises = [];
+                    Object.keys(changes).forEach(function(wf) {
+                        // 先加载工作流，修改参数，再保存
+                        promises.push(
+                            fetch('/api/wf-load', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({文件名: wf})
+                            })
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                var 图 = data.图 || data.data || {};
+                                var nodes = 图.nodes || [];
+                                Object.keys(changes[wf]).forEach(function(nodeId) {
+                                    var nd = nodes.find(function(n) { return n.id === nodeId; });
+                                    if (nd && nd.config) {
+                                        Object.keys(changes[wf][nodeId]).forEach(function(key) {
+                                            nd.config[key] = changes[wf][nodeId][key];
+                                        });
+                                    }
+                                });
+                                return fetch('/api/wf-save', {
+                                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({文件名: wf, 图: 图})
+                                });
+                            })
+                        );
+                    });
+                    Promise.all(promises).then(function() {
+                        showToast('✅ 参数已保存', 'success');
+                        ov.remove();
+                    }).catch(function(e) {
+                        showToast('保存失败: ' + e.message, 'error');
+                    });
+                };
+            });
+        })
+        .catch(function(e) { showToast('加载失败: ' + e.message, 'error'); });
+    }
+
     window.empWidget = {
         init: init, togglePanel: togglePanel, refresh: refresh,
         selectEmployee: selectEmployee, openChat: openChat, closeChat: closeChat,
@@ -13540,7 +13771,7 @@
         openWorkflow: openWorkflow, closeWorkflow: closeWorkflow, toggleWorkflow: toggleWorkflow, clearWorkflow: clearWorkflow,
         executeWorkflow: executeWorkflow, _wfDeleteNode: _wfDeleteNode, _runSingleNode: _runSingleNode, _wfUpdateConfig: _wfUpdateConfig,
         _imgGalleryNav: _imgGalleryNav, _imgExpand: _imgExpand, _imgCollapse: _imgCollapse, _imgSelect: _imgSelect,
-        _showTaskPanel: _showTaskPanel, _runTask: _runTask, _editTask: _editTask, _toggleTask: _toggleTask, _delTask: _delTask,
+        _showTaskPanel: _showTaskPanel, _runTask: _runTask, _editTask: _editTask, _toggleTask: _toggleTask, _delTask: _delTask, _showTaskParams: _showTaskParams,
         _showImageViewer: _showImageViewer, _ivNav: _ivNav,
         _wfLogCopy: function() {
             var log = document.getElementById('empWfLog');
@@ -13559,6 +13790,7 @@
         },
         _wfShowFull: _wfShowFull,
         _wfShowNodeDetail: _wfShowNodeDetail,
+        _toggleExpose: _toggleExpose,
         _wfUpdateFrame: _wfUpdateFrame, _wfDeleteFrame: _wfDeleteFrame,
         _wfToggleFrame: _wfToggleFrame, _wfFrameColor: _wfFrameColor, _wfCycleFrameColor: _wfCycleFrameColor, _wfRenameFrame: _wfRenameFrame, createWfFrame: createWfFrame,
         saveWorkflow: saveWorkflow, exportWorkflow: exportWorkflow, importWorkflow: importWorkflow,

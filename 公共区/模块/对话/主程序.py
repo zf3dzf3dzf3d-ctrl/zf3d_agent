@@ -857,6 +857,9 @@ class 对话模块:
 
     def 新建对话(self):
         self._取消标志 = True
+        # 等待旧对话线程检测到取消并退出（最多3秒），避免取消信号瞬间被重置
+        if self._锁.acquire(timeout=3):
+            self._锁.release()
         if self.当前对话ID:
             self._保存当前对话()
             self._清除检查点()
@@ -888,6 +891,9 @@ class 对话模块:
         if 对话ID == self.当前对话ID:
             return {"成功": True}
         self._取消标志 = True
+        # 等待旧对话线程检测到取消并退出（最多3秒）
+        if self._锁.acquire(timeout=3):
+            self._锁.release()
         if self.当前对话ID:
             self._保存当前对话()
         # 不清除检查点——让检查点跟随对话保留，切换回来时可以续跑

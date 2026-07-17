@@ -13,30 +13,35 @@
     var _isPlaying = true;   // 外部跟踪播放状态
     var _mode = 'new';       // 'new' 或 'modify'
 
-    function _checkVip(callback) {
+    async function _checkVip(callback) {
         if (!window.agentAuth || !window.agentAuth.isLoggedIn()) {
             showToast('请先登录朱峰社区账号', 'error');
             if (window.agentAuth) window.agentAuth.showLogin();
             return false;
         }
-        var user = window.agentAuth.getUser();
-        if (!user) {
-            showToast('获取用户信息失败，请重新登录', 'error');
+        // 后端校验（不信任前端JS变量）
+        try {
+            var resp = await fetch('/api/check-vip');
+            var data = await resp.json();
+            if (!data.已登录) {
+                showToast('请先登录朱峰社区账号', 'error');
+                if (window.agentAuth) window.agentAuth.showLogin();
+                return false;
+            }
+            if (!data.is_vip && !data.is_admin) {
+                var 原因 = data.原因 || '未开通VIP';
+                if (原因.indexOf('过期') >= 0) {
+                    _showVipDialog('续费VIP会员', '🎬 您的VIP已过期', '续费VIP后即可继续使用动画工坊');
+                } else {
+                    _showVipDialog('开通VIP会员', '🎬 动画工坊为VIP会员专属功能', '开通VIP后即可使用动画工坊，一句话生成SVG矢量动画');
+                }
+                return false;
+            }
+            return true;
+        } catch(e) {
+            showToast('校验失败: ' + e.message, 'error');
             return false;
         }
-        var vipStart = user.vip_start;
-        var vipEnd = user.vip_end;
-        if (!vipStart || !vipEnd) {
-            _showVipDialog('开通VIP会员', '🎬 动画工坊为VIP会员专属功能', '开通VIP后即可使用动画工坊，一句话生成SVG矢量动画');
-            return false;
-        }
-        var now = new Date();
-        var end = new Date(vipEnd);
-        if (end < now) {
-            _showVipDialog('续费VIP会员', '🎬 您的VIP已过期', '续费VIP后即可继续使用动画工坊');
-            return false;
-        }
-        return true;
     }
 
     // === VIP引导弹窗 ===
@@ -61,8 +66,8 @@
         ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
     }
 
-    function openWorkshop() {
-        if (!_checkVip()) return;
+    async function openWorkshop() {
+        if (!await _checkVip()) return;
         if (document.getElementById('lottieWorkshopOverlay')) return;
         _isPlaying = true;
         _mode = 'new';

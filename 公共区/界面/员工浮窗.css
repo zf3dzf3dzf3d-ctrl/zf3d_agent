@@ -446,11 +446,11 @@
     transition: height 0.3s;
     min-height: 0; max-height: 400px;
 }
-.emp-wf-log:not(:empty) { height: 160px; overflow-y: auto; padding-top: 28px; }
+.emp-wf-log:not(:empty) { height: 160px; overflow-y: auto; }
 .emp-wf-log.collapsed { height: 28px !important; overflow: hidden !important; }
-.emp-wf-log-dragbar { position: absolute; top: 0; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 7; background: var(--border); border-radius: 6px 6px 0 0; }
+.emp-wf-log-dragbar { position: sticky; top: 0; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 7; background: var(--border); border-radius: 6px 6px 0 0; }
 .emp-wf-log-dragbar:hover { background: var(--blue); }
-.emp-wf-log-toolbar { position: absolute; top: 2px; right: 4px; display: flex; gap: 4px; z-index: 6; }
+.emp-wf-log-toolbar { position: sticky; top: 6px; display: flex; gap: 4px; z-index: 6; margin-left: auto; width: fit-content; background: rgba(30,30,30,0.95); padding: 2px 4px; }
 .emp-wf-log-toolbar button { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-size: 10px; padding: 1px 6px; border-radius: 3px; cursor: pointer; }
 .emp-wf-log-toolbar button:hover { color: var(--blue); border-color: var(--blue); }
 .wf-log-entry { padding: 2px 4px; color: var(--text); border-radius: 3px; word-break: break-all; }

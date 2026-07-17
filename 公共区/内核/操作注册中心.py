@@ -1538,9 +1538,15 @@ class 操作注册中心类:
         except Exception:
             pass
 
-        # 安全兜底
-        if len(启用集) < 15:
-            return set(self._操作表.keys())
+        # 安全兜底：如果匹配结果太少（<8个），使用P0核心组而非全部120+工具
+        # 降低回退阈值（15→8），避免几乎每次都全量回退
+        if len(启用集) < 8:
+            P0核心 = {名 for 名, 组 in self._操作分组.items() if 组.get("优先级", 1) == 0}
+            P0工具 = set()
+            for 组 in P0核心:
+                P0工具.update(self._操作分组[组].get("操作", []))
+            # P0核心工具 + 当前已匹配的，但不回退到全量120+
+            启用集 = 启用集 | P0工具
         return {n for n in 启用集 if n in self._操作表}
 
     def 获取智能工具定义(self, 用户消息: str = "", 当前观察: str = "",
