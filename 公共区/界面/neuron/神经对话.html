@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神经元对话实验</title>
+    <link rel="stylesheet" href="神经对话.css">
+    <link rel="stylesheet" href="highlight-theme.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 上半区：画布 + Tab面板 -->
+        <div id="main-area">
+            <!-- 左侧：神经网络画布 -->
+            <div id="canvas-area">
+                <canvas id="brain-canvas"></canvas>
+                <div id="canvas-info">
+                    <span id="neuron-count">1 个神经元</span>
+                    <button id="anim-toggle" title="动画开关">⚡</button>
+                </div>
+            </div>
+
+            <!-- 拖拽分隔条 -->
+            <div id="panel-resizer">
+                <button id="panel-toggle" title="隐藏/显示面板">▶</button>
+            </div>
+
+            <!-- 右侧：Tab切换面板（对话/控制台） -->
+            <div id="panel-area">
+                <!-- Tab栏 -->
+                <div id="panel-tabs">
+                    <div class="panel-tab active" data-tab="chat">💬 对话</div>
+                    <div class="panel-tab" data-tab="console">🖥️ 控制台</div>
+                    <button id="console-clear" title="清空日志">🗑️</button>
+                </div>
+                <!-- 对话面板 -->
+                <div id="chat-panel" class="panel-content active">
+                    <div id="messages"></div>
+                </div>
+                <!-- 控制台面板 -->
+                <div id="console-panel" class="panel-content">
+                    <div id="console-body"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部输入栏（通栏，始终显示） -->
+        <div id="input-bar">
+            <button id="new-chat-btn" title="新建对话">🆕</button>
+            <button id="conv-list-btn" title="对话列表">📋</button>
+            <button id="mic-btn" title="语音输入">🎤</button>
+            <textarea id="input-box" placeholder="说点什么... (Shift+Enter换行)" rows="1" autocomplete="off"></textarea>
+            <button id="send-btn">发送</button>
+        </div>
+        <!-- 对话列表下拉 -->
+        <div id="conv-list-dropdown" class="conv-list-dropdown" style="display:none"></div>
+    </div>
+
+    <!-- 总结弹窗 -->
+    <div id="summary-modal" class="modal-overlay" style="display:none">
+        <div class="modal-box">
+            <div class="modal-title">🔍 总结员</div>
+            <div id="summary-content"></div>
+            <div class="modal-actions">
+                <button id="summary-skip" class="modal-btn">跳过</button>
+                <button id="summary-save" class="modal-btn modal-btn-primary">保存长期记忆</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 路线图确认弹窗 -->
+    <div id="plan-modal" class="modal-overlay" style="display:none">
+        <div class="modal-box" style="max-width:600px">
+            <div class="modal-title">📋 路线图预览</div>
+            <div id="plan-description" style="color:#aaaacc;margin-bottom:12px;font-size:13px;"></div>
+            <div id="plan-nodes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+            <div class="modal-actions">
+                <button id="plan-cancel" class="modal-btn">取消</button>
+                <button id="plan-execute" class="modal-btn modal-btn-primary">确认执行</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="marked.min.js"></script>
+    <script src="highlight.min.js"></script>
+    <script src="神经对话.js"></script>
+</body>
+</html>

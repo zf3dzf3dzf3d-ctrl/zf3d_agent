@@ -5,10 +5,16 @@
 
 // ============ 路径工具 ============
 
-// 规范化路径：统一分隔符为\，去末尾分隔符（盘符根除外）
+// 规范化路径：统一分隔符为\，合并连续反斜杠，去末尾分隔符（盘符根除外）
 function normPath(p) {
     if (!p) return null;
     p = String(p).replace(/\//g, "\\");
+    // 合并连续反斜杠（但保留UNC路径开头的\\）
+    if (p.startsWith("\\\\")) {
+        p = "\\\\" + p.slice(2).replace(/\\+/g, "\\");
+    } else {
+        p = p.replace(/\\+/g, "\\");
+    }
     // 盘符根 C:\ 保留末尾\
     if (/^[A-Za-z]:\\?$/.test(p)) return p.replace(/\\?$/, "\\");
     return p.replace(/\\+$/, "");

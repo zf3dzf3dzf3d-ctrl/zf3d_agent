@@ -26,6 +26,7 @@ async function silentUpdate(info) {
     btn.title = `正在静默更新到 ${info.最新版本}...`;
     btn.textContent = "⏳";
     showToast("info", "🔄 发现新版本", `${info.最新版本} 正在后台静默更新...`);
+    if (window.playSound) playSound('update-found');
     try {
         const res = await fetch("/api/do-update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 下载地址: info.下载地址 || "" }) });
         const d = await res.json();
@@ -35,6 +36,7 @@ async function silentUpdate(info) {
             btn.classList.remove("has-update");
             btn.title = `已更新到 ${info.最新版本}，点击重启生效`;
             showToast("success", "✅ 已更新到最新版", `${info.最新版本} 更新完成，点击右上角✅重启`);
+            if (window.playSound) playSound('update-done');
             btn.onclick = () => { if (confirm("更新已完成，是否立即重启？")) location.reload(); };
         } else {
             btn.textContent = "🔄";

@@ -64,8 +64,9 @@ function pollDownloadPanel() {
                 if (!item) {
                     item = document.createElement("div");
                     item.id = `dpItem_${dlId}`;
-                    item.className = "dl-item";
+                    item.className = "dl-item dl-item-enter";
                     body.appendChild(item);
+                    if (window.playSound) playSound('download-start');
                 }
 
                 // 原地更新条目内容（不重建DOM，防止闪烁）
@@ -74,6 +75,8 @@ function pollDownloadPanel() {
                 // 完成项：5秒后淡出移除
                 if (status === "完成" || status === "失败") {
                     if (!_dpCompletedTimers[dlId]) {
+                        if (status === "完成" && window.playSound) playSound('download-done');
+                        if (status === "失败" && window.playSound) playSound('error');
                         _dpCompletedTimers[dlId] = setTimeout(() => {
                             const el = document.getElementById(`dpItem_${dlId}`);
                             if (el) {

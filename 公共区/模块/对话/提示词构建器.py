@@ -539,6 +539,7 @@ class 提示词构建器类:
    - 用户提到comfyui、工作流、模型、生图 → 必须用ComfyUI操作。
    - 用户要下载文件 → **必须用「多线程下载」操作**。参数：下载地址(或网址/url)、保存路径。**禁止用「运行命令」跑aria2c/curl/wget**——运行命令有30秒超时限制，大文件必杀进程。多线程下载是后台执行不超时、自带进度条、自动SHA256校验。
    - 多线程下载参数名支持别名：下载地址=网址=url=URL，保存路径=保存到=路径。
+   - 用户要删除/创建/写入/读取文件 → **直接用对应文件操作**，禁止先搜索网络或搜索文件内容。删除文件用「删除文件」操作，路径用桌面=桌面\\文件名。
 8. **3ds Max / Houdini**：用户提到3dsmax/3dmax/3ds max/houdini时：
    - **必须调用「连接MCP服务」操作**（参数：服务名="3dsmax"），首次会自动安装环境，可能需要1-2分钟
    - 连接成功后**所有3ds Max操作必须用MCP_3dsmax_xxx工具**（渲染用render_scene、截图用capture_viewport、查场景用query_scene或get_session_context、执行脚本用execute_maxscript等）。**严禁用「运行命令」操控3ds Max（禁止curl/3dsmaxcmd/tasklist等）**

@@ -204,15 +204,25 @@
         e.preventDefault();
         e.stopPropagation();
         closeContextMenu();
+        // 检查是否系统员工
+        var emp = employees.find(function(em) { return (em.name || em.姓名) === name; });
+        var isSystem = emp && (emp.系统 || emp.system);
         contextMenuEl = document.createElement('div');
         contextMenuEl.className = 'emp-context-menu';
         contextMenuEl.style.left = e.clientX + 'px';
         contextMenuEl.style.top = e.clientY + 'px';
-        contextMenuEl.innerHTML =
-            '<div onclick="window.empWidget.openEditPanel(\'' + name + '\'); window.empWidget.closeContextMenu();">✏️ 编辑资料</div>' +
-            '<div onclick="window.empWidget.clearSuperiors(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除上级</div>' +
-            '<div onclick="window.empWidget.clearSubordinates(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除下属</div>' +
-            '<div onclick="window.empWidget.deleteEmployee(\'' + name + '\'); window.empWidget.closeContextMenu();">🗑️ 删除员工</div>';
+        var menuHtml = '';
+        if (!isSystem) {
+            menuHtml += '<div onclick="window.empWidget.openEditPanel(\'' + name + '\'); window.empWidget.closeContextMenu();">✏️ 编辑资料</div>';
+        }
+        menuHtml += '<div onclick="window.empWidget.clearSuperiors(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除上级</div>' +
+            '<div onclick="window.empWidget.clearSubordinates(\'' + name + '\'); window.empWidget.closeContextMenu();">🔓 清除下属</div>';
+        if (!isSystem) {
+            menuHtml += '<div onclick="window.empWidget.deleteEmployee(\'' + name + '\'); window.empWidget.closeContextMenu();">🗑️ 删除员工</div>';
+        } else {
+            menuHtml += '<div style="opacity:0.5;cursor:not-allowed">🔒 系统员工（不可修改/删除）</div>';
+        }
+        contextMenuEl.innerHTML = menuHtml;
         document.body.appendChild(contextMenuEl);
     }
 
@@ -730,20 +740,22 @@
         const avatar = emp.avatar || emp.头像 || '🙂';
         const role = emp.role || emp.角色 || '';
         const status = emp.status || emp.状态 || '在岗';
+        const isSystem = emp.系统 || emp.system || false;
         const dotCls = status === '在岗' ? 'online' : 'offline';
         const cls = 'emp-item emp-draggable' + (name === currentEmployee ? ' active' : '');
         var actions = '';
-        if (!isFixed) {
+        if (!isFixed && !isSystem) {
             actions = '<div class="emp-item-actions">' +
                 '<button class="emp-item-btn" onclick="event.stopPropagation();window.empWidget.openEditPanel(\'' + name + '\')" title="编辑">✏️</button>' +
                 '<button class="emp-item-btn danger" onclick="event.stopPropagation();window.empWidget.deleteEmployee(\'' + name + '\')" title="删除">✕</button>' +
             '</div>';
         }
+        var lockIcon = isSystem ? ' <span style="font-size:10px" title="系统员工">🔒</span>' : '';
         return '<div class="' + cls + '" draggable="true" data-name="' + name + '" ' +
             'onclick="window.empWidget.selectEmployee(\'' + name + '\')" ' +
             'oncontextmenu="window.empWidget.showContextMenu(event,\'' + name + '\'); return false;">' +
             '<div class="emp-avatar">' + avatar + '</div>' +
-            '<div class="emp-info"><div class="emp-name">' + name + '</div><div class="emp-role">' + role + '</div></div>' +
+            '<div class="emp-info"><div class="emp-name">' + name + lockIcon + '</div><div class="emp-role">' + role + '</div></div>' +
             actions +
             '</div>';
     }
@@ -1092,10 +1104,11 @@
         const role = emp ? (emp.role || emp.角色 || '') : '描述你想要的员工';
         const displayName = emp ? name : '创建新员工';
         const isMother = emp ? (emp.isMother || emp.是母体) : false;
+        const isSystem = emp && (emp.系统 || emp.system);
         const header = document.getElementById('empChatHeader');
         header.style.cursor = 'move';
         let actionsHtml = '';
-        if (!isMother && emp) {
+        if (!isMother && !isSystem && emp) {
             actionsHtml = '<button class="emp-chat-btn" onclick="window.empWidget.editEmployee(\'' + name + '\')" title="修改">⚙️</button>' +
                           '<button class="emp-chat-btn" onclick="window.empWidget.clearChat(\'' + name + '\')" title="清除聊天记录">🧹</button>' +
                           '<button class="emp-chat-btn danger" onclick="window.empWidget.deleteEmployee(\'' + name + '\')" title="删除员工">🗑️</button>';

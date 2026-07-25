@@ -14,7 +14,7 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 
 # 设置控制台窗口标题
 if sys.platform == 'win32':
-    os.system('title ZF3D Agent v3.3.9')
+    os.system('title ZF3D Agent v3.5.0')
 
 import importlib.util
 from pathlib import Path
@@ -84,7 +84,7 @@ class 启动器类:
         for 行 in 内容:
             banner.append("| " + 行 + " |")
         # 标题行
-        _标题 = "ZF3D Agent  v3.3.9"
+        _标题 = "ZF3D Agent  v3.5.0"
         _左 = (宽度 + 2 - len(_标题)) // 2
         _右 = 宽度 + 2 - len(_标题) - _左
         banner.extend([
@@ -104,7 +104,7 @@ class 启动器类:
             print("  " + line)
 
 
-        版本 = "v3.3.9"
+        版本 = "v3.5.0"
 
         启动步骤 = []
 
@@ -257,7 +257,7 @@ class 启动器类:
             try:
                 from 系统托盘 import 系统托盘 as 系统托盘类
                 self.系统托盘 = 系统托盘类(self)
-                self.系统托盘.启动("朱峰社区智能体 v3.3.9 运行中")
+                self.系统托盘.启动("朱峰社区智能体 v3.5.0 运行中")
                 启动步骤[-1] = ("📌", "系统托盘", "✅", "已创建")
             except Exception as e:
                 启动步骤[-1] = ("📌", "系统托盘", "⚠️", str(e)[:50])
@@ -463,6 +463,23 @@ class 启动器类:
         self.网页服务 = 网页服务类(端口, 界面目录)
         self.运行中 = True
         全局事件中心.发布("系统启动", {})
+
+        # ── 7b. 初始化神经元引擎（内嵌到主系统，不需要8770端口） ──
+        try:
+            sys.path.insert(0, str(self.项目根目录))
+            from neuron_engine import 初始化神经元引擎
+            脑, 波, 引擎 = 初始化神经元引擎(self.项目根目录)
+            self.神经元脑 = 脑
+            self.神经元波 = 波
+            self.神经元引擎 = 引擎
+            # 注入到网页服务
+            self.网页服务.神经元脑 = 脑
+            self.网页服务.神经元波 = 波
+            self.网页服务.神经元引擎 = 引擎
+        except Exception as e:
+            print(f"   ⚠️ 神经元引擎加载失败: {e}")
+            import traceback
+            traceback.print_exc()
 
         # ── 渲染启动摘要 ──
         for 图标, 名称, 状态, 详情 in 启动步骤:

@@ -47,6 +47,9 @@ function showPermissionDialog(req) {
     const actionMap = {"读":"读取","写":"写入","创建":"创建","删除":"删除"};
     document.getElementById("permAction").textContent = actionMap[req.操作] || req.操作 || "操作";
     overlay.style.display = "flex";
+    overlay.classList.remove("overlay-exit");
+    overlay.classList.add("overlay-enter");
+    if (window.playSound) playSound('permission');
 }
 
 async function respondPermission(choice) {

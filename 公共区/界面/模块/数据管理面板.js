@@ -31,19 +31,19 @@ async function loadStockDataPanel() {
     // 本地K线统计
     html += '<div class="sp-data-section">';
     html += '<div class="sp-data-title">📈 本地K线数据</div>';
-    html += '<div class="sp-data-stat" id="localDataStats">加载中...</div>';
+    html += '<div class="sp-data-stat" id="localDataStats"><span class="zf-skeleton" style="display:inline-block;width:120px;height:14px;"></span></div>';
     html += '</div>';
 
     // 本地财务数据统计
     html += '<div class="sp-data-section">';
     html += '<div class="sp-data-title">💼 本地财务数据</div>';
-    html += '<div class="sp-data-stat" id="financeDataStats">加载中...</div>';
+    html += '<div class="sp-data-stat" id="financeDataStats"><span class="zf-skeleton" style="display:inline-block;width:120px;height:14px;"></span></div>';
     html += '</div>';
 
     // 缓存管理
     html += '<div class="sp-data-section">';
     html += '<div class="sp-data-title">📦 实时缓存管理</div>';
-    html += '<div class="sp-data-stat" id="cacheStatsDisplay">加载中...</div>';
+    html += '<div class="sp-data-stat" id="cacheStatsDisplay"><span class="zf-skeleton" style="display:inline-block;width:120px;height:14px;"></span></div>';
     html += '<div class="sp-data-row" style="margin-top:8px;">';
     html += '<button class="sp-data-btn secondary" onclick="clearStockCache();loadStockDataPanel();">🗑️ 清空实时缓存</button>';
     html += '</div>';

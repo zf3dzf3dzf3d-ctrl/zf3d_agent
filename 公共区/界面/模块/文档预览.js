@@ -28,7 +28,7 @@ async function renderDocumentContent(idx) {
     if (!f || f.type !== 'document') return;
     const isActive = (idx === activeFileIdx);
     const target = isActive ? document.getElementById("docContent") : document.createElement("div");
-    if (isActive) target.innerHTML = '<div style="color:#888;text-align:center;padding:40px;">加载中...</div>';
+    if (isActive) target.innerHTML = '<div class="zf-loading"><span class="zf-spinner zf-spinner-lg"></span><span class="zf-loading-text">加载中...</span></div>';
     try {
         const ext = (f.name.split(".").pop() || "").toLowerCase();
         if (ext === "pdf") {

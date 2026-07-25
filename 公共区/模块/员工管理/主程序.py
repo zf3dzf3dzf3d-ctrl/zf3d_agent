@@ -26,6 +26,12 @@ class 员工管理模块:
         self._母体模型 = None
         self._员工配置路径 = None
         self._锁 = threading.RLock()
+        self.提示词构建器 = None
+        self.经验师 = None
+        self.绕路师 = None
+        self._员工经验池 = {}
+        self._模块注册 = None
+        self._配置文件mtime = 0  # 脏标记：上次加载时的文件修改时间
 
     def 初始化(self, 配置: dict):
         self.配置 = 配置
@@ -42,10 +48,19 @@ class 员工管理模块:
             self._母体操作列表 = self.操作注册中心.列出所有操作()
         if self.模型直连器:
             self._母体模型 = getattr(self.模型直连器, "当前模型名", None)
+        # 保存模块注册引用，延迟获取对话模块的构建器（解决加载顺序问题）
+        self._模块注册 = 配置.get("模块注册", {})
         self._加载员工配置()
 
     def _加载员工配置(self):
         with self._锁:
+            # 脏标记优化：文件未修改则跳过重新解析（减少IO）
+            try:
+                当前mtime = self._员工配置路径.stat().st_mtime
+                if 当前mtime == self._配置文件mtime and self.员工列表:
+                    return
+            except Exception:
+                pass
             try:
                 with open(self._员工配置路径, "r", encoding="utf-8") as f:
                     self._原始配置 = json.load(f)
@@ -573,10 +588,34 @@ class 员工管理模块:
         }
         追加 = 员工dict.get("人设追加", "")
         运行时["人设追加"] = 追加
-        if 追加:
-            运行时["系统提示词"] = self._母体提示词 + "\n\n" + 追加
+        # 对话员工化：延迟获取对话模块的构建器（解决模块加载顺序问题）
+        if self.提示词构建器 is None and self._模块注册:
+            对话模块 = self._模块注册.get("对话")
+            if 对话模块:
+                self.提示词构建器 = getattr(对话模块, "提示词构建器", None)
+                self.经验师 = getattr(对话模块, "经验师", None)
+                self.绕路师 = getattr(对话模块, "绕路师", None)
+        # 优先使用14层提示词构建器
+        if self.提示词构建器:
+            try:
+                基础提示词 = 追加 if 追加 else self._母体提示词
+                工具调用 = 员工dict.get("工具调用", False)
+                完整提示词 = self.提示词构建器.构建(
+                    基础提示词=基础提示词,
+                    工作模式="执行",
+                    文件上下文="",
+                    模型直连器=self.模型直连器,
+                    操作注册中心=self.操作注册中心,
+                    模块注册=self._模块注册,
+                    永久记忆=[],
+                    配置={"当前消息": 追加 or 员工dict.get("角色", "")},
+                    fc已降级=not 工具调用,
+                )
+                运行时["系统提示词"] = 完整提示词
+            except Exception:
+                运行时["系统提示词"] = self._母体提示词 + ("\n\n" + 追加 if 追加 else "")
         else:
-            运行时["系统提示词"] = self._母体提示词
+            运行时["系统提示词"] = self._母体提示词 + ("\n\n" + 追加 if 追加 else "")
         可用操作 = 员工dict.get("可用操作")
         if 可用操作 is None:
             运行时["可用操作"] = list(self._母体操作列表)
@@ -908,13 +947,37 @@ class 员工管理模块:
 
 
     def _获取母体运行时(self) -> dict:
+        # 对话员工化：延迟获取构建器
+        if self.提示词构建器 is None and self._模块注册:
+            对话模块 = self._模块注册.get("对话")
+            if 对话模块:
+                self.提示词构建器 = getattr(对话模块, "提示词构建器", None)
+                self.经验师 = getattr(对话模块, "经验师", None)
+                self.绕路师 = getattr(对话模块, "绕路师", None)
+        # 优先使用14层构建器
+        母体提示词 = self._母体提示词
+        if self.提示词构建器:
+            try:
+                母体提示词 = self.提示词构建器.构建(
+                    基础提示词=self._母体提示词,
+                    工作模式="执行",
+                    文件上下文="",
+                    模型直连器=self.模型直连器,
+                    操作注册中心=self.操作注册中心,
+                    模块注册=self._模块注册,
+                    永久记忆=[],
+                    配置={"当前消息": self.母体.get("角色", "全能助手")},
+                    fc已降级=False,
+                )
+            except Exception:
+                母体提示词 = self._母体提示词
         return {
             "id": "母体",
             "姓名": self.母体.get("姓名", "母体"),
             "头像": self.母体.get("头像", "🤖"),
             "角色": self.母体.get("角色", "全能助手"),
             "目标": "",
-            "系统提示词": self._母体提示词,
+            "系统提示词": 母体提示词,
             "可用操作": list(self._母体操作列表),
             "权限目录": None,
             "模型": self._母体模型,
@@ -5871,6 +5934,8 @@ class 员工管理模块:
             return {"成功": False, "错误": "母体不可修改"}
         for i, 员工 in enumerate(self.员工列表):
             if 员工.get("姓名") == 姓名:
+                if 员工.get("系统"):
+                    return {"成功": False, "错误": "系统员工不可修改"}
                 新姓名 = 配置dict.get("姓名", 姓名)
                 if 新姓名 != 姓名:
                     for e in self.员工列表:
@@ -5891,6 +5956,8 @@ class 员工管理模块:
         self._加载员工配置()
         for i, 员工 in enumerate(self.员工列表):
             if (员工.get("姓名") or "").strip() == 姓名:
+                if 员工.get("系统"):
+                    return {"成功": False, "错误": "系统员工不可删除"}
                 del self.员工列表[i]
                 if self.当前员工 == 姓名:
                     self.当前员工 = "母体"
@@ -5961,6 +6028,11 @@ class 员工管理模块:
                     json.dump(self._原始配置, f, ensure_ascii=False, indent=2)
                 # 替换主文件
                 临时路径.replace(self._员工配置路径)
+                # 更新mtime缓存（避免下次读取重复解析）
+                try:
+                    self._配置文件mtime = self._员工配置路径.stat().st_mtime
+                except Exception:
+                    pass
                 # 自动备份到隐私区（保留最近5份）
                 self._自动备份()
             except Exception:

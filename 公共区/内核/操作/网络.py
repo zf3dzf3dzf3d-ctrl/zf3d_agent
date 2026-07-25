@@ -91,9 +91,24 @@ class 网页抓取(操作基类):
         # 回退：urllib + 正则清洗
         try:
             import urllib.request
-            请求 = urllib.request.Request(网址, headers={"User-Agent": "Mozilla/5.0"})
+            import gzip as _gzip
+            import io as _io
+            请求 = urllib.request.Request(网址, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Accept-Encoding": "gzip, deflate",
+            })
             响应 = urllib.request.urlopen(请求, timeout=15)
             原始字节 = 响应.read()
+            # 自动解压gzip/deflate
+            编码方式 = 响应.headers.get("Content-Encoding", "").lower()
+            if "gzip" in 编码方式:
+                原始字节 = _gzip.decompress(原始字节)
+            elif "deflate" in 编码方式:
+                import zlib as _zlib
+                try:
+                    原始字节 = _zlib.decompress(原始字节)
+                except _zlib.error:
+                    原始字节 = _zlib.decompress(原始字节, -_zlib.MAX_WBITS)
             # 自动检测编码
             编码 = "utf-8"
             内容类型 = 响应.headers.get("Content-Type", "")
@@ -103,7 +118,6 @@ class 网页抓取(操作基类):
                 try:
                     内容 = 原始字节.decode(编码, errors="replace")
                 except (LookupError, UnicodeDecodeError):
-                    # 尝试GBK
                     try:
                         内容 = 原始字节.decode("gbk", errors="replace")
                     except:
@@ -182,13 +196,23 @@ class 网络搜索(操作基类):
 
             结果块列表 = re_mod.findall(r'<li class="b_algo">(.*?)</li>', 内容, re_mod.DOTALL)
             if not 结果块列表:
-                标题列表 = re_mod.findall(r'<h2[^>]*>(?:<a[^>]*>)?(.*?)(?:</a>)?</h2>', 内容, re_mod.DOTALL)
+                # Bing可能改了HTML结构，尝试其他模式
+                结果块列表 = re_mod.findall(r'<div class="b_caption">(.*?)</div>', 内容, re_mod.DOTALL)
+            if not 结果块列表:
+                # 最后回退：从<a>标签提取标题+URL
+                链接列表 = re_mod.findall(r'<a[^>]*href="(https?://[^"]*)"[^>]*>(.*?)</a>', 内容, re_mod.DOTALL)
                 结果列表 = []
-                for 标题 in 标题列表[:数量]:
-                    干净标题 = re_mod.sub(r'<[^>]+>', '', 标题).strip()
-                    if 干净标题:
-                        结果列表.append(f"• {干净标题}")
-                return 操作结果.成功("\n".join(结果列表) if 结果列表 else "未找到结果",
+                for url, 标题raw in 链接列表[:数量]:
+                    干净标题 = re_mod.sub(r'<[^>]+>', '', 标题raw).strip()
+                    # 跳过Bing内部链接和空标题
+                    if 干净标题 and 'bing.com' not in url and 'microsoft.com' not in url and len(干净标题) > 5:
+                        条目 = f"📄 {干净标题}\n   🔗 {url}"
+                        结果列表.append(条目)
+                if 结果列表:
+                    汇总 = f"搜索「{关键词}」第{页码}页，找到{len(结果列表)}条结果:\n"
+                    return 操作结果.成功(汇总 + "\n\n".join(结果列表),
+                                         {"操作类型": "网络搜索", "引擎": "Bing", "结果数": len(结果列表)})
+                return 操作结果.成功(f"未找到「{关键词}」的搜索结果",
                                      {"操作类型": "网络搜索", "引擎": "Bing"})
 
             结果列表 = []
@@ -259,13 +283,25 @@ class 网页分析(操作基类):
         if not 内容:
             try:
                 import urllib.request
+                import gzip as _gzip2
                 import re as re_mod
 
                 请求 = urllib.request.Request(网址, headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Accept-Encoding": "gzip, deflate",
                 })
                 响应 = urllib.request.urlopen(请求, timeout=15)
                 原始字节 = 响应.read()
+                # 自动解压gzip/deflate
+                编码方式 = 响应.headers.get("Content-Encoding", "").lower()
+                if "gzip" in 编码方式:
+                    原始字节 = _gzip2.decompress(原始字节)
+                elif "deflate" in 编码方式:
+                    import zlib as _zlib2
+                    try:
+                        原始字节 = _zlib2.decompress(原始字节)
+                    except _zlib2.error:
+                        原始字节 = _zlib2.decompress(原始字节, -_zlib2.MAX_WBITS)
                 # 自动检测编码
                 编码 = "utf-8"
                 内容类型 = 响应.headers.get("Content-Type", "")

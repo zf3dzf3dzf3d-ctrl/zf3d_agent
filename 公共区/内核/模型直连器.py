@@ -897,6 +897,7 @@ class 模型直连器类:
             请求体["tools"] = 工具列表
             请求体["tool_choice"] = 工具选择 or "auto"
         请求体["stream"] = True  # 启用流式
+        请求体["stream_options"] = {"include_usage": True}  # 流式返回Token统计
 
         开始时间 = time.time()
         try:
@@ -986,6 +987,8 @@ class 模型直连器类:
                     工具调用结果.append({"id": tc["id"], "名称": tc["名称"], "参数": 参数})
 
             # Token统计（从最后一个块的usage取）
+            提示tokens = 0
+            生成tokens = 0
             try:
                 最后块 = 原始块列表[-1] if 原始块列表 else {}
                 usage = 最后块.get("usage", {}) or {}
@@ -1007,7 +1010,10 @@ class 模型直连器类:
             except Exception:
                 pass
 
-            # 重建assistant消息（与发送消息()格式一致，供推理引擎提取tool_calls）
+            # 如果API没返回usage，用估算值
+            if 提示tokens == 0 and 生成tokens == 0:
+                提示tokens = len(json.dumps(消息列表, ensure_ascii=False)) // 3
+                生成tokens = len(回复内容) // 2 if 回复内容 else 0
             助手消息 = {"role": "assistant", "content": 回复内容}
             if 工具调用结果:
                 助手消息["tool_calls"] = [
@@ -1031,6 +1037,8 @@ class 模型直连器类:
                 "响应状态": 200,
                 "耗时毫秒": 耗时毫秒,
                 "流式": True,
+                "提示tokens": 提示tokens,
+                "生成tokens": 生成tokens,
                 "finish_reason": 流式finish_reason or ("tool_calls" if 工具调用结果 else "stop")
             }
             self._记录LLM调用日志(返回结果, 系统提示词, 消息列表)
@@ -1147,6 +1155,8 @@ class 模型直连器类:
                 耗时毫秒 = int((time.time() - 开始时间) * 1000)
 
                 # Token使用统计
+                提示tokens = 0
+                生成tokens = 0
                 try:
                     usage = 响应JSON.get("usage", {})
                     提示tokens = usage.get("prompt_tokens", 0) or usage.get("input_tokens", 0)
@@ -1170,6 +1180,10 @@ class 模型直连器类:
 
                 # 提取回复内容
                 回复内容 = self._提取回复(响应JSON)
+                # 如果API没返回usage，用估算值
+                if 提示tokens == 0 and 生成tokens == 0:
+                    提示tokens = len(json.dumps(消息列表, ensure_ascii=False)) // 3
+                    生成tokens = len(回复内容) // 2 if 回复内容 else 0
                 # 提取工具调用（function calling）
                 工具调用列表 = self._提取工具调用(响应JSON)
 
@@ -1181,6 +1195,8 @@ class 模型直连器类:
                     "原始请求": {"url": self.接口地址, "headers": self._脱敏请求头(请求头), "body": 请求体},
                     "原始响应": 响应JSON,
                     "响应状态": 响应.status,
+                    "提示tokens": 提示tokens,
+                    "生成tokens": 生成tokens,
                     "耗时毫秒": 耗时毫秒,
                     "finish_reason": 响应JSON.get("choices", [{}])[0].get("finish_reason", "") if 响应JSON.get("choices") else ""
                 }

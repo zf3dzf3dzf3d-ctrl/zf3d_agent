@@ -104,11 +104,13 @@ function showFileSelectionHint() {
         hint = document.createElement("div");
         hint.id = "fileSelectionHint";
         hint.className = "file-selection-hint";
-        const inputArea = document.querySelector(".chat-input-area");
-        if (inputArea) inputArea.insertBefore(hint, inputArea.firstChild);
+        const selBar = document.getElementById("selection-bar");
+        if (selBar) { selBar.innerHTML = ""; selBar.appendChild(hint); }
     }
     if (selectedItems.size === 0) {
         hint.style.display = "none";
+        const selBar = document.getElementById("selection-bar");
+        if (selBar) selBar.innerHTML = "";
         return;
     }
     let 文件数 = 0, 文件夹数 = 0;
@@ -161,12 +163,16 @@ function onSelectionDblClick(e) {
 }
 
 function onSelectionClick(e) {
-    // 拖拽刚结束，吞掉click防止打开文件
+    // 拖拽刚结束，吞掉click防止打开文件——但只吞文件项，不吞按钮等UI元素
     if (justDragged) {
         justDragged = false;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
+        // 只拦截文件项的click，放行按钮/输入框等UI元素
+        const isFileItem = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
+        if (isFileItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
     }
     if (!e.ctrlKey && !e.metaKey) return;
     const item = e.target.closest(".gallery-item") || e.target.closest(".gallery-list-row") || e.target.closest(".ti");
@@ -360,8 +366,8 @@ function showSelectionHint(text) {
         hint = document.createElement("div");
         hint.id = "selectionHint";
         hint.className = "selection-hint";
-        const inputArea = document.querySelector(".chat-input-area");
-        inputArea.insertBefore(hint, inputArea.firstChild);
+        const selBar = document.getElementById("selection-bar");
+        if (selBar) { selBar.innerHTML = ""; selBar.appendChild(hint); }
     }
     const preview = text.length > 200 ? text.substring(0, 200) + `... (${text.length}字)` : text;
     const fname = (currentViewFile && currentViewFile.名称) || openFiles[activeFileIdx]?.name || "";
@@ -370,7 +376,12 @@ function showSelectionHint(text) {
     hint.style.display = "block";
 }
 
-function hideSelectionHint() { const h = document.getElementById("selectionHint"); if (h) h.style.display = "none"; }
+function hideSelectionHint() {
+    const h = document.getElementById("selectionHint");
+    if (h) h.style.display = "none";
+    const selBar = document.getElementById("selection-bar");
+    if (selBar) selBar.innerHTML = "";
+}
 function clearSelection() {
     editorSelection = null;
     if (activeFileIdx >= 0 && openFiles[activeFileIdx]) openFiles[activeFileIdx].selection = null;

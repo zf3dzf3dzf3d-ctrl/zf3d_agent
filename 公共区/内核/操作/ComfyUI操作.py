@@ -2104,7 +2104,7 @@ class ComfyUI修复自定义节点(操作基类):
 
         if not 安装路径 or not os.path.exists(安装路径):
             return 操作结果.失败(
-                "ComfyUI安装路径未配置或不存在。请告诉我你的ComfyUI安装路径（如 C:\\Users\\Administrator\\Documents\\ComfyUI），我会自动保存，下次不用再提供"
+                "ComfyUI安装路径未配置或不存在。请告诉我你的ComfyUI安装路径（如 D:\\ComfyUI 或 C:\\Users\\你的用户名\\Documents\\ComfyUI），我会自动保存，下次不用再提供"
             )
 
         # 定位custom_nodes目录

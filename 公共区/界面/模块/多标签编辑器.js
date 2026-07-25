@@ -104,9 +104,13 @@ function switchTab(idx, skipSave) {
         }
     }
     renderTabs();
+    // 内容切换淡入
+    const editorC = document.getElementById("editorContainer");
+    if (editorC) { editorC.classList.remove("panel-content-fade"); void editorC.offsetWidth; editorC.classList.add("panel-content-fade"); }
 }
 
 function closeTab(idx) {
+    if (window.playSound) playSound('tab-close');
     const wasActive = (idx === activeFileIdx);
     openFiles.splice(idx, 1);
     if (wasActive) {

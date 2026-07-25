@@ -88,6 +88,7 @@ function initPanels() {
         }
     });
     updateDividers();
+    _restorePanelWidths();
     setTimeout(checkPanelNarrow, 50);
 }
 
@@ -100,19 +101,53 @@ function _savePanelState() {
     localStorage.setItem("panelState", JSON.stringify(state));
 }
 
+function _savePanelWidths() {
+    const widths = {};
+    ["filesPanel", "editorPanel", "chatPanel"].forEach(id => {
+        const p = document.getElementById(id);
+        if (p && !p.classList.contains("hidden") && p.style.width) {
+            widths[id] = parseInt(p.style.width);
+        }
+    });
+    localStorage.setItem("panelWidths", JSON.stringify(widths));
+}
+
+function _restorePanelWidths() {
+    try {
+        const saved = JSON.parse(localStorage.getItem("panelWidths") || "{}");
+        ["filesPanel", "editorPanel", "chatPanel"].forEach(id => {
+            const p = document.getElementById(id);
+            if (p && !p.classList.contains("hidden") && saved[id]) {
+                p.style.flex = "0 0 auto";
+                p.style.width = saved[id] + "px";
+            }
+        });
+        // chatPanel如果没存宽度(被设为flex:1 1 auto)，保持自适应
+        if (!saved.chatPanel) {
+            const chat = document.getElementById("chatPanel");
+            if (chat && !chat.classList.contains("hidden")) chat.style.flex = "1 1 auto";
+        }
+    } catch(e) {}
+}
+
 function togglePanel(panelId, btnId) {
     const panel = document.getElementById(panelId);
     const isHidden = panel.classList.contains("hidden");
     panel.classList.toggle("hidden");
     panel.classList.remove("panel-narrow");
-    // 从隐藏恢复时，清除所有面板的拖拽残留（inline width和flex），让CSS默认值接管
+    // 从隐藏恢复时，清除文件/编辑器面板的拖拽残留（inline width和flex），让CSS默认值接管
+    // chatPanel保留flex:1 1 auto使其始终自适应宽度
     if (isHidden) {
-        ["filesPanel", "editorPanel", "chatPanel"].forEach(id => {
+        ["filesPanel", "editorPanel"].forEach(id => {
             const p = document.getElementById(id);
             p.style.width = "";
             p.style.flex = "";
             p.classList.remove("panel-narrow");
         });
+        const chat = document.getElementById("chatPanel");
+        chat.style.width = "";
+        chat.style.flex = "1 1 auto";
+        chat.classList.remove("panel-narrow");
     }
     document.getElementById(btnId).classList.toggle("active");
     updateDividers();
@@ -136,7 +171,7 @@ function updateDividers() {
         if (!chat.classList.contains("hidden")) chat.style.flex = "1 0 auto";
     } else {
         files.style.flex = "";
-        chat.style.flex = "";
+        chat.style.flex = "1 1 auto";
     }
 }
 
@@ -154,21 +189,26 @@ function initDividers() {
                 const dx = e.clientX - startX;
                 if (leftId === "editorPanel" || leftId === "stockPanel") {
                     const newW = Math.max(0, startRW - dx);
+                    rightP.style.flex = "0 0 auto";
                     rightP.style.width = newW + "px";
+                    leftP.style.flex = "1 1 auto";
                     rightP.classList.toggle("panel-narrow", newW < 隐藏阈值);
                     leftP.classList.toggle("panel-narrow", leftP.offsetWidth < 隐藏阈值);
                     if (newW <= 关闭阈值) { collapsePanel(rightId, leftId); onUp(); }
                     else if (leftP.offsetWidth <= 关闭阈值) { collapsePanel(leftId, rightId); onUp(); }
                 } else {
                     const newW = Math.max(0, startLW + dx);
+                    leftP.style.flex = "0 0 auto";
                     leftP.style.width = newW + "px";
+                    rightP.style.flex = "1 1 auto";
                     leftP.classList.toggle("panel-narrow", newW < 隐藏阈值);
                     rightP.classList.toggle("panel-narrow", rightP.offsetWidth < 隐藏阈值);
                     if (newW <= 关闭阈值) { collapsePanel(leftId, rightId); onUp(); }
                     else if (rightP.offsetWidth <= 关闭阈值) { collapsePanel(rightId, leftId); onUp(); }
                 }
             };
-            const onUp = () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+            const onUp = () => { d.classList.remove("dragging"); document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); _savePanelWidths(); };
+            d.classList.add("dragging");
             document.addEventListener("mousemove", onMove);
             document.addEventListener("mouseup", onUp);
         });
@@ -188,11 +228,7 @@ function collapsePanel(panelId, otherId) {
     _savePanelState();
 }
 
-// ============ 对话初始化 ============
+// 对话面板已替换为神经元对话实验，initChat跳过（避免找不到userInput元素报错）
 function initChat() {
-    const input = document.getElementById("userInput");
-    const btn = document.getElementById("sendBtn");
-    btn.addEventListener("click", () => { isChatting ? stopChat() : sendMessage(); });
-    input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-    input.addEventListener("input", () => { input.style.overflowY = input.scrollHeight > input.clientHeight ? "auto" : "hidden"; });
+    console.log("🧠 神经元对话实验已加载到右侧面板");
 }

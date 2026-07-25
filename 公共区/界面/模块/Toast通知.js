@@ -14,6 +14,7 @@ function showToast(type, title, msg, duration) {
     const c = document.getElementById("toastContainer");
     if (!c) return;
     const icons = { success: "✅", error: "❌", info: "ℹ️" };
+    if (window.playSound) playSound('toast-' + (type || 'info'));
     const t = document.createElement("div");
     t.className = `toast ${type}`;
     t.innerHTML = `<span class="toast-icon">${icons[type] || "ℹ️"}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div><span class="toast-close" onclick="this.parentElement.remove()">✕</span>`;

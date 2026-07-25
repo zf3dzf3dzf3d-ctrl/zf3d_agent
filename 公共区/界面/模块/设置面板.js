@@ -5,7 +5,13 @@
 
 // ============ 设置面板 ============
 function initSettings() {
-    document.getElementById("settingsBtn").addEventListener("click", () => { document.getElementById("settingsOverlay").style.display = "flex"; loadMemory(); });
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+        const ov = document.getElementById("settingsOverlay");
+        ov.style.display = "flex";
+        ov.classList.remove("overlay-exit");
+        ov.classList.add("overlay-enter");
+        loadMemory();
+    });
     document.querySelectorAll(".snav-item[data-tab]").forEach(item => {
         item.addEventListener("click", () => {
             document.querySelectorAll(".snav-item").forEach(i => i.classList.remove("active"));
@@ -20,12 +26,18 @@ function initSettings() {
             if (item.dataset.tab === "tokenstats") loadTokenStats();
             if (item.dataset.tab === "config") loadConfig();
             if (item.dataset.tab === "wheel") loadWheelConfig();
-            if (item.dataset.tab === "voice") { loadVoiceConfig(); loadTTSConfig(); }
+            if (item.dataset.tab === "voice") { loadVoiceConfig(); loadTTSConfig(); loadSoundSettings(); }
             if (item.dataset.tab === "cloudimg") loadCloudKeys();
         });
     });
 }
-function closeSettings() { document.getElementById("settingsOverlay").style.display = "none"; if (_evoPollTimer) { clearTimeout(_evoPollTimer); _evoPollTimer = null; } }
+function closeSettings() {
+    const ov = document.getElementById("settingsOverlay");
+    ov.classList.remove("overlay-enter");
+    ov.classList.add("overlay-exit");
+    setTimeout(() => { ov.style.display = "none"; ov.classList.remove("overlay-exit"); }, 250);
+    if (_evoPollTimer) { clearTimeout(_evoPollTimer); _evoPollTimer = null; }
+}
 async function loadMemory() {
     try { const res = await fetch("/api/config"); const c = await res.json();
         if (c.记忆库) { document.getElementById("currentEvent").textContent = c.记忆库.当前事件 || "无"; const l = c.记忆库.事件列表 || {}; document.getElementById("eventList").innerHTML = Object.entries(l).map(([id, ev]) => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">${id}: ${ev.事件标题 || "未命名"} (${ev.状态})</div>`).join("") || "暂无"; }
@@ -842,4 +854,27 @@ async function saveCloudKeys() {
     } catch (e) {
         showToast("error", "❌ 保存失败", String(e));
     }
+}
+
+// ============ 音效设置 ============
+function loadSoundSettings() {
+    const enabled = window.isSoundEnabled ? isSoundEnabled() : true;
+    const vol = window.getSoundVolume ? getSoundVolume() : 0.3;
+    const cb = document.getElementById("sfxEnabled");
+    const slider = document.getElementById("sfxVolume");
+    const volLabel = document.getElementById("sfxVolLabel");
+    if (cb) cb.checked = enabled;
+    if (slider) slider.value = vol;
+    if (volLabel) volLabel.textContent = Math.round(vol * 100) + "%";
+}
+
+function toggleSoundEnabled(checked) {
+    if (window.setSoundEnabled) setSoundEnabled(checked);
+}
+
+function changeSoundVolume(val) {
+    if (window.setSoundVolume) setSoundVolume(parseFloat(val));
+    const label = document.getElementById("sfxVolLabel");
+    if (label) label.textContent = Math.round(val * 100) + "%";
+    if (window.playSound) playSound('click');
 }

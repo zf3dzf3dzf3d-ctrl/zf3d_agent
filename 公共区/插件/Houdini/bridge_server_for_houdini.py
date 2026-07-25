@@ -11,7 +11,7 @@
        {
          "enable": true,
          "env": [
-           {"PYTHONPATH": "C:\\\\Users\\\\Administrator\\\\Desktop\\\\zf3d_Agent\\\\新系统_v2_开发版\\\\公共区\\\\插件;&"}
+           {"PYTHONPATH": ".\\\\公共区\\\\插件;&"}
          ]
        }
     3. 将此文件放到 ~/Documents/houdini20.5/scripts/python/pythonrc.py

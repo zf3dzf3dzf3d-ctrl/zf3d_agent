@@ -60,7 +60,9 @@ function showDiffPage(文件名, 旧文本, 新文本, 操作类型) {
         <div class="diff-inline-body">${html}</div>
     `;
     msgList.appendChild(card);
+    card.classList.add("panel-content-fade");
     msgList.scrollTop = msgList.scrollHeight;
+    if (window.playSound) playSound('file-write');
 }
 
 function closeDiffPage() {

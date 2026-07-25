@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件树 — 文件树+目录浏览+新建/删除/重命名
  * 从 逻辑.js 拆分
  */
@@ -92,7 +92,7 @@ async function navigateTree(targetPath, forceReload = false) {
     // 分解路径段：C:\Users\Admin → ['C:\', 'C:\Users', 'C:\Users\Admin']
     const segments = [];
     const driveMatch = target.match(/^([A-Za-z]:\\)(.*)$/);
-    if (!driveMatch) return; // 非Windows路径，无法导航
+    if (!driveMatch) { return; } // 非Windows路径，无法导航
     
     const drive = driveMatch[1]; // C:\
     segments.push(drive);
@@ -104,6 +104,7 @@ async function navigateTree(targetPath, forceReload = false) {
             segments.push(acc);
         }
     }
+//     console.log('[文件树] 路径分段:', segments);
     
     // 逐段确保节点存在并展开
     for (let i = 0; i < segments.length; i++) {
@@ -113,6 +114,7 @@ async function navigateTree(targetPath, forceReload = false) {
         document.querySelectorAll(".ti[data-path]").forEach(item => {
             if (samePath(item.dataset.path || "", segPath)) node = item;
         });
+//         console.log(`[文件树] 段${i}/${segments.length-1}: "${segPath}" → ${node ? '找到' : '未找到'}`);
         
         if (!node || (forceReload && i === segments.length - 1)) {
             // 节点不存在，或需要强制刷新最后一级的子项
@@ -122,11 +124,13 @@ async function navigateTree(targetPath, forceReload = false) {
                 document.querySelectorAll(".ti[data-path]").forEach(item => {
                     if (samePath(item.dataset.path || "", parentPath)) parentNode = item;
                 });
+//                 console.log(`[文件树] 查找父节点: "${parentPath}" → ${parentNode ? '找到' : '未找到'}`);
             }
             if (parentNode) {
                 // 懒加载父节点的子项（forceReload时清除loaded标记强制重载）
                 const kids = parentNode.nextElementSibling;
                 if (kids && kids.classList.contains("tc") && (!kids.dataset.loaded || forceReload)) {
+//                     console.log(`[文件树] 懒加载子项: path=${normPath(parentNode.dataset.path)}`);
                     try {
                         const res = await fetch(`/api/file-tree?path=${encodeURIComponent(normPath(parentNode.dataset.path))}&depth=1`);
                         const d = await res.json();
@@ -135,13 +139,21 @@ async function navigateTree(targetPath, forceReload = false) {
                             const 子节点列表 = d.树.子项 || [];
                             for (const c of 子节点列表) kids.appendChild(buildTreeNode(c, normPath(parentNode.dataset.path)));
                             kids.dataset.loaded = "1";
+//                             console.log(`[文件树] 懒加载完成: ${子节点列表.length}个子项`);
+                        } else {
+//                             console.warn(`[文件树] 懒加载失败:`, d.错误 || d);
                         }
-                    } catch (e) { /* ignore */ }
+                    } catch (e) { console.error(`[文件树] 懒加载异常:`, e); }
+                } else {
+//                     console.log(`[文件树] kids状态: ${kids ? (kids.classList.contains('tc') ? '有tc' : '无tc') : '无kids'}, loaded=${kids?.dataset?.loaded}`);
                 }
                 // 重新查找
                 document.querySelectorAll(".ti[data-path]").forEach(item => {
                     if (samePath(item.dataset.path || "", segPath)) node = item;
                 });
+//                 console.log(`[文件树] 段${i}重新查找: ${node ? '找到' : '仍未找到'}`);
+            } else {
+//                 console.warn(`[文件树] 段${i}: 父节点 "${parentPath}" 也不存在`);
             }
         }
         
@@ -153,6 +165,7 @@ async function navigateTree(targetPath, forceReload = false) {
                     parent.classList.add("open");
                     const pitem = parent.previousElementSibling;
                     if (pitem) {
+                        pitem.classList.add("expanded");
                         const arr = pitem.querySelector(".arr");
                         if (arr) arr.textContent = "▼";
                     }
@@ -163,6 +176,7 @@ async function navigateTree(targetPath, forceReload = false) {
             const kids = node.nextElementSibling;
             if (kids && kids.classList.contains("tc")) {
                 kids.classList.add("open");
+                node.classList.add("expanded");
                 const arr = node.querySelector(".arr");
                 if (arr) arr.textContent = "▼";
             }
@@ -171,12 +185,15 @@ async function navigateTree(targetPath, forceReload = false) {
     
     // 高亮目标节点
     document.querySelectorAll(".ti.active").forEach(el => el.classList.remove("active"));
+    let found = false;
     document.querySelectorAll(".ti[data-path]").forEach(item => {
         if (samePath(item.dataset.path || "", target)) {
             item.classList.add("active");
             item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            found = true;
         }
     });
+//     console.log('[文件树] navigateTree 完成, 目标节点' + (found ? '已找到并高亮' : '未找到'), target);
 }
 
 async function openMyComputer() {
@@ -206,7 +223,7 @@ async function openMyComputer() {
     galleryPath = "我的电脑";
     updateViewToggleButtons();
     const grid = document.getElementById("galleryGrid");
-    grid.innerHTML = '<div class="gallery-empty">加载中...</div>';
+    grid.innerHTML = '<div class="zf-loading"><span class="zf-spinner"></span><span class="zf-loading-text">加载中...</span></div>';
     document.getElementById("galleryList").style.display = "none";
     grid.style.display = "";
     try {
@@ -427,6 +444,7 @@ function buildTreeNode(node, path) {
             // 展开该节点
             if (!kids.classList.contains("open")) {
                 kids.classList.add("open");
+                item.classList.add("expanded");
                 const arr = item.querySelector(".arr");
                 if (arr) arr.textContent = "▼";
                 item.classList.add("active");
@@ -761,6 +779,7 @@ function expandTreeNode(targetPath) {
                     parent.classList.add("open");
                     const parentItem = parent.previousElementSibling;
                     if (parentItem) {
+                        parentItem.classList.add("expanded");
                         const arr = parentItem.querySelector(".arr");
                         if (arr) arr.textContent = "▼";
                     }
@@ -828,7 +847,7 @@ async function showGallery(folderPath) {
     updateViewToggleButtons();
     const grid = document.getElementById("galleryGrid");
     const list = document.getElementById("galleryList");
-    grid.innerHTML = '<div class="gallery-empty">加载中...</div>';
+    grid.innerHTML = '<div class="zf-loading"><span class="zf-spinner"></span><span class="zf-loading-text">加载中...</span></div>';
     try {
         const res = await fetch(`/api/files?path=${encodeURIComponent(folderPath)}`);
         const d = await res.json();
@@ -1146,6 +1165,7 @@ function renderGalleryGrid() {
     const grid = document.getElementById("galleryGrid");
     const items = getSortedItems();
     grid.innerHTML = "";
+    grid.classList.remove("gallery-fade"); void grid.offsetWidth; grid.classList.add("gallery-fade");
     const visibleCount = (galleryPageNum + 1) * galleryPageSize;
     const pageItems = items.slice(0, visibleCount);
     for (const node of pageItems) {

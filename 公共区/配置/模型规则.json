@@ -23,7 +23,7 @@
             },
             "支持vision": false,
             "支持function_calling": true,
-            "默认模型名称": "deepseek-chat",
+            "默认模型名称": "deepseek-v4-flash",
             "实力分": 85,
             "价格输入": 0.27,
             "价格输出": 1.1,

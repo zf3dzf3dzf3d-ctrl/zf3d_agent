@@ -39,14 +39,14 @@ def _检测aria2c():
             return 'aria2c'
     except Exception:
         pass
-    # 方法2: 常见安装路径
+    # 方法2: 常见安装路径（使用expanduser避免硬编码个人路径）
+    _user_local = os.path.join(os.path.expanduser("~"), "AppData", "Local", "Microsoft", "WinGet")
     候选路径 = [
-        r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Links\aria2c.exe",
-        r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\aria2.aria2_Microsoft.Winget.Source_8wekyb3d8bbwe\aria2c-1.37.0-win-64bit-build1\aria2c.exe",
+        os.path.join(_user_local, "Links", "aria2c.exe"),
     ]
     import glob
     # 方法3: WinGet包目录通配
-    候选路径 += glob.glob(r"C:\Users\Administrator\AppData\Local\Microsoft\WinGet\Packages\aria2*\**\aria2c.exe", recursive=True)
+    候选路径 += glob.glob(os.path.join(_user_local, "Packages", "aria2*", "**", "aria2c.exe"), recursive=True)
     for p in 候选路径:
         if os.path.exists(p):
             return p

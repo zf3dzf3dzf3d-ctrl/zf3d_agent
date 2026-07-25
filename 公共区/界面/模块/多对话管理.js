@@ -7,9 +7,12 @@
 let currentConvID = null;
 let convListOpen = false;
 
+// 对话API指向神经元实验8770端口
+const NEURON_API = "http://localhost:8770";
+
 async function loadConvList() {
     try {
-        const res = await fetch("/api/conversations");
+        const res = await fetch(NEURON_API + "/api/conversations");
         const d = await res.json();
         const list = d.对话列表 || [];
         currentConvID = d.当前ID;
@@ -56,7 +59,7 @@ async function newConversation() {
     isChatting = false;
     setThinkingState(false);
     try {
-        const res = await fetch("/api/conversation-new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const res = await fetch(NEURON_API + "/api/conversation-new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
         const d = await res.json();
         if (d.成功) {
             document.getElementById("msgList").innerHTML = "";
@@ -79,7 +82,7 @@ async function switchConv(id) {
     isChatting = false;
     setThinkingState(false);
     try {
-        const res = await fetch("/api/conversation-switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const res = await fetch(NEURON_API + "/api/conversation-switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await res.json();
         if (d.成功) {
             currentConvID = id;
@@ -98,7 +101,7 @@ async function switchConv(id) {
 async function deleteConv(id) {
     if (!confirm("确定删除此对话？")) return;
     try {
-        const res = await fetch("/api/conversation-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+        const res = await fetch(NEURON_API + "/api/conversation-delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
         const d = await res.json();
         if (d.成功) {
             document.getElementById("msgList").innerHTML = "";
@@ -116,7 +119,7 @@ async function deleteConv(id) {
 // 加载当前对话的历史消息到界面
 async function loadConvMessages() {
     try {
-        const res = await fetch("/api/conversation-messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentConvID }) });
+        const res = await fetch(NEURON_API + "/api/conversation-messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: currentConvID }) });
         const d = await res.json();
         if (d.成功 && d.历史) {
             const list = document.getElementById("msgList");
@@ -132,7 +135,7 @@ async function loadConvMessages() {
 
 async function checkCheckpoint() {
     try {
-        const res = await fetch("/api/checkpoint-info");
+        const res = await fetch(NEURON_API + "/api/checkpoint-info");
         const d = await res.json();
         if (d.有检查点) {
             const list = document.getElementById("msgList");
@@ -149,7 +152,7 @@ async function resumeCheckpoint() {
     try {
         document.querySelectorAll(".resume-bar").forEach(el => el.remove());
         showToast("success", "🔄 续跑中", "从上次中断处继续执行");
-        const res = await fetch("/api/resume-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        const res = await fetch(NEURON_API + "/api/resume-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
         const d = await res.json();
         if (d.成功 && d.结果) {
             addMsg("assistant", d.结果.回复 || "续跑完成");
@@ -163,6 +166,6 @@ async function resumeCheckpoint() {
 
 function dismissCheckpoint() {
     document.querySelectorAll(".resume-bar").forEach(el => el.remove());
-    fetch("/api/clear-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+    fetch(NEURON_API + "/api/clear-checkpoint", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
 }
 

@@ -501,6 +501,10 @@ class 网页请求处理器(BaseHTTPRequestHandler):
     运行诊断器 = None  # 运行诊断器实例
     当前模型名 = None  # 当前对话使用的模型名
     _启动器实例 = None
+    # 神经元引擎实例
+    神经元脑 = None
+    神经元波 = None
+    神经元引擎 = None
     _定时任务调度器 = None
     _tts主界面状态 = {"播放中": False, "代次": 0}  # 主界面语音播报状态
     _tts轮盘状态 = {"播放中": False, "代次": 0}    # 轮盘朗读状态
@@ -628,6 +632,11 @@ class 网页请求处理器(BaseHTTPRequestHandler):
             路径 = unquote(解析结果.path)
             查询串 = 解析结果.query or ""
 
+            # 神经元API路由（最高优先级，在所有其他路由之前）
+            if 路径.startswith("/neuron-api/"):
+                self._处理神经元API_GET("/" + 路径[len("/neuron-api/"):], 查询串)
+                return
+
             # WebSocket升级检测
             if 路径 == "/api/voice-stream" and self.headers.get("Upgrade", "").lower() == "websocket":
                 self._处理WebSocket语音()
@@ -693,6 +702,13 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         try:
             解析结果 = urlparse(self.path)
             路径 = unquote(解析结果.path)
+            # 神经元对话实验API：直接处理（无需8770端口）
+            if 路径.startswith("/neuron-api/"):
+                实际路径 = "/" + 路径[len("/neuron-api/"):]
+                内容长度 = int(self.headers.get("Content-Length", 0))
+                原始体 = self.rfile.read(内容长度) if 内容长度 > 0 else b"{}"
+                self._处理神经元API_POST(实际路径, 原始体)
+                return
             if 路径.startswith("/api/"):
                 内容长度 = int(self.headers.get("Content-Length", 0))
                 if 内容长度 > 100 * 1024 * 1024:  # 100MB上限
@@ -764,7 +780,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
         网站地址 = 配置.get("网站认证", {}).get("网站地址", "https://www.zf3d.com")
         接口 = f"{网站地址}/api/auth.asp?a=agent_login"
         # ASP的Param()只读QueryString和Form，不支持JSON body，用form-urlencoded
-        表单数据 = urlencode({"username": 用户名, "password": 密码}).encode("utf-8")
+        表单数据 = urlencode({"username": 用户名, "password": 密码, "is_admin": "1"}).encode("utf-8")
         请求 = urllib.request.Request(接口, data=表单数据, method="POST")
         请求.add_header("Content-Type", "application/x-www-form-urlencoded")
         try:
@@ -791,6 +807,186 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 return json.loads(内容)
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    # ===== 神经元对话实验API（直接处理，无需8770端口） =====
+    def _处理神经元API_GET(self, 路径, 查询串):
+        """直接处理神经元实验GET API"""
+        脑 = getattr(self, '神经元脑', None)
+        if not 脑:
+            self._返回JSON({"错误": "神经元引擎未初始化"}, 503)
+            return
+        if 路径 == "/api/status":
+            引擎 = getattr(self, '神经元引擎', None)
+            self._返回JSON({
+                "状态": "运行中",
+                "神经元": 引擎.获取神经元状态() if 引擎 else [],
+                "突触": 脑.获取所有突触(),
+                "版本": 脑.读元数据("版本", "0.1.0"),
+            })
+        elif 路径 == "/api/tools":
+            # 返回所有工具列表+开关+锁状态
+            import sys as _tsys
+            _tdir = self.配置加载器.项目根目录 / "神经元对话实验"
+            if str(_tdir) not in _tsys.path:
+                _tsys.path.insert(0, str(_tdir))
+            from 神经元.工具 import 工具注册器 as _tr
+            self._返回JSON({"工具": _tr.获取工具列表(), "层信息": _tr.获取层信息()})
+        elif 路径 == "/api/conversations":
+            列表 = 脑.获取对话列表()
+            # 同时返回两种格式，兼容新旧前端
+            主格式 = [{"id": c.get("对话ID",""), "标题": c.get("标题","")[:30], "更新时间": c.get("最后时间","")} for c in 列表]
+            原格式 = [{"对话ID": c.get("对话ID",""), "标题": c.get("标题","")[:30], "最后时间": c.get("最后时间","")} for c in 列表]
+            self._返回JSON({"对话列表": 主格式, "列表": 原格式, "当前ID": 主格式[0]["id"] if 主格式 else None})
+        elif 路径 == "/api/checkpoint-info":
+            self._返回JSON({"有检查点": False})
+        elif 路径 == "/api/prompts":
+            self._返回JSON(脑.获取所有提示词())
+        elif 路径 == "/api/roadmap/list":
+            目录 = self.配置加载器.项目根目录 / "神经元对话实验" / "路线图模板"
+            目录.mkdir(exist_ok=True)
+            self._返回JSON([{"name": f.stem} for f in sorted(目录.glob("*.json"))])
+        elif 路径 == "/api/roles":
+            角色 = 脑.获取全部角色(限制=100)
+            self._返回JSON([{"标题": r.get("标题",""), "内容": r.get("内容",""), "关键词": r.get("关键词",""), "标签": r.get("标签",""), "时间": r.get("时间","")} for r in 角色])
+        else:
+            self.send_error(404)
+
+    def _处理神经元API_POST(self, 路径, 原始体):
+        """直接处理神经元实验POST API"""
+        脑 = getattr(self, '神经元脑', None)
+        引擎 = getattr(self, '神经元引擎', None)
+        if not 脑 or not 引擎:
+            self._返回JSON({"错误": "神经元引擎未初始化"}, 503)
+            return
+        try:
+            请求数据 = json.loads(原始体.decode("utf-8")) if 原始体 else {}
+        except json.JSONDecodeError:
+            请求数据 = {}
+
+        if 路径 == "/api/chat":
+            self._处理神经元对话(请求数据)
+        elif 路径 == "/api/stop":
+            引擎.停止()
+            引擎.信号队列.clear()
+            self._返回JSON({"状态": "已停止"})
+        elif 路径 == "/api/conversation-new":
+            import uuid as _uuid
+            self._返回JSON({"成功": True, "对话": {"id": str(_uuid.uuid4())[:8], "标题": "新对话"}})
+        elif 路径 == "/api/conversation-switch":
+            self._返回JSON({"成功": True})
+        elif 路径 == "/api/conversation-delete":
+            if 请求数据.get("id"):
+                脑.删除对话(请求数据["id"])
+            self._返回JSON({"成功": True})
+        elif 路径 == "/api/conversation-messages":
+            对话ID = 请求数据.get("id", "")
+            记录 = 脑.获取对话历史(对话ID, 限制=100) if 对话ID else []
+            self._返回JSON({"成功": True, "历史": [{"角色": r.get("角色",""), "内容": r.get("内容",""), "时间": r.get("时间","")} for r in 记录]})
+        elif 路径 in ("/api/clear-checkpoint", "/api/cancel"):
+            self._返回JSON({"成功": True})
+        elif 路径 == "/api/plan-approve":
+            # 目标规划审批——直接设置共享状态，不走代理
+            import sys as _sys
+            项目根 = self.配置加载器.项目根目录
+            实验目录 = 项目根 / "神经元对话实验"
+            if str(实验目录) not in _sys.path:
+                _sys.path.insert(0, str(实验目录))
+            import 共享状态 as _共享
+            操作 = 请求数据.get("操作", "确认")
+            反馈 = 请求数据.get("反馈", "")
+            _共享.目标规划容器["确认"] = 操作
+            _共享.目标规划容器["反馈"] = 反馈
+            print(f"  [PLAN] 用户审批: {操作}, 反馈: {反馈[:40]}")
+            self._返回JSON({"状态": "已接收"})
+        elif 路径 == "/api/permission-response":
+            # 权限弹窗用户响应
+            import sys as _sys2
+            项目根2 = self.配置加载器.项目根目录
+            实验目录2 = 项目根2 / "神经元对话实验"
+            if str(实验目录2) not in _sys2.path:
+                _sys2.path.insert(0, str(实验目录2))
+            import 共享状态 as _共享2
+            操作2 = 请求数据.get("操作", "拒绝")  # 永久/一次/拒绝
+            _共享2.权限询问容器["确认"] = 操作2
+            print(f"  [PERM] 用户权限响应: {操作2}, 路径: {_共享2.权限询问容器.get('路径','')[:40]}")
+            self._返回JSON({"状态": "已接收"})
+        elif 路径 in ("/api/tool-toggle", "/api/tool-unlock"):
+            # 工具开关/解锁——委托给实验API端点
+            self._委托神经元API_POST(路径, 原始体)
+        elif 路径 in ("/api/roadmap/save", "/api/roadmap/load", "/api/roadmap/gen-prompt",
+                       "/api/roles/save", "/api/roles/delete",
+                       "/api/prompts", "/api/summarize", "/api/promote-memory",
+                       "/api/confirm-plan", "/api/modify-plan", "/api/execute-plan"):
+            self._委托神经元API_POST(路径, 原始体)
+        else:
+            self.send_error(404)
+
+    def _处理神经元对话(self, 请求数据):
+        """直接调用神经元对话处理器（SSE流式）"""
+        项目根 = self.配置加载器.项目根目录
+        实验目录 = 项目根 / "神经元对话实验"
+        if str(实验目录) not in sys.path:
+            sys.path.insert(0, str(实验目录))
+        import 共享状态
+        from 对话处理器 import 处理对话
+        import io
+        body_bytes = json.dumps(请求数据, ensure_ascii=False).encode("utf-8")
+        self.rfile = io.BytesIO(body_bytes)
+        # 用email.message.Message确保headers兼容
+        from email.message import Message
+        self.headers = Message()
+        self.headers['Content-Length'] = str(len(body_bytes))
+        self._sse已发头 = False
+        try:
+            处理对话(self)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # 如果SSE头尚未发送，必须先补发HTTP头，否则浏览器收到裸数据→ERR_INVALID_HTTP_RESPONSE
+            if not getattr(self, '_sse已发头', False):
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.send_header("Connection", "close")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                except Exception:
+                    pass  # 头可能已部分发送，忽略
+            try:
+                错误事件 = json.dumps({"类型": "完成", "数据": {"回复": f"内部错误: {str(e)[:200]}", "步数": 0, "统计": {"步数": 0, "调用次数": 0, "耗时毫秒": 0}}}, ensure_ascii=False)
+                self.wfile.write(f"data: {错误事件}\n\n".encode("utf-8"))
+                self.wfile.flush()
+            except:
+                pass
+
+    def _委托神经元API_POST(self, 路径, 原始体):
+        """委托未内置处理的神经元POST API到实验自己的API端点处理器"""
+        项目根 = self.配置加载器.项目根目录
+        实验目录 = 项目根 / "神经元对话实验"
+        if str(实验目录) not in sys.path:
+            sys.path.insert(0, str(实验目录))
+        import io
+        try:
+            import 共享状态
+            from API端点 import 请求处理器 as 神经处理器
+            # 创建一个轻量代理对象，把关键属性委托给self
+            class 代理处理器(神经处理器):
+                def log_message(self, *a, **kw): pass
+            代理 = 代理处理器.__new__(代理处理器)
+            # 复制必要属性
+            代理.wfile = self.wfile
+            代理.rfile = io.BytesIO(原始体)
+            代理.headers = type(self.headers)()
+            代理.headers['Content-Length'] = str(len(原始体))
+            代理.path = 路径
+            # 调用do_POST
+            代理.do_POST()
+        except Exception as e:
+            try:
+                self._返回JSON({"错误": f"神经元API代理失败: {e}"}, 500)
+            except Exception:
+                pass
 
     def _处理API_GET(self, 路径: str, 解析结果):
         if not self._检查鉴权():
@@ -12676,6 +12872,7 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
             # 节点输出存储
             节点输出 = {}
+            _节点输出锁 = threading.Lock()
 
             def _获取员工提示词(员工名):
                 配置结果 = 模块.获取运行时配置(员工名)
@@ -12706,7 +12903,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 上游排序 = sorted(上游, key=lambda uid: 层级.get(uid, 0))
                 parts = []
                 for uid in 上游排序:
-                    out = 节点输出.get(uid, "")
+                    with _节点输出锁:
+                        out = 节点输出.get(uid, "")
                     if out:
                         node = 节点映射.get(uid, {})
                         parts.append(f"【来自{node.get('name', uid)}】\n{out}")
@@ -12736,8 +12934,73 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
-            def _执行工具员工(nid, nname, 员工名, 初始消息, 提示词, 上游输入):
-                """工具员工ReAct循环：多轮LLM+操作调用，思考过程不输出，只返回最终结果"""
+            def _异步经验沉淀(员工名, 任务消息, 结果文本, 成功, 运行时):
+                """异步沉淀经验/记录绕路（不阻塞工作流）"""
+                def _后台():
+                    try:
+                        员工模块 = self.模块注册.get("员工管理")
+                        if not 员工模块:
+                            return
+                        经验师 = getattr(员工模块, "经验师", None)
+                        绕路师 = getattr(员工模块, "绕路师", None)
+                        推理结果 = {
+                            "成功": 成功,
+                            "回复": 结果文本,
+                            "步数": 1,  # 工作流单节点步数简化为1
+                            "推理过程": [{"类型": "最终回复", "内容": {"内容": 结果文本}}],
+                        }
+                        if 成功 and 经验师:
+                            经验师.沉淀经验(任务消息, 推理结果)
+                        if not 成功 and 绕路师:
+                            绕路师.记录失败(任务消息, 推理结果)
+                    except Exception:
+                        pass
+                threading.Thread(target=_后台, daemon=True).start()
+
+            def _执行工具员工(nid, nname, 员工名, 初始消息, 提示词, 上游输入, token统计=None):
+                """工具员工ReAct循环：优先使用推理引擎（含护栏），回退到裸ReAct"""
+                # 对话员工化：优先调用推理引擎（含工具护栏/导师/排错员）
+                对话模块 = self.模块注册.get("对话")
+                if 对话模块 and hasattr(对话模块, '推理引擎'):
+                    try:
+                        def _wf推理流回调(类型, 内容):
+                            if 类型 == "操作调用":
+                                _SSE写入({"类型": "节点进度", "id": nid, "name": nname,
+                                          "消息": f"🔧 {内容.get('操作', '')}"})
+                            elif 类型 == "操作结果":
+                                成功标记 = "✅" if 内容.get("成功") else "❌"
+                                _SSE写入({"类型": "节点进度", "id": nid, "name": nname,
+                                          "消息": f"{成功标记} {内容.get('操作', '')}"})
+                        result = 对话模块.推理引擎.执行_轻量(
+                            用户消息=初始消息,
+                            系统提示词=提示词,
+                            模型直连器=self.模型直连器,
+                            操作注册中心=self.操作注册中心,
+                            最大步数=15,
+                            推理流回调=_wf推理流回调,
+                            上游输入=上游输入,
+                        )
+                        # 提取Token统计
+                        if token统计 is not None:
+                            for llm记录 in result.get("llm调用记录", []):
+                                token统计["提示"] = token统计.get("提示", 0) + llm记录.get("提示tokens", 0)
+                                token统计["生成"] = token统计.get("生成", 0) + llm记录.get("生成tokens", 0)
+                        if result.get("成功"):
+                            return result.get("回复", "")
+                        else:
+                            # 推理引擎失败，回退到普通单轮调用
+                            print(f"  [WF] 推理引擎失败({result.get('错误','')[:60]})，回退单轮调用")
+                            _回退结果 = self.模型直连器.发送消息(
+                                [{"role": "user", "content": 初始消息}], 提示词, 跳过缓存=True)
+                            if _回退结果.get("成功"):
+                                if token统计 is not None:
+                                    token统计["提示"] = token统计.get("提示", 0) + _回退结果.get("提示tokens", 0)
+                                    token统计["生成"] = token统计.get("生成", 0) + _回退结果.get("生成tokens", 0)
+                                return _回退结果.get("回复内容", "")
+                            return result.get("错误", "推理引擎执行失败")
+                    except Exception as e:
+                        print(f"  [WF] 推理引擎异常，回退裸ReAct: {e}")
+                # 回退：原有15步裸ReAct
                 对话历史 = [{"role": "user", "content": 初始消息}]
                 工具定义 = self.操作注册中心.获取工具定义() if hasattr(self.操作注册中心, '获取工具定义') else []
                 工具提示 = "\n\n## 工具使用规则\n你拥有可调用的工具（function calling）。必须通过工具调用实际执行操作，不要只用文字描述你做了什么。如果你需要生成图片，必须调用生图工具；如果你需要读取文件，必须调用文件读取工具。绝不允许在文字中声称已执行操作而实际未调用工具。"
@@ -12830,26 +13093,52 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                         提示词 = 运行时.get("系统提示词", "")
                         if 当前文件夹:
                             提示词 += f"\n\n## 工作目录\n{当前文件夹}"
-                        提示词 += "\n\n## 工作流上下文\n你是提示词增强流水线中的一个加工节点。上游给你一段画面提示词，你的任务：在上游提示词基础上加工（追加你负责的元素或做最终审核），然后直接输出完整的提示词。规则：1.去掉上游的【来自xxx】标签，只保留纯提示词内容 2.不要用方括号[]包裹提示词 3.直接输出纯文本提示词，不要任何格式标记 4.不要解释工作过程 5.不要输出设计文档"
+                        # 只有非工具员工（提示词增强类）追加流水线指令，工具员工不加
+                        if not 运行时.get("工具调用", False):
+                            提示词 += "\n\n## 工作流上下文\n你是提示词增强流水线中的一个加工节点。上游给你一段画面提示词，你的任务：在上游提示词基础上加工（追加你负责的元素或做最终审核），然后直接输出完整的提示词。规则：1.去掉上游的【来自xxx】标签，只保留纯提示词内容 2.不要用方括号[]包裹提示词 3.直接输出纯文本提示词，不要任何格式标记 4.不要解释工作过程 5.不要输出设计文档"
                         启用工具 = 运行时.get("工具调用", False)
 
                         上游输入 = _收集上游输入(nid)
                         指令 = node.get("config", {}).get("指令", "")
-                        if 指令 and 上游输入:
-                            消息 = f"【用户指令】{指令}\n\n【上游输入】\n{上游输入}"
-                        elif 指令:
-                            消息 = f"【用户指令】{指令}"
+                        # 工具员工：用原始任务作为消息；非工具员工：用上游输入
+                        if 启用工具:
+                            # 工具员工需要完整任务描述
+                            原始任务 = ""
+                            for tn in 节点列表:
+                                if tn.get("type") in ("target", "目标"):
+                                    原始任务 = tn.get("config", {}).get("目标", "")
+                                    break
+                            # 优先用目标节点的任务，其次用指令字段
+                            if 原始任务:
+                                消息 = f"任务：{原始任务}"
+                                if 上游输入:
+                                    消息 += f"\n\n上游已完成：\n{上游输入}"
+                            elif 指令:
+                                消息 = f"任务：{指令}"
+                                if 上游输入:
+                                    消息 += f"\n\n上游已完成：\n{上游输入}"
+                            elif 上游输入:
+                                消息 = 上游输入
+                            else:
+                                消息 = "请根据任务目标开始工作"
                         else:
-                            消息 = 上游输入 if 上游输入 else "请根据任务目标开始工作"
+                            if 指令 and 上游输入:
+                                消息 = f"【用户指令】{指令}\n\n【上游输入】\n{上游输入}"
+                            elif 指令:
+                                消息 = f"【用户指令】{指令}"
+                            else:
+                                消息 = 上游输入 if 上游输入 else "请根据任务目标开始工作"
 
                         if 启用工具 and self.操作注册中心:
                             # 工具员工：ReAct循环
-                            回复 = _执行工具员工(nid, nname, 员工名, 消息, 提示词, 上游输入)
+                            _wf_token统计 = {"提示": 0, "生成": 0}
+                            回复 = _执行工具员工(nid, nname, 员工名, 消息, 提示词, 上游输入, _wf_token统计)
                         else:
                             # 普通员工：单轮对话（带自动重试，连接错误时重试3次）
                             _可重试错误 = ["连接错误", "Idle", "超时", "timeout", "Connection", "reset", "reset by peer", "EOF"]
                             回复 = None
                             错误 = "LLM调用失败"
+                            _wf_token统计 = {"提示": 0, "生成": 0}
                             for _尝试 in range(1, 4):
                                 print(f"  [WF] 调用LLM: {员工名}, 消息长度={len(消息)}, 第{_尝试}次")
                                 结果 = self.模型直连器.发送消息(
@@ -12857,6 +13146,8 @@ class 网页请求处理器(BaseHTTPRequestHandler):
                                 )
                                 if 结果.get("成功"):
                                     回复 = 结果.get("回复内容", "").strip()
+                                    _wf_token统计["提示"] += 结果.get("提示tokens", 0)
+                                    _wf_token统计["生成"] += 结果.get("生成tokens", 0)
                                     break
                                 else:
                                     错误 = 结果.get("错误", "LLM调用失败")
@@ -12872,14 +13163,23 @@ class 网页请求处理器(BaseHTTPRequestHandler):
 
                         if 回复 is not None:
                             节点输出[nid] = 回复
-                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 回复, "成功": True})
+                            # 如果API没返回token，用估算值
+                            if _wf_token统计.get("提示", 0) == 0 and _wf_token统计.get("生成", 0) == 0:
+                                _wf_token统计["提示"] = len(消息) // 3 + len(提示词) // 3
+                                _wf_token统计["生成"] = len(回复) // 2
+                                _wf_token统计["估算"] = True
+                            _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 回复, "成功": True, "tokens": _wf_token统计})
                             print(f"  [WF] 节点完成已推送: {nname}, 输出长度={len(回复)}")
                             _wf写日志(nid, nname, ntype, "成功", 上游输入, 回复, "", int((_time2.time()-_t0)*1000))
+                            # 对话员工化：异步沉淀经验/记录绕路
+                            _异步经验沉淀(员工名, 消息, 回复, True, 运行时)
                         else:
                             节点输出[nid] = 错误
                             _SSE写入({"类型": "节点完成", "id": nid, "name": nname, "输入": 上游输入, "输出": 错误, "成功": False})
                             print(f"  [WF] 节点失败已推送: {nname}, 错误={错误[:60]}")
                             _wf写日志(nid, nname, ntype, "失败", 上游输入, 错误, 错误, int((_time2.time()-_t0)*1000))
+                            # 对话员工化：异步记录绕路教训
+                            _异步经验沉淀(员工名, 消息, 错误, False, 运行时)
 
                     elif ntype == "input" or ntype == "输入" or ntype == "image" or ntype == "图片":
                         # 输入/图片节点：直接输出config中的内容
@@ -31593,6 +31893,15 @@ class 网页服务类:
         # 直接设置调度器引用，避免多级属性查找出错
         if 启动器实例 and hasattr(启动器实例, '定时任务调度器'):
             网页请求处理器._定时任务调度器 = 启动器实例.定时任务调度器
+        # 注入神经元引擎实例到请求处理器
+        if hasattr(self, '神经元脑'):
+            网页请求处理器.神经元脑 = self.神经元脑
+            网页请求处理器.神经元波 = self.神经元波
+            网页请求处理器.神经元引擎 = self.神经元引擎
+        if 启动器实例 and hasattr(启动器实例, '神经元脑'):
+            网页请求处理器.神经元脑 = 启动器实例.神经元脑
+            网页请求处理器.神经元波 = 启动器实例.神经元波
+            网页请求处理器.神经元引擎 = 启动器实例.神经元引擎
         # 设置当前模型名
         if 模型直连器:
             网页请求处理器.当前模型名 = 模型直连器.当前模型名
@@ -31629,6 +31938,11 @@ class 网页服务类:
                     if _会话:
                         _已登录 = 1
                         _用户名 = _会话.get("用户", {}).get("username", "")
+                    # 管理员不计入统计，跳过心跳
+                    _用户组 = str(_会话.get("用户", {}).get("user_group", "")) if _会话 else ""
+                    if _用户组 == "-1":
+                        _time.sleep(120)
+                        continue
                     _参数 = _up.urlencode({
                         "machine_id": _全局机器ID,
                         "version": _版本,

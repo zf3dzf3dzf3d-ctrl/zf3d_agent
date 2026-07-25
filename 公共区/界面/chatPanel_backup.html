@@ -1,0 +1,32 @@
+<!-- 原主系统对话面板HTML备份，2026-07-22移除，替换为神经元对话实验iframe -->
+<!-- 恢复方法：将此内容粘贴回主页.html的 #chatPanel 位置 -->
+<div class="panel chat-panel" id="chatPanel">
+    <div class="panel-bar">
+        <span>💬 对话</span>
+        <div class="panel-bar-actions">
+            <button class="bar-btn" onclick="toggleConvList()" title="显示/隐藏对话列表">📋</button>
+            <button class="bar-btn" onclick="newConversation()" title="新建对话">➕</button>
+            <button class="bar-btn" onclick="clearChat()" title="清空当前对话内容">🗑️</button>
+        </div>
+    </div>
+    <!-- 对话列表（折叠式，不占主界面） -->
+    <div class="conv-list" id="convList" style="display:none;">
+        <div id="convListItems"></div>
+    </div>
+    <div class="msg-list" id="msgList"></div>
+    <div class="chat-input-area">
+        <div class="thinking-indicator" id="thinkingIndicator">
+            <span class="ti-cat" id="thinkingCat">准备</span>
+            <span class="ti-sep">›</span>
+            <span class="ti-phrase" id="thinkingPhrase">初始化</span>
+            <span class="ti-sep">›</span>
+            <span class="ti-num" id="thinkingNum">0</span>
+            <span class="ti-track"><span class="ti-track-fill" id="thinkingTrack"></span></span>
+        </div>
+        <div class="chat-input-row">
+            <textarea id="userInput" placeholder="输入消息... (Enter发送, Shift+Enter换行)"></textarea>
+            <button class="mic-btn" id="micBtn" title="🎤 语音输入">🎤</button>
+            <button class="send-btn" id="sendBtn" title="发送消息（Enter键也可发送）">➤</button>
+        </div>
+    </div>
+</div>

@@ -77,8 +77,7 @@ function stopChat() {
     }
     stopTTS();
     // 通知后端取消并立即保存对话
-    fetch("/api/cancel", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
-    fetch("/api/conversation-save", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+    fetch("http://localhost:8770/api/stop", { method: "POST" }).catch(() => {});
 }
 
 async function sendMessage() {
@@ -96,6 +95,8 @@ async function sendMessage() {
     if (typeof aiModifiedFiles !== 'undefined') aiModifiedFiles.clear();
     // 重置 liveDiffHandled，让每轮对话都能触发精确 diff
     liveDiffHandled = false;
+    // 清除上一轮工作流方案残留
+    window._lastWfPlan = null;
     // 重置Job面板引用
     _jobPanelEl = null;
     // 显示推理流容器（SSE模式下推理事件直接推送）
@@ -154,7 +155,7 @@ async function sendMessage() {
     }
     try {
         chatAbortController = new AbortController();
-        const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 消息: 发送消息, 上下文 }), signal: chatAbortController.signal });
+        const res = await fetch("http://localhost:8770/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ 消息: 发送消息, 上下文, mode: "main" }), signal: chatAbortController.signal });
 
         // SSE流式读取
         const reader = res.body.getReader();
@@ -274,10 +275,25 @@ async function sendMessage() {
                             requestAnimationFrame(() => {
                                 streamBody.style.opacity = "1";
                             });
+                            // 工作流编排方案：在助手回复下方渲染可视化卡片
+                            if (d.工作流方案) {
+                                renderWorkflowPlanCard(streamEl, d.工作流方案);
+                            }
+                            // 推理流节点图：在回复下方渲染操作路径
+                            if (d.推理过程 && d.推理过程.length > 0) {
+                                renderReasoningGraph(streamEl, d.推理过程);
+                            }
                             document.getElementById("msgList").scrollTop = document.getElementById("msgList").scrollHeight;
                         } else {
                             // 无流式token的回退：直接显示，不再用假打字机
                             addMsg("assistant", d.回复);
+                            const lastMsg = document.querySelector('#msgList .msg.assistant:last-child');
+                            if (d.工作流方案 && lastMsg) {
+                                renderWorkflowPlanCard(lastMsg, d.工作流方案);
+                            }
+                            if (d.推理过程 && d.推理过程.length > 0 && lastMsg) {
+                                renderReasoningGraph(lastMsg, d.推理过程);
+                            }
                         }
 
                         // 处理推理过程中的文件修改操作（从完整结果补充检测+触发Diff查看器）

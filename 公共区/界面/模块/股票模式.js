@@ -288,7 +288,7 @@ function sortStockPanel(field) {
 
 async function loadStockPanel(isAutoRefresh, isTimer) {
     const container = document.getElementById('stockViewPanel');
-    if (!isAutoRefresh) container.innerHTML = '<div class="sp-loading">⏳ 加载盘面数据...</div>';
+    if (!isAutoRefresh) container.innerHTML = '<div class="zf-loading"><span class="zf-spinner"></span><span class="zf-loading-text">加载盘面数据...</span></div>';
     try {
         const res = await fetch('/api/stock-panel?page=' + stockPanelPage + '&sort=' + stockSortField + '&order=' + stockSortOrder);
         const d = await res.json();
@@ -378,7 +378,7 @@ async function loadStockPanel(isAutoRefresh, isTimer) {
 // K线图
 async function loadStockKline(code) {
     const container = document.getElementById('stockViewKline');
-    container.innerHTML = '<div class="sp-loading">⏳ 加载K线数据...</div>';
+    container.innerHTML = '<div class="zf-loading"><span class="zf-spinner"></span><span class="zf-loading-text">加载K线数据...</span></div>';
     try {
         const res = await fetch('/api/stock-kline?code=' + encodeURIComponent(code) + '&period=' + stockCurrentPeriod);
         const d = await res.json();

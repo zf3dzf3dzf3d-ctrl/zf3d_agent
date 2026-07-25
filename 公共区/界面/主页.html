@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.zf3d.com; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.zf3d.com; font-src 'self' data:; worker-src 'self' blob:">
-    <title>朱峰社区智能体 v3.3.9</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.zf3d.com https://img.zf3d.com; media-src 'self' blob: mediastream:; connect-src 'self' blob: https://www.google.com https://www.gstatic.com https://www.zf3d.com; font-src 'self' data:; worker-src 'self' blob:">
+    <title>朱峰社区智能体 v3.5.0</title>
     <link rel="icon" type="image/png" href="favicon.png?v=1">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png?v=1">
-    <link rel="stylesheet" href="样式.css?v=20260711f">
+    <link rel="stylesheet" href="样式.css?v=20260724a">
     <link rel="stylesheet" href="编辑器/编辑器.css?v=20260707a">
     <link rel="stylesheet" href="highlight-theme.min.css?v=1">
     <link rel="stylesheet" href="katex.min.css?v=2">
     <link rel="stylesheet" href="员工浮窗.css?v=20260715a">
+    <link rel="stylesheet" href="neuron/神经对话.css?v=20260724a">
     <script src="lottie.min.js?v=1"></script>
 </head>
 <body>
@@ -149,6 +150,7 @@
                     <button class="bar-btn" onclick="goUpGallery()" title="返回上级文件夹，同时刷新左侧树和中间画廊">⬆️ <span class="btn-text">上级文件夹</span></button>
                     <span class="gallery-current-path" id="galleryCurrentPath"></span>
                     <input type="text" class="gallery-path-input" id="galleryPathInput" style="display:none;" placeholder="输入路径回车跳转" />
+                    <button class="bar-btn gallery-edit-path-btn" id="galleryEditPathBtn" title="点击输入路径" style="flex-shrink:0;">✏</button>
                     <div class="gallery-sort-bar">
                         <button class="bar-btn" onclick="cycleSortKey()" id="sortBtn" title="切换排序方式"><span class="btn-text">名称</span></button>
                         <button class="bar-btn" onclick="toggleSortOrder()" id="sortOrderBtn" title="升序/降序切换">▲</button>
@@ -309,40 +311,71 @@
             </div>
         </div>
 
-        <!-- 分隔线 -->
+        <!-- 分隔线（编辑器 ↔ 对话面板） -->
         <div class="divider" data-left="editorPanel" data-right="chatPanel" id="dividerEditorChat"></div>
 
-        <!-- 右侧：对话 -->
-        <div class="panel chat-panel" id="chatPanel">
-            <div class="panel-bar">
-                <span>💬 对话</span>
-                <div class="panel-bar-actions">
-                    <button class="bar-btn" onclick="toggleConvList()" title="显示/隐藏对话列表">📋</button>
-                    <button class="bar-btn" onclick="newConversation()" title="新建对话">➕</button>
-                    <button class="bar-btn" onclick="clearChat()" title="清空当前对话内容">🗑️</button>
+        <!-- 右侧：神经元对话实验（全宽，Canvas已浮空化） -->
+        <div class="panel chat-panel" id="chatPanel" style="flex:1 1 auto;width:50%;min-width:300px;padding:0;overflow:hidden;">
+            <div id="app" style="width:100%;height:100%;display:flex;flex-direction:column;">
+                <!-- 对话+控制台区域（全宽） -->
+                <div id="panel-area" style="flex:1;width:100%;display:flex;flex-direction:column;overflow:hidden;position:relative;">
+                    <!-- 顶栏：对话控制 -->
+                    <div id="panel-tabs">
+                        <div class="panel-tab active" data-tab="chat">💬 对话</div>
+                        <div class="panel-tab" data-tab="console">🖥️ 控制台</div>
+                    </div>
+                    <!-- 对话列表下拉 -->
+                    <div id="conv-list-dropdown" style="display:none;position:absolute;top:33px;right:0;width:100%;max-height:300px;overflow-y:auto;background:#161624;border:1px solid #2a2a44;border-radius:0 0 8px 8px;z-index:50;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+                        <div style="display:flex;align-items:center;padding:4px 8px;border-bottom:1px solid #2a2a44;position:sticky;top:0;background:#161624;z-index:1;">
+                            <span style="font-size:11px;color:#8888aa;">历史对话</span>
+                            <button id="conv-list-close" title="关闭" style="margin-left:auto;background:none;border:none;color:#8888aa;cursor:pointer;font-size:14px;padding:0 4px;">✕</button>
+                        </div>
+                    </div>
+                    <div id="chat-panel" class="panel-content active" style="flex:1;overflow:hidden;flex-direction:column;position:relative;">
+                        <div style="position:absolute;top:4px;right:4px;z-index:10;display:flex;gap:2px;">
+                            <button id="conv-list-btn" title="历史对话" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;">📋</button>
+                            <button id="new-chat-btn" title="新建对话" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;">➕</button>
+                        </div>
+                        <div id="messages"></div>
+                    </div>
+                    <div id="console-panel" class="panel-content" style="flex:1;overflow:hidden;flex-direction:column;">
+                        <div style="display:flex;align-items:center;padding:2px 8px;border-bottom:1px solid #1a1a2e;background:#0d0d18;flex-shrink:0;">
+                            <span style="font-size:11px;color:#666688;">日志</span>
+                            <button id="console-copy" title="复制全部日志" style="margin-left:auto;background:none;border:none;color:#8888aa;cursor:pointer;font-size:12px;padding:2px 4px;">📋 复制</button>
+                            <button id="console-clear" title="清空日志" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:12px;padding:2px 4px;">🗑️ 清空</button>
+                        </div>
+                        <div id="console-body" style="flex:1;overflow-y:auto;padding:4px 8px;font-family:monospace;font-size:11px;"></div>
+                    </div>
                 </div>
-            </div>
-            <!-- 对话列表（折叠式，不占主界面） -->
-            <div class="conv-list" id="convList" style="display:none;">
-                <div id="convListItems"></div>
-            </div>
-            <div class="msg-list" id="msgList"></div>
-            <div class="chat-input-area">
-                <div class="thinking-indicator" id="thinkingIndicator">
-                    <span class="ti-cat" id="thinkingCat">准备</span>
-                    <span class="ti-sep">›</span>
-                    <span class="ti-phrase" id="thinkingPhrase">初始化</span>
-                    <span class="ti-sep">›</span>
-                    <span class="ti-num" id="thinkingNum">0</span>
-                    <span class="ti-track"><span class="ti-track-fill" id="thinkingTrack"></span></span>
-                </div>
-                <div class="chat-input-row">
-                    <textarea id="userInput" placeholder="输入消息... (Enter发送, Shift+Enter换行)"></textarea>
-                    <button class="mic-btn" id="micBtn" title="🎤 语音输入">🎤</button>
-                    <button class="send-btn" id="sendBtn" title="发送消息（Enter键也可发送）">➤</button>
+                <!-- 底部输入栏 -->
+                <div id="selection-bar" style="flex-shrink:0;min-height:0;overflow:hidden;"></div>
+                <div id="input-bar">
+                    <textarea id="input-box" placeholder="说点什么... (Shift+Enter换行)" rows="1" autocomplete="off"></textarea>
+                    <button id="mic-btn" title="语音输入" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:16px;padding:4px 6px;">🎤</button>
+                    <button id="send-btn">发送</button>
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- 浮空Canvas粒子面板（独立于布局，发送时显示，完成时隐藏） -->
+    <div id="float-canvas-container" style="display:none;position:fixed;top:60px;left:260px;width:320px;height:280px;z-index:8000;opacity:0;transition:opacity 0.3s ease,transform 0.3s ease;transform:scale(0.8);pointer-events:none;">
+        <div id="float-canvas-header" style="height:24px;background:#0d0d18;border:1px solid #2a2a44;border-bottom:none;border-radius:8px 8px 0 0;cursor:move;display:flex;align-items:center;justify-content:space-between;padding:0 8px;pointer-events:auto;">
+            <div style="display:flex;align-items:center;gap:4px;">
+                <span style="font-size:11px;color:#8888aa;">🧠 神经元活动</span>
+                <button id="anim-toggle" title="动画开关" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:12px;">⚡</button>
+                <button id="float-canvas-close" title="关闭" style="background:none;border:none;color:#8888aa;cursor:pointer;font-size:12px;">✕</button>
+            </div>
+        </div>
+        <div id="canvas-area" style="width:100%;height:calc(100% - 24px);position:relative;overflow:hidden;border:1px solid #2a2a44;border-top:none;border-radius:0 0 8px 8px;pointer-events:auto;background:#080812;">
+            <canvas id="brain-canvas" style="display:block;width:100%;height:100%;cursor:crosshair;"></canvas>
+        </div>
+        <!-- 缩放手柄：右、下、右下角、上、左 -->
+        <div id="float-resize-r" style="position:absolute;top:24px;right:0;width:6px;height:calc(100% - 24px);cursor:ew-resize;pointer-events:auto;z-index:10;"></div>
+        <div id="float-resize-b" style="position:absolute;bottom:0;left:0;width:100%;height:6px;cursor:ns-resize;pointer-events:auto;z-index:10;"></div>
+        <div id="float-resize-br" style="position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;pointer-events:auto;z-index:11;"></div>
+        <div id="float-resize-t" style="position:absolute;top:0;left:0;width:100%;height:6px;cursor:ns-resize;pointer-events:auto;z-index:10;"></div>
+        <div id="float-resize-l" style="position:absolute;top:24px;left:0;width:6px;height:calc(100% - 24px);cursor:ew-resize;pointer-events:auto;z-index:10;"></div>
     </div>
 
     <!-- 状态栏 -->
@@ -523,6 +556,21 @@
                         <h3>🔊 语音输出（TTS朗读）</h3>
                         <div id="ttsConfigPanel">加载中...</div>
                     </div>
+                    <div class="scard" style="margin-top:16px">
+                        <h3>🎵 界面音效</h3>
+                        <div style="display:flex;align-items:center;gap:16px;margin:8px 0;">
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text);">
+                                <input type="checkbox" id="sfxEnabled" onchange="toggleSoundEnabled(this.checked)" style="width:16px;height:16px;cursor:pointer;"> 启用界面音效
+                            </label>
+                            <span style="font-size:11px;color:var(--text2);">通知/文件操作/下载完成/AI回复/路线图等场景</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin:8px 0;">
+                            <span style="font-size:12px;color:var(--text2);">音量</span>
+                            <input type="range" id="sfxVolume" min="0" max="1" step="0.05" value="0.3" onchange="changeSoundVolume(this.value)" style="flex:1;max-width:200px;-webkit-appearance:none;height:4px;background:var(--bg4);border-radius:2px;outline:none;cursor:pointer;">
+                            <span id="sfxVolLabel" style="font-size:12px;color:var(--text);width:36px;text-align:right;">30%</span>
+                            <button onclick="if(window.playSound) playSound('success')" style="padding:2px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text2);font-size:11px;cursor:pointer;">🔊 测试</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="stab" id="tab_cloudimg">
                     <div class="scard">
@@ -603,7 +651,7 @@
                     <div style="background:var(--bg3);border-radius:8px;padding:28px;text-align:center;margin-bottom:12px;border:1px solid var(--border);">
                         <div style="font-size:22px;font-weight:bold;color:var(--text);">朱峰社区智能体</div>
                         <div style="font-size:13px;color:var(--text2);margin-top:6px;">让每一位创作者都拥有AI助手</div>
-                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.3.9 · MIT · zf3d.com</div>
+                        <div style="font-size:11px;color:var(--text2);margin-top:4px;" id="aboutVersion">v3.5.0 · MIT · zf3d.com</div>
                     </div>
                     <!-- 两列布局 -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
@@ -696,39 +744,47 @@
     <!-- Monaco Editor (AMD loader, 本地离线) — defer确保在katex/mammoth之后加载，避免AMD define冲突 -->
     <script src="/monaco/vs/loader.js" defer></script>
     <script src="编辑器/编辑器.js?v=20260707c"></script>
+    <script src="模块/音效系统.js?v=20260724a"></script>
     <script src="模块/全局状态.js?v=20260706a"></script>
+    <script src="模块/编辑器API.js?v=20260724a"></script>
     <script src="模块/网站登录.js?v=20260711i"></script>
-    <script src="模块/路径工具.js?v=20260711a"></script>
+    <script src="模块/路径工具.js?v=20260723b"></script>
     <script src="模块/撤销重做.js?v=20260707b"></script>
-    <script src="模块/Toast通知.js?v=20260707a"></script>
-    <script src="模块/自动更新.js?v=20260627b"></script>
-    <script src="模块/面板布局.js?v=20260711b"></script>
+    <script src="模块/Toast通知.js?v=20260724a"></script>
+    <script src="模块/自动更新.js?v=20260724a"></script>
+    <script src="模块/面板布局.js?v=20260724a"></script>
     <script src="模块/语音播报.js?v=20260706c"></script>
     <script src="模块/语音输入.js?v=20260706g"></script>
-    <script src="模块/对话核心.js?v=20260711c"></script>
-    <script src="模块/推理流.js?v=20260711b"></script>
+    <!-- 对话核心.js已注释——neuron神经对话.js自包含对话功能，避免sendMessage/isChatting冲突 -->
+    <!-- <script src="模块/对话核心.js?v=20260718a"></script> -->
+    <script src="模块/推理流.js?v=20260718a"></script>
     <script src="模块/音乐播放器.js?v=20260630l"></script>
     <script src="模块/录音.js?v=20260704h"></script>
     <script src="模块/录屏.js?v=20260704z"></script>
     <script src="模块/实时Diff.js?v=20260707e"></script>
-    <script src="模块/Diff查看器.js?v=20260702c"></script>
-    <script src="模块/消息渲染.js?v=20260627d"></script>
-    <script src="模块/多对话管理.js?v=20260711a"></script>
+    <script src="模块/Diff查看器.js?v=20260724a"></script>
+    <!-- 对话模块已替换为神经元实验，以下3个不再加载 -->
+    <!-- <script src="模块/消息渲染.js?v=20260627d"></script> -->
+    <!-- <script src="模块/多对话管理.js?v=20260711a"></script> -->
     <script src="模块/模型配置.js?v=20260710d"></script>
-    <script src="模块/设置面板.js?v=20260708b"></script>
-    <script src="模块/文件树.js?v=20260711g"></script>
+    <script src="模块/设置面板.js?v=20260724a"></script>
+    <script src="模块/文件树.js?v=20260724a"></script>
     <script src="模块/音视频.js?v=20260627e"></script>
-    <script src="模块/文档预览.js?v=20260627e"></script>
+    <script src="模块/文档预览.js?v=20260724a"></script>
     <script src="模块/图片查看器.js?v=20260711b"></script>
-    <script src="模块/多标签编辑器.js?v=20260707b"></script>
-    <script src="模块/文件框选.js?v=20260707a"></script>
-    <script src="模块/权限轮询.js?v=20260711c"></script>
-    <script src="模块/股票模式.js?v=20260630i"></script>
-    <script src="模块/数据管理面板.js?v=20260629b"></script>
-    <script src="模块/下载面板.js?v=20260706b"></script>
+    <script src="模块/多标签编辑器.js?v=20260724a"></script>
+    <script src="模块/文件框选.js?v=20260723c"></script>
+    <script src="模块/权限轮询.js?v=20260724a"></script>
+    <script src="模块/股票模式.js?v=20260724a"></script>
+    <script src="模块/数据管理面板.js?v=20260724a"></script>
+    <script src="模块/下载面板.js?v=20260724a"></script>
     <script src="模块/后台任务通知.js?v=20260715a"></script>
     <script src="模块/动画工坊.js?v=20260715j"></script>
+    <!-- 对话核心.js也注释掉，避免与神经元实验的sendMessage/isChatting冲突 -->
+    <!-- <script src="模块/对话核心.js?v=20260702c"></script> -->
     <script src="逻辑.js?v=20260715a"></script>
+    <!-- 神经元对话实验（移植到主系统右侧面板） -->
+    <script src="neuron/神经对话.js?v=20260724a"></script>
 
     <!-- 新建文件弹窗 -->
     <div class="overlay" id="newFileOverlay" style="display:none;">
