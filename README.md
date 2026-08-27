@@ -3,6 +3,14 @@ No tricks, heavy tasks! Traditional agents walk; Zhufeng Agent Unlimited flies.
 
 Free and open source · Multi-model, multi-chat · Windows / Web · Zero-dependency startup with Python standard library
 
+## Screenshots
+
+![Screenshot 1](docs/images/1.jpg)
+![Screenshot 2](docs/images/2.jpg)
+![Screenshot 3](docs/images/3.jpg)
+![Screenshot 4](docs/images/4.jpg)
+![Screenshot 5](docs/images/5.jpg)
+
 v4.1.8 Highlights
 v4.1.8 builds on the v4.1.5 release with stability and usability improvements:
 
@@ -100,6 +108,14 @@ v4.1.8 是在 v4.1.5 发布版基础上的稳定性与使用体验更新，重�
 历史与大模型统计：新增历史记录与大模型使用统计，便于回顾任务过程、了解模型调用情况和使用效果。
 风筝系统间隔计算：完善风筝系统的任务间隔计算，让多对话监控、调度与回收过程更加稳定可控。
 按模型优化 Token 命中率：针对不同模型优化 Token 命中率统计与处理策略，提升上下文复用效率和模型使用分析的准确性。
+🖼️ 界面截图
+
+![截图1](docs/images/1.jpg)
+![截图2](docs/images/2.jpg)
+![截图3](docs/images/3.jpg)
+![截图4](docs/images/4.jpg)
+![截图5](docs/images/5.jpg)
+
 这是什么？
 朱峰社区智能体无限 是一个本地优先的智能体工作台：把多模型、多对话、长期任务、工具执行和无限画布，放进同一个工作空间。
 
