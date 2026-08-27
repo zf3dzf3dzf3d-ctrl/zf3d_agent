@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+朱峰社区无限智能体 - SQLite 数据服务
+纯 Python 标准库实现，无第三方依赖。
+
+端口: 默认 8418（private/port.txt 可覆盖，如 8766）
+数据库: private/db/zf3d_canvas.db
+API 前缀: /api/db/*
+
+启动: python server.py
+"""
+
+import os
+import sys
+import ssl
+import socket
+import time
+import threading
+import traceback
+from http.server import HTTPServer, ThreadingHTTPServer
+
+# 导入拆分后的模块
+# ★ 路径自举：便携 Python（python311._pth 隔离模式）下 sys.path 不含脚本所在目录
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+from config import HOST, PORT, DB_PATH, BASE_DIR, PUBLIC_DIR
+from db import init_db
+from handler_base import HandlerBase
+from handler_routes import HandlerRoutes
+
+# 主处理器：组合所有 Mixin
+class DBHandler(HandlerRoutes, HandlerBase):
+    """主请求处理器：组合基类 + 工具处理 + 路由处理"""
+    pass
+
+
+def _port_in_use():
+    """检测端口是否被占用（可能是旧实例或其他程序）"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.5)
+            return s.connect_ex((HOST, PORT)) == 0
+    except Exception:
+        return False
+
+
+def _service_alive():
+    """探测端口上的 HTTP 服务是否为本项目服务（GET / 有响应即视为活着）"""
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f'http://{HOST}:{PORT}/', timeout=2.5) as resp:
+            return resp.status < 500
+    except Exception:
+        return False
+
+
+def main():
+    init_db()
+
+    # ---- 端口冲突智能处理 ----
+    if _port_in_use():
+        if _service_alive():
+            # 已有健康实例在跑：直接复用，不重复启动（由启动器负责打开浏览器）
+            print(f'[Server] 端口 {PORT} 已有健康服务，复用现有实例，本次启动退出')
+            sys.exit(0)
+        else:
+            # 端口被占但服务不健康：等待 5 秒重试一次，仍不行则报错退出
+            print(f'[Server] 端口 {PORT} 被占用但服务无响应，等待 5 秒后重试...')
+            time.sleep(5)
+            if _port_in_use() and not _service_alive():
+                print(f'[Server] 错误: 端口 {PORT} 仍被非本服务进程占用')
+                sys.stderr.write(f'端口 {PORT} 被占用且占用者无 HTTP 响应。请关闭占用进程后重试。\n')
+                sys.exit(1)
+
+    server = ThreadingHTTPServer((HOST, PORT), DBHandler)
+    
+    # 启动热更新引擎
+    server_dir = os.path.dirname(os.path.abspath(__file__))
+    from hot_reload import init_hot_reloader
+    init_hot_reloader(server, DBHandler, server_dir, PUBLIC_DIR)
+
+    # 启动朱峰社区心跳上报线程
+    try:
+        from zf3d_heartbeat import start_heartbeat
+        start_heartbeat()
+    except Exception as e:
+        print(f'[Server] 心跳线程启动失败: {e}')
+
+    print('')
+    print('  +--------------------------------------------------------------------------------------------------------------+')
+    print('  |                                                                                                              |')
+    print('  |  ██████████  ██████████  ██████████  ████████        ██      ████████    ██████████  ██      ██  ██████████  |')
+    print('  |        ██    ██                  ██  ██      ██    ██  ██    ██          ██          ████    ██      ██      |')
+    print('  |      ██      ██████████  ██████████  ██      ██  ██████████  ██    ██    ██████████  ██  ██  ██      ██      |')
+    print('  |    ██        ██                  ██  ██      ██  ██      ██  ██    ██    ██          ██    ████      ██      |')
+    print('  |  ██████████  ██          ██████████  ████████    ██      ██  ████████    ██████████  ██      ██      ██      |')
+    print('  |                                                                                                              |')
+    print('  |                                          ZF3D Agent  v4.0.3                                                  |')
+    print('  |                                                                                                              |')
+    print('  +--------------------------------------------------------------------------------------------------------------+')
+    print('')
+    print(f'  地址: http://{HOST}:{PORT}')
+    print(f'  数据库: {DB_PATH}')
+    print(f'  热更新: 已启用')
+    print(f'  状态: 运行中')
+    print('')
+    print(f'  按 Ctrl+C 停止服务')
+    print('')
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print('\n[Server] 正在停止...')
+        # 停止热更新引擎
+        from hot_reload import get_hot_reloader
+        hr = get_hot_reloader()
+        if hr:
+            hr.stop()
+        server.shutdown()
+        print('[Server] 已停止')
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,19 @@
+{
+  "defaultChatBoxSize": {
+    "width": 383,
+    "height": 507
+  },
+  "defaultCompressionModes": {
+    "toolResults": "truncate",
+    "historyAnswers": "truncate"
+  },
+  "chatCompressionModes": {
+    "cb20": {
+      "toolResults": "truncate",
+      "historyAnswers": "truncate"
+    },
+    "cb9": {
+      "historyAnswers": "truncate"
+    }
+  }
+}

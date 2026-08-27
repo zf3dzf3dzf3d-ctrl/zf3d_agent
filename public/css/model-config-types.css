@@ -1,0 +1,330 @@
+/* Model configuration category switcher */
+.mc-category-menu {
+  margin: 0 0 14px;
+  padding: 0;
+  background: transparent;
+}
+.mc-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+}
+.mc-type-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 38px;
+  gap: 5px;
+  padding: 0 6px;
+  color: var(--text2, #aebdca);
+  background: #151b22;
+  border: 1px solid #35414d;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.mc-type-tab:hover {
+  color: var(--text, #e5e7eb);
+  background: #202832;
+  border-color: #526273;
+}
+.mc-type-tab:focus-visible {
+  outline: 2px solid #3692d0;
+  outline-offset: 2px;
+}
+.mc-type-tab.active {
+  color: #e9f5ff;
+  background: #174b70;
+  border-color: #3796d4;
+  box-shadow: inset 0 0 0 1px rgba(150, 215, 255, .14);
+}
+.mc-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: currentColor;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 700;
+}
+.mc-type-tab strong { font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.mc-type-tab:last-child { border-right: 0; }
+.mc-type-total {
+  min-width: 16px;
+  padding: 1px 4px;
+  color: var(--text2, #9facba);
+  background: var(--bg3, #27323e);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+}
+.mc-type-tab.active .mc-type-total { color: #dbeeff; background: #1765a2; }
+.mc-type-tab small { display: none; }
+.mc-type-notice {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  color: var(--text2, #aebdca);
+  background: var(--bg2, #1d2630);
+  border-left: 3px solid #1683df;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.mc-type-notice code { color: #9dd1ff; word-break: break-all; }
+@media (max-width: 620px) {
+  .mc-type-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+  .mc-type-tab { min-height: 34px; padding: 0 3px; font-size: 11px; }
+  .mc-type-tab strong { font-size: 10px; }
+  .mc-type-icon { width: 14px; height: 14px; flex: 0 0 14px; font-size: 7px; }
+}
+
+/* Every model stays editable when its category is selected. */
+.mc-wrap .mc-item-expanded {
+  padding: 14px;
+  border-bottom: 1px solid var(--border, #303b47);
+}
+.mc-wrap .mc-item-expanded:last-child { border-bottom: 0; }
+.mc-wrap .mc-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.mc-wrap .mc-item-expanded .mc-item-name { font-size: 15px; font-weight: 650; }
+.mc-wrap .mc-item-expanded .mc-item-meta { display: flex; gap: 12px; margin-top: 4px; font-size: 12px; }
+/* Header-side actions: visibility toggle, duplicate, delete. */
+.mc-wrap .mc-item-tools { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.mc-wrap .mc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border, #303b47);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text, #e5e7eb);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mc-wrap .mc-icon-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: #4a5a6b; }
+.mc-wrap .mc-icon-btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.mc-wrap .mc-icon-btn[data-act="visible"] { font-size: 13px; }
+.mc-wrap .mc-icon-btn[data-act="copy"] { font-size: 15px; }
+.mc-wrap .mc-icon-btn[data-act="del"] { font-size: 18px; }
+/* API Key eye toggle: matches input height, sits inside the key row. */
+.mc-wrap .mc-eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 1px solid var(--border, #303b47);
+  border-radius: 5px;
+  background: #151c24;
+  color: var(--text2, #9facba);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.mc-wrap .mc-eye-btn:hover { color: var(--text, #e5e7eb); background: #202a35; border-color: #4a5a6b; }
+.mc-wrap .mc-eye-btn:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.mc-wrap .mc-eye-btn.is-shown { color: #9dd1ff; border-color: #2378b8; }
+.mc-wrap .mc-edit-actions .mc-btn { min-height: 34px; padding: 6px 16px; font-size: 13px; }
+.mc-wrap .mc-toolbar .mc-btn { min-height: 34px; padding: 6px 14px; font-size: 13px; }
+.mc-wrap .mc-icon-btn.mc-icon-danger { color: #f87171; }
+.mc-wrap .mc-icon-btn.mc-icon-danger:hover { background: rgba(248, 113, 113, 0.15); border-color: rgba(248, 113, 113, 0.5); }
+.mc-wrap .mc-item-hidden-note { font-size: 11px; color: #f59e0b; }
+.mc-wrap .mc-inline-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+}
+.mc-wrap .mc-inline-form label { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.mc-wrap .mc-inline-form input,
+.mc-wrap .mc-inline-form select { width: 100%; min-height: 34px; box-sizing: border-box; padding: 7px 9px; }
+.mc-wrap .mc-inline-form .mc-key-row { display: flex; gap: 6px; min-width: 0; }
+.mc-wrap .mc-inline-form .mc-key-row input { flex: 1 1 auto; min-width: 0; min-height: 34px; }
+.mc-wrap .mc-inline-form .mc-key-row .mc-btn { flex: 0 0 auto; padding: 6px 10px; }
+.mc-wrap .mc-item-expanded .mc-edit-actions { margin-top: 12px; padding-top: 10px; }
+@media (max-width: 620px) {
+  .mc-wrap .mc-inline-form { grid-template-columns: minmax(0, 1fr); }
+  .mc-wrap .mc-item-expanded { padding: 12px 10px; }
+  .mc-wrap .mc-item-expanded .mc-edit-actions { flex-wrap: wrap; gap: 7px; }
+  .mc-wrap .mc-item-expanded .mc-edit-spacer { display: none; }
+}
+
+/* Model configuration controls: match the application's black settings surface. */
+.mc-wrap {
+  color: var(--text, #e5e7eb);
+}
+.mc-wrap .mc-toolbar,
+.mc-wrap .mc-list,
+.mc-wrap .mc-edit-panel {
+  background: var(--bg, #10151b);
+  border-color: var(--border, #303b47);
+}
+.mc-wrap .mc-toolbar {
+  padding: 10px 12px;
+  border: 1px solid var(--border, #303b47);
+  border-radius: 6px;
+}
+.mc-wrap .mc-count,
+.mc-wrap .mc-form label {
+  color: var(--text2, #aebdca);
+}
+.mc-wrap .mc-list {
+  border: 1px solid var(--border, #303b47);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mc-wrap .mc-item {
+  background: var(--bg, #10151b);
+  border-color: var(--border, #303b47);
+}
+.mc-wrap .mc-item:hover {
+  background: var(--bg2, #161d25);
+}
+.mc-wrap .mc-item-name,
+.mc-wrap .mc-edit-inner h3 {
+  color: var(--text, #e5e7eb);
+}
+.mc-wrap .mc-item-meta,
+.mc-wrap .mc-empty {
+  color: var(--text2, #aebdca);
+}
+.mc-wrap .mc-empty {
+  background: var(--bg, #10151b);
+}
+.mc-wrap .mc-edit-panel {
+  margin-top: 14px;
+  border: 1px solid var(--border, #303b47);
+  border-radius: 6px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .35);
+}
+.mc-wrap .mc-edit-inner {
+  background: var(--bg, #10151b);
+}
+.mc-wrap .mc-form input,
+.mc-wrap .mc-form select {
+  color: var(--text, #e5e7eb);
+  background: var(--input-bg, #0c1117);
+  border: 1px solid var(--border, #303b47);
+  border-radius: 5px;
+  caret-color: var(--text, #e5e7eb);
+}
+.mc-wrap .mc-form input::placeholder {
+  color: var(--text2, #7f8d9c);
+  opacity: 1;
+}
+.mc-wrap .mc-form input:hover,
+.mc-wrap .mc-form select:hover {
+  border-color: #4a5a6b;
+  background: #101720;
+}
+.mc-wrap .mc-form input:focus,
+.mc-wrap .mc-form select:focus {
+  border-color: var(--blue, #1683df);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--blue-rgb, 22, 131, 223), .16);
+}
+.mc-wrap .mc-form select option {
+  color: var(--text, #e5e7eb);
+  background: #111820;
+}
+.mc-wrap .mc-btn {
+  color: var(--text, #e5e7eb) !important;
+  background: #151c24 !important;
+  border: 1px solid var(--border, #303b47) !important;
+  border-radius: 5px;
+}
+.mc-wrap .mc-btn:hover {
+  color: #f4f7fa !important;
+  background: #202a35 !important;
+  border-color: #4a5a6b !important;
+}
+.mc-wrap .mc-btn-primary {
+  color: #f7fbff !important;
+  background: #1765a2 !important;
+  border-color: #2378b8 !important;
+}
+.mc-wrap .mc-btn-primary:hover {
+  background: #2076b5 !important;
+  border-color: #3991d0 !important;
+}
+.mc-wrap .mc-btn-danger-ghost {
+  color: #f0a5a5 !important;
+}
+.mc-wrap .mc-btn-danger-ghost:hover {
+  color: #ffd2d2 !important;
+  background: #3a1d22 !important;
+  border-color: #754049 !important;
+}
+.mc-wrap .mc-edit-actions {
+  border-top-color: var(--border, #303b47);
+}
+
+/* The model settings surface is content, not a window-drag region. */
+.settings-modal,
+.settings-modal .settings-nav,
+.settings-modal .settings-content,
+.settings-modal #settingsPanel-models,
+.settings-modal #modelPanelMount,
+.settings-modal .mc-wrap {
+  -webkit-app-region: no-drag;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Keep actual controls from selecting their labels while preserving text selection elsewhere. */
+.settings-modal button,
+.settings-modal input,
+.settings-modal select,
+.settings-modal textarea,
+.settings-modal label,
+.settings-modal .settings-nav-item,
+.settings-modal .mc-type-tab {
+  -webkit-app-region: no-drag;
+}
+
+.settings-modal button,
+.settings-modal .settings-nav-item,
+.settings-modal .mc-type-tab {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.settings-modal input,
+.settings-modal select,
+.settings-modal textarea,
+.settings-modal .mc-type-notice,
+.settings-modal .mc-item,
+.settings-modal .mc-item-name,
+.settings-modal .mc-item-meta {
+  user-select: text;
+  -webkit-user-select: text;
+}
+ 
+/* [2026-08-27] 安全兜底：确保分类切换卡片始终可见 */ 
+.mc-category-menu{display:block !important;visibility:visible !important;opacity:1 !important;height:auto !important;overflow:visible !important;} 
+.mc-type-tabs{display:grid !important;visibility:visible !important;} 
+.mc-type-tab{display:inline-flex !important;}

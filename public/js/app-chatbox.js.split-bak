@@ -1,0 +1,2808 @@
+﻿// ========== app-chatbox.js - 对话框创建/绑定/Markdown/消息/关闭/恢复 ==========
+// 注意：所有 Tools.xxx 引用直接走 window.Tools（无兜底定义，避免遮蔽全局对象）
+
+Object.assign(App, {
+
+        // ===== 防风暴提示（右上角轻提示，自动消失） =====
+        _showStormToast: function(text) {
+            try {
+                var t = document.createElement('div');
+                t.textContent = '🛡 ' + text;
+                t.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:#c0392b;color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-family:system-ui,sans-serif;';
+                document.body.appendChild(t);
+                setTimeout(function() { t.remove(); }, 4000);
+            } catch (e) { console.warn('[ChatBox] toast失败', e); }
+        },
+
+        // ===== 新建窗口尺寸记忆（localStorage 持久化，重启后依然生效） =====
+        getLastBoxSize: function() {
+            try {
+                var raw = localStorage.getItem('zf3d_lastBoxSize');
+                if (raw) {
+                    var o = JSON.parse(raw);
+                    if (o && typeof o.w === 'number' && typeof o.h === 'number' &&
+                        o.w >= 280 && o.w <= 5000 && o.h >= 200 && o.h <= 5000) return o;
+                }
+            } catch (e) { }
+            return null;
+        },
+        rememberBoxSize: function(w, h) {
+            try {
+                if (w >= 280 && h >= 200) {
+                    localStorage.setItem('zf3d_lastBoxSize', JSON.stringify({ w: Math.round(w), h: Math.round(h) }));
+                }
+            } catch (e) { }
+        },
+
+        // ===== 创建对话框 =====
+        createChatBox: function(clientX, clientY, modelId) {
+            // 【防风暴闸门】所有限流检查在分配 id 之前完成（否则 id 会被浪费性递增）
+            var canvas0 = document.getElementById('canvasContent') || document.getElementById('canvasArea');
+            var cRect0 = canvas0.getBoundingClientRect();
+            var self0 = this;
+
+            var MAX_BOXES = 30;          // 画布窗口总量上限
+            var CREATE_WINDOW_MS = 10000; // 频率窗口：10秒
+            var MAX_PER_WINDOW = 8;      // 10秒内最多创建 8 个
+
+            var now = Date.now();
+            self0._createHistory = self0._createHistory || [];
+
+            // 1) 总量上限：已有窗口 ≥ 30 时拒绝新建（用户双击画布会得到提示，关闭部分窗口后恢复）
+            var boxesOnCanvas = document.querySelectorAll('.chatbox').length;
+            if (boxesOnCanvas >= MAX_BOXES) {
+                console.warn('[ChatBox] 窗口总量已达上限 ' + MAX_BOXES + '，拒绝新建（可能是程序失控，请检查）');
+                self0._showStormToast('窗口已达上限 ' + MAX_BOXES + '，请先关闭部分窗口');
+                return null;
+            }
+
+            // 2) 频率限制：10 秒内创建 > 8 个 → 判定为风暴，拒绝（窗口期过后自动恢复）
+            self0._createHistory = self0._createHistory.filter(function(t) { return now - t < CREATE_WINDOW_MS; });
+            if (self0._createHistory.length >= MAX_PER_WINDOW) {
+                console.warn('[ChatBox] 创建频率超限（10秒内 ' + self0._createHistory.length + ' 个），疑似风暴，已拦截');
+                self0._showStormToast('创建过快，10秒后再试（防失控保护）');
+                return null;
+            }
+            self0._createHistory.push(now);
+
+            var canvas = canvas0;
+            // 对话框 absolute 定位的参照容器就是 canvas（canvasContent），
+            // 因此坐标须以 canvas 的 getBoundingClientRect() 为基准（画布可经 transform 平移/缩放）。
+            var cRect = cRect0;
+            var self = self0;
+
+            var box = document.createElement('div');
+            box.className = 'chatbox';
+            box.id = this.nextBoxId();
+            box.style.left = (clientX - cRect.left) + 'px';
+            box.style.top = (clientY - cRect.top) + 'px';
+            box.style.zIndex = ++this.zCounter;
+
+            var model = modelId ? Models.get(modelId) : null;
+            var boxName = model ? model.name : '未选择模型';
+            // 新对话以右侧模型设置为初始快照；后续底部选择器的修改仅作用于本对话。
+            var initialModelIdOverride = model ? (model.modelId || '') : '';
+            var initialReasoningEffort = model ? (model.reasoningEffort || ReasoningLevels.defaultValue()) : '';
+
+            // 生成工具分类选择器（与恢复路径一致）
+            var _newCatName = Tools.activeCategory || '极简';
+            if (!Tools.categories[_newCatName]) _newCatName = '极简';
+            Tools.chatCategories[box.id] = _newCatName;
+            var catList = Tools.getCategoryList(box.id);
+            var catHtml = '';
+            catList.forEach(function(c) {
+                catHtml += '<div class="tool-cat-item' + (c.active ? ' active' : '') + '" data-cat="' + c.name + '">' +
+                    '<span class="tool-cat-item-icon">' + c.icon + '</span>' +
+                    '<span class="tool-cat-item-name">' + c.name + '</span>' +
+                    '</div>';
+            });
+            var curCat = Tools.categories[_newCatName];
+            var curCatIcon = curCat ? curCat.icon : '📄';
+
+            box.innerHTML =
+                '<div class="chatbox-header" title="拖拽移动对话；Shift+左键拖拽：按下即在鼠标处复制一个一模一样的对话并跟随拖动">' +
+                    
+                    '<div class="chatbox-header-row1">' +
+                    
+                    '<span class="status-dot status-idle"></span>' +
+                    '<span class="title">对话' + this.chatCounter + '</span>' +
+                    '<span class="proj-name" style="display:none"></span>' +
+                    '<button class="hd-btn tool-panel-btn" data-act="tools" title="工具执行过程">🔧<span class="tool-badge" style="display:none">0</span></button>' +
+                    '<button class="hd-btn log-panel-btn" data-act="logs" title="日志">📜</button>' +
+                    '<button class="hd-btn close" data-act="close" title="关闭">✕</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="chatbox-body">' +
+                    '<div class="msg ai">您好！我是当前模型，很高兴为您服务。请告诉我您需要完成的任务。' +
+                    (model ? '' : '（未选择模型，请在底部下拉菜单选择）') + '</div>' +
+                '</div>' +
+                '<div class="chatbox-toolpanel">' +
+                    '<div class="chatbox-toolpanel-header">' +
+                        '<span class="chatbox-toolpanel-title">🔧 工具执行过程</span>' +
+                        '<button class="chatbox-toolpanel-close" title="关闭面板">✕</button>' +
+                    '</div>' +
+                    '<div class="chatbox-toolpanel-body"></div>' +
+                '</div>' +
+                '<div class="chatbox-logpanel">' +
+                    '<div class="logpanel-tabs">' +
+                        '<span class="logpanel-tab active" data-tab="logs">日志</span>' +
+                        '<span class="logpanel-tab" data-tab="ctx">上下文</span>' +
+                        '<span class="logpanel-actions">' +
+                            '<button class="lp-btn" data-lp-act="copy" title="复制对话和日志">📋 复制</button>' +
+                            '<button class="lp-btn" data-lp-act="clear" title="清空对话和日志">🗑 清空</button>' +
+                        '</span>' +
+                    '</div>' +
+                    '<div class="logpanel-body"></div>' +
+                '</div>' +
+                '<div class="chatbox-queue" style="display:none"></div>' +
+                '<button class="prev-user-btn" title="定位到上一条用户问题所在的段落"><span>▲</span></button> <button class="scroll-bottom-btn" title="滚动到底部"><span>▼</span></button>' +
+                '<div class="chatbox-inputrow">' +
+                    '<button class="upload-btn" title="上传文件 / 文件夹">+</button>' +
+                    '<textarea placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>' +
+                    '<button class="send-btn" title="发送消息"><svg class="send-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg><svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg></button>' +
+                '</div>' +
+                '<div class="chatbox-configrow">' +
+                    '<div class="tool-cat-wrap">' +
+                        '<button class="tool-cat-trigger" title="切换工具分类">' +
+                            '<span class="tool-cat-icon">' + curCatIcon + '</span>' +
+                            '<span class="tool-cat-name">' + _newCatName + '</span>' +
+                            '<span class="tool-cat-arrow">▾</span>' +
+                        '</button>' +
+                        '<div class="tool-cat-menu" hidden>' + catHtml + '</div>' +
+                    '</div>' +
+                    '<button class="cfg-btn cfg-project-btn" data-act="project" title="切换项目">📁<span class="proj-label">切换项目</span></button>' +
+                    '<div class="model-picker-wrap">' +
+                        '<button class="model-picker-btn" title="点击选择模型 / 模型ID / 思考强度"><span class="model-picker-name">未选择模型</span><span class="model-picker-arrow">▾</span></button>' +
+                        '<div class="model-picker-menu" hidden>' +
+                            '<div class="mp-search"><input type="text" class="mp-search-input" placeholder="搜索模型名称或模型ID…"></div>' +
+                            '<div class="mp-list"></div>' +
+                            '<div class="mp-section">模型 ID 覆盖（仅本对话）</div>' +
+                            '<div class="mp-modelid-row"><select class="mp-modelid-input" title="选择要覆盖的模型ID"></select></div>' +
+                            '<div class="mp-section">思考强度（reasoning_effort）</div>' +
+                            '<div class="mp-re-row"><select class="mp-re-input" title="点击切换思考强度"></select></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+'<div class="chatbox-resize"><span class="chatbox-resize-handle south-east"></span><span class="chatbox-resize-handle south-west"></span><span class="chatbox-resize-handle south"></span><span class="chatbox-resize-handle east"></span><span class="chatbox-resize-handle west"></span></div>';
+
+            canvas.appendChild(box);
+
+            // 新建窗口应用"最后激活窗口"的尺寸（localStorage 记忆，重启后依然生效）
+            var lastSize = this.getLastBoxSize();
+            if (lastSize) {
+                box.style.width = lastSize.w + 'px';
+                box.style.height = lastSize.h + 'px';
+            }
+
+            // 记录对话框状态
+            var chat = {
+                id: box.id,
+                el: box,
+                modelId: modelId,
+                chatNum: this.chatCounter,
+                history: [],
+                createdAt: Date.now(),
+                isSending: false,
+                abortController: null,
+                queue: [],
+                _stopped: false,
+                _modelIdOverride: initialModelIdOverride,
+                _reasoningEffort: initialReasoningEffort
+            };
+            this.chatBoxes.push(chat);
+
+            // 自动归入当前活动项目
+            // 修复（5.0.1）：启动竞态窗口内 _activeProjectId 可能尚未从 DB 异步加载完成，
+            // 导致新建对话丢失项目归属。这里分三层兜底：
+            //   1) 内存值（正常路径，项目面板已加载）
+            //   2) localStorage 同步读取（上次会话写入的永久备份，毫秒级可用）
+            //   3) DB 异步拉取 + 延迟补归（前两层都为空时，拉到后回填内存并补归本对话）
+            var _activePid = self._activeProjectId || null;
+            if (!_activePid) {
+                try {
+                    var _savedPid = localStorage.getItem('active_project_id');
+                    if (_savedPid) {
+                        _activePid = _savedPid;
+                        self._activeProjectId = _savedPid; // 回填内存，本页后续新建直接命中
+                    }
+                } catch (e) {}
+            }
+            if (_activePid) {
+                chat.projectId = _activePid;
+                for (var _pi = 0; _pi < Store.data.chatBoxes.length; _pi++) {
+                    if (Store.data.chatBoxes[_pi].id === chat.id) {
+                        Store.data.chatBoxes[_pi].projectId = _activePid;
+                        break;
+                    }
+                }
+                if (typeof DB !== 'undefined' && DB.online) {
+                    DB.setNodeProject(chat.id, _activePid).catch(function(e) { console.warn('[Chatbox] project link failed:', e); });
+                }
+                Store.addLog('info', chat.id, 'project-auto', '自动归入活动项目: ' + _activePid);
+            } else if (typeof DB !== 'undefined' && DB.getActiveProject) {
+                // 第三层兜底：异步拉取 DB 中的活动项目，拉到后补归（不阻塞对话框创建）
+                DB.getActiveProject().then(function (res) {
+                    if (!res || !res.ok || res.data === null || res.data === undefined) return;
+                    var pid2 = res.data;
+                    try { pid2 = JSON.parse(pid2); } catch (e) {}
+                    if (!pid2) return;
+                    // 回填内存 + localStorage，后续新建对话直接命中
+                    self._activeProjectId = pid2;
+                    try { localStorage.setItem('active_project_id', pid2); } catch (e) {}
+                    // 补归当前对话：仅当它仍存活且仍无归属（用户未手动改派到其他项目）时
+                    var alive = self.chatBoxes && self.chatBoxes.indexOf(chat) >= 0;
+                    if (alive && !chat.projectId) {
+                        chat.projectId = pid2;
+                        for (var _pj = 0; _pj < Store.data.chatBoxes.length; _pj++) {
+                            if (Store.data.chatBoxes[_pj].id === chat.id) {
+                                Store.data.chatBoxes[_pj].projectId = pid2;
+                                break;
+                            }
+                        }
+                        if (typeof DB !== 'undefined') {
+                            DB.setNodeProject(chat.id, pid2).catch(function () {});
+                        }
+                        if (typeof self._updateProjectBtn === 'function') self._updateProjectBtn(chat);
+                        Store.addLog('info', chat.id, 'project-auto', '自动归入活动项目(延迟补归): ' + pid2);
+                    }
+                }).catch(function () {});
+            }
+
+            // 激活
+            this.activate(box);
+
+            // 绑定事件
+            this.bindChatBox(box, chat);
+
+            // 初始化项目按钮显示
+            this._updateProjectBtn(chat);
+
+            // 持久化
+            Store.saveChatBox(chat);
+            Store.addMessage(box.id, 'assistant', box.querySelector('.msg').textContent, 'text', chat.modelId);
+            Store.addLog('info', box.id, 'create', '创建对话框，模型: ' + (boxName));
+
+            // 更新状态栏
+            if (typeof Tools !== 'undefined' && Tools.toolResultArchive) {
+                delete Tools.toolResultArchive[chat.id];
+            }
+            this.updateStatus();
+            this.hideHint();
+            this.updateMinimap();
+            return chat;
+        },
+
+        // ===== Shift+左键拖拽复制对话 =====
+        // 行为：按下瞬间（mousedown 且 shiftKey）立即创建一个副本对话（新对话 id、DB 单独一条会话记录），
+        // 副本出现在鼠标按下的位置，随后鼠标继续拖拽时副本跟随鼠标移动（原对话不动），
+        // 松开后副本停在松开位置。副本内容与原对话完全一致（含渲染方式）。
+        cloneChatBox: function(srcChat, pressX, pressY) {
+            var self = this;
+            if (!srcChat || !srcChat.el) return null;
+
+            // 0) 记录源对话当前信息（必须在创建副本前读取，创建后 DOM 会刷新）
+            var srcTitleEl = srcChat.el.querySelector('.title');
+            var srcTitle = srcTitleEl ? (srcTitleEl.textContent || '').trim() : ('对话' + (srcChat.chatNum || ''));
+            var srcCollapsed = srcChat.el.classList.contains('collapsed');
+            var srcModelId = srcChat.modelId || '';
+            var srcModelIdOverride = srcChat._modelIdOverride || '';
+            var srcReasoningEffort = srcChat._reasoningEffort || '';
+            var srcProjectId = srcChat.projectId || null;
+            var srcToolCat = (typeof Tools !== 'undefined' && Tools.chatCategories) ? (Tools.chatCategories[srcChat.id] || null) : null;
+            var srcW = srcChat.el.offsetWidth || 480;
+            var srcH = srcChat.el.offsetHeight || 520;
+            // 消息深拷贝（含 role/content/type/ts/model_id，保证渲染方式一致：final/text 等）
+            var srcMsgs = (Store.getMessages(srcChat.id) || []).map(function(m) {
+                var cp = {};
+                for (var k in m) {
+                    if (Object.prototype.hasOwnProperty.call(m, k)) cp[k] = m[k];
+                }
+                return cp;
+            });
+            // history 也复制一份（用于发送上下文）
+            var srcHistory = (srcChat.history || []).map(function(h) { return { role: h.role, content: h.content }; });
+
+            // 1) 按源对话的画布坐标创建副本，保持鼠标抓取点与原对话一致。
+            var newChat = self.createChatBox(srcChat.x, srcChat.y, srcModelId);
+            if (!newChat) return null;
+            // 副本继承源对话已经独立设置的模型 ID 与思考强度。
+            newChat._modelIdOverride = srcModelIdOverride;
+            newChat._reasoningEffort = srcReasoningEffort;
+            if (typeof newChat._refreshModelPickerBtn === 'function') newChat._refreshModelPickerBtn();
+
+            // 2) 覆盖项目归属：副本属于源对话同一个项目
+            newChat.projectId = srcProjectId;
+            for (var i = 0; i < Store.data.chatBoxes.length; i++) {
+                if (Store.data.chatBoxes[i].id === newChat.id) {
+                    Store.data.chatBoxes[i].projectId = srcProjectId;
+                    break;
+                }
+            }
+            if (srcProjectId && typeof DB !== 'undefined' && DB.online) {
+                DB.setNodeProject(newChat.id, srcProjectId).catch(function() {});
+            }
+
+            // 3) 覆盖工具分类（极简/编程/写作）
+            if (srcToolCat && typeof Tools !== 'undefined' && Tools.chatCategories) {
+                Tools.chatCategories[newChat.id] = srcToolCat;
+                // 更新触发按钮显示
+                try {
+                    var trig = newChat.el.querySelector('.tool-cat-trigger');
+                    var catObj = Tools.categories[srcToolCat];
+                    if (trig && catObj) {
+                        var ic = trig.querySelector('.tool-cat-icon');
+                        var nm = trig.querySelector('.tool-cat-name');
+                        if (ic) ic.textContent = catObj.icon || '📄';
+                        if (nm) nm.textContent = srcToolCat;
+                        // 重建下拉菜单并高亮当前分类
+                        var menu = trig.nextElementSibling;
+                        if (menu) {
+                            var catList = Tools.getCategoryList(newChat.id);
+                            var catHtml = '';
+                            catList.forEach(function(c) {
+                                catHtml += '<div class="tool-cat-item' + (c.active ? ' active' : '') + '" data-cat="' + c.name + '">' +
+                                    '<span class="tool-cat-item-icon">' + c.icon + '</span>' +
+                                    '<span class="tool-cat-item-name">' + c.name + '</span>' +
+                                    '</div>';
+                            });
+                            menu.innerHTML = catHtml;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // 4) 尺寸/层级与源一致
+            newChat.el.style.width = srcW + 'px';
+            newChat.el.style.height = srcH + 'px';
+            newChat.el.style.zIndex = (++this.zCounter);
+
+            // 5) 折叠状态一致
+            if (srcCollapsed) newChat.el.classList.add('collapsed');
+
+            // 6) 标题与源一致（同一渲染方式，仅 id 不同）
+            try {
+                var newTitleEl = newChat.el.querySelector('.title');
+                if (newTitleEl) newTitleEl.textContent = srcTitle;
+                newChat.title = srcTitle;
+            } catch (e) {}
+
+            // 7) 用源消息完整替换初始欢迎消息：清空 DOM + Store + DB
+            var body = newChat.el.querySelector('.chatbox-body');
+            if (body) body.innerHTML = '';
+            if (typeof Store.clearMessages === 'function') {
+                Store.clearMessages(newChat.id);
+            } else if (Store.data && Store.data.messages) {
+                Store.data.messages[newChat.id] = [];
+            }
+
+            // 8) 逐条写入源消息（Store 内存 + SQLite 新会话；保留 role/type/ts，渲染方式与源一致）
+            srcMsgs.forEach(function(m) {
+                var role = m.role || 'user';
+                var content = m.content || '';
+                var type = m.type || 'text';
+                var mModel = m.model_id || m.modelId || srcModelId || '';
+                try {
+                    if (typeof Store.addMessage === 'function') {
+                        Store.addMessage(newChat.id, role, content, type, mModel);
+                    } else {
+                        if (!Store.data.messages[newChat.id]) Store.data.messages[newChat.id] = [];
+                        Store.data.messages[newChat.id].push({ role: role, content: content, type: type, ts: m.ts || Date.now() });
+                    }
+                } catch (e) {
+                    console.error('[cloneChatBox] 写入消息失败:', e);
+                }
+            });
+            // DB 直接按原始 ts 归档（新会话 id，时间与源一致）
+            if (Store.dbOnline && typeof DB !== 'undefined' && srcMsgs.length) {
+                DB.clearChatHistory(newChat.id).then(function() {
+                    srcMsgs.forEach(function(m) {
+                        DB.addChatMessage(newChat.id, m.role || 'user', m.content || '', m.model_id || m.modelId || srcModelId || '', null, m.ts).catch(function() {});
+                    });
+                }).catch(function() {});
+            }
+
+            // 9) 用源的渲染方式逐条渲染到副本 DOM（分块异步渲染，和恢复对话路径一致）
+            newChat.history = srcHistory.slice();
+            if (srcMsgs.length) {
+                var cbody = newChat.el.querySelector('.chatbox-body');
+                if (cbody) {
+                    var msgIdx = 0;
+                    var CHUNK = 8;
+                    (function renderChunk() {
+                        var end = Math.min(msgIdx + CHUNK, srcMsgs.length);
+                        var frag = document.createDocumentFragment();
+                        for (; msgIdx < end; msgIdx++) {
+                            var m = srcMsgs[msgIdx];
+                            if (m.type === 'typing' || m.type === 'tool_call') continue;
+                            var div = document.createElement('div');
+                            var whoCls = (m.role === 'user' ? 'user' : (m.role === 'error' ? 'error' : 'ai'));
+                            div.className = 'msg ' + whoCls + (m.type === 'final' ? ' ai-final' : '');
+                            self.setMsgContent(div, m.content, whoCls);
+                            frag.appendChild(div);
+                        }
+                        cbody.appendChild(frag);
+                        if (msgIdx < srcMsgs.length) {
+                            requestAnimationFrame(renderChunk);
+                        } else {
+                            cbody.scrollTop = cbody.scrollHeight;
+                        }
+                        try { self._refreshUserMsgBtns(cbody); } catch (e) {}
+                    })();
+                }
+            }
+
+            // 10) 副本默认显示在源对话上方（y 坐标更高），避免完全重叠看不到新副本；
+            //    保留鼠标在标题栏中的抓取偏移；新副本提升层级显示在原对话上方。
+            try {
+                var CLONE_OFFSET_Y = -32; // 负值 = 在源对话上方
+                var sourceLeft = typeof srcChat.x === 'number' ? srcChat.x : srcChat.el.offsetLeft;
+                var sourceTop = typeof srcChat.y === 'number' ? srcChat.y : srcChat.el.offsetTop;
+                newChat.el.style.left = sourceLeft + 'px';
+                newChat.el.style.top = (sourceTop + CLONE_OFFSET_Y) + 'px';
+                newChat.el.style.zIndex = (++self.zCounter);
+                newChat.x = sourceLeft;
+                newChat.y = sourceTop + CLONE_OFFSET_Y;
+            } catch (e) {
+                console.warn('[Shift+拖拽] 初始位置设置失败:', e);
+            }
+
+            // 11) 持久化节点信息（含新 projectId / 标题 / 尺寸 / 位置）
+            Store.saveChatBox(newChat);
+
+            // 12) 日志 + 刷新视图
+            Store.addLog('info', newChat.id, 'clone', 'Shift+拖拽复制对话（源: ' + srcChat.id + '，消息 ' + srcMsgs.length + ' 条）');
+            if (typeof self.updateProjectView === 'function') { try { self.updateProjectView(); } catch (e) {} }
+            if (typeof self.updateStatus === 'function') { try { self.updateStatus(); } catch (e) {} }
+            if (typeof self.updateMinimap === 'function') { try { self.updateMinimap(); } catch (e) {} }
+
+            return newChat;
+        },
+
+        // ===== 底部模型选择器（增强版下拉） =====
+        // 功能：1) 搜索/切换模型线路 2) 本对话模型ID覆盖 3) 思考强度（off/low/medium/high）
+        _initModelPicker: function(box, chat) {
+            var self = this;
+            var wrap = box.querySelector('.model-picker-wrap');
+            if (!wrap) return;
+            var btn = wrap.querySelector('.model-picker-btn');
+            var menu = wrap.querySelector('.model-picker-menu');
+            var listEl = menu.querySelector('.mp-list');
+            var searchInput = menu.querySelector('.mp-search-input');
+            var modelidInput = menu.querySelector('.mp-modelid-input');
+            var reInput = menu.querySelector('.mp-re-input');
+            if (!btn || !menu || !listEl) return;
+
+            // ---- 内部工具：当前模型实际生效的 modelId（覆盖优先） ----
+            function effModelId() {
+                var m = chat.modelId ? Models.get(chat.modelId) : null;
+                return (chat._modelIdOverride || (m && m.modelId) || '');
+            }
+
+            // ---- 内部工具：当前生效思考强度 ----
+            function curReasoning() {
+                if (chat._reasoningEffort) return chat._reasoningEffort;
+                var m = chat.modelId ? Models.get(chat.modelId) : null;
+                return (m && m.reasoningEffort) || ReasoningLevels.defaultValue();
+            }
+
+            // ---- 内部工具：刷新按钮显示 ----
+            function refreshBtn() {
+                var m = chat.modelId ? Models.get(chat.modelId) : null;
+                var nameEl = btn.querySelector('.model-picker-name');
+                if (!m) {
+                    btn.querySelector('.model-picker-name').textContent = '未选择模型';
+                } else {
+                    var fullName = m.name || m.modelId || '未命名';
+                    var label = String(fullName).substring(0, 4);
+                    if (nameEl) nameEl.textContent = label;
+                    var re = curReasoning();
+                    var mid = chat._modelIdOverride || m.modelId || '';
+                    btn.title = '模型线路: ' + fullName + '\n模型 ID: ' + mid + '\n思考强度: ' + re + '\n点击修改';
+                }
+                // 刷新菜单选中态 + modelid 下拉框选项与选中态 + 思考强度选中态
+                if (modelidInput) {
+                    // 重建下拉选项：引用共享模型 ID 表（Models.MODEL_IDS，与设置面板同一张表），首项为“使用全局配置”
+                    var seen = {};
+                    var optsHtml = '<option value="">（使用全局配置）</option>';
+                    var _provider = (m && m.provider) || 'ark';
+                    var _ids = (Models.modelIdsFor) ? Models.modelIdsFor(_provider) : (Models.MODEL_IDS || []);
+                    _ids.forEach(function(v) {
+                        v = (v || '').trim();
+                        if (!v || seen[v]) return;
+                        seen[v] = true;
+                        optsHtml += '<option value="' + v + '">' + v + '</option>';
+                    });
+                    // 当前覆盖值不在列表中时（如旧数据/自定义ID），补充一个选项避免显示空
+                    var cur = chat._modelIdOverride || '';
+                    if (cur && !seen[cur]) {
+                        optsHtml += '<option value="' + cur + '">' + cur + '</option>';
+                    }
+                    modelidInput.innerHTML = optsHtml;
+                    modelidInput.value = cur;
+                }
+                if (menu) {
+                    // 刷新思考强度下拉：按当前模型实际生效的 modelId 取档位列表
+                    if (reInput) {
+                        var reList = ReasoningLevels.listFor(effModelId());
+                        var curRe = curReasoning();
+                        var hasCur = reList.some(function (it) { return it.value === curRe; });
+                        var reHtml = reList.map(function (it) {
+                            return '<option value="' + it.value + '">' + it.label + '</option>';
+                        }).join('');
+                        // 当前值不在该模型档位列表中时补一项，避免显示空
+                        if (!hasCur && curRe) {
+                            reHtml += '<option value="' + curRe + '">' + (ReasoningLevels.labelOf(curRe) || curRe) + '</option>';
+                        }
+                        reInput.innerHTML = reHtml;
+                        reInput.value = curRe;
+                    }
+                }
+            }
+            chat._refreshModelPickerBtn = refreshBtn;
+            refreshBtn();
+
+            // ---- 内部工具：渲染模型列表 ----
+            function renderList(filter) {
+                var kw = (filter || '').trim().toLowerCase();
+                var html = '';
+                var list = Models.list.filter(function(m) {
+                    if (m.visible === false || m.imageGen) return false;
+                    if (!kw) return true;
+                    var searchable = [m.name, m.modelId, m.id];
+                    if (Models.modelIdsFor) {
+                        searchable = searchable.concat(Models.modelIdsFor(m.provider || 'ark') || []);
+                    }
+                    return searchable.join(' ').toLowerCase().indexOf(kw) >= 0;
+                });
+                if (list.length === 0) {
+                    listEl.innerHTML = '<div class="mp-empty">无匹配模型</div>';
+                    return;
+                }
+                list.forEach(function(m) {
+                    var active = (m.id === chat.modelId) ? ' active' : '';
+                    html += '<div class="mp-item' + active + '" data-mid="' + m.id + '">' +
+                        '<span class="mp-item-name">' + (m.name || m.modelId || '未命名') + '</span>' +
+                        '<span class="mp-item-id">' + (m.modelId || '') + '</span>' +
+                        '</div>';
+                });
+                listEl.innerHTML = html;
+            }
+
+            // ---- 打开/关闭菜单 ----
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var isOpen = !menu.hidden;
+                if (isOpen) { menu.hidden = true; return; }
+                renderList('');
+                if (searchInput) { searchInput.value = ''; }
+                menu.hidden = false;
+                // 菜单宽度不超过对话框宽度（防止模型下拉菜单超出对话框边界）
+                try {
+                    var boxW = box.clientWidth || 0;
+                    if (boxW > 0) {
+                        menu.style.width = Math.max(150, Math.min(280, boxW - 12)) + 'px';
+                    }
+                } catch (e) {}
+                refreshBtn();
+                // 聚焦搜索框（延迟等菜单显示）
+                setTimeout(function() { if (searchInput) searchInput.focus(); }, 30);
+            });
+
+            // ---- 搜索过滤 ----
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    renderList(this.value);
+                });
+                searchInput.addEventListener('keydown', function(e) {
+                    e.stopPropagation();
+                    if (e.key === 'Escape') { menu.hidden = true; }
+                });
+            }
+
+            // ---- 选择模型线路 ----
+            listEl.addEventListener('click', function(e) {
+                var item = e.target.closest('.mp-item');
+                if (!item) return;
+                e.stopPropagation();
+                var mid = item.dataset.mid;
+                if (mid && mid !== chat.modelId) {
+                    chat.modelId = mid;
+                    // 切换线路时清空本对话 ID 覆盖（新线路 ID 不同）
+                    chat._modelIdOverride = '';
+                    chat._reasoningEffort = '';
+                    var m = Models.get(mid);
+                    var displayName = m ? m.name : mid;
+                    self.addMsg(box, '系统已切换模型：' + displayName, 'ai');
+                    Store.saveChatBox(chat, true);
+                    Store.addLog('info', chat.id, 'model-switch', '切换到: ' + displayName);
+                    if (self.updateMinimap) self.updateMinimap();
+                }
+                refreshBtn();
+                renderList(searchInput ? searchInput.value : '');
+                menu.hidden = true;
+            });
+
+            // ---- 模型 ID 覆盖（下拉选择，即时生效） ----
+            function saveModelIdOverride() {
+                var v = (modelidInput.value || '').trim();
+                chat._modelIdOverride = v;
+                Store.saveChatBox(chat, true);
+                var m = chat.modelId ? Models.get(chat.modelId) : null;
+                var base = m ? (m.modelId || '') : '';
+                if (v) {
+                    self.addMsg(box, '⚙️ 本对话模型 ID 已覆盖为：' + v + (base && base !== v ? '（全局：' + base + '）' : ''), 'ai');
+                } else {
+                    self.addMsg(box, '⚙️ 本对话模型 ID 已恢复全局配置：' + base, 'ai');
+                }
+                Store.addLog('info', chat.id, 'model-id-override', '模型ID覆盖: ' + (v || '(空,使用全局)'));
+                refreshBtn();
+            }
+            if (modelidInput) {
+                modelidInput.addEventListener('change', function(e) {
+                    e.stopPropagation();
+                    saveModelIdOverride();
+                });
+                modelidInput.addEventListener('click', function(e) { e.stopPropagation(); });
+            }
+
+            // ---- 思考强度切换（下拉选择，即时生效） ----
+            if (reInput) {
+                reInput.addEventListener('change', function(e) {
+                    e.stopPropagation();
+                    var re = this.value;
+                    chat._reasoningEffort = re;
+                    Store.saveChatBox(chat, true);
+                    var reName = ReasoningLevels.labelOf(re) || re;
+                    self.addMsg(box, '🧠 思考强度已切换为：' + reName, 'ai');
+                    Store.addLog('info', chat.id, 'reasoning-switch', '思考强度: ' + reName + ' (' + re + ')');
+                    refreshBtn();
+                });
+                reInput.addEventListener('click', function(e) { e.stopPropagation(); });
+                reInput.addEventListener('keydown', function(e) { e.stopPropagation(); if (e.key === 'Escape') { menu.hidden = true; } });
+            }
+
+            // ---- 点击外部关闭 ----
+            document.addEventListener('click', function(e) {
+                if (!menu.hidden && !wrap.contains(e.target)) {
+                    menu.hidden = true;
+                }
+            });
+        },
+
+        // ===== 拖拽头部排除区域（底部选择器不参与拖拽） =====
+
+        modelOptions: function(selectedId) {
+            var opts = '';
+            var hasSelected = selectedId && Models.get(selectedId);
+            if (!hasSelected) {
+                opts += '<option value="" disabled selected hidden>请选择模型</option>';
+            }
+            Models.list.forEach(function(m) {
+                if (m.visible === false || m.imageGen) return; // 隐藏的模型和生图入口不显示
+                opts += '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + m.name + '</option>';
+            });
+            return opts;
+        },
+
+        // ===== 刷新所有已存在对话框的模型选择器 =====
+        // 在设置面板添加/删除模型后调用，确保已打开的对话框选择器同步更新
+        refreshAllModelSelects: function() {
+            if (!this.chatBoxes || this.chatBoxes.length === 0) return;
+            this.chatBoxes.forEach(function(chat) {
+                if (!chat.el) return;
+                // 刷新底部增强选择器按钮显示（列表在下拉打开时按最新 Models.list 渲染）
+                if (typeof chat._refreshModelPickerBtn === 'function') {
+                    chat._refreshModelPickerBtn();
+                }
+                // 模型被删除时的处理：置为未选择等待用户手动选
+                var currentModelId = chat.modelId || '';
+                if (!(currentModelId && Models.get(currentModelId))) {
+                    chat.modelId = '';
+                    // 提示用户模型已失效，需手动重新选择
+                    try {
+                        if (typeof App !== 'undefined' && App.addMsg && chat.el) {
+                            App.addMsg(chat.el, '⚠️ 原模型已被删除（已禁用自动切换），请在下拉框手动选择模型。', 'error');
+                        }
+                    } catch (e) {}
+                }
+            });
+        },
+
+        activate: function(box) {
+            var self = this;
+            this.chatBoxes.forEach(function(c) { c.el.classList.remove('active'); });
+            box.classList.add('active');
+            box.style.zIndex = ++this.zCounter;
+            // 记住最后激活窗口的尺寸（折叠状态不记录，避免新建窗口变成折叠条）
+            if (!box.classList.contains('collapsed') && box.offsetWidth >= 280 && box.offsetHeight >= 200) {
+                self.rememberBoxSize(box.offsetWidth, box.offsetHeight);
+            }
+            // 点击激活（只绑定一次，避免重复添加监听器导致指数级增长卡死浏览器）
+            if (!box._zf3dActivated) {
+                box._zf3dActivated = true;
+                box.addEventListener('mousedown', function() {
+                    self.activate(box);
+                });
+                // 点击对话时不再移动摄像机（用户要求保持视口不动）
+            }
+        },
+
+        // ===== 仅移动摄像机到指定元素（不调用 activate，避免循环） =====
+        _focusCameraOn: function(el) {
+            if (!el) return;
+            var view = this.canvasGetView ? this.canvasGetView() : { x: 0, y: 0 };
+            var rect = el.getBoundingClientRect();
+            var area = document.getElementById('canvasArea');
+            var areaRect = area ? area.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+            var targetX = view.x + (areaRect.width / 2 - rect.left - rect.width / 2);
+            var targetY = view.y + (areaRect.height / 2 - rect.top - rect.height / 2);
+            if (this.canvasSetView) {
+                this.canvasSetView(targetX, targetY, 1, true);
+            }
+        },
+
+        hideHint: function() {
+            var hint = document.getElementById('canvasHint');
+            if (hint) hint.style.display = 'none';
+        },
+        showHint: function() {
+            var hint = document.getElementById('canvasHint');
+            if (hint) hint.style.display = '';
+        },
+
+        // ===== 获取对话框状态（与 minimap 逻辑一致） =====
+        _getChatStatus: function(chat) {
+            if (!chat || !chat.el) return 'idle';
+            var el = chat.el;
+            var hasError = false;
+            var msgs = el.querySelectorAll('.msg');
+            if (msgs.length > 0) {
+                var lastMsg = msgs[msgs.length - 1];
+                if (lastMsg.classList.contains('error')) hasError = true;
+            }
+            if (hasError) return 'error';
+            if (chat.isSending) return 'sending';
+            if (chat.queue && chat.queue.length > 0) return 'queued';
+            // 任务结果保存在 chat 对象上，避免依赖 2 秒临时 DOM class（与 minimap 逻辑一致）。
+            if (chat._taskStatus === 'success') return 'success';
+            if (el.classList.contains('task-success')) return 'success';
+            if (chat._taskStatus === 'fail') return 'error';
+            if (el.classList.contains('task-fail')) return 'error';
+            if (el.classList.contains('collapsed')) return 'collapsed';
+            if (el.classList.contains('active')) return 'active';
+            return 'idle';
+        },
+
+        // ===== 更新状态指示（标题前图标变色） =====
+        _statusClasses: ['status-idle', 'status-sending', 'status-queued', 'status-error', 'status-success', 'status-collapsed', 'status-active'],
+        updateStatusDot: function(chat) {
+            if (!chat || !chat.el) return;
+            var icon = chat.el.querySelector('.status-dot');
+            if (!icon) return;
+            var status = this._getChatStatus(chat);
+            var statusClass = 'status-idle';
+            if (status === 'error') statusClass = 'status-error';
+            else if (status === 'sending') statusClass = 'status-sending';
+            else if (status === 'queued') statusClass = 'status-queued';
+            else if (status === 'success') statusClass = 'status-success';
+            else if (status === 'collapsed') statusClass = 'status-collapsed';
+            else if (status === 'active') statusClass = 'status-active';
+            // 移除所有旧状态类
+            this._statusClasses.forEach(function(cls) { icon.classList.remove(cls); });
+            icon.classList.add(statusClass);
+        },
+
+        // ===== 摄像机聚焦到指定对话框 =====
+        // 参数归一化：兼容 chat 对象（导航箭头传入）与 chatId 字符串（风筝尾巴/任务面板传入）。
+        // 背景：app-taskpanel.js 有同名方法（收字符串），两者靠 Object.assign 后加载覆盖定胜负；
+        //       热更新单个文件会打破顺序，若不做归一化，收字符串时 chat.el 为 undefined 静默 return，
+        //       表现为「点击风筝尾巴球，摄像机不跳转、点击无反应」。
+        _focusChatBox: function(chat) {
+            if (typeof chat === 'string') {
+                var fid = chat; chat = null;
+                var boxes = this.chatBoxes || [];
+                for (var i = 0; i < boxes.length; i++) {
+                    if (boxes[i] && boxes[i].id === fid) { chat = boxes[i]; break; }
+                }
+                if (!chat) return;
+            }
+            if (!chat || !chat.el) return;
+            var view = this.canvasGetView ? this.canvasGetView() : { x: 0, y: 0 };
+            var rect = chat.el.getBoundingClientRect();
+            var area = document.getElementById('canvasArea');
+            var areaRect = area ? area.getBoundingClientRect() : { width: window.innerWidth, height: window.innerHeight };
+            var targetX = view.x + (areaRect.width / 2 - rect.left - rect.width / 2);
+            var targetY = view.y + (areaRect.height / 2 - rect.top - rect.height / 2);
+            if (this.canvasSetView) {
+                this.canvasSetView(targetX, targetY, 1, true);
+            }
+            this.activate(chat.el);
+        },
+
+        // ===== 设置导航箭头 =====
+        _setupNavArrows: function(box, chat) {
+            var self = this;
+            var existingPrev = box.querySelector('.chatbox-nav-prev');
+            var existingNext = box.querySelector('.chatbox-nav-next');
+            if (existingPrev) existingPrev.remove();
+            if (existingNext) existingNext.remove();
+
+            var prevArrow = document.createElement('div');
+            prevArrow.className = 'chatbox-nav-arrow chatbox-nav-prev';
+            prevArrow.innerHTML = '';
+            prevArrow.title = '上一个对话';
+
+            var nextArrow = document.createElement('div');
+            nextArrow.className = 'chatbox-nav-arrow chatbox-nav-next';
+            nextArrow.innerHTML = '';
+            nextArrow.title = '下一个对话';
+
+            box.appendChild(prevArrow);
+            box.appendChild(nextArrow);
+
+            prevArrow.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                var target = self._findNeighborChat(chat, -1);
+                if (target) {
+                    self._focusChatBox(target);
+                    self._updateAllNavArrows();
+                }
+            });
+            nextArrow.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                var target = self._findNeighborChat(chat, 1);
+                if (target) {
+                    self._focusChatBox(target);
+                    self._updateAllNavArrows();
+                }
+            });
+
+            prevArrow.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+            nextArrow.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+        },
+
+        // ===== 查找相邻对话（dir: -1=左边最近, 1=右边最近，基于物理坐标） =====
+        _findNeighborChat: function(currentChat, dir) {
+            var boxes = this.chatBoxes;
+            if (!boxes || boxes.length <= 1) return null;
+            var currentX = currentChat.el.offsetLeft;
+            var best = null;
+            var bestDist = Infinity;
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i] === currentChat) continue;
+                var x = boxes[i].el.offsetLeft;
+                var diff = x - currentX;
+                if (dir < 0 && diff < 0) {
+                    if (-diff < bestDist) { bestDist = -diff; best = boxes[i]; }
+                } else if (dir > 0 && diff > 0) {
+                    if (diff < bestDist) { bestDist = diff; best = boxes[i]; }
+                }
+            }
+            return best;
+        },
+
+        // ===== 统计左右两侧符合条件的对话数量 =====
+        _countNeighbors: function(currentChat) {
+            var boxes = this.chatBoxes;
+            if (!boxes || boxes.length <= 1) return { left: 0, right: 0 };
+            var currentX = currentChat.el.offsetLeft;
+            var left = 0, right = 0;
+            for (var i = 0; i < boxes.length; i++) {
+                if (boxes[i] === currentChat) continue;
+                var x = boxes[i].el.offsetLeft;
+                if (x < currentX) left++;
+                else right++;
+            }
+            return { left: left, right: right };
+        },
+
+        // ===== 更新单个对话框的导航圆圈（显示数字） =====
+        _updateNavArrowStatus: function(box, chat) {
+            if (!box) return;
+            var prevArrow = box.querySelector('.chatbox-nav-prev');
+            var nextArrow = box.querySelector('.chatbox-nav-next');
+            if (!prevArrow || !nextArrow) return;
+
+            var counts = this._countNeighbors(chat);
+            var prevTarget = this._findNeighborChat(chat, -1);
+            var nextTarget = this._findNeighborChat(chat, 1);
+
+            var statusClasses = ['nav-sending', 'nav-queued', 'nav-error', 'nav-success', 'nav-active', 'nav-collapsed', 'nav-idle', 'nav-none'];
+            statusClasses.forEach(function(cls) {
+                prevArrow.classList.remove(cls);
+                nextArrow.classList.remove(cls);
+            });
+
+            // Left circle - 仅当左侧邻居任务成功时显示绿色小圈，其他状态一律隐藏
+            if (prevTarget) {
+                var pSt = this._getChatStatus(prevTarget);
+                prevArrow.classList.add(pSt === 'success' ? 'nav-success' : 'nav-none');
+                prevArrow.textContent = '';
+            } else prevArrow.classList.add('nav-none');
+
+            // Right circle - 仅当右侧邻居任务成功时显示绿色小圈，其他状态一律隐藏
+            if (nextTarget) {
+                var nSt = this._getChatStatus(nextTarget);
+                nextArrow.classList.add(nSt === 'success' ? 'nav-success' : 'nav-none');
+                nextArrow.textContent = '';
+            } else nextArrow.classList.add('nav-none');
+        },
+
+        // ===== 更新所有对话框的导航箭头 =====
+        _updateAllNavArrows: function() {
+            var self = this;
+            // 只在当前函数内过滤出 DOM 仍连接的对话框，不修改 this.chatBoxes 本身。
+            // 原代码 this.chatBoxes = filter(...) 会永久删除暂时断开连接的对话，
+            // 导致重启/热更新后对话在导航/任务面板中消失且无法恢复。
+            var liveBoxes = (this.chatBoxes || []).filter(function(chat) {
+                return chat && chat.el && chat.el.isConnected;
+            });
+            document.querySelectorAll('.cbx-succ-nav[data-for]').forEach(function(container) {
+                var ownerId = container.getAttribute('data-for');
+                var ownerExists = liveBoxes.some(function(chat) { return chat.id === ownerId; });
+                if (!ownerExists) container.remove();
+            });
+            liveBoxes.forEach(function(chat) {
+                if (chat.el) self._updateNavArrowStatus(chat.el, chat);
+                if (chat.el) self._updateSuccessArrows(chat.el, chat);
+            });
+        },
+
+        // ===== 成功对话指示箭头（游戏小地图式：悬浮在对话框边框外缘，指向成功的对话，点击直达） =====
+        _updateSuccessArrows: function(box, chat) {
+            var self = this;
+            if (!box || !chat || !chat.el) return;
+            var el = chat.el;
+            // 收集所有成功状态的对话（_taskStatus 持久标记 / task-success 类）
+            var targets = [];
+            (this.chatBoxes || []).forEach(function(c) {
+                if (!c || c === chat || !c.el || !c.el.isConnected) return;
+                if ((c._taskStatus === 'success' || c.el.classList.contains('task-success')) && !c._successArrowCentered) targets.push(c);
+            });
+            if (!targets.length) {
+                var hostLayer = (el.offsetParent || box.parentNode || document.body);
+                var oldC = hostLayer.querySelector('.cbx-succ-nav[data-for="' + chat.id + '"]');
+                if (oldC) oldC.remove();
+                chat._succNavSig = '';
+                return;
+            }
+            var GAP = 18; // 箭头悬浮在边框外缘的距离
+            var cx = el.offsetLeft + el.offsetWidth / 2;
+            var cy = el.offsetTop + el.offsetHeight / 2;
+            var hw = el.offsetWidth / 2 + GAP;
+            var hh = el.offsetHeight / 2 + GAP;
+            var placed = [];
+            var parts = [];
+            targets.forEach(function(t) {
+                var tx = t.el.offsetLeft + t.el.offsetWidth / 2;
+                var ty = t.el.offsetTop + t.el.offsetHeight / 2;
+                var dx = tx - cx, dy = ty - cy;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                var rad = Math.atan2(dy, dx);
+                var cos = Math.cos(rad), sin = Math.sin(rad);
+                // 射线与扩大后的边框矩形求交点（箭头停靠位置）
+                var k = Math.min(hw / Math.max(Math.abs(cos), 1e-6), hh / Math.max(Math.abs(sin), 1e-6));
+                var bx = cx + cos * k - el.offsetLeft;
+                var by = cy + sin * k - el.offsetTop;
+                // 防重叠：多个箭头靠近时沿垂直方向错开
+                var idx = 0;
+                while (idx < 20) {
+                    var ok = true;
+                    for (var i = 0; i < placed.length; i++) {
+                        if (Math.abs(placed[i].x - bx) < 32 && Math.abs(placed[i].y - by) < 32) { ok = false; break; }
+                    }
+                    if (ok) break;
+                    idx++;
+                    var off = (idx % 2 === 1 ? 1 : -1) * Math.ceil(idx / 2) * 36;
+                    bx = cx + cos * k - sin * off - el.offsetLeft;
+                    by = cy + sin * k + cos * off - el.offsetTop;
+                }
+                placed.push({ x: bx, y: by });
+                t._succArrowInfo = { px: bx, py: by, ang: Math.round(rad * 180 / Math.PI), dist: Math.round(dist) };
+                parts.push(t.id + ':' + Math.round(bx) + ',' + Math.round(by));
+            });
+            // 无变化不重建（避免闪烁/打断点击）
+            var sig = el.offsetLeft + ',' + el.offsetTop + ',' + el.offsetWidth + ',' + el.offsetHeight + '|' + parts.join('|');
+            if (chat._succNavSig === sig) return;
+            chat._succNavSig = sig;
+            var hostLayer = (el.offsetParent || box.parentNode || document.body); // 画布层（与 offsetLeft/Top 同坐标系），箭头悬浮于边框外缘不被裁剪
+            var container = hostLayer.querySelector('.cbx-succ-nav[data-for="' + chat.id + '"]');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'cbx-succ-nav';
+                container.setAttribute('data-for', chat.id);
+                container.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                // 箭头自身 hover 也保持显示（鼠标从框移向箭头穿过 18px 间隙时不闪没）
+                container.addEventListener('mouseenter', function() { container.classList.add('on'); });
+                container.addEventListener('mouseleave', function() { container.classList.remove('on'); });
+                hostLayer.appendChild(container);
+            }
+            // 对话框 hover 实时开关箭头显示（仅悬浮的框才显示）
+            if (!el._succHoverBound) {
+                el._succHoverBound = true;
+                el.addEventListener('mouseenter', function() {
+                    var hl = el.offsetParent; if (!hl) return;
+                    var c = hl.querySelector('.cbx-succ-nav[data-for="' + chat.id + '"]');
+                    if (c) c.classList.add('on');
+                });
+                el.addEventListener('mouseleave', function() {
+                    var hl = el.offsetParent; if (!hl) return;
+                    var c = hl.querySelector('.cbx-succ-nav[data-for="' + chat.id + '"]');
+                    if (!c) return;
+                    setTimeout(function() { if (!c.matches(':hover') && !el.matches(':hover')) c.classList.remove('on'); }, 180);
+                });
+            }
+            // 仅当鼠标悬浮在该对话框时显示箭头（游戏小地图式：需要时才出现）
+            if (container && el.matches(':hover')) container.classList.add('on');
+            if (container && !el.matches(':hover') && !container.matches(':hover')) container.classList.remove('on');
+            // 容器跟随对话框左上角（画布坐标系）
+            container.style.left = el.offsetLeft + 'px';
+            container.style.top = el.offsetTop + 'px';
+            container.style.width = el.offsetWidth + 'px';
+            container.style.height = el.offsetHeight + 'px';
+            container.innerHTML = '';
+            targets.forEach(function(t) {
+                var info = t._succArrowInfo;
+                if (!info) return;
+                var arrow = document.createElement('div');
+                arrow.className = 'cbx-succ-arrow';
+                arrow.style.left = info.px + 'px';
+                arrow.style.top = info.py + 'px';
+                var distStr = info.dist >= 1000 ? (info.dist / 1000).toFixed(1) + 'k' : String(info.dist);
+                arrow.title = '✓ 成功对话（距离约 ' + distStr + 'px）— 点击直达';
+                var icon = document.createElement('i');
+                icon.className = 'arr';
+                icon.style.transform = 'rotate(' + (info.ang + 90) + 'deg)'; // 三角默认朝上，+90 对齐 atan2 坐标系（0°=向右，90°=向下）
+                arrow.appendChild(icon);
+                arrow.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    var targetExists = self.chatBoxes.some(function(candidate) {
+                        return candidate === t && candidate.el && candidate.el.isConnected;
+                    });
+                    if (!targetExists) {
+                        self._updateAllNavArrows();
+                        return;
+                    }
+                    // This target has already been reached, so other chats no longer advertise it.
+                    t._successArrowCentered = true;
+                    self._focusChatBox(t);
+                    // 点击后视口已跳转，图标立即消失
+                    if (arrow.parentNode) arrow.parentNode.classList.remove('on');
+                    self._updateAllNavArrows();
+                });
+                container.appendChild(arrow);
+            });
+        },
+
+        // ===== 绑定对话框交互 =====
+        bindChatBox: function(box, chat) {
+            var self = this;
+            var canvas = document.getElementById('canvasContent') || document.getElementById('canvasArea');
+            var header = box.querySelector('.chatbox-header');
+            var body = box.querySelector('.chatbox-body');
+            var input = box.querySelector('textarea');
+            var sendBtn = box.querySelector('.send-btn');
+            var uploadBtn = box.querySelector('.upload-btn');
+            var resize = box.querySelector('.chatbox-resize');
+
+            // 初始化清理数据（用于 closeChatBox 时移除监听器和定时器，避免 monkey-patch 链式叠加）
+            chat._cleanup = { scrollBtnTimer: null, navArrowTimer: null, listeners: [] };
+            function trackListener(target, event, handler) {
+                if (!target) return;
+                target.addEventListener(event, handler);
+                chat._cleanup.listeners.push({ target: target, event: event, handler: handler });
+            }
+
+            // ===== 标题 hover/click 展示所有用户提问（点击跳转 / 查看答案）=====
+            var titleEl = box.querySelector('.chatbox-header-row1 .title') || box.querySelector('.chatbox-header .title');
+            if (titleEl) {
+                trackListener(titleEl, 'mouseenter', function() {
+                    self._cancelHidePanel();
+                    self._showQuestionsPanel(box, titleEl);
+                });
+                trackListener(titleEl, 'mouseleave', function(e) {
+                    self._scheduleHidePanel();
+                });
+                // 点击标题：切换展开/收起提问列表面板（固定显示，不随鼠标离开隐藏）
+                trackListener(titleEl, 'click', function(e) {
+                    e.stopPropagation();
+                    var existing = document.querySelector('.cbq-panel');
+                    if (existing && existing.__pinned) { self._hideQuestionsPanel(); return; }
+                    self._cancelHidePanel();
+                    self._showQuestionsPanel(box, titleEl, true);
+                });
+            }
+
+            // ===== 模型选择器（底部增强下拉：选模型 / 改模型ID / 切思考强度） =====
+            self._initModelPicker(box, chat);
+
+            // 头部按钮 + 底部配置行按钮（project 在底部）
+            box.querySelectorAll('.hd-btn, .cfg-project-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var act = this.dataset.act;
+                    if (act === 'logs') {
+                        self.toggleLogPanel(box);
+                    } else if (act === 'close') {
+                        self.closeChatBox(chat);
+                    } else if (act === 'tools') {
+                        self.toggleToolPanel(box);
+                    } else if (act === 'project') {
+                        self.showProjectSwitcher(box, chat);
+                    }
+                });
+            });
+
+            // 上传文件
+            if (uploadBtn) {
+                uploadBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self._triggerUpload(box, chat);
+                });
+            }
+
+            // 工具面板关闭按钮
+            var tpClose = box.querySelector('.chatbox-toolpanel-close');
+            if (tpClose) {
+                tpClose.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self.toggleToolPanel(box);
+                });
+            }
+
+            // 发送消息（支持排队）
+            // 工具分类下拉菜单
+            var catTrigger = box.querySelector('.tool-cat-trigger');
+            var catMenu = box.querySelector('.tool-cat-menu');
+            if (catTrigger && catMenu) {
+                trackListener(catTrigger, 'click', function(e) {
+                    e.stopPropagation();
+                    var isOpen = !catMenu.hidden;
+                    catMenu.hidden = isOpen;
+                    if (!isOpen) {
+                        var triggerRect = catTrigger.getBoundingClientRect();
+                        var spaceAbove = triggerRect.top - 12;
+                        var spaceBelow = window.innerHeight - triggerRect.bottom - 12;
+                        var openDown = spaceBelow > spaceAbove;
+                        var availableHeight = Math.max(120, openDown ? spaceBelow : spaceAbove);
+                        catMenu.classList.toggle('opens-down', openDown);
+                        catMenu.style.maxHeight = Math.min(320, availableHeight) + 'px';
+                        catMenu.scrollTop = 0;
+                    }
+                });
+                // 点击菜单项切换分类（带确认弹窗）
+                catMenu.querySelectorAll('.tool-cat-item').forEach(function(item) {
+                    item.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var catName = this.dataset.cat;
+                        if (!catName) return;
+                        var currentCat = Tools.chatCategories[chat.id] || Tools.activeCategory;
+                        if (catName === currentCat) { catMenu.hidden = true; return; }
+                        var newCat = Tools.categories[catName];
+                        if (!newCat) return;
+                        catMenu.hidden = true;
+                        Tools.currentChatId = chat.id;
+                        Tools.setCategory(catName);
+                        var iconEl = catTrigger.querySelector('.tool-cat-icon');
+                        var nameEl = catTrigger.querySelector('.tool-cat-name');
+                        if (iconEl) iconEl.textContent = newCat.icon;
+                        if (nameEl) nameEl.textContent = catName;
+                        catMenu.querySelectorAll('.tool-cat-item').forEach(function(i) {
+                            i.classList.toggle('active', i.dataset.cat === catName);
+                        });
+                        chat.toolCategory = catName;
+                        Store.saveChatBox(chat);
+                        Store.addLog('info', chat.id, 'cat-switch', '用户切换工具分类: ' + catName);
+                        var swToolList = newCat.tools.filter(function(t) { return t !== 'task_complete' && t !== 'switch_tool_category'; });
+                        self.showCategorySwitchNotify({
+                            catName: catName,
+                            catIcon: newCat.icon,
+                            catDesc: newCat.desc,
+                            toolCount: swToolList.length,
+                            chatId: chat.id
+                        });
+                        self.playSwitchSound();
+                    });
+                });
+                // 点击外部关闭菜单
+                trackListener(document, 'click', function(e) {
+                    if (!catMenu.hidden && !catTrigger.contains(e.target) && !catMenu.contains(e.target)) {
+                        catMenu.hidden = true;
+                    }
+                });
+            }
+
+            function send() {
+                var text = input.value.trim();
+                if (!text) return;
+                input.value = '';
+                input.style.height = '36px';
+                // 如果正在发送中，加入排队
+                if (chat.isSending) {
+                    var qItem = { id: 'q' + Date.now() + Math.floor(Math.random()*1000), text: text };
+                    chat.queue.push(qItem);
+                    self.renderQueue(box, chat);
+                    Store.addLog('info', chat.id, 'queue', '消息已排队 (' + chat.queue.length + '): ' + text.substring(0, 80));
+                    return;
+                }
+                self.addMsg(box, text, 'user', chat.modelId);
+                self.showQueryPin(box, text);
+                self.updateChatTitle(box, text);
+                chat.history.push({ role: 'user', content: text });
+                Store.addLog('info', chat.id, 'send', '用户发送消息');
+                self.sendToModel(box, chat);
+            }
+            if (sendBtn) sendBtn.addEventListener('click', function() {
+                if (chat.isSending) {
+                    self.stopSending(chat);
+                } else {
+                    send();
+                }
+            });
+            if (input) {
+                input.addEventListener('compositionstart', function() { this._composing = true; });
+                input.addEventListener('compositionend', function() { this._composing = false; });
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey && !this._composing) { e.preventDefault(); send(); }
+                });
+
+                // textarea 自动跟随高度（多行输入自动增高，发送后回弹）
+                function autoResize() {
+                    input.style.height = 'auto';
+                    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+                }
+                input.addEventListener('input', autoResize);
+            }
+
+            // 拖拽移动（rAF 节流 + 除以 scale，保证缩放状态下跟手）
+            // Shift+左键拖拽 = 按下瞬间复制一个一模一样的对话（新 id + DB 单独会话），
+            // 副本出现在鼠标按下位置并跟随拖拽移动，原对话不动；松开后副本停住。
+            var dragging = false, sx = 0, sy = 0, sl = 0, st = 0, dragRaf = 0, dragMoved = false;
+            var shiftCloneDone = false;   // 副本是否已创建（按下即创建，避免重复）
+            var cloneChat = null;        // 被拖拽的副本 chat 对象
+            var cloneBox = null;         // 被拖拽的副本 DOM
+            var csl = 0, cst = 0;        // 副本按下时的画布坐标
+            var cloneRaf = 0;
+            if (header) header.addEventListener('mousedown', function(e) {
+                if (e.button !== 0) return;
+                if (e.target.closest('.hd-btn') || e.target.closest('.model-select') || e.target.closest('.model-picker-wrap')) return;
+                // Shift 按住 = 立即复制模式：按下即生成副本并出现在鼠标位置
+                if (e.shiftKey) {
+                    if (!shiftCloneDone) {
+                        shiftCloneDone = true;
+                        cloneChat = null; cloneBox = null;
+                        try {
+                            if (typeof self.cloneChatBox === 'function') {
+                                cloneChat = self.cloneChatBox(chat, e.clientX, e.clientY);
+                                if (cloneChat && cloneChat.el) {
+                                    cloneBox = cloneChat.el;
+                                    // 以副本当前画布坐标为拖拽基准，后续 mousemove 移动副本
+                                    csl = cloneBox.offsetLeft;
+                                    cst = cloneBox.offsetTop;
+                                    sx = e.clientX; sy = e.clientY;
+                                    self._setQuestionsPanelDragging(true);
+                                }
+                            } else {
+                                console.warn('[Shift+拖拽] cloneChatBox 方法不存在');
+                            }
+                        } catch (err) {
+                            console.error('[Shift+拖拽] 复制失败:', err);
+                        }
+                    }
+                    dragging = false;
+                    e.preventDefault();
+                    return;
+                }
+                shiftCloneDone = false;
+                cloneChat = null; cloneBox = null;
+                dragging = true; dragMoved = false;
+                self._setQuestionsPanelDragging(true);
+                sx = e.clientX; sy = e.clientY;
+                sl = box.offsetLeft; st = box.offsetTop;
+                e.preventDefault();
+            });
+            trackListener(document, 'mousemove', function(e) {
+                // Shift 副本拖拽：移动的是副本，不是原 box
+                if (shiftCloneDone && cloneBox) {
+                    var cdx = e.clientX - sx, cdy = e.clientY - sy;
+                    if (Math.abs(cdx) > 1 || Math.abs(cdy) > 1) dragMoved = true;
+                    if (cloneRaf) return;
+                    cloneRaf = requestAnimationFrame(function() {
+                        cloneRaf = 0;
+                        var sc = self.canvasScale();
+                        cloneBox.style.left = (csl + cdx / sc) + 'px';
+                        cloneBox.style.top = (cst + cdy / sc) + 'px';
+                        self._updateAllNavArrows();
+                    });
+                    return;
+                }
+                if (!dragging) return;
+                var dx = e.clientX - sx, dy = e.clientY - sy;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+                if (!dragRaf) {
+                    dragRaf = requestAnimationFrame(function() {
+                        dragRaf = 0;
+                        var sc = self.canvasScale();
+                        box.style.left = (sl + dx / sc) + 'px';
+                        box.style.top = (st + dy / sc) + 'px';
+                        self._updateAllNavArrows();
+                    });
+                }
+            });
+            function stopBoxDrag(e) {
+                // Shift 复制拖拽结束：持久化副本位置
+                if (shiftCloneDone && cloneBox) {
+                    if (cloneChat) {
+                        cloneChat.x = cloneBox.offsetLeft;
+                        cloneChat.y = cloneBox.offsetTop;
+                        Store.saveChatBox(cloneChat);
+                        self.updateMinimap();
+                        if (self._updateAllNavArrows) self._updateAllNavArrows();
+                    }
+                    self._setQuestionsPanelDragging(false);
+                }
+                shiftCloneDone = false;
+                cloneChat = null; cloneBox = null;
+                if (cloneRaf) { cancelAnimationFrame(cloneRaf); cloneRaf = 0; }
+                if (dragging) {
+                    Store.saveChatBox(chat); self.updateMinimap(); if (self._updateAllNavArrows) self._updateAllNavArrows();
+                    self._setQuestionsPanelDragging(false);
+                }
+                dragging = false;
+                if (dragRaf) { cancelAnimationFrame(dragRaf); dragRaf = 0; }
+            }
+            trackListener(document, 'mouseup', stopBoxDrag);
+            trackListener(window, 'blur', stopBoxDrag);
+
+            // ===== 缩放手柄：仅 south / east / west / south-east / south-west =====
+            var resizing = false, resizeDir = '', resizeRaf = 0;
+            var rStartX = 0, rStartY = 0, rLeft = 0, rTop = 0, rW = 0, rH = 0;
+            var MIN_W = 280, MIN_H = 200;
+            var DIRS = ['south-east','south-west','south','east','west'];
+
+            box.querySelectorAll('.chatbox-resize-handle').forEach(function(handle) {
+                handle.addEventListener('pointerdown', function(e) {
+                    e.preventDefault(); e.stopPropagation();
+                    resizing = true;
+                    resizeDir = DIRS.find(function(d) { return handle.classList.contains(d); }) || '';
+                    rStartX = e.clientX; rStartY = e.clientY;
+                    rLeft = box.offsetLeft; rTop = box.offsetTop;
+                    rW = box.offsetWidth; rH = box.offsetHeight;
+                    if (handle.setPointerCapture) { try { handle.setPointerCapture(e.pointerId); } catch(_){} }
+                });
+            });
+
+            trackListener(document, 'pointermove', function(e) {
+                if (!resizing) return;
+                e.preventDefault();
+                var scale = self.canvasScale() || 1;
+                var dx = (e.clientX - rStartX) / scale;
+                var dy = (e.clientY - rStartY) / scale;
+                if (resizeRaf) return;
+                resizeRaf = requestAnimationFrame(function() {
+                    resizeRaf = 0;
+                    var w = rW, h = rH, left = rLeft, top = rTop;
+                    // 右边拉伸
+                    if (resizeDir === 'east' || resizeDir === 'south-east')
+                        w = Math.max(MIN_W, rW + dx);
+                    // 左边拉伸（左边移动，宽度反向）
+                    if (resizeDir === 'west' || resizeDir === 'south-west') {
+                        w = Math.max(MIN_W, rW - dx);
+                        left = rLeft + rW - w;
+                    }
+                    // 下边拉伸
+                    if (resizeDir === 'south' || resizeDir === 'south-east' || resizeDir === 'south-west')
+                        h = Math.max(MIN_H, rH + dy);
+                    box.style.width = w + 'px';
+                    box.style.height = h + 'px';
+                    box.style.left = left + 'px';
+                    box.style.top = top + 'px';
+                    box.classList.remove('collapsed');
+                });
+            });
+
+            function stopBoxResize() {
+                if (resizing) {
+                    Store.saveChatBox(chat);
+                    self.updateMinimap();
+                    if (self._updateAllNavArrows) self._updateAllNavArrows();
+                    if (!box.classList.contains('collapsed'))
+                        self.rememberBoxSize(box.offsetWidth, box.offsetHeight);
+                }
+                resizing = false; resizeDir = '';
+                if (resizeRaf) { cancelAnimationFrame(resizeRaf); resizeRaf = 0; }
+            }
+            trackListener(document, 'pointerup', stopBoxResize);
+            trackListener(document, 'pointercancel', stopBoxResize);
+            trackListener(window, 'blur', stopBoxResize);
+
+            // 滚动到底部浮动按钮（从小圆圈下箭头抄袭升级版：自动跟随 + 脉冲动画）
+            var scrollBottomBtn = box.querySelector('.scroll-bottom-btn');
+            chat.autoFollowBottom = true;
+            chat._scrollBtn = scrollBottomBtn;
+            function updateScrollBtn() {
+                if (!scrollBottomBtn) return;
+                var atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
+                if (atBottom) {
+                    scrollBottomBtn.classList.remove('visible');
+                    scrollBottomBtn.classList.remove('is-processing');
+                } else {
+                    scrollBottomBtn.classList.add('visible');
+                    // AI 正在回复时添加脉冲动画
+                    if (chat.isSending) {
+                        scrollBottomBtn.classList.add('is-processing');
+                    } else {
+                        scrollBottomBtn.classList.remove('is-processing');
+                    }
+                }
+            }
+            if (scrollBottomBtn) {
+                scrollBottomBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    chat.autoFollowBottom = true;
+                    body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+                    setTimeout(function() {
+                        body.scrollTop = body.scrollHeight;
+                        updateScrollBtn();
+                if (typeof updatePrevUserBtn === 'function') updatePrevUserBtn();
+                    }, 220);
+                });
+            }
+
+            // 上一条用户问题定位按钮（小三角 ▲ 定位到当前视口上方的上一条 user 消息处）
+            var prevUserBtn = body.querySelector('.prev-user-btn');
+            if (prevUserBtn) {
+                var _prevUserVisible = false;
+                var updatePrevUserBtn = function() {
+                    var users = body.querySelectorAll('.msg.user');
+                    var show = users.length >= 2;
+                    if (show !== _prevUserVisible) {
+                        _prevUserVisible = show;
+                        if (show) prevUserBtn.classList.add('visible');
+                        else prevUserBtn.classList.remove('visible');
+                    }
+                };
+                prevUserBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var users = body.querySelectorAll('.msg.user');
+                    if (users.length === 0) return;
+                    var bodyTop = body.getBoundingClientRect().top;
+                    var viewTopInBody = body.scrollTop;
+                    var target = null;
+                    // 倒序查找：找视口顶部上方（含容差）最近的一条 user 消息
+                    for (var i = users.length - 1; i >= 0; i--) {
+                        var uTopInBody = users[i].getBoundingClientRect().top - bodyTop + body.scrollTop;
+                        if (uTopInBody < viewTopInBody + 20) { target = users[i]; break; }
+                    }
+                    if (!target) target = users[users.length - 1]; // 已到最上方则回到最新一条
+                    chat.autoFollowBottom = false;
+                    body.scrollTo({ top: Math.max(target.offsetTop - 40, 0), behavior: 'smooth' });
+                });
+            }
+
+            // 条件滚动：只在自动跟随底部时滚动（用户滚上去后不强制拉回）
+            chat.scrollToBottomIfFollowing = function() {
+                if (chat.autoFollowBottom) {
+                    body.scrollTop = body.scrollHeight;
+                }
+                updateScrollBtn();
+                if (typeof updatePrevUserBtn === 'function') updatePrevUserBtn();
+            };
+
+            // 对话框内滚动位置持久化 + 自动跟随状态跟踪
+            var scrollTimer = null;
+            if (body) body.addEventListener('scroll', function() {
+                // 用户手动滚动时更新自动跟随状态
+                chat.autoFollowBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
+                if (scrollTimer) clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(function() {
+                    // 更新 entry 的 scrollPos（不触发完整 saveChatBox）
+                    var entry = null;
+                    for (var i = 0; i < Store.data.chatBoxes.length; i++) {
+                        if (Store.data.chatBoxes[i].id === chat.id) {
+                            Store.data.chatBoxes[i].scrollPos = body.scrollTop;
+                            entry = Store.data.chatBoxes[i];
+                            break;
+                        }
+                    }
+                    Store._saveLocal();
+                    if (entry && Store.dbOnline && typeof DB !== 'undefined') {
+                        DB.saveNode(entry).catch(function(e) { console.warn('[Chatbox] node save failed:', e); });
+                    }
+                }, 300);
+                updateScrollBtn();
+                if (typeof updatePrevUserBtn === 'function') updatePrevUserBtn();
+            });
+            // 定时更新按钮状态（捕获动态内容增长导致的滚动位置变化）
+            var _scrollBtnVisible = false; var _scrollBtnProcessing = false;
+            var scrollBtnTimer = setInterval(function() {
+                if (!scrollBottomBtn) return;
+                var atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
+                var shouldShow = !atBottom;
+                var isProc = !!chat.isSending;
+                if (shouldShow !== _scrollBtnVisible) {
+                    _scrollBtnVisible = shouldShow;
+                    if (shouldShow) scrollBottomBtn.classList.add('visible');
+                    else { scrollBottomBtn.classList.remove('visible'); scrollBottomBtn.classList.remove('is-processing'); }
+                }
+                if (shouldShow && isProc !== _scrollBtnProcessing) {
+                    _scrollBtnProcessing = isProc;
+                    if (isProc) scrollBottomBtn.classList.add('is-processing');
+                    else scrollBottomBtn.classList.remove('is-processing');
+                }
+            }, 800);
+            // 将定时器引用存入 chat._cleanup，供 closeChatBox 清理
+            chat._cleanup.scrollBtnTimer = scrollBtnTimer;
+
+            // ===== 会话导航箭头 =====
+            self._setupNavArrows(box, chat);
+            self._updateAllNavArrows();
+            // 定时刷新箭头颜色（捕获 isSending/queue/error 等状态变化）
+            var navArrowTimer = setInterval(function() {
+                self._updateAllNavArrows();
+            }, 2000);
+            chat._cleanup.navArrowTimer = navArrowTimer;
+
+        },
+
+        // ===== Markdown 渲染（增强版：代码高亮 + HTML 转义 + 图片增强） =====
+        renderMarkdown: function(text) {
+            if (typeof marked !== 'undefined') {
+                try {
+                    if (!marked._zf3dInited) { marked.setOptions({ gfm: true, breaks: true, highlight: function(code, lang) {
+                        if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+                            try { return hljs.highlight(code, { language: lang }).value; } catch(e) {}
+                        }
+                        return code;
+                    }}); marked._zf3dInited = true; }
+                    var renderer = new marked.Renderer();
+                    renderer.html = function(token) {
+                        var raw = typeof token === 'string' ? token : (token && (token.raw || token.text) || '');
+                        return App._escapeHtml(raw);
+                    };
+                    return marked.parse(text, { renderer: renderer });
+                } catch(e) {
+                    console.warn('[renderMarkdown] marked error:', e);
+                }
+            }
+            // 降级：转义 HTML 后保留换行
+            var esc = String(text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return '<p>' + esc.replace(/\n/g,'<br>') + '</p>';
+        },
+
+        // ===== 设置消息内容（AI 用 Markdown + 代码高亮 + 复制按钮 + 选项按钮，其他用纯文本） =====
+        setMsgContent: function(div, text, who) {
+            if (who === 'ai' || who === 'ai-final') {
+                div.innerHTML = this.renderMarkdown(text);
+                div.classList.add('md-body');
+                this.enhanceCodeBlocks(div);
+                this.renderClickableOptions(div);
+                div.dataset.originalText = text;
+                var aiCopyBtn = document.createElement('button');
+                aiCopyBtn.className = 'msg-copy-btn msg-ai-copy-btn';
+                aiCopyBtn.title = '复制答案';
+                aiCopyBtn.setAttribute('aria-label', '复制答案');
+                aiCopyBtn.innerHTML = '📋';
+                aiCopyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var copyText = div.dataset.originalText || text || '';
+                    var copied = function() {
+                        aiCopyBtn.innerHTML = '✓';
+                        aiCopyBtn.classList.add('copied');
+                        setTimeout(function() { aiCopyBtn.innerHTML = '📋'; aiCopyBtn.classList.remove('copied'); }, 1500);
+                    };
+                    var fallback = function() {
+                        var ta = document.createElement('textarea'); ta.value = copyText;
+                        ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta);
+                        ta.select(); try { document.execCommand('copy'); copied(); } catch (err) {}
+                        document.body.removeChild(ta);
+                    };
+                    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(copyText).then(copied, fallback);
+                    else fallback();
+                });
+                div.appendChild(aiCopyBtn);
+            } else if (who === 'user') {
+                // 用户消息：文本 + 复制按钮 + 编辑按钮（hover 时显示）
+                div.dataset.originalText = text;
+                div.innerHTML = '';
+                var textSpan = document.createElement('span');
+                textSpan.className = 'msg-user-text';
+                textSpan.textContent = text;
+                div.appendChild(textSpan);
+                var copyBtn = document.createElement('button');
+                copyBtn.className = 'msg-copy-btn';
+                copyBtn.title = '复制消息';
+                copyBtn.innerHTML = '📋';
+                copyBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var copyText = div.dataset.originalText || textSpan.textContent || '';
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(copyText).then(function() {
+                            copyBtn.innerHTML = '✓';
+                            copyBtn.classList.add('copied');
+                            setTimeout(function() {
+                                copyBtn.innerHTML = '📋';
+                                copyBtn.classList.remove('copied');
+                            }, 1500);
+                        });
+                    } else {
+                        var ta = document.createElement('textarea');
+                        ta.value = copyText;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        copyBtn.innerHTML = '✓';
+                        copyBtn.classList.add('copied');
+                        setTimeout(function() {
+                            copyBtn.innerHTML = '📋';
+                            copyBtn.classList.remove('copied');
+                        }, 1500);
+                    }
+                });
+                div.appendChild(copyBtn);
+                var editBtn = document.createElement('button');
+                editBtn.className = 'msg-edit-btn';
+                editBtn.title = '编辑消息';
+                editBtn.innerHTML = '✏️';
+                var self = this;
+                editBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self.startEditUserMessage(div);
+                });
+                                div.appendChild(editBtn);
+
+                // 上下导航按钮 - hover 时显示
+                var self2 = this;
+                var prevBtn = document.createElement('button');
+                prevBtn.className = 'msg-nav-prev';
+                prevBtn.title = '上一条用户消息';
+                prevBtn.innerHTML = '⬆';
+                prevBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self2.scrollToUserMsg(div, -1);
+                });
+                div.appendChild(prevBtn);
+
+                var nextBtn = document.createElement('button');
+                nextBtn.className = 'msg-nav-next';
+                nextBtn.title = '下一条用户消息';
+                nextBtn.innerHTML = '⬇';
+                nextBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self2.scrollToUserMsg(div, 1);
+                });
+                div.appendChild(nextBtn);
+
+                // 初始化导航按钮 disabled 状态
+                self2.updateNavBtnState(div);
+
+                // 查看答案按钮 - 精确定位本条用户问题自己对应的 final 答案
+                var vaBtn = document.createElement('button');
+                vaBtn.className = 'view-answer-btn visible';
+                vaBtn.innerHTML = '📄 查看答案';
+                vaBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var body = div.closest('.chatbox-body');
+                    if (!body) return;
+                    var finalEl = self._findFinalAnswer(div);
+                    if (finalEl) {
+                        // 往上多留 90px，确保能看到答案开头
+                        var targetTop = finalEl.offsetTop - 90;
+                        if (targetTop < 0) targetTop = 0;
+                        body.scrollTo({ top: targetTop, behavior: 'smooth' });
+                    } else {
+                        // 兜底：答案尚未生成
+                        var oldHtml = vaBtn.innerHTML;
+                        vaBtn.innerHTML = '⏳ 未出答案';
+                        vaBtn.disabled = true;
+                        setTimeout(function() {
+                            vaBtn.innerHTML = oldHtml;
+                            vaBtn.disabled = false;
+                        }, 1500);
+                    }
+                });
+                div._vaBtn = vaBtn;
+                div.appendChild(vaBtn);
+                self._refreshViewAnswerBtn(div);
+            } else {
+                div.textContent = text;
+            }
+        },
+
+        // ===== 工具：查找本条用户问题自己对应的 final 答案 =====
+        _findFinalAnswer: function(userDiv) {
+            var node = userDiv.nextElementSibling;
+            while (node) {
+                if (node.classList && node.classList.contains('msg') &&
+                    (node.classList.contains('ai-final') || node.classList.contains('query-reminder'))) {
+                    if (node.classList.contains('query-reminder')) return null;
+                    return node;
+                }
+                node = node.nextElementSibling;
+            }
+            return null;
+        },
+
+        // ===== 刷新「查看答案」按钮显示状态：已出答案才显示 =====
+        _refreshViewAnswerBtn: function(div) {
+            var self = this;
+            var btn = div._vaBtn;
+            if (!btn) return;
+            var hasAns = !!self._findFinalAnswer(div);
+            if (hasAns) {
+                btn.classList.add('visible');
+                btn.disabled = false;
+            } else {
+                btn.classList.remove('visible');
+                btn.disabled = true;
+            }
+        },
+
+        // ===== 标题 hover/点击 面板：展示本对话所有用户提问，点击跳转 =====
+        _showQuestionsPanel: function(box, titleEl, pinned) {
+            var self = this;
+            // 拖拽中不弹出面板
+            if (self._boxDragging) return;
+            self._hideQuestionsPanel(null);
+            var body = box.querySelector('.chatbox-body');
+            if (!body) return;
+            var users = body.querySelectorAll('.msg.user');
+            if (!users.length) return;
+            var panel = document.createElement('div');
+            panel.className = 'cbq-panel' + (pinned ? ' cbq-pinned' : '');
+            // 兜底：应用主题为暗色时同步暗色样式（正常由 CSS html[data-theme="dark"] 生效）
+            try {
+                if (window.Theme && window.Theme.current === 'dark') panel.classList.add('cbq-dark');
+                else if (document.documentElement.getAttribute('data-theme') === 'dark') panel.classList.add('cbq-dark');
+            } catch (e) {}
+            panel.__pinned = !!pinned;
+            var head = document.createElement('div');
+            head.className = 'cbq-head';
+            var headTitle = document.createElement('span');
+            headTitle.textContent = '全部提问（' + users.length + '条）';
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'cbq-close';
+            closeBtn.textContent = '×';
+            closeBtn.title = '收起';
+            closeBtn.addEventListener('click', function(e) { e.stopPropagation(); self._hideQuestionsPanel(); });
+            head.appendChild(headTitle);
+            head.appendChild(closeBtn);
+            panel.appendChild(head);
+            for (var i = 0; i < users.length; i++) {
+                (function(idx, um) {
+                    var textNode = um.querySelector('.msg-user-text') || um;
+                    var txt = (um.dataset.originalText || textNode.textContent || '').replace(/\s+/g, ' ').trim();
+                    var item = document.createElement('div');
+                    item.className = 'cbq-item';
+                    var num = document.createElement('span');
+                    num.className = 'cbq-num';
+                    num.textContent = (idx + 1);
+                    var txtEl = document.createElement('span');
+                    txtEl.className = 'cbq-text';
+                    txtEl.textContent = txt.length > 60 ? txt.slice(0, 60) + '…' : txt;
+                    txtEl.title = txt;
+                    var va = document.createElement('button');
+                    va.className = 'cbq-va-btn';
+                    va.textContent = '查看答案';
+                    item.addEventListener('click', function(e) {
+                        if (e.target === va) return;
+                        self._scrollToMsg(body, um);
+                        self._hideQuestionsPanel(null);
+                    });
+                    va.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var target = (um._vaBtn && um._vaBtn.__answerEl) ? um._vaBtn.__answerEl : self._findNextFinalAnswer(um);
+                        // 「查看答案」多往上偏移 90px，确保答案开头可见
+                        self._scrollToMsg(body, target || um, 90);
+                        self._hideQuestionsPanel(null);
+                    });
+                    item.appendChild(num);
+                    item.appendChild(txtEl);
+                    item.appendChild(va);
+                    panel.appendChild(item);
+                })(i, users[i]);
+            }
+            document.body.appendChild(panel);
+            var rect = titleEl.getBoundingClientRect();
+            var pw = panel.offsetWidth, ph = panel.offsetHeight;
+            var left = Math.min(Math.max(8, rect.left), window.innerWidth - pw - 8);
+            var top = rect.bottom + 6;
+            if (top + ph > window.innerHeight - 8) {
+                top = Math.max(8, window.innerHeight - 8 - ph);
+            }
+            panel.style.left = left + 'px';
+            panel.style.top = top + 'px';
+            this._cbqPanel = panel;
+            panel.__titleEl = titleEl;
+            var _p = panel;
+            if (pinned) {
+                // 固定面板：点击空白处关闭
+                var onDocClick = function(e) {
+                    if (_p.contains(e.target)) return;
+                    if (titleEl.contains(e.target)) return;
+                    self._hideQuestionsPanel();
+                };
+                setTimeout(function() { document.addEventListener('click', onDocClick, true); }, 0);
+                panel.__docClickHandler = onDocClick;
+            } else {
+                panel.addEventListener('mouseenter', function() { self._cancelHidePanel(); });
+                panel.addEventListener('mouseleave', function() {
+                    if (self._cbqPanel === _p) self._scheduleHidePanel();
+                });
+            }
+        },
+
+        _findNextFinalAnswer: function(userMsg) {
+            if (!userMsg || !userMsg.parentNode) return null;
+            var el = userMsg.nextElementSibling;
+            while (el) {
+                if (el.classList.contains('ai-final')) return el;
+                el = el.nextElementSibling;
+            }
+            return null;
+        },
+
+        _scrollToMsg: function(body, msgEl, extraOffset) {
+            if (!msgEl || !body) return;
+            var extra = extraOffset || 0; // 「查看答案」时传 90，往上多留一段
+            if (body.scrollTo) {
+                body.scrollTo({ top: msgEl.offsetTop - 40 - extra, behavior: 'smooth' });
+            } else {
+                body.scrollTop = msgEl.offsetTop - 40 - extra;
+            }
+            msgEl.classList.remove('msg-nav-highlight');
+            void msgEl.offsetWidth;
+            msgEl.classList.add('msg-nav-highlight');
+            setTimeout(function() { msgEl.classList.remove('msg-nav-highlight'); }, 2200);
+        },
+
+        _hideQuestionsPanel: function() {
+            this._cancelHidePanel();
+            var p = document.querySelector('.cbq-panel');
+            if (p) {
+                if (p.__docClickHandler) {
+                    document.removeEventListener('click', p.__docClickHandler, true);
+                }
+                p.remove();
+            }
+            this._cbqPanel = null;
+        },
+
+        _setQuestionsPanelDragging: function(dragging) {
+            var panel = document.querySelector('.cbq-panel');
+            if (!panel) return;
+            if (dragging) {
+                // 拖拽中：隐藏面板
+                panel.style.visibility = 'hidden';
+                panel.classList.remove('cbq-drag-hidden');
+                panel.__dragHidden = true;
+                return;
+            }
+            // 拖拽结束：
+            // 1) 悬停面板（非固定）：直接收起，鼠标搭上标题才会重新弹出
+            if (!panel.__pinned) {
+                this._hideQuestionsPanel();
+                return;
+            }
+            // 2) 固定面板：保持隐藏并重新定位跟随标题，鼠标搭上标题才恢复显示
+            panel.classList.add('cbq-drag-hidden');
+            panel.__dragHidden = true;
+            if (panel.__titleEl) {
+                var rect = panel.__titleEl.getBoundingClientRect();
+                var pw = panel.offsetWidth, ph = panel.offsetHeight;
+                var left = Math.min(Math.max(8, rect.left), window.innerWidth - pw - 8);
+                var top = rect.bottom + 6;
+                if (top + ph > window.innerHeight - 8) {
+                    top = Math.max(8, window.innerHeight - 8 - ph);
+                }
+                panel.style.left = left + 'px';
+                panel.style.top = top + 'px';
+            }
+        },
+
+        _scheduleHidePanel: function() {
+            var self = this;
+            this._cancelHidePanel();
+            this._cbqHideTimer = setTimeout(function() { self._hideQuestionsPanel(); }, 300);
+        },
+
+        _cancelHidePanel: function() {
+            if (this._cbqHideTimer) { clearTimeout(this._cbqHideTimer); this._cbqHideTimer = null; }
+        },
+
+        // ===== 新增 AI 回复时刷新本用户消息的按钮状态 =====
+        _refreshUserMsgBtns: function(container) {
+            var self = this;
+            var users = container.querySelectorAll('.msg.user');
+            for (var i = 0; i < users.length; i++) {
+                if (users[i]._vaBtn) self._refreshViewAnswerBtn(users[i]);
+            }
+        },
+        // ===== 滚动到上一条/下一条用户消息 =====
+        scrollToUserMsg: function(currentMsg, dir) {
+            var self = this;
+            var body = currentMsg.closest('.chatbox-body');
+            if (!body) return;
+            var userMsgs = Array.prototype.slice.call(body.querySelectorAll('.msg.user:not(.msg-editing)'));
+            var idx = userMsgs.indexOf(currentMsg);
+            if (idx === -1) {
+                userMsgs = Array.prototype.slice.call(body.querySelectorAll('.msg.user'));
+                idx = userMsgs.indexOf(currentMsg);
+                if (idx === -1) return;
+            }
+            var targetIdx = idx + dir;
+            if (targetIdx < 0 || targetIdx >= userMsgs.length) return;
+            var target = userMsgs[targetIdx];
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            self.updateNavBtnState(target);
+            target.classList.add('msg-nav-highlight');
+            setTimeout(function() {
+                target.classList.remove('msg-nav-highlight');
+            }, 1200);
+        },
+
+        // ===== 更新导航按钮 disabled 状态 =====
+        updateNavBtnState: function(msgDiv) {
+            var body = msgDiv.closest(".chatbox-body");
+            if (!body) return;
+            var userMsgs = Array.prototype.slice.call(body.querySelectorAll(".msg.user:not(.msg-editing)"));
+            var idx = userMsgs.indexOf(msgDiv);
+            if (idx === -1) {
+                userMsgs = Array.prototype.slice.call(body.querySelectorAll(".msg.user"));
+                idx = userMsgs.indexOf(msgDiv);
+                if (idx === -1) return;
+            }
+            var prevBtn = msgDiv.querySelector(".msg-nav-prev");
+            var nextBtn = msgDiv.querySelector(".msg-nav-next");
+            if (prevBtn) prevBtn.disabled = (idx <= 0);
+            if (nextBtn) nextBtn.disabled = (idx >= userMsgs.length - 1);
+        },
+
+        // ===== 开始编辑用户消息 =====
+        startEditUserMessage: function(msgDiv) {
+            var self = this;
+            var originalText = msgDiv.dataset.originalText || msgDiv.textContent || '';
+            if (msgDiv.classList.contains('msg-editing')) return;
+            msgDiv.classList.add('msg-editing');
+            msgDiv.dataset.savedHtml = msgDiv.innerHTML;
+            msgDiv.innerHTML = '';
+            var textarea = document.createElement('textarea');
+            textarea.className = 'msg-edit-textarea';
+            textarea.value = originalText;
+            msgDiv.appendChild(textarea);
+            var btnRow = document.createElement('div');
+            btnRow.className = 'msg-edit-btnrow';
+            var saveBtn = document.createElement('button');
+            saveBtn.className = 'msg-edit-save';
+            saveBtn.textContent = '发送';
+            saveBtn.title = '保存并重新发送';
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'msg-edit-cancel';
+            cancelBtn.textContent = '取消';
+            cancelBtn.title = '取消编辑';
+            btnRow.appendChild(saveBtn);
+            btnRow.appendChild(cancelBtn);
+            msgDiv.appendChild(btnRow);
+            textarea.focus();
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+            textarea.addEventListener('input', function() {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+            });
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveBtn.click();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelBtn.click();
+                }
+            });
+            saveBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var newText = textarea.value.trim();
+                if (!newText) return;
+                self.saveEditedUserMessage(msgDiv, newText);
+            });
+            cancelBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                self.cancelEditUserMessage(msgDiv);
+            });
+        },
+
+        // ===== 保存编辑后的用户消息：截断历史 + 删除后续消息 + 重新发送 =====
+        saveEditedUserMessage: function(msgDiv, newText) {
+            var self = this;
+            var box = msgDiv.closest('.chatbox');
+            if (!box) return;
+            var chat = this.chatBoxes.find(function(c) { return c.el === box; });
+            if (!chat) return;
+
+            // 如果正在发送中，不允许编辑
+            if (chat.isSending) {
+                self.addMsg(box, '⏳ 当前正在对话中，请等待完成后再编辑消息。', 'ai');
+                self.cancelEditUserMessage(msgDiv);
+                return;
+            }
+
+            var body = box.querySelector('.chatbox-body');
+            if (!body) return;
+            var allMsgs = body.querySelectorAll('.msg');
+            var msgList = Array.from(allMsgs);
+            var editIndex = msgList.indexOf(msgDiv);
+            if (editIndex === -1) return;
+
+            // 收集编辑位置之前的所有 user/ai 消息的原始文本
+            var keptHistory = [];
+            for (var i = 0; i < editIndex; i++) {
+                var m = msgList[i];
+                if (m.classList.contains('user')) {
+                    var uText = m.dataset.originalText || m.textContent || '';
+                    keptHistory.push({ role: 'user', content: uText });
+                } else if (m.classList.contains('ai') && !m.classList.contains('typing') && !m.classList.contains('query-reminder')) {
+                    // AI 消息：从 chat.history 中找到对应的消息
+                    var aiCount = keptHistory.filter(function(h) { return h.role === 'assistant'; }).length;
+                    var aiMsgs = chat.history.filter(function(h) { return h.role === 'assistant'; });
+                    if (aiCount < aiMsgs.length) {
+                        keptHistory.push({ role: 'assistant', content: aiMsgs[aiCount].content });
+                    } else {
+                        keptHistory.push({ role: 'assistant', content: m.textContent || '' });
+                    }
+                }
+            }
+            // 添加新的用户消息
+            keptHistory.push({ role: 'user', content: newText });
+
+            // 删除该消息之后的所有消息
+            for (var j = msgList.length - 1; j > editIndex; j--) {
+                msgList[j].remove();
+            }
+
+            // 更新当前消息为新文本
+            msgDiv.classList.remove('msg-editing');
+            self.setMsgContent(msgDiv, newText, 'user');
+
+            // 更新 chat.history
+            chat.history = keptHistory;
+
+            // 更新 query-pin 和标题
+            self.showQueryPin(box, newText);
+            self.updateChatTitle(box, newText);
+
+            // 重建 Store 消息（串行 await 确保 parent_id 追踪正确）
+            Store.clearMessages(chat.id);
+            (async function() {
+                for (var h = 0; h < chat.history.length; h++) {
+                    var role = chat.history[h].role === 'user' ? 'user' : 'assistant';
+                    await Store.addMessage(chat.id, role, chat.history[h].content, 'text', chat.modelId);
+                }
+                Store.addLog('info', chat.id, 'edit-resend', '用户编辑消息并重新发送: ' + newText.substring(0, 80));
+                // 重新发送给模型
+                self.sendToModel(box, chat);
+            })();
+        },
+
+        // ===== 取消编辑用户消息 =====
+        cancelEditUserMessage: function(msgDiv) {
+            msgDiv.classList.remove('msg-editing');
+            if (msgDiv.dataset.savedHtml) {
+                msgDiv.innerHTML = msgDiv.dataset.savedHtml;
+                delete msgDiv.dataset.savedHtml;
+                var editBtn = msgDiv.querySelector('.msg-edit-btn');
+                if (editBtn) {
+                    var self = this;
+                    editBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        self.startEditUserMessage(msgDiv);
+                    });
+                }
+            } else {
+                var originalText = msgDiv.dataset.originalText || '';
+                this.setMsgContent(msgDiv, originalText, 'user');
+            }
+        },
+
+        // ===== HTML 转义辅助 =====
+        _escapeHtml: function(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        },
+
+        // ===== 根据用户第一条提问更新对话标题（标题固定显示第一句）=====
+        updateChatTitle: function(box, text) {
+            var titleEl = box.querySelector('.chatbox-header .title') || box.querySelector('.chatbox-header-row1 .title');
+            if (!titleEl) return;
+            // 优先从 DOM 取第一条用户提问；若还没有（首个消息场景）用传入文本
+            var firstQ = '';
+            var body = box.querySelector('.chatbox-body');
+            if (body) {
+                var firstUser = body.querySelector('.msg.user');
+                if (firstUser) {
+                    var tn = firstUser.querySelector('.msg-user-text') || firstUser;
+                    firstQ = (firstUser.dataset.originalText || tn.textContent || '');
+                }
+            }
+            var src = firstQ || text || '';
+            // 清理换行、多余空白
+            var preview = src.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            // 截断到 30 字符
+            if (preview.length > 30) preview = preview.substring(0, 30) + '…';
+            titleEl.textContent = preview;
+            titleEl.title = src;  // 鼠标悬停看全文
+            // 保存到内存 + SQLite
+            var chat = this.chatBoxes.find(function(c) { return c.el === box; });
+            if (chat) {
+                Store.saveChatBox(chat);
+            }
+        },
+
+        // ===== 显示复制提示 toast =====
+        _copyToast: null,
+        _showCopyToast: function(text) {
+            var toast = document.createElement('div');
+            toast.textContent = '✓ ' + (text || '已复制');
+            // 适配深色/浅色主题
+            var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            if (isLight) {
+                toast.style.cssText =
+                    'background:#fff;color:var(--blue);border:1px solid var(--border,#ddd);' +
+                    'border-radius:6px;padding:8px 18px;font-size:13px;' +
+                    'box-shadow:0 4px 16px rgba(0,0,0,0.15);';
+            } else {
+                toast.style.cssText =
+                    'background:#1a1a2e;color:#4EC9B0;border:1px solid #2a2a44;' +
+                    'border-radius:6px;padding:8px 18px;font-size:13px;' +
+                    'box-shadow:0 4px 12px rgba(0,0,0,.3);';
+            }
+            // 使用全局 ToastStack（左下角堆叠排列）
+            if (window.ToastStack) {
+                window.ToastStack.show(toast, 1500);
+            } else {
+                toast.className = 'copy-toast';
+                document.body.appendChild(toast);
+                toast.classList.add('copy-toast-in');
+                setTimeout(function() {
+                    toast.classList.remove('copy-toast-in');
+                    toast.classList.add('copy-toast-out');
+                }, 1500);
+            }
+        },
+
+        // ===== 显示复制成功状态（按钮上 ✓ 反馈） =====
+        _showCopySuccess: function(btn, ms) {
+            if (!btn) return;
+            ms = ms || 1500;
+            if (!btn._origLabel) btn._origLabel = btn.textContent;
+            if (btn._restoreTimer) clearTimeout(btn._restoreTimer);
+            btn.textContent = '✓';
+            btn._restoreTimer = setTimeout(function() {
+                btn.textContent = btn._origLabel || '📦';
+                delete btn._restoreTimer;
+            }, ms);
+        },
+
+        // ===== 代码块增强：语法高亮 + Mermaid 流程图 + 复制按钮 =====
+        enhanceCodeBlocks: function(container) {
+            if (!container) return;
+            var self = this;
+
+            // Mermaid 流程图渲染
+            if (typeof mermaid !== 'undefined') {
+                var mermaidBlocks = container.querySelectorAll('pre code.language-mermaid');
+                if (mermaidBlocks.length > 0) {
+                    var toRender = [];
+                    mermaidBlocks.forEach(function(block) {
+                        var code = block.textContent;
+                        var pre = block.parentElement;
+                        var div = document.createElement('div');
+                        div.className = 'mermaid';
+                        div.textContent = code;
+                        pre.replaceWith(div);
+                        toRender.push(div);
+                    });
+                    try {
+                        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'dark' });
+                        mermaid.run({ nodes: toRender }).catch(function(e) {
+                            console.warn('Mermaid 渲染失败:', e);
+                        });
+                    } catch(e) { console.warn('Mermaid init error:', e); }
+                }
+            }
+
+            // 像素显示器：拦截 pxl 代码块，渲染为 Canvas 图片
+            if (typeof PixelDisplay !== 'undefined') {
+                try { PixelDisplay.scanAndRender(container); } catch(e) { console.warn('[PixelDisplay] error:', e); }
+            }
+
+            // 语法高亮 + 复制按钮
+            container.querySelectorAll('pre code').forEach(function(block) {
+                if (typeof hljs !== 'undefined' && !block.dataset.highlighted) {
+                    var langClass = Array.from(block.classList || []).find(function(c) { return c.startsWith('language-'); });
+                    var lang = langClass ? langClass.slice('language-'.length).trim() : '';
+                    if (!lang || hljs.getLanguage(lang)) {
+                        try { hljs.highlightElement(block); block.dataset.highlighted = '1'; } catch(e) {}
+                    } else {
+                        block.classList.add('no-highlight');
+                        block.dataset.highlighted = '1';
+                    }
+                }
+                var pre = block.parentElement;
+                if (pre && !pre.querySelector('.code-copy-btn')) {
+                    var btn = document.createElement('button');
+                    btn.className = 'code-copy-btn';
+                    btn.textContent = '📦';
+                    btn.title = '复制代码';
+                    btn.addEventListener('click', function() {
+                        var code = block.textContent;
+                        if (navigator.clipboard) {
+                            navigator.clipboard.writeText(code).then(function() {
+                                self._showCopySuccess(btn);
+                                self._showCopyToast('已复制代码');
+                            });
+                        } else {
+                            var ta = document.createElement('textarea');
+                            ta.value = code;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            self._showCopySuccess(btn);
+                            self._showCopyToast('已复制代码');
+                        }
+                    });
+                    pre.appendChild(btn);
+                }
+            });
+        },
+
+        // ===== 自动检测AI回复中的选项列表，渲染为可点击按钮 =====
+        renderClickableOptions: function(container) {
+            if (!container) return;
+            var self = this;
+            var text = container.textContent || '';
+            var keywords = ['请告诉我', '请选择', '您想做什么', '您的具体需求', '请确认', '您想让我', '请说明'];
+            var hasAsk = keywords.some(function(w) { return text.indexOf(w) >= 0; });
+            if (!hasAsk) return;
+            var items = container.querySelectorAll('li');
+            if (!items || items.length < 2) return;
+            if (items.length > 6) return;
+            var options = [];
+            items.forEach(function(li) {
+                var t = li.textContent.trim();
+                if (t && t.length < 100) options.push(t);
+            });
+            if (options.length < 2) return;
+
+            // 找到所属的 chatbox
+            var box = container.closest('.chatbox');
+            var chat = null;
+            if (box) {
+                for (var i = 0; i < self.chatBoxes.length; i++) {
+                    if (self.chatBoxes[i].el === box) { chat = self.chatBoxes[i]; break; }
+                }
+            }
+
+            var btnContainer = document.createElement('div');
+            btnContainer.className = 'auto-option-container';
+            options.forEach(function(opt) {
+                var btn = document.createElement('button');
+                btn.className = 'auto-option-btn';
+                btn.textContent = opt;
+                btn.addEventListener('click', function() {
+                    if (box && chat) {
+                        var input = box.querySelector('textarea');
+                        var sendBtn = box.querySelector('.send-btn');
+                        if (input) {
+                            input.value = opt;
+                            input.focus();
+                            if (sendBtn) sendBtn.click();
+                        }
+                    }
+                });
+                btnContainer.appendChild(btn);
+            });
+            container.appendChild(btnContainer);
+        },
+
+        // ===== 添加消息 =====
+        // ===== 用户问题置顶条 =====
+        showQueryPin: function(box, text) {
+            // 移除旧的 pin（如果有）
+            var oldPin = box.querySelector('.query-pin');
+            if (oldPin) oldPin.remove();
+            var body = box.querySelector('.chatbox-body');
+            if (!body) return;
+            var pin = document.createElement('div');
+            pin.className = 'query-pin';
+            pin.dataset.fullText = text;
+            // 截断显示（单行）
+            var preview = text.length > 60 ? text.substring(0, 60) + '…' : text;
+            preview = preview.replace(/\n/g, ' ');
+            pin.innerHTML =
+                '<span class="query-pin__icon">📌</span>' +
+                '<span class="query-pin__text">' + this._escapeHtml(preview) + '</span>' +
+                '<span class="query-pin__tooltip">' + this._escapeHtml(text) + '</span>';
+            // 插入到 body 最前面
+            body.insertBefore(pin, body.firstChild);
+        },
+
+        // ===== 会话结束时：先展示全文到对话中，再移除 pin =====
+        flushQueryPin: function(box, chat) {
+            var pin = box.querySelector('.query-pin');
+            if (!pin) return;
+            var fullText = pin.dataset.fullText || '';
+            // 在对话中再次展示用户问题（作为提醒）
+            if (fullText) {
+                var body = box.querySelector('.chatbox-body');
+                if (body) {
+                    var reminder = document.createElement('div');
+                    reminder.className = 'msg query-reminder';
+                    // 在本次提问右上角添加“查看答案”按钮
+                    var vaBtn = document.createElement('button');
+                    vaBtn.className = 'view-answer-btn visible';
+                    vaBtn.title = '查看答案';
+                    vaBtn.innerHTML = '📄 查看答案';
+                    vaBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        // 找到本条 query-reminder 之前最近的 final AI 消息，滚动过去
+                        var prev = reminder.previousElementSibling;
+                        while (prev) {
+                            if (prev.classList && prev.classList.contains('msg') && (prev.classList.contains('ai-final') || prev.classList.contains('query-reminder'))) {
+                                break;
+                            }
+                            prev = prev.previousElementSibling;
+                        }
+                        if (prev) {
+                            // 往上多留 90px，确保能看到答案开头
+                            var targetTop = prev.offsetTop - 90;
+                            if (targetTop < 0) targetTop = 0;
+                            body.scrollTo({ top: targetTop, behavior: 'smooth' });
+                        } else {
+                            // 未找到对应 AI 回复 → 提示未出答案
+                            var oldHtml2 = vaBtn.innerHTML;
+                            vaBtn.innerHTML = '⏳ 未出答案';
+                            vaBtn.disabled = true;
+                            setTimeout(function() {
+                                vaBtn.innerHTML = oldHtml2;
+                                vaBtn.disabled = false;
+                            }, 1500);
+                        }
+                    });                    reminder.innerHTML =
+                        '<span style="opacity:0.6;font-size:11px;">📎 本次提问：</span><br>' +
+                        this._escapeHtml(fullText);
+                    reminder.appendChild(vaBtn);
+                    body.appendChild(reminder);
+                    if (chat.autoFollowBottom) {
+                        body.scrollTop = body.scrollHeight;
+                    }
+                }
+            }
+            // 移除 pin（带淡出动画）
+            pin.classList.add('query-pin--out');
+            setTimeout(function() {
+                if (pin.parentNode) pin.remove();
+            }, 300);
+        },
+
+        // ===== 格式化耗时 =====
+        _formatDuration: function(ms) {
+            if (!ms || ms < 0) ms = 0;
+            var totalSec = Math.floor(ms / 1000);
+            if (totalSec < 1) return ms + 'ms';
+            if (totalSec < 60) return totalSec + 's';
+            var m = Math.floor(totalSec / 60);
+            var s = totalSec % 60;
+            if (m < 60) return m + 'm' + (s > 0 ? s + 's' : '');
+            var h = Math.floor(m / 60);
+            m = m % 60;
+            return h + 'h' + (m > 0 ? m + 'm' : '') + (s > 0 ? s + 's' : '');
+        },
+
+        addMsgStreaming: function(box, text, who, modelId, isFinal, onDone) {
+            var self = this;
+            text = String(text == null ? '' : text);
+            // skipSave=true：流式内容尚未完整，先不持久化（避免把空内容写入数据库导致重启后回复空白）
+            var div = this.addMsg(box, '', who, modelId, isFinal, true);
+            if (who !== 'ai' || !text) {
+                if (onDone) onDone(div);
+                return div;
+            }
+            var body = box.querySelector('.chatbox-body');
+            var index = 0;
+            var step = Math.max(1, Math.ceil(text.length / 45));
+            var lastTick = 0;   // 上次 tick 时间戳（检测后台节流用）
+            var tick = function() {
+                // 页面切到后台时浏览器会节流 setTimeout（后台标签约1秒/次），打字动画会积压；
+                // 切回页面后所有工具说明文本会集中"流式重放"，观感异常。
+                // 因此：页面不可见 或 两次 tick 间隔异常大（经历后台节流）时，
+                // 跳过打字动画直接显示完整内容，切回后看到的就是工具执行完毕的最终结果。
+                var now = Date.now();
+                if (document.hidden || (lastTick > 0 && now - lastTick > 800)) {
+                    index = text.length;
+                    self._setMsgContent(div, text);
+                    if (body) body.scrollTop = body.scrollHeight;
+                    // 动画完成：用完整内容持久化，保证重启后回复可见
+                    try {
+                        if (box.id && typeof Store !== 'undefined') {
+                            var role = who === 'user' ? 'user' : (who === 'error' ? 'error' : 'assistant');
+                            var msgType = isFinal ? 'final' : 'text';
+                            var msgParentId = null;
+                            if (role === 'assistant' && Store._lastUserMsgIds && Store._lastUserMsgIds[box.id]) {
+                                msgParentId = Store._lastUserMsgIds[box.id];
+                            }
+                            Store.addMessage(box.id, role, text, msgType, modelId, msgParentId);
+                        }
+                    } catch (e) {}
+                    if (onDone) onDone(div);
+                    return;
+                }
+                lastTick = now;
+                index = Math.min(text.length, index + step);
+                // [Fix 2026-01-12] 流式阶段严禁重跑 markdown 渲染。
+                // 半截 HTML（未闭合的 <table>/<li>/<code> 等）经 marked 反复解析会
+                // 产生损坏的 DOM 树，浏览器自动补全闭合标签时会把表格/列表/代码块
+                // 搬出原父容器，导致"表格飞走""代码块错位"等渲染 bug。
+                // 改为：打字机阶段只更新 textContent，最后一帧才走完整 markdown 管道。
+                if (div._streamMd) {
+                    self.setMsgContent(div, text, who);
+                    div._streamMd = false;
+                } else {
+                    div.textContent = text.slice(0, index);
+                }
+                if (body) body.scrollTop = body.scrollHeight;
+                if (index < text.length) {
+                    if (text.length - index <= step) div._streamMd = true;
+                    setTimeout(tick, 28);
+                } else {
+                    // 动画完成：用完整内容持久化，保证重启后回复可见
+                    try {
+                        if (box.id && typeof Store !== 'undefined') {
+                            var role = who === 'user' ? 'user' : (who === 'error' ? 'error' : 'assistant');
+                            var msgType = isFinal ? 'final' : 'text';
+                            var msgParentId = null;
+                            if (role === 'assistant' && Store._lastUserMsgIds && Store._lastUserMsgIds[box.id]) {
+                                msgParentId = Store._lastUserMsgIds[box.id];
+                            }
+                            Store.addMessage(box.id, role, text, msgType, modelId, msgParentId);
+                        }
+                    } catch (e) {}
+                    if (onDone) onDone(div);
+                }
+            };
+            setTimeout(tick, 28);
+            return div;
+        },
+
+        _setMsgContent: function(div, text) {
+            if (!div) return;
+            var content = div.querySelector('.msg-content');
+            if (content) {
+                content.innerHTML = this.renderMarkdown(text);
+            } else {
+                div.textContent = text;
+            }
+        },
+
+        addMsg: function(box, text, who, modelId, isFinal, skipSave) {
+            var self = this;
+            var body = box.querySelector('.chatbox-body');
+            var div = document.createElement('div');
+            div.className = 'msg ' + who + (isFinal && who === 'ai' ? ' ai-final' : '');
+            if (who === 'typing') {
+                // 增强型 typing 指示器：旋转图标 + 文字 + 实时计时器（每秒更新）
+                var _typingStart = Date.now();
+                div.innerHTML =
+                    '<span class="typing-spinner"></span>' +
+                    '<span class="typing-text">' + this._escapeHtml(text) + '</span>' +
+                    '<span class="typing-timer">0s</span>';
+                var _timerEl = div.querySelector('.typing-timer');
+                div._typingInterval = setInterval(function() {
+                    if (!div.parentNode) { clearInterval(div._typingInterval); return; }
+                    var secs = Math.floor((Date.now() - _typingStart) / 1000);
+                    if (secs < 60) { _timerEl.textContent = secs + 's'; }
+                    else { _timerEl.textContent = Math.floor(secs / 60) + 'm' + (secs % 60) + 's'; }
+                }, 1000);
+            } else {
+                this.setMsgContent(div, text, who);
+            }
+            // 工具组默认折叠为紧凑条，用户点击展开查看详情
+            body.appendChild(div);
+            self._refreshUserMsgBtns(body);
+            var _chat = this.chatBoxes.find(function(c) { return c.el === box; }) || self.chatBoxes.find(function(c) { return c.id === box.id; });
+            if (_chat && _chat.autoFollowBottom) {
+                body.scrollTop = body.scrollHeight;
+            } else if (!_chat) {
+                body.scrollTop = body.scrollHeight;
+            }
+            var sbb = box.querySelector('.scroll-bottom-btn');
+            if (sbb && (!_chat || _chat.autoFollowBottom)) sbb.classList.remove('visible');
+            // 持久化（typing 类型是临时的，不保存）
+            if (!skipSave && who !== 'typing' && box.id) {
+                var role = who === 'user' ? 'user' : (who === 'error' ? 'error' : 'assistant');
+            var msgType = isFinal ? 'final' : 'text';
+                var msgParentId = null;
+                if (role === 'assistant' && Store._lastUserMsgIds && Store._lastUserMsgIds[box.id]) {
+                    msgParentId = Store._lastUserMsgIds[box.id];
+                }
+                Store.addMessage(box.id, role, text, msgType, modelId, msgParentId);
+                if (who === 'error' && self.updateMinimap) self.updateMinimap();
+            }
+            return div;
+        },
+
+        // ===== 关闭对话框 =====
+        closeChatBox: function(chat) {
+            // 清理 bindChatBox 注册的监听器和定时器（替代 monkey-patch 方案）
+            if (chat._cleanup) {
+                if (chat._cleanup.scrollBtnTimer) clearInterval(chat._cleanup.scrollBtnTimer);
+                if (chat._cleanup.navArrowTimer) clearInterval(chat._cleanup.navArrowTimer);
+                chat._cleanup.listeners.forEach(function(item) {
+                    item.target.removeEventListener(item.event, item.handler);
+                });
+                chat._cleanup = null;
+            }
+            if (chat.el) this.flushQueryPin(chat.el, chat);
+            // 保存关闭快照（用于恢复）
+            var el = chat.el;
+            var snapshot = {
+                id: chat.id,
+                modelId: chat.modelId || '',
+                modelIdOverride: chat._modelIdOverride || '',
+                reasoningEffort: chat._reasoningEffort || '',
+                x: el ? parseInt(el.style.left) || 0 : 0,
+                y: el ? parseInt(el.style.top) || 0 : 0,
+                w: el ? el.offsetWidth || 360 : 360,
+                h: el ? el.offsetHeight || 480 : 480,
+                z: el ? parseInt(el.style.zIndex) || 50 : 50,
+                collapsed: el ? el.classList.contains('collapsed') : false,
+                title: el && el.querySelector('.title') ? el.querySelector('.title').textContent : '',
+                createdAt: chat.createdAt || Date.now(),
+                chatNum: chat.chatNum || 0,
+                messages: Store.getMessages(chat.id).slice(),
+                projectId: chat.projectId || null
+            };
+            this._closedStack.push(snapshot);
+            if (this._closedStack.length > 20) this._closedStack.shift();
+            // 更新右键菜单显示
+            this._updateRestoreMenu();
+
+            var idx = this.chatBoxes.indexOf(chat);
+            if (idx >= 0) this.chatBoxes.splice(idx, 1);
+            if (chat.el) chat.el.remove();
+            // 内存中立即删除 chatBox 条目，DB 也立即清理
+            // 快照保存在 _closedStack 中，可通过右键菜单"恢复已关闭"还原
+            var self2 = this;
+            Store.data.chatBoxes = Store.data.chatBoxes.filter(function(b) { return b.id !== chat.id; });
+            // 取消防抖定时器
+            if (Store._timers['box_' + chat.id]) {
+                clearTimeout(Store._timers['box_' + chat.id]);
+                Store._timers['box_' + chat.id] = null;
+            }
+            // 立即清理 DB（不再延迟 3 秒，避免页面关闭后 DB 残留导致重启后重新打开已关闭面板）
+            // 快照仍保存在 _closedStack 中用于"恢复已关闭"功能；
+            // 恢复时 restoreLastClosed 会通过 Store.saveChatBox + DB.addChatMessage 重新写入 DB
+            if (Store.dbOnline && typeof DB !== 'undefined') {
+                DB.deleteNode(snapshot.id).catch(function(e) { console.warn('[Chatbox] node delete failed:', e); });
+                DB.clearChatHistory(snapshot.id).catch(function() {});
+            }
+            Store.addLog('info', chat.id, 'close', '关闭对话框');
+            // 联动清理：删除该对话关联的任务清单，并刷新任务面板
+            if (typeof App !== 'undefined' && App._cleanupTaskListsForChat) {
+                App._cleanupTaskListsForChat(chat.id);
+            }
+            this.updateStatus();
+            this.updateMinimap();
+            // 刷新所有剩余对话框的导航箭头
+            this._updateAllNavArrows();
+            // 清理已移至画布层的箭头容器
+            var hostLayer2 = (chat.el && (chat.el.offsetParent || chat.el.parentNode)) || null;
+            if (hostLayer2) {
+                var navEl = hostLayer2.querySelector('.cbx-succ-nav[data-for="' + chat.id + '"]');
+                if (navEl) navEl.remove();
+            }
+            // 如果所有对话框都已关闭，重新显示画布提示
+            if (this.chatBoxes.length === 0) {
+                this.showHint();
+            }
+        },
+
+        // ===== 更新右键菜单中"恢复已关闭"项的显示 =====
+        _updateRestoreMenu: function() {
+            var item = document.getElementById('ctxRestoreClosed');
+            var sep = document.getElementById('ctxSepRestore');
+            if (!item || !sep) return;
+            var has = this._closedStack.length > 0;
+            sep.style.display = has ? '' : 'none';
+            item.style.display = has ? '' : 'none';
+            if (has) {
+                var last = this._closedStack[this._closedStack.length - 1];
+                var label = last.title || ('对话' + (last.chatNum || ''));
+                if (label.length > 12) label = label.substring(0, 12) + '…';
+                item.innerHTML = '<span class="ctx-icon">\u267b\ufe0f</span> 恢复: ' + label;
+            }
+        },
+
+        // ===== 恢复最后一个关闭的会话 =====
+        restoreLastClosed: function() {
+            if (this._closedStack.length === 0) return;
+            var snapshot = this._closedStack.pop();
+            this._updateRestoreMenu();
+
+            var self = this;
+            var canvas = document.getElementById('canvasContent') || document.getElementById('canvasArea');
+            var box = document.createElement('div');
+            box.className = 'chatbox' + (snapshot.collapsed ? ' collapsed' : '');
+            box.id = snapshot.id;
+            box.style.left = snapshot.x + 'px';
+            box.style.top = snapshot.y + 'px';
+            box.style.width = (snapshot.w || 360) + 'px';
+            box.style.height = (snapshot.h || 480) + 'px';
+            box.style.zIndex = ++this.zCounter;
+
+            var modelId = snapshot.modelId || '';
+            var model = modelId ? Models.get(modelId) : null;
+            var boxName = model ? model.name : '未选择模型';
+            var title = snapshot.title || ('对话' + (snapshot.chatNum || ''));
+            if (title.indexOf('\ud83d\udcac') === 0) title = title.substring(2).trim();
+            var _restoredCatName = Tools.chatCategories[snapshot.id] || snapshot.toolCategory || Tools.activeCategory;
+            if (!Tools.categories[_restoredCatName]) _restoredCatName = '极简';
+            Tools.chatCategories[snapshot.id] = _restoredCatName;
+            var _catList = Tools.getCategoryList(snapshot.id);
+            var _catHtml = '';
+            _catList.forEach(function(c) {
+                _catHtml += '<div class="tool-cat-item' + (c.active ? ' active' : '') + '" data-cat="' + c.name + '">' +
+                    '<span class="tool-cat-item-icon">' + c.icon + '</span>' +
+                    '<span class="tool-cat-item-name">' + c.name + '</span>' +
+                    '</div>';
+            });
+            var _curCat = Tools.categories[_restoredCatName];
+            var _curCatIcon = _curCat ? _curCat.icon : '📄';
+
+
+            box.innerHTML =
+                '<div class="chatbox-header" title="拖拽移动对话；Shift+左键拖拽：按下即在鼠标处复制一个一模一样的对话并跟随拖动">' +
+                    
+                    '<div class="chatbox-header-row1">' +
+                    
+                    '<span class="status-dot status-idle"></span>' +
+                    '<span class="title">' + title + '</span>' +
+                    '<span class="proj-name" style="display:none"></span>' +
+                    '<button class="hd-btn tool-panel-btn" data-act="tools" title="工具执行过程">🔧<span class="tool-badge" style="display:none">0</span></button>' +
+                    '<button class="hd-btn log-panel-btn" data-act="logs" title="日志">📜</button>' +
+                    '<button class="hd-btn close" data-act="close" title="关闭">✕</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="chatbox-body"></div>' +
+                '<div class="chatbox-logpanel">' +
+                    '<div class="logpanel-tabs">' +
+                        '<span class="logpanel-tab active" data-tab="logs">日志</span>' +
+                        '<span class="logpanel-tab" data-tab="ctx">上下文</span>' +
+                        '<span class="logpanel-actions">' +
+                            '<button class="lp-btn" data-lp-act="copy" title="复制对话和日志">📋 复制</button>' +
+                            '<button class="lp-btn" data-lp-act="clear" title="清空对话和日志">🗑 清空</button>' +
+                        '</span>' +
+                    '</div>' +
+                    '<div class="logpanel-body"></div>' +
+                '</div>' +
+                '<div class="chatbox-queue" style="display:none"></div>' +
+                '<button class="prev-user-btn" title="定位到上一条用户问题所在的段落"><span>\u25b2</span></button> <button class="scroll-bottom-btn" title="滚动到底部"><span>\u25bc</span></button>' +
+                '<div class="chatbox-inputrow">' +
+                    '<button class="upload-btn" title="上传文件 / 文件夹">+</button>' +
+                    '<textarea placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>' +
+                    '<button class="send-btn" title="发送消息"><svg class="send-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg><svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg></button>' +
+                '</div>' +
+                '<div class="chatbox-configrow">' +
+                    '<div class="tool-cat-wrap">' +
+                        '<button class="tool-cat-trigger" title="切换工具分类">' +
+                            '<span class="tool-cat-icon">' + _curCatIcon + '</span>' +
+                            '<span class="tool-cat-name">' + _restoredCatName + '</span>' +
+                            '<span class="tool-cat-arrow">▾</span>' +
+                        '</button>' +
+                        '<div class="tool-cat-menu" hidden>' + _catHtml + '</div>' +
+                    '</div>' +
+                    '<button class="cfg-btn cfg-project-btn" data-act="project" title="切换项目">📁<span class="proj-label">切换项目</span></button>' +
+                    '<div class="model-picker-wrap">' +
+                        '<button class="model-picker-btn" title="点击选择模型 / 模型ID / 思考强度"><span class="model-picker-name">未选择模型</span><span class="model-picker-arrow">▾</span></button>' +
+                        '<div class="model-picker-menu" hidden>' +
+                            '<div class="mp-search"><input type="text" class="mp-search-input" placeholder="搜索模型名称或模型ID…"></div>' +
+                            '<div class="mp-list"></div>' +
+                            '<div class="mp-section">模型 ID 覆盖（仅本对话）</div>' +
+                            '<div class="mp-modelid-row"><select class="mp-modelid-input" title="选择要覆盖的模型ID"></select></div>' +
+                            '<div class="mp-section">思考强度（reasoning_effort）</div>' +
+                            '<div class="mp-re-row"><select class="mp-re-input" title="点击切换思考强度"></select></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="chatbox-resize"><span class="chatbox-resize-handle south-east"></span><span class="chatbox-resize-handle south-west"></span><span class="chatbox-resize-handle south"></span><span class="chatbox-resize-handle east"></span><span class="chatbox-resize-handle west"></span></div>';
+
+            canvas.appendChild(box);
+
+            var chat = {
+                id: box.id,
+                el: box,
+                modelId: modelId,
+                chatNum: snapshot.chatNum || this.chatCounter,
+                history: [],
+                createdAt: snapshot.createdAt,
+                isSending: false,
+                abortController: null,
+                queue: [],
+                _stopped: false,
+                projectId: snapshot.projectId || null,
+                // ===== 底部选择器覆盖字段（模型ID / 思考强度） =====
+                _modelIdOverride: snapshot.modelIdOverride || '',
+                _reasoningEffort: snapshot.reasoningEffort || ''
+            };
+            this.chatBoxes.push(chat);
+            this._updateProjectBtn(chat);
+
+            // （原 _dbCleanupTimer 已移除，DB 在关闭时立即清理，恢复时重新写入）
+
+            // 恢复消息到 Store 内存
+            Store.data.messages[snapshot.id] = snapshot.messages ? snapshot.messages.slice() : [];
+
+            // 重新写入 DB：先清空旧消息（防竞态残留），再逐条写入
+            // 传入原始 ts，保持时间一致性（服务端按原始时间归档，避免伪重复）
+            if (snapshot.messages && snapshot.messages.length && Store.dbOnline && typeof DB !== 'undefined') {
+                var sid = snapshot.id;
+                DB.clearChatHistory(sid).then(function() {
+                    snapshot.messages.forEach(function(m) {
+                        DB.addChatMessage(sid, m.role, m.content, m.modelId || '', null, m.ts).catch(function() {});
+                    });
+                }).catch(function() {});
+            }
+
+            // 渲染消息到 DOM（分块异步渲染，避免大量消息同步阻塞）
+            var body = box.querySelector('.chatbox-body');
+            var msgs = Store.getMessages(snapshot.id);
+            if (msgs.length) {
+                var msgIdx = 0;
+                var CHUNK_SIZE = 8;
+                (function renderChunk() {
+                    var end = Math.min(msgIdx + CHUNK_SIZE, msgs.length);
+                    var frag = document.createDocumentFragment();
+                    for (; msgIdx < end; msgIdx++) {
+                        var m = msgs[msgIdx];
+                        if (m.type === 'typing' || m.type === 'tool_call') continue;
+                        var div = document.createElement('div');
+                        var whoCls = (m.role === 'user' ? 'user' : (m.role === 'error' ? 'error' : 'ai'));
+                        div.className = 'msg ' + whoCls + (m.type === 'final' ? ' ai-final' : '');
+                        var restoredContent = String(m.content || '');
+                        if (m.role === 'assistant' && restoredContent.indexOf('\u2705 \u4efb\u52a1\u5b8c\u6210') === 0) div.classList.add('task-result-success');
+                        if (m.role === 'assistant' && (restoredContent.indexOf('\u274c \u4efb\u52a1\u5931\u8d25') === 0 || restoredContent.indexOf('\u274C \u4efb\u52a1\u5931\u8d25') === 0)) div.classList.add('task-result-fail');
+                        self.setMsgContent(div, m.content, whoCls);
+                        frag.appendChild(div);
+                        if (m.role === 'user' || m.role === 'assistant' || m.role === 'system') chat.history.push({ role: m.role, content: m.content });
+                    }
+                    body.appendChild(frag);
+                    if (msgIdx < msgs.length) {
+                        requestAnimationFrame(renderChunk);
+                    } else {
+                        body.scrollTop = body.scrollHeight;
+                        // 渲染完成：标题显示第一句用户提问
+                        var fu = body.querySelector('.msg.user');
+                        if (fu) self.updateChatTitle(box, '');
+                    }
+                        self._refreshUserMsgBtns(body);
+                })();
+            } else {
+                body.scrollTop = body.scrollHeight;
+            }
+
+            this.syncChatCounter();
+            this.activate(box);
+            this.bindChatBox(box, chat);
+            this._updateProjectBtn(chat);
+            Store.saveChatBox(chat);
+            Store.addLog('info', chat.id, 'restore', '恢复已关闭的对话: ' + boxName);
+            this.updateStatus();
+            this.hideHint();
+            this.updateMinimap();
+        },
+
+    });
+

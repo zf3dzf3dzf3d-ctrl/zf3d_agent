@@ -1,0 +1,140 @@
+/* ===== 标题 hover 提问列表面板 ===== */
+.cbq-panel {
+    --cbq-bg: #ffffff;
+    --cbq-border: #d9d9e3;
+    --cbq-text: #333333;
+    --cbq-muted: #777b87;
+    --cbq-divider: #eeeeee;
+    --cbq-item-hover: #f0f4ff;
+    --cbq-close-hover: rgba(0, 0, 0, 0.06);
+    position: fixed;
+    z-index: 100000;
+    min-width: 260px;
+    max-width: 420px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--cbq-bg);
+    border: 1px solid var(--cbq-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
+    padding: 4px;
+    font-size: 13px;
+    color: var(--cbq-text);
+    color-scheme: light;
+}
+
+/* 跟随应用主题（data-theme）自动切换，与桌面黑色风格统一；
+   .cbq-dark 为 JS 兜底（Theme.current 为 dark 时由 JS 添加） */
+html[data-theme="dark"] .cbq-panel,
+.cbq-panel.cbq-dark {
+    --cbq-bg: #17191f;
+    --cbq-border: #343842;
+    --cbq-text: #e7e9ee;
+    --cbq-muted: #a2a7b3;
+    --cbq-divider: #2c3039;
+    --cbq-item-hover: #242936;
+    --cbq-close-hover: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+    color-scheme: dark;
+}
+
+.cbq-head {
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--cbq-muted);
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--cbq-divider);
+    margin-bottom: 2px;
+}
+
+/* 关闭按钮靠右 */
+.cbq-close {
+    flex: none;
+    margin-left: auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--cbq-muted);
+    font: inherit;
+    font-size: 20px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.cbq-close:hover,
+.cbq-close:focus-visible {
+    background: var(--cbq-close-hover);
+    color: var(--cbq-text);
+    outline: none;
+}
+
+.cbq-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    line-height: 1.4;
+}
+
+.cbq-item:hover {
+    background: var(--cbq-item-hover);
+}
+
+.cbq-num {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4a6cf7;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cbq-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cbq-va-btn {
+    flex: none;
+    border: 1px solid #4a6cf7;
+    background: transparent;
+    color: #4a6cf7;
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.cbq-va-btn:hover {
+    background: #4a6cf7;
+    color: #fff;
+}
+
+/* 跳转目标高亮闪烁 */
+.msg.msg-nav-highlight {
+    animation: msgNavFlash 0.6s ease-in-out 3;
+}
+
+@keyframes msgNavFlash {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.45); }
+}

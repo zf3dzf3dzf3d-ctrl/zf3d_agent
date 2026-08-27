@@ -1,0 +1,547 @@
+/* ========== style-base.css - 全局重置/变量/头部/画布 ========== */
+/* 暗色基调 · 无限画布 · 对话系统 */
+
+        /* ========== 全局重置 ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        :root {
+            --bg: #1a1a2e;
+            --bg-card: #1e1e2e;
+            --bg-hover: #252535;
+            --border: #333344;
+            --text: #ffffff;
+            --text2: #b8b8cc;
+            --blue: #0984e3;
+            --blue-rgb: 9, 132, 227;
+            --green: #28a745;
+            --radius: 6px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: auto;
+            -moz-osx-font-smoothing: auto;
+            text-rendering: geometricPrecision;
+            text-shadow: none;
+            background-color: var(--bg);
+            /* 星空背景：多层径向渐变模拟星星，叠加微妙的星云光晕 */
+            background-image:
+                /* 微小星点（最密） */
+                radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1px 1px at 28% 72%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 45% 35%, rgba(255,255,255,0.8), transparent 50%),
+                radial-gradient(1px 1px at 62% 85%, rgba(255,255,255,0.6), transparent 50%),
+                radial-gradient(1px 1px at 78% 12%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1px 1px at 88% 58%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 8% 92%, rgba(255,255,255,0.65), transparent 50%),
+                radial-gradient(1px 1px at 35% 8%, rgba(255,255,255,0.75), transparent 50%),
+                radial-gradient(1px 1px at 52% 62%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 95% 32%, rgba(255,255,255,0.8), transparent 50%),
+                radial-gradient(1px 1px at 18% 45%, rgba(255,255,255,0.6), transparent 50%),
+                radial-gradient(1px 1px at 72% 48%, rgba(255,255,255,0.75), transparent 50%),
+                /* 中等星点（带光晕） */
+                radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.95), transparent 50%),
+                radial-gradient(2px 2px at 55% 15%, rgba(200,220,255,0.9), transparent 50%),
+                radial-gradient(2px 2px at 80% 70%, rgba(255,235,200,0.85), transparent 50%),
+                radial-gradient(2px 2px at 40% 80%, rgba(220,200,255,0.9), transparent 50%),
+                radial-gradient(2px 2px at 92% 5%, rgba(255,255,255,0.95), transparent 50%),
+                /* 大星点（带柔和光晕） */
+                radial-gradient(2.5px 2.5px at 5% 55%, rgba(255,255,255,1), transparent 60%),
+                radial-gradient(2.5px 2.5px at 65% 25%, rgba(180,210,255,0.95), transparent 60%),
+                radial-gradient(2.5px 2.5px at 15% 78%, rgba(255,220,180,0.9), transparent 60%),
+                /* 远处星云光晕 */
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(60,90,180,0.18), transparent 70%),
+                radial-gradient(ellipse 500px 350px at 80% 70%, rgba(140,60,180,0.15), transparent 70%),
+                radial-gradient(ellipse 700px 500px at 50% 100%, rgba(30,80,160,0.2), transparent 70%);
+            background-attachment: fixed;
+            background-size: 100% 100%;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 星空整体缓慢漂移动画 */
+        @keyframes starDrift {
+            0% { background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
+            100% { background-position: 2% -1%, -1% 2%, 1% -2%, -2% 1%, 2% 1%, -1% -2%, 1% 2%, -2% -1%, 2% -2%, -1% 1%, 1% -1%, -2% 2%, 2% 1%, -1% -1%, 1% 2%, -2% -2%, 2% 2%, -1% -2%, 1% -1%, 2% 1%, -1% 2%, 1% -2%, -2% 1%; }
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                /* 第二层稀疏星点（用于闪烁） */
+                radial-gradient(1.5px 1.5px at 15% 25%, rgba(255,255,255,0.9), transparent 50%),
+                radial-gradient(1.5px 1.5px at 38% 65%, rgba(180,200,255,0.85), transparent 50%),
+                radial-gradient(1.5px 1.5px at 58% 30%, rgba(255,255,255,0.95), transparent 50%),
+                radial-gradient(1.5px 1.5px at 75% 80%, rgba(255,220,200,0.8), transparent 50%),
+                radial-gradient(1.5px 1.5px at 25% 88%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1.5px 1.5px at 88% 12%, rgba(200,220,255,0.9), transparent 50%),
+                radial-gradient(1.5px 1.5px at 48% 50%, rgba(255,255,255,0.8), transparent 50%);
+            background-size: 100% 100%;
+            animation: starTwinkle 4s ease-in-out infinite;
+        }
+
+        /* 星星闪烁效果（透明度脉动） */
+        @keyframes starTwinkle {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* 白天模式：保留浅色星点，更柔和 */
+        [data-theme="light"] body {
+            background-color: #e8eef5;
+            background-image:
+                radial-gradient(1px 1px at 12% 18%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 28% 72%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 45% 35%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 62% 85%, rgba(100,130,180,0.35), transparent 50%),
+                radial-gradient(1px 1px at 78% 12%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 88% 58%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 8% 92%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 35% 8%, rgba(100,130,180,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 20% 30%, rgba(80,110,160,0.6), transparent 50%),
+                radial-gradient(1.5px 1.5px at 55% 15%, rgba(80,110,160,0.55), transparent 50%),
+                radial-gradient(1.5px 1.5px at 80% 70%, rgba(80,110,160,0.5), transparent 50%),
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(150,180,220,0.25), transparent 70%),
+                radial-gradient(ellipse 500px 350px at 80% 70%, rgba(180,160,220,0.2), transparent 70%);
+        }
+
+        [data-theme="light"] body::before {
+            background-image:
+                radial-gradient(1.5px 1.5px at 15% 25%, rgba(80,110,160,0.5), transparent 50%),
+                radial-gradient(1.5px 1.5px at 38% 65%, rgba(80,110,160,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 58% 30%, rgba(80,110,160,0.55), transparent 50%),
+                radial-gradient(1.5px 1.5px at 75% 80%, rgba(80,110,160,0.4), transparent 50%),
+                radial-gradient(1.5px 1.5px at 25% 88%, rgba(80,110,160,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 88% 12%, rgba(80,110,160,0.5), transparent 50%);
+        }
+
+        /* ========== 顶部标志栏 ========== */
+        .topbar {
+            height: 38px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            -webkit-app-region: drag;
+            user-select: none;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 17px;
+            line-height: 1;
+            font-weight: 600;
+            color: transparent;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: logoGradient 6s ease infinite;
+        }
+
+        /* 白天模式：标题渐变去掉白色，与logo颜色保持一致 */
+        [data-theme="light"] .topbar-title {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .topbar-logo {
+            width: 28px;
+            height: 28px;
+            display: inline-block;
+            flex-shrink: 0;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            animation: logoGradient 6s ease infinite;
+            margin-left: 4px;
+        }
+
+        /* 白天模式：logo渐变与标题颜色保持一致 */
+        [data-theme="light"] .topbar-logo {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+        }
+
+        @keyframes logoGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            -webkit-app-region: no-drag;
+        }
+
+        .topbar-icon {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .topbar-icon:hover { background: var(--bg-hover); color: var(--text); }
+
+        .topbar-sep {
+            display: inline-block;
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        /* ========== 朱峰社区右上角登录/头像 ========== */
+        .zf3d-topbar-login {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 0 6px;
+            height: 28px;
+            border-radius: 4px;
+            transition: background 0.15s;
+            -webkit-app-region: no-drag;
+        }
+        .zf3d-topbar-login:hover { background: var(--bg-hover); }
+        .zf3d-topbar-login-text {
+            font-size: 12px;
+            color: var(--text2);
+        }
+
+        .zf3d-topbar-user {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 0 6px;
+            height: 28px;
+            border-radius: 4px;
+            transition: background 0.15s;
+            -webkit-app-region: no-drag;
+        }
+        .zf3d-topbar-user:hover { background: var(--bg-hover); }
+        .zf3d-topbar-user.active { display: flex; }
+
+        .zf3d-topbar-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, var(--blue), #1c80e0);
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .zf3d-topbar-username {
+            font-size: 12px;
+            color: var(--text);
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 朱峰社区用户下拉菜单 */
+        .zf3d-user-menu {
+            position: fixed;
+            z-index: 99999;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 180px;
+            overflow: hidden;
+        }
+        .zf3d-user-menu-header {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .zf3d-user-menu-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            transition: background 0.15s;
+        }
+        .zf3d-user-menu-item:hover { background: var(--bg-hover); }
+        .zf3d-user-menu-item.danger { color: #e74c3c; }
+        .zf3d-user-menu-item.danger:hover { background: rgba(231,76,60,0.1); }
+        .zf3d-user-menu-item.disabled { color: var(--text2); cursor: default; }
+        .zf3d-user-menu-item.disabled:hover { background: transparent; }
+
+
+        /* ========== 中间无限画布区域 ========== */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            /* 星空深空底色（多色星云 + 大量星点 + 闪光星） */
+            background-color: #05060f;
+            background-image:
+                /* 紫蓝星云（右上） */
+                radial-gradient(ellipse 60% 50% at 80% 20%, rgba(120, 80, 220, 0.35), transparent 60%),
+                /* 青蓝星云（左下） */
+                radial-gradient(ellipse 70% 60% at 15% 80%, rgba(40, 120, 220, 0.30), transparent 65%),
+                /* 粉色星云（中上） */
+                radial-gradient(ellipse 40% 35% at 50% 0%, rgba(220, 80, 160, 0.18), transparent 70%),
+                /* 大量小星点 */
+                radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+                radial-gradient(1px 1px at 80px 120px, #cfe2ff, transparent),
+                radial-gradient(1px 1px at 160px 60px, #fff, transparent),
+                radial-gradient(1px 1px at 240px 180px, #ffd6f0, transparent),
+                radial-gradient(1px 1px at 320px 90px, #fff, transparent),
+                radial-gradient(1px 1px at 400px 220px, #b8d4ff, transparent),
+                radial-gradient(1px 1px at 480px 50px, #fff, transparent),
+                radial-gradient(1px 1px at 560px 160px, #fff, transparent),
+                radial-gradient(1px 1px at 640px 240px, #cfe2ff, transparent),
+                radial-gradient(1px 1px at 720px 100px, #fff, transparent),
+                radial-gradient(1px 1px at 40px 280px, #fff, transparent),
+                radial-gradient(1px 1px at 200px 340px, #ffd6f0, transparent),
+                radial-gradient(1px 1px at 360px 400px, #fff, transparent),
+                radial-gradient(1px 1px at 520px 320px, #b8d4ff, transparent),
+                radial-gradient(1px 1px at 680px 380px, #fff, transparent),
+                /* 中等亮点 */
+                radial-gradient(1.5px 1.5px at 120px 200px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 300px 300px, #b8d4ff, transparent),
+                radial-gradient(1.5px 1.5px at 450px 150px, #ffd6f0, transparent),
+                radial-gradient(1.5px 1.5px at 600px 350px, #fff, transparent),
+                /* 闪光大星 */
+                radial-gradient(2px 2px at 100px 100px, #fff, transparent),
+                radial-gradient(2px 2px at 500px 250px, #b8d4ff, transparent);
+            background-size:
+                100% 100%,
+                100% 100%,
+                100% 100%,
+                200px 200px, 240px 240px, 220px 220px, 260px 260px, 200px 200px,
+                240px 240px, 220px 220px, 260px 260px, 200px 200px, 220px 220px,
+                240px 240px, 260px 260px, 220px 220px, 240px 240px, 200px 200px,
+                300px 300px, 280px 280px, 320px 320px, 300px 300px,
+                400px 400px, 500px 500px;
+            background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        /* 闪烁星层（用伪元素做动画，不影响交互） */
+        .canvas-area::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(1.5px 1.5px at 60px 80px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 180px 200px, #b8d4ff, transparent),
+                radial-gradient(1.5px 1.5px at 320px 120px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 440px 280px, #ffd6f0, transparent),
+                radial-gradient(1.5px 1.5px at 560px 60px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 140px 360px, #cfe2ff, transparent),
+                radial-gradient(1.5px 1.5px at 380px 400px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 520px 340px, #b8d4ff, transparent);
+            background-size: 600px 500px;
+            background-repeat: repeat;
+            opacity: 0.85;
+            animation: canvasStarTwinkle 4s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+
+        @keyframes canvasStarTwinkle {
+            0%   { opacity: 0.35; }
+            50%  { opacity: 0.95; }
+            100% { opacity: 0.5;  }
+        }
+
+        /* 扫描光束动画（科技感） */
+        .canvas-area::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(115deg,
+                transparent 0%,
+                transparent 40%,
+                rgba(120, 180, 255, 0.06) 50%,
+                transparent 60%,
+                transparent 100%);
+            background-size: 200% 200%;
+            animation: canvasScan 8s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes canvasScan {
+            0%   { background-position: 200% 200%; }
+            100% { background-position: -200% -200%; }
+        }
+
+        /* 让画布内容浮在星空之上 */
+        .canvas-content,
+        .canvas-hint,
+        .canvas-coord {
+            position: relative;
+            z-index: 1;
+        }
+
+        .canvas-content {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+            will-change: auto;
+            transform: translate(0, 0) scale(1);
+        }
+
+        /* 网格背景 - 调淡以突出星空 */
+        .canvas-grid {
+            position: absolute;
+            inset: -2000px;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            cursor: grab;
+        }
+        .canvas-content.dragging .canvas-grid { cursor: grabbing; }
+        .canvas-content.dragging { cursor: grabbing; }
+        .canvas-area.dragging { cursor: grabbing; }
+
+        /* 白天模式网格 */
+        [data-theme="light"] .canvas-grid {
+            background-image:
+                linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+        }
+
+        /* 坐标标签 */
+        .canvas-coord {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            font-size: 11px;
+            color: var(--text2);
+            opacity: 0.7;
+            user-select: none;
+            font-family: monospace;
+        }
+
+        /* 右键提示 */
+        .canvas-hint {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text2);
+            opacity: 0.65;
+            font-size: 14px;
+            user-select: none;
+            pointer-events: none;
+            line-height: 2;
+        }
+        .canvas-hint b { color: var(--blue); opacity: 0.9; }
+
+
+/* ===== 更新按钮 ===== */
+#updateBtn.has-update {
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+}
+
+/* ============================================================
+   [data-theme="light"] 全局主题覆盖（热更新追加）
+   解决：切到白天后，画布星空背景 + 画布装饰层不切换颜色
+   ============================================================ */
+[data-theme="light"] .canvas-area {
+    background-color: #cfe3ff !important;
+    background-image:
+        radial-gradient(2px 2px at 12% 18%, rgba(255,255,255,.7) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 28% 72%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(2.5px 2.5px at 47% 33%, rgba(255,255,255,.75) 0%, transparent 60%),
+        radial-gradient(1px 1px at 63% 58%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(2px 2px at 78% 21%, rgba(255,255,255,.7) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 88% 79%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 8% 88%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 52% 12%, rgba(255,255,255,.6) 0%, transparent 60%),
+        radial-gradient(2.2px 2.2px at 35% 48%, rgba(255,255,255,.65) 0%, transparent 60%),
+        radial-gradient(1px 1px at 92% 46%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 18% 58%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 72% 88%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1px 1px at 4% 38%, rgba(255,255,255,.35) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 58% 68%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 42% 92%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(2px 2px at 22% 28%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.4px 1.4px at 82% 36%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.6px 1.6px at 68% 8%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 38% 78%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 96% 64%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(2.4px 2.4px at 14% 6%, rgba(255,255,255,.6) 0%, transparent 60%),
+        radial-gradient(1.4px 1.4px at 76% 50%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.6px 1.6px at 48% 54%, rgba(255,255,255,.5) 0%, transparent 60%),
+        linear-gradient(180deg, #b3d4f5 0%, #d6e8fb 45%, #e9f2fc 100%) !important;
+}
+
+[data-theme="light"] .canvas-area::before {
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.85) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, rgba(255,255,255,.7) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 50%, rgba(255,255,255,.5) 0%, transparent 70%) !important;
+    opacity: .9 !important;
+}
+
+[data-theme="light"] .canvas-area::after {
+    background:
+        linear-gradient(180deg, transparent 60%, rgba(255,255,255,.4) 100%) !important;
+}
+
+[data-theme="light"] .canvas-area #starfield,
+[data-theme="light"] #starfield,
+[data-theme="light"] .canvas-area canvas {
+    background: #b3d4f5 !important;
+}
+
+[data-theme="light"] .canvas-grid {
+    background-image:
+        linear-gradient(rgba(60,100,160,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(60,100,160,.08) 1px, transparent 1px) !important;
+}
+
+[data-theme="light"] .canvas-coord-hud,
+[data-theme="light"] .canvas-hint {
+    color: #2a3f5f !important;
+    text-shadow: 0 0 4px rgba(255,255,255,.7);
+}
+[data-theme="light"] .canvas-coord-hud b { color: #2166d1 !important; }

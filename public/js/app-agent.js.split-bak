@@ -1,0 +1,2415 @@
+﻿// ========== app-agent.js - Agent循环/发送队列/工具卡片/ask_user ==========
+
+// ===== 共用错误翻译：把英文 API 错误转为中文友好提示 =====
+function _translateApiError(status, rawMsg) {
+    var msg = rawMsg || '未知错误';
+    // 尝试从 JSON 中提取 message
+    var detail = '';
+    try { var ej = JSON.parse(msg); detail = (ej.error && ej.error.message) || ej.message || ''; } catch(e) {
+        try { detail = msg.match(/"message"\s*:\s*"([^"]+)"/)[1] || ''; } catch(e2) {}
+    }
+    if (detail) msg = detail;
+
+    // 按 HTTP 状态码翻译
+    if (status === 400) return '请求格式错误（400）：' + msg;
+    if (status === 401) return 'API 密钥无效或未授权（401）：' + msg;
+    if (status === 402) return '账户余额不足（402），请充值后重试。';
+    if (status === 403) return '访问被拒绝（403）：' + msg;
+    if (status === 404) return '接口地址不存在（404）：' + msg;
+    if (status === 408) return '请求超时（408），请检查网络后重试。';
+    if (status === 429) {
+        var resetMatch = msg.match(/reset at\s*([0-9]{4}-[0-9]{2}-[0-9]{2}\s+[0-9]{2}:[0-9]{2}:[0-9]{2})/i);
+        var resetTime = resetMatch ? resetMatch[1] : '';
+        if (/quota|TooManyRequests|AccountQuotaExceeded/i.test(msg)) {
+            return 'API 额度已用尽（429 限流）' + (resetTime ? '，将在 ' + resetTime + ' 重置' : '') + '。请等待额度恢复或升级套餐。';
+        }
+        return '请求过于频繁被限流（429），请稍后重试。' + (resetTime ? '额度将在 ' + resetTime + ' 重置。' : '');
+    }
+    if (status === 500) return '服务器内部错误（500），请稍后重试。';
+    if (status === 502) return '网关错误（502），上游服务不可用，请稍后重试。';
+    if (status === 503) return '服务暂时不可用（503），请稍后重试。';
+    if (status === 504) return '网关超时（504），请稍后重试。';
+    if (status && status >= 500) return '服务器错误（' + status + '），请稍后重试。';
+
+    // 通用英文关键词翻译
+    if (/timeout|timed?\s*out/i.test(msg)) return '请求超时，请检查网络后重试。';
+    if (/network|ENOTFOUND|ECONNREFUSED|ECONNRESET|EOF occurred|violation of protocol|SSL|TLS/i.test(msg)) return '网络连接失败（SSL/TLS 通信异常），请检查网络、代理或 API 服务后重试。';
+    if (/aborted/i.test(msg)) return '请求被中断。';
+    if (/model.*not\s*(found|support)/i.test(msg)) return '模型不可用或未授权：' + msg;
+    if (/invalid\s*api\s*key|unauthorized/i.test(msg)) return 'API 密钥无效或未授权，请检查密钥配置。';
+    if (/insufficient.*balance|quota/i.test(msg)) return '账户额度/余额不足，请充值或等待额度恢复。';
+
+    if (status) return 'HTTP ' + status + '：' + msg;
+    return msg;
+}
+
+Object.assign(App, {
+
+        // ===== 发送到模型（Agent 循环） =====
+
+        // ===== 发送状态管理 =====
+        updateSendButton: function(box, chat) {
+            var sendBtn = box.querySelector('.send-btn');
+            if (!sendBtn) return;
+            var sendIcon = sendBtn.querySelector('.send-icon');
+            var stopIcon = sendBtn.querySelector('.stop-icon');
+            if (chat.isSending) {
+                if (sendIcon) sendIcon.style.display = 'none';
+                if (stopIcon) stopIcon.style.display = '';
+                sendBtn.classList.add('sending');
+                sendBtn.title = '点击停止当前对话';
+            } else {
+                if (sendIcon) sendIcon.style.display = '';
+                if (stopIcon) stopIcon.style.display = 'none';
+                sendBtn.classList.remove('sending');
+                sendBtn.title = '发送消息';
+            }
+            this.updateStatusDot(chat);
+        },
+
+        // ===== 更新标题栏状态小圆点（修复：此方法原本被调用但从未定义，导致 updateSendButton 抛 TypeError） =====
+        updateStatusDot: function(chat) {
+            if (!chat || !chat.el) return;
+            var dot = chat.el.querySelector('.status-dot');
+            if (!dot) return;
+            var status = 'status-idle';
+            if (chat.isSending) {
+                status = 'status-sending';
+            } else if (chat.queue && chat.queue.length) {
+                status = 'status-queued';
+            } else if (chat._lastStatus === 'error') {
+                status = 'status-error';
+            } else if (chat._lastStatus === 'success') {
+                status = 'status-success';
+            }
+            dot.className = 'status-dot ' + status;
+        },
+
+        // ===== 停止发送 =====
+        stopSending: function(chat) {
+            if (!chat.isSending) return;
+            chat._stopped = true;
+            if (chat.abortController) {
+                try { chat.abortController.abort(); } catch(e) {}
+            }
+            chat.isSending = false;
+            // 移除 typing 指示器
+            if (chat.el) {
+                var typings = chat.el.querySelectorAll('.msg.typing');
+                typings.forEach(function(t) { t.remove(); });
+            }
+            // 显示停止消息
+            this.addMsg(chat.el, '\u23F9\uFE0F 对话已停止。', 'ai');
+            Store.addLog('info', chat.id, 'stop', '用户停止对话');
+            this.updateSendButton(chat.el, chat);
+            this.updateMinimap();
+            // 处理排队消息（含防重复调用守卫）
+            this._onSendComplete(chat.el, chat);
+        },
+
+
+        // ===== 发送完成后的处理（处理排队消息）=====
+        _onSendComplete: function(box, chat) {
+            if (chat._sendCompleteCalled) return;
+            chat._sendCompleteCalled = true;
+            var self = this;
+            this.flushQueryPin(box, chat);
+            chat.isSending = false;
+            chat.abortController = null;
+            // 不在此处重置 chat._stopped，由 sendToModel() 重置
+            this.updateSendButton(box, chat);
+            self.updateMinimap();
+            // ===== 显示 token 统计信息 =====
+            if (chat._tokenCount && chat._apiCalls) {
+                var tokenDuration = chat._tokenStartTime ? Math.round((Date.now() - chat._tokenStartTime) / 1000) : 0;
+                // 累计本次耗时
+                chat._sessionTotalDuration += tokenDuration;
+                var tokenM = (chat._sessionTotalTokens / 1000000).toFixed(1) + 'M';
+                // 计算缓存命中率（按会话累计）
+                var cacheDenominator = chat._sessionTotalCacheHitTokens + chat._sessionTotalCacheMissTokens || chat._sessionTotalPromptTokens;
+                var cacheRate = cacheDenominator > 0
+                    ? Math.round(chat._sessionTotalCacheHitTokens / cacheDenominator * 100)
+                    : 0;
+                // 显示「单条」和「总共」两组统计（token / 缓存命中率 / 调用次数 / 耗时）
+                // ===== 单条（本次任务） =====
+                var curCacheDen = chat._cacheHitTokens + chat._cacheMissTokens;
+                var curCacheRate = curCacheDen > 0
+                    ? Math.round(chat._cacheHitTokens / curCacheDen * 100)
+                    : 0;
+                var curM = (chat._tokenCount / 1000000).toFixed(1) + 'M';
+                var curInfo = '单条：' + curM + ' · 缓存' + curCacheRate + '% · ' + chat._apiCalls + '次 · ' + tokenDuration + 's';
+                // ===== 总共（会话累计） =====
+                var sumInfo = '总共：' + tokenM + ' · 缓存' + cacheRate + '% · ' + chat._sessionTotalApiCalls + '次 · ' + chat._sessionTotalDuration + 's';
+                try { self.addMsg(box, curInfo, 'info'); } catch(e){}
+                try { self.addMsg(box, sumInfo, 'info'); } catch(e){}
+                try { Store.addLog('info', chat.id, 'token-summary', curInfo + '；' + sumInfo); } catch(e){}
+                // 保存到数据库（会话累计 → nodes 表持久化，跨刷新保留）
+                try {
+                    if (typeof Store !== 'undefined' && Store.saveChatBox) {
+                        Store.saveChatBox(chat);
+                    }
+                } catch(e) {
+                    console.warn('[Agent] session totals persistence to node failed:', e);
+                }
+                try {
+                    var statsPromise = DB.saveStats(chat.id, { tokens: chat._sessionTotalTokens, api_calls: chat._sessionTotalApiCalls, duration: chat._sessionTotalDuration, prompt_tokens: chat._sessionTotalPromptTokens, completion_tokens: chat._sessionTotalCompletionTokens, cache_hit_tokens: chat._sessionTotalCacheHitTokens, cache_miss_tokens: chat._sessionTotalCacheMissTokens, cache_rate: cacheRate });
+                    if (statsPromise && statsPromise.catch) {
+                        statsPromise.catch(function(e) { console.warn('[Agent] token stats persistence failed:', e); });
+                    }
+                } catch(e) {
+                    console.warn('[Agent] token stats persistence failed:', e);
+                }
+            }
+            // 如果有排队消息，处理下一条
+            if (chat.queue.length > 0) {
+                var nextItem = chat.queue.shift();
+                this.renderQueue(box, chat);
+                // 延迟一点再发送，避免动画冲突
+                setTimeout(function() {
+                    self.addMsg(box, nextItem.text, 'user', chat.modelId);
+                    self.showQueryPin(box, nextItem.text);
+                    self.updateChatTitle(box, nextItem.text);
+                    chat.history.push({ role: 'user', content: nextItem.text });
+                    Store.addLog('info', chat.id, 'queue-send', '排队消息已发送: ' + nextItem.text.substring(0, 80));
+                    self.sendToModel(box, chat);
+                }, 300);
+            }
+            // 延迟重置守卫标志，允许下次发送完成时再次调用
+            setTimeout(function() {
+                chat._sendCompleteCalled = false;
+            }, 1000);
+        },
+
+        // ===== 渲染排队区域 =====
+        renderQueue: function(box, chat) {
+            var self = this;
+            var queueEl = box.querySelector('.chatbox-queue');
+            if (!queueEl) return;
+            if (chat.queue.length === 0) {
+                queueEl.style.display = 'none';
+                queueEl.innerHTML = '';
+                return;
+            }
+            queueEl.style.display = 'block';
+            var html = '<div class="queue-header">\u{1F4DD} 排队消息 (' + chat.queue.length + ')</div>';
+            for (var i = 0; i < chat.queue.length; i++) {
+                var item = chat.queue[i];
+                var preview = item.text.length > 60 ? item.text.substring(0, 60) + '…' : item.text;
+                html += '<div class="queue-item" data-qid="' + item.id + '">' +
+                    '<span class="queue-num">' + (i + 1) + '</span>' +
+                    '<span class="queue-text" title="点击编辑">' + self.escapeHtmlQueue(preview) + '</span>' +
+                    '<button class="queue-edit" data-qid="' + item.id + '" title="编辑">\u270F\uFE0F</button>' +
+                    '<button class="queue-delete" data-qid="' + item.id + '" title="删除">\u{1F5D1}\uFE0F</button>' +
+                    '</div>';
+            }
+            queueEl.innerHTML = html;
+
+            // 绑定编辑按钮
+            queueEl.querySelectorAll('.queue-edit').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var qid = this.getAttribute('data-qid');
+                    self.editQueueItem(box, chat, qid);
+                });
+            });
+            // 绑定删除按钮
+            queueEl.querySelectorAll('.queue-delete').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var qid = this.getAttribute('data-qid');
+                    self.deleteQueueItem(box, chat, qid);
+                });
+            });
+            // 绑定文本点击编辑
+            queueEl.querySelectorAll('.queue-text').forEach(function(span) {
+                span.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var qid = this.parentNode.getAttribute('data-qid');
+                    self.editQueueItem(box, chat, qid);
+                });
+            });
+        },
+
+        // ===== 编辑排队消息 =====
+        editQueueItem: function(box, chat, qid) {
+            var self = this;
+            var item = null;
+            for (var i = 0; i < chat.queue.length; i++) {
+                if (chat.queue[i].id === qid) { item = chat.queue[i]; break; }
+            }
+            if (!item) return;
+            var queueEl = box.querySelector('.chatbox-queue');
+            var itemEl = queueEl.querySelector('[data-qid="' + qid + '"]');
+            if (!itemEl) return;
+            // 替换为编辑模式
+            itemEl.innerHTML =
+                '<span class="queue-num">\u270F\uFE0F</span>' +
+                '<input class="queue-edit-input" type="text" value="' + self.escapeHtmlQueue(item.text) + '" />' +
+                '<button class="queue-save" data-qid="' + qid + '" title="保存">\u2713</button>' +
+                '<button class="queue-cancel" data-qid="' + qid + '" title="取消">\u2715</button>';
+            var inputEl = itemEl.querySelector('.queue-edit-input');
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.select();
+                // Enter 保存
+                inputEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        var newText = inputEl.value.trim();
+                        if (newText) {
+                            item.text = newText;
+                        }
+                        self.renderQueue(box, chat);
+                    } else if (e.key === 'Escape') {
+                        self.renderQueue(box, chat);
+                    }
+                });
+            }
+            // 保存按钮
+            var saveBtn = itemEl.querySelector('.queue-save');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var newText = inputEl.value.trim();
+                    if (newText) {
+                        item.text = newText;
+                    }
+                    self.renderQueue(box, chat);
+                });
+            }
+            // 取消按钮
+            var cancelBtn = itemEl.querySelector('.queue-cancel');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    self.renderQueue(box, chat);
+                });
+            }
+        },
+
+        // ===== 删除排队消息 =====
+        deleteQueueItem: function(box, chat, qid) {
+            for (var i = 0; i < chat.queue.length; i++) {
+                if (chat.queue[i].id === qid) {
+                    chat.queue.splice(i, 1);
+                    break;
+                }
+            }
+            this.renderQueue(box, chat);
+            Store.addLog('info', chat.id, 'queue-delete', '排队消息已删除');
+        },
+
+        // ===== HTML 转义（排队用）=====
+        escapeHtmlQueue: function(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        /**
+     * 构建发送给大模型的上下文（本地 history 保留全部，这里只取精简版）
+     * 1. 过滤掉 _thinking 消息（思考过程不发给模型）
+     * 2. 过滤掉 tool role（工具结果不发给模型）
+     * 3. 只保留最近3轮（3个user + 对应assistant回复）
+     */
+    // ===== 获取项目记忆（用于首条消息注入，给 AI 快速背景） =====
+    _getProjectMemory: function(pid) {
+        if (!pid) return '';
+        try {
+            var mem = '';
+            // 1. 从 App._projAllProjects 读取（远程加载的项目数据，含 memory_text）
+            if (typeof App !== 'undefined' && App._projAllProjects && App._projAllProjects.length) {
+                for (var i = 0; i < App._projAllProjects.length; i++) {
+                    if (String(App._projAllProjects[i].id) === String(pid)) {
+                        mem = App._projAllProjects[i].memory_text || '';
+                        break;
+                    }
+                }
+            }
+            // 2. 兜底：从 Store.data.projects 读取（本地离线数据）
+            if (!mem && typeof Store !== 'undefined' && Store.data && Store.data.projects) {
+                for (var j = 0; j < Store.data.projects.length; j++) {
+                    if (String(Store.data.projects[j].id) === String(pid)) {
+                        mem = Store.data.projects[j].memory_text || '';
+                        break;
+                    }
+                }
+            }
+            return mem ? String(mem).trim() : '';
+        } catch (e) {
+            return '';
+        }
+    },
+
+    // ===== 确保项目有记忆：若无则后台调用大模型生成（首次对话注入前调用） =====
+    // 返回生成的记忆文本；生成失败/离线时返回 ''（不阻塞正常对话）
+    _ensureProjectMemory: function(pid, model) {
+        if (!pid) return '';
+        // 已有记忆则直接返回
+        var exist = this._getProjectMemory(pid);
+        if (exist) return exist;
+        // 防重复阻塞：记忆为空（项目未关联文件夹/生成失败）时，60秒内不再同步请求，避免每次发送都卡顿
+        if (!this._projMemoCooldown) this._projMemoCooldown = {};
+        var _mcd = this._projMemoCooldown[String(pid)];
+        if (_mcd && (Date.now() - _mcd) < 60000) return '';
+        this._projMemoCooldown[String(pid)] = Date.now();
+        // 离线模式无法生成，直接降级
+        if (typeof DB === 'undefined' || !DB.online) return '';
+        try {
+            // 同步请求后端生成（仅首次无记忆时触发一次，可接受短暂等待）
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/project/memory/generate', false); // 同步，保证首条消息带记忆
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.timeout = 60000;
+            xhr.send(JSON.stringify({ proj_id: pid, model: (model ? { endpoint: model.endpoint, key: model.key || '', modelId: model.modelId || '', name: model.name || '', body: model.body || null } : null) }));
+            var data = null;
+            try { data = JSON.parse(xhr.responseText); } catch (e) { data = null; }
+            var memText = (data && data.ok) ? (data.memory_text || '') : '';
+            if (memText) {
+                // 回写本地缓存，避免重复生成
+                if (typeof App !== 'undefined' && App._projAllProjects) {
+                    for (var i = 0; i < App._projAllProjects.length; i++) {
+                        if (String(App._projAllProjects[i].id) === String(pid)) {
+                            App._projAllProjects[i].memory_text = memText;
+                            break;
+                        }
+                    }
+                }
+                if (typeof Store !== 'undefined' && Store.data && Store.data.projects) {
+                    for (var j = 0; j < Store.data.projects.length; j++) {
+                        if (String(Store.data.projects[j].id) === String(pid)) {
+                            Store.data.projects[j].memory_text = memText;
+                            break;
+                        }
+                    }
+                }
+            }
+            return String(memText).trim();
+        } catch (e) {
+            return '';
+        }
+    },
+
+    _buildContext: function(history, model) {
+        // Keep the live exchange compact, but retain a bounded restart brief from older saved messages.
+        // GPT/DeepSeek 默认保留较少轮次，减少重复历史带来的输入成本。
+        var modelId = String((model && (model.modelId || model.name)) || '').toLowerCase();
+        var defaultRounds = modelId.indexOf('deepseek') >= 0 ? 1 : 2;
+        var configuredRounds = model && model.body ? parseInt(model.body.context_rounds, 10) : NaN;
+        var contextRounds = isFinite(configuredRounds) ? configuredRounds : defaultRounds;
+        contextRounds = Math.max(1, Math.min(4, contextRounds));
+        var maxAssistantChars = modelId.indexOf('deepseek') >= 0 ? 4000 : 5000;
+        var maxUserChars = modelId.indexOf('deepseek') >= 0 ? 8000 : 10000;
+        var filtered = [];
+        for (var i = 0; i < history.length; i++) {
+            var m = history[i];
+            // 工具调用 assistant 消息必须和后续 tool 结果成对发送。
+            // 历史重建会主动丢弃 tool 结果，因此也必须丢弃孤立的 tool_calls。
+            if (m._thinking || m._maxDepthRecovery || m.role === 'tool' ||
+                // 过滤历史中已持久化的"恢复/重试"系统消息（无 _maxDepthRecovery 标记的旧残留）
+                (m.role === 'user' && typeof m.content === 'string' &&
+                 /^系统检测到上一轮执行达到最大智能体执行步数/.test(m.content)) ||
+                (m.role === 'tool' && typeof m.content === 'string' &&
+                 /^系统检测到上一轮执行达到最大智能体执行步数/.test(m.content)) ||
+                (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0)) continue;
+            filtered.push(m);
+        }
+
+        var userIndexes = [];
+        for (var j = 0; j < filtered.length; j++) {
+            if (filtered[j].role === 'user') userIndexes.push(j);
+        }
+        var keepFrom = userIndexes.length > contextRounds ? userIndexes[userIndexes.length - contextRounds] : 0;
+        var result = [];
+
+        if (keepFrom > 0) {
+            var memoryLines = [];
+            var maxLines = 12;
+            for (var k = 0; k < keepFrom && memoryLines.length < maxLines; k++) {
+                var old = filtered[k];
+                var content = String(old.content || '').replace(/\s+/g, ' ').trim();
+                if (!content) continue;
+                var isTaskResult = old.role === 'assistant' && /task_complete|任务完成|任务失败|已热更新/.test(content);
+                if (old.role === 'user' || isTaskResult) {
+                    memoryLines.push((old.role === 'user' ? '用户：' : '历史结果：') + content.slice(0, 220));
+                }
+            }
+            if (memoryLines.length) {
+                result.push({
+                    role: 'system',
+                    content: '以下是本对话在重启前保存的早期任务记忆，仅用于延续上下文。优先继续尚未完成的用户任务，不要重复已经完成的工作：\n' + memoryLines.join('\n')
+                });
+            }
+        }
+
+        for (var n = keepFrom; n < filtered.length; n++) {
+            var current = filtered[n];
+            var currentContent = (current.content === null || current.content === undefined) ? '' : String(current.content);
+            if (current.role === 'assistant' && !current.tool_calls && currentContent.length > maxAssistantChars) {
+                currentContent = currentContent.slice(0, maxAssistantChars) + '\n[较早回复已压缩]';
+            }
+            // 超长用户消息截取：保留开头关键内容，尾部保留少量，中间折叠，保证长期留存不撑爆上下文
+            if (current.role === 'user' && currentContent.length > maxUserChars) {
+                var keepHead = Math.floor(maxUserChars * 0.85);
+                var keepTail = maxUserChars - keepHead;
+                currentContent = currentContent.slice(0, keepHead) +
+                    '\n\n[超长用户消息已截取：原文共 ' + currentContent.length + ' 字，此处省略中间部分]\n\n' +
+                    currentContent.slice(currentContent.length - keepTail);
+            }
+            result.push({
+                role: current.role,
+                content: currentContent
+            });
+        }
+        // ===== 清理可能导致 HTTP 400 的非标准字段 =====
+        // 某些模型（如 GLM-5.3）会返回 reasoning_content 字段，如果不清理，
+        // 下一次请求时会因 InvalidParameter 被拒绝。
+        for (var ci = 0; ci < result.length; ci++) {
+            if (result[ci]) {
+                delete result[ci].reasoning_content;
+                delete result[ci]._thinking;
+                delete result[ci]._maxDepthRecovery;
+                // 确保 content 不为 null/undefined
+                if (result[ci].content === null || result[ci].content === undefined) {
+                    result[ci].content = '';
+                }
+                // 移除 tool_calls 字段（_buildContext 已过滤含 tool_calls 的 assistant 消息，
+                // 但保险起见再检查一次）
+                if (result[ci].role === 'assistant' && result[ci].tool_calls) {
+                    delete result[ci].tool_calls;
+                }
+            }
+        }
+        return result;
+    },
+
+    sendToModel: function(box, chat) {
+            var self = this;
+            // 健康守护检查：强制锁定时不允许发送
+            if (typeof HealthGuard !== 'undefined' && HealthGuard.isLocked()) {
+                var remain = Math.ceil(HealthGuard.getLockRemaining() / 60);
+                this.addMsg(box, '🔒 健康守护：强制休息中，剩余 ' + remain + ' 分钟。请先休息！', 'error');
+                Store.addLog('warn', chat.id, 'health-lock', '发送被拦截：强制休息中');
+                return;
+            }
+            // 设置发送状态
+            chat.isSending = true;
+            chat._taskStartTime = Date.now();
+            chat._stopped = false;
+            // 重置截断重试状态（新任务不应继承上一次的 max_tokens 覆盖）
+            chat._truncRetryCount = 0;
+            delete chat._maxTokensOverride;
+            // 新任务开始：递增工具缓存轮次，同轮内同签名工具命中缓存，跨轮不误伤
+            // 新任务开始，清除上一次任务的结果标记（避免旧的 success/fail 影响导航箭头颜色）
+            chat._taskStatus = null;
+            chat._sendCompleteCalled = false;
+            chat.abortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+            self.updateSendButton(box, chat);
+            this.updateMinimap();
+
+            if (!chat.modelId) {
+                // 未选择模型 → 优先自动选择"用户最后使用的大模型"，否则回退到第一个可用模型（优先有 key 的预置线路）
+                var _lu = window._lastUsedModel || null;
+                var auto = null;
+                if (_lu && _lu.endpoint && _lu.modelId) {
+                    auto = Models.list.find(function(m){
+                        return m && m.key && m.endpoint === _lu.endpoint && m.modelId === _lu.modelId;
+                    });
+                }
+                if (!auto) auto = Models.list.find(function(m){ return m && m.key; });
+                if (!auto) auto = Models.list[0];
+                if (auto) {
+                    chat.modelId = auto.id;
+                    Store.saveChatBox(chat);
+                } else {
+                    this.addMsg(box, '请先在上方下拉列表选择一个模型。', 'error');
+                    Store.addLog('error', chat.id, 'no-model', '未选择模型');
+                    self._onSendComplete(box, chat);
+                    return;
+                }
+            }
+
+            var model = Models.get(chat.modelId);
+            if (!model) {
+                // 模型配置不存在（可能被删除/损坏）→ 已禁用自动切换，直接提示用户手动选择
+                this.addMsg(box, '⚠️ 原模型配置不存在，请在下拉框手动选择模型。', 'error');
+                Store.addLog('error', chat.id, 'model-missing', '模型配置不存在: ' + chat.modelId + ' → 自动切换已禁用，等待手动选择');
+                self._onSendComplete(box, chat);
+                return;
+            }
+            if (!model.key) {
+                // 当前模型未配置密钥 → 已禁用自动切换，直接提示用户手动配置/切换
+                this.addMsg(box, '⚠️ 模型「' + model.name + '」尚未配置 API 密钥（已禁用自动切换）。请点击右上角⚙️设置 → 输入密钥 → 保存密钥，或在对话标题栏手动切换模型。', 'error');
+                Store.addLog('error', chat.id, 'no-key', '模型未配置密钥: ' + model.name + ' → 自动切换已禁用，等待手动处理');
+                self._onSendComplete(box, chat);
+                return;
+            }
+
+            // ===== 记住用户最后使用的大模型（每次发消息异步上报，不阻塞对话） =====
+            try {
+                var _rpt = new XMLHttpRequest();
+                _rpt.open('POST', '/api/chat/last-model', true);
+                _rpt.setRequestHeader('Content-Type', 'application/json');
+                _rpt.send(JSON.stringify({ model: { endpoint: model.endpoint, key: model.key || '', modelId: model.modelId || '', name: model.name || '', body: model.body || null } }));
+            } catch (e) {}
+
+            // 设置当前对话 ID，供 getSystemPrompt/getDefinitions 使用（每个对话独立分类）
+            Tools.currentChatId = chat.id;
+            // 构造消息：系统提示 + 最近3轮历史（只保留最近3个user消息及其回复，避免上下文膨胀）
+            var messages = [{ role: 'system', content: Tools.getSystemPrompt(chat.id) }];
+            // ===== 注入项目记忆（每次用户发送都注入，保证每条上下文都带项目目录和 python 路径） =====
+            var _projMemo = self._ensureProjectMemory(chat.projectId, model);
+            if (_projMemo) {
+                messages.push({ role: 'system', content: '【项目背景记忆】' + _projMemo });
+                chat._projMemoInjectedFor = String(chat.projectId || '');
+            }
+            messages = messages.concat(self._buildContext(chat.history, model));
+
+            // ===== 初始化深度进度提示标记（每 30 步出现一次：30/60/90...） =====
+            chat._depthNoticeStep = 0;
+            // ===== 初始化 token 统计 =====
+            chat._tokenCount = 0;
+            chat._rebuild400Count = 0;   // HTTP 400 上下文自愈重建计数（每次用户发送时重置）
+            chat._apiCalls = 0;
+            chat._tokenStartTime = Date.now();
+            // ===== 初始化缓存命中统计 =====
+            chat._cacheHitTokens = 0;   // 缓存命中的 prompt token
+            chat._cacheMissTokens = 0;   // 缓存未命中的 prompt token
+            chat._promptTokens = 0;      // 总 prompt token
+            if (!Number.isFinite(Number(chat._completionTokens))) chat._completionTokens = 0;   // 会话累计 completion token
+            // ===== 会话级累计统计（整个对话历史累计，跨任务不清零） =====
+            if (!Number.isFinite(Number(chat._sessionTotalTokens))) chat._sessionTotalTokens = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalApiCalls))) chat._sessionTotalApiCalls = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalDuration))) chat._sessionTotalDuration = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalPromptTokens))) chat._sessionTotalPromptTokens = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalCompletionTokens))) chat._sessionTotalCompletionTokens = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalCacheHitTokens))) chat._sessionTotalCacheHitTokens = 0;
+            if (!Number.isFinite(Number(chat._sessionTotalCacheMissTokens))) chat._sessionTotalCacheMissTokens = 0;
+            // 记录本次发送的原始用户任务，供达到步数上限后重规划使用。
+            for (var taskIndex = chat.history.length - 1; taskIndex >= 0; taskIndex--) {
+                if (chat.history[taskIndex].role === 'user' && !chat.history[taskIndex]._maxDepthRecovery) {
+                    chat._activeTaskText = chat.history[taskIndex].content || '';
+                    break;
+                }
+            }
+            chat._maxDepthRetryCount = 0;
+            // 启动 Agent 循环
+            self._agentLoop(box, chat, model, messages, 0);
+        },
+
+        // ===== 达到执行步数上限后的自动重规划 =====
+        _recoverFromMaxDepth: function(box, chat, model, depth) {
+            var MAX_DEPTH_RETRIES = (this._getContextLoopConfig().maxDepthRetries != null ? this._getContextLoopConfig().maxDepthRetries : 5);
+            var retry = chat._maxDepthRetryCount || 0;
+            var task = chat._activeTaskText || '';
+            if (retry >= MAX_DEPTH_RETRIES) {
+                try { this.addMsg(box, '❌ 该任务彻底无法完成：已连续 ' + MAX_DEPTH_RETRIES + ' 次达到最大执行步数。', 'error'); } catch(e){}
+                try { Store.addLog('error', chat.id, 'agent-max-depth-failed', 'Max depth recovery exhausted: ' + MAX_DEPTH_RETRIES); } catch(e){}
+                this._onSendComplete(box, chat);
+                return;
+            }
+            retry += 1;
+            chat._maxDepthRetryCount = retry;
+            var recoveryPrompt = '系统检测到上一轮执行达到最大智能体执行步数（' + this._getContextLoopConfig().maxRounds + '）。请先重新规划工具调用和执行步骤，减少无效循环，然后继续完成原始用户任务。\\n\\n原始用户任务：\\n' + task;
+            var self = this;
+            // ===== 隐形发送：恢复消息不写入 chat.history、不显示用户气泡、不持久化到 DB =====
+            // 仅作为本次请求的一次性 user 消息传给模型，避免污染后续对话的"用户提问质量"。
+            // （addMsg 会 Store.addMessage 落库、chat.history.push 会被 _buildContext 反复发送，
+            //   均会污染上下文，故此处不再调用。）
+            try { Store.addLog('warn', chat.id, 'agent-max-depth-retry', '重规划并重试第 ' + retry + '/' + MAX_DEPTH_RETRIES + '（隐形恢复）'); } catch(e){}
+            chat._depthNoticeStep = 0;
+            chat._rebuild400Count = 0;
+            chat._sendCompleteCalled = false;
+
+            // 恢复消息必须作为本次请求的最后一条 user 消息显式发送。
+            // 仅写入 history 后立即递归进入循环，可能被上下文裁剪或被未捕获的
+            // 异步异常中断，最终只显示提示而没有真正发给模型。
+            var nextMessages = [{ role: 'system', content: Tools.getSystemPrompt(chat.id) }].concat(this._buildContext(chat.history, model));
+            // ===== 项目记忆注入（每次请求都带，保证模型知道项目目录和 python 路径） =====
+            var _pmRecover = this._getProjectMemory(chat.projectId);
+            if (_pmRecover) {
+                nextMessages.splice(1, 0, { role: 'system', content: '【项目背景记忆】' + _pmRecover });
+            }
+            nextMessages = nextMessages.filter(function(message) {
+                return !(message && message.role === 'user' && message.content === recoveryPrompt);
+            });
+            nextMessages.push({ role: 'user', content: recoveryPrompt });
+            var recoveryLoop = this._agentLoop(box, chat, model, nextMessages, 0, 0, 0);
+            if (recoveryLoop && typeof recoveryLoop.catch === 'function') {
+                recoveryLoop.catch(function(error) {
+                    try { Store.addLog('error', chat.id, 'agent-max-depth-recovery-failed', error && error.message ? error.message : String(error)); } catch(e){}
+                    try { self.addMsg(box, '自动继续失败：' + (error && error.message ? error.message : '未知错误') + '。请点击发送按钮重试。', 'error'); } catch(e2){}
+                    self._onSendComplete(box, chat);
+                });
+            }
+        },
+
+        // ===== 上下文循环配置读取 =====
+        // 设置面板由 context-loop.js 提供；未加载或配置损坏时使用同一套默认值。
+        _getContextLoopConfig: function() {
+            var fallback = {
+                enabled: true,
+                maxRounds: 200,
+                compressAfterMessages: 40,
+                keepRecentMessages: 20,
+                observationDelayMs: 300,
+                loopBreakLimit: 50,
+                retryMaxPerRound: 5,
+                retryIntervalMs: 3000,
+                retryRounds: 1,
+                retryRounds429: 2,
+                retryRoundIntervalMs: 300000,
+                retryStatusCodes: '0,400,429,500,502,503,504',
+                retryBackoff429Ms: '5000,15000,40000,90000,180000',
+                rebuild400Max: 10,
+                maxDepthRetries: 5,
+                loopArgMaxChars: 50,
+                loopSigWindow: 200,
+                loopMinSigCount: 3,
+                loopConsecutiveThreshold: 30,
+                loopPatternThreshold: 25,
+                loopFreqWindowSteps: 30,
+                loopFreqMinSteps: 20,
+                loopReadOnlyThreshold: 15,
+                loopWriteThreshold: 40,
+                loopReReadWindow: 50,
+                loopReReadMinSteps: 8,
+                loopReReadThreshold: 99,
+                steps: [
+                    { id: 'read', enabled: true, maxExecutions: 1 },
+                    { id: 'think', enabled: true, maxExecutions: 20 },
+                    { id: 'tools', enabled: true, maxExecutions: 40 },
+                    { id: 'observe', enabled: true, maxExecutions: 20 },
+                    { id: 'compress', enabled: true, maxExecutions: 1 }
+                ]
+            };
+            try {
+                if (typeof ContextLoopConfig !== 'undefined') {
+                    var configured = typeof ContextLoopConfig.get === 'function'
+                        ? ContextLoopConfig.get()
+                        : (typeof ContextLoopConfig.load === 'function' ? ContextLoopConfig.load() : null);
+                    if (configured && typeof configured === 'object') {
+                        fallback = Object.assign(fallback, configured);
+                        if (Array.isArray(configured.steps)) fallback.steps = configured.steps;
+                    }
+                }
+            } catch (e) {
+                try { Store.addLog('warn', null, 'context-loop-config', '上下文循环配置读取失败，已使用默认值'); } catch (ignore) {}
+            }
+            // ===== 对话模式限制规则覆盖（private/chat_mode_rules.json -> modes.<当前模式>.loop）=====
+            // 当前对话模式 = 对话级配置优先，否则全局默认；规则缺失/为 null 的字段保持系统默认。
+            try {
+                var _mrMode = null;
+                if (typeof Tools !== 'undefined' && Tools.currentChatId && typeof DB !== 'undefined' && DB.getLoopModeForChat) {
+                    _mrMode = DB.getLoopModeForChat(Tools.currentChatId);
+                } else if (typeof DB !== 'undefined' && DB._loopMode) {
+                    _mrMode = DB._loopMode;
+                }
+                if (typeof DB !== 'undefined' && DB.getModeLoopRules) {
+                    var _mrLoop = DB.getModeLoopRules(_mrMode);
+                    if (_mrLoop && typeof _mrLoop === 'object') {
+                        var _KEYMAP = {
+                            enabled: 'enabled',
+                            max_agent_rounds: 'maxRounds',
+                            compress_after_messages: 'compressAfterMessages',
+                            keep_recent_messages: 'keepRecentMessages',
+                            observation_delay_ms: 'observationDelayMs',
+                            loop_break_limit: 'loopBreakLimit',
+                            retry_max_per_round: 'retryMaxPerRound',
+                            retry_interval_ms: 'retryIntervalMs',
+                            retry_rounds: 'retryRounds',
+                            retry_rounds_429: 'retryRounds429',
+                            retry_round_interval_ms: 'retryRoundIntervalMs',
+                            context_token_budget: 'contextTokenBudget',
+                            tool_result_max_chars: 'toolResultMaxChars',
+                            tool_result_keep_recent: 'toolResultKeepRecent',
+                            tool_result_max_keep: 'toolResultMaxKeep',
+                            avoid_redundant_reply: 'avoidRedundantReply',
+                            rebuild_400_max: 'rebuild400Max',
+                            max_depth_retries: 'maxDepthRetries'
+                        };
+                        Object.keys(_KEYMAP).forEach(function(rk) {
+                            if (_mrLoop[rk] !== null && _mrLoop[rk] !== undefined) {
+                                fallback[_KEYMAP[rk]] = _mrLoop[rk];
+                            }
+                        });
+                        // steps 子规则（read/think/tools/observe/compress 的 enabled + max_executions）
+                        if (_mrLoop.steps && typeof _mrLoop.steps === 'object' && Array.isArray(fallback.steps)) {
+                            fallback.steps = fallback.steps.map(function(step) {
+                                var s = _mrLoop.steps[step.id];
+                                if (s && typeof s === 'object') {
+                                    var cp = Object.assign({}, step);
+                                    if (s.enabled !== null && s.enabled !== undefined) cp.enabled = !!s.enabled;
+                                    if (s.max_executions !== null && s.max_executions !== undefined) cp.maxExecutions = parseInt(s.max_executions, 10);
+                                    return cp;
+                                }
+                                return step;
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                try { Store.addLog('warn', null, 'chat-mode-rules', '模式规则读取失败，使用系统默认'); } catch (ignore) {}
+            }
+            fallback.maxRounds = Math.max(1, Math.min(1000, parseInt(fallback.maxRounds, 10) || 200));
+            fallback.compressAfterMessages = Math.max(2, parseInt(fallback.compressAfterMessages, 10) || 20);
+            fallback.keepRecentMessages = Math.max(1, parseInt(fallback.keepRecentMessages, 10) || 8);
+            fallback.observationDelayMs = Math.max(0, parseInt(fallback.observationDelayMs, 10) || 0);
+            fallback.loopBreakLimit = Math.max(1, Math.min(50, parseInt(fallback.loopBreakLimit, 10) || 50));
+            fallback.contextTokenBudget = Math.max(0, Math.min(200000, parseInt(fallback.contextTokenBudget, 10) || 0));
+            fallback.toolResultMaxChars = Math.max(100, Math.min(50000, parseInt(fallback.toolResultMaxChars, 10) || 3000));
+            if (!Array.isArray(fallback.steps) || !fallback.steps.length) fallback.steps = [];
+            return fallback;
+        },
+
+        // ===== 按模型选择上下文/Prompt Cache 策略 =====
+        // cacheMode 只描述供应商能力：当前 chat/completions 端点默认依赖供应商自动前缀缓存，
+        // 不注入未经确认的专用字段，避免 OpenAI-compatible 接口因未知参数返回 400。
+        _getModelCachePolicy: function(model, loopConfig) {
+            var mid = String((model && (model.modelId || model.version || '')) || '').toLowerCase();
+            var provider = String((model && model.provider) || '').toLowerCase();
+            var configured = model && model.cachePolicy;
+            var policy = (configured && typeof configured === 'object') ? Object.assign({}, configured) : {};
+            if (!policy.cacheMode) policy.cacheMode = 'prefix-auto';
+            if (!policy.contextWindow) {
+                if (mid.indexOf('claude') >= 0) policy.contextWindow = 200000;
+                else if (mid.indexOf('glm') >= 0 || mid.indexOf('gpt-4') >= 0 || mid.indexOf('gpt-5') >= 0) policy.contextWindow = 128000;
+                else if (mid.indexOf('gpt-3.5') >= 0) policy.contextWindow = 16000;
+                else policy.contextWindow = 64000;
+            }
+            // Explicit model setting wins; global setting remains the final override.
+            if (!policy.toolResultMaxChars) policy.toolResultMaxChars = (policy.contextWindow >= 128000 ? 5000 : 3000);
+            if (loopConfig && parseInt(loopConfig.toolResultMaxChars, 10) > 0) {
+                policy.toolResultMaxChars = parseInt(loopConfig.toolResultMaxChars, 10);
+            }
+            policy.contextWindow = Math.max(8000, parseInt(policy.contextWindow, 10) || 64000);
+            policy.toolResultMaxChars = Math.max(100, Math.min(50000, parseInt(policy.toolResultMaxChars, 10) || 3000));
+            policy.provider = provider;
+            policy.modelId = mid;
+            return policy;
+        },
+
+        // ===== Agent 循环核心 =====
+        _agentLoop: async function(box, chat, model, messages, depth, retryCount, retryRound) {
+            // ===== 防卡死(1)：Agent 递归步数上限 ====
+            var loopConfig = this._getContextLoopConfig();
+            var MAX_AGENT_DEPTH = loopConfig.maxRounds;
+            if ((depth || 0) >= MAX_AGENT_DEPTH) {
+                try { this.addMsg(box, '\u26A0\uFE0F 已达到最大智能体执行步数（' + MAX_AGENT_DEPTH + '），为避免程序卡死已自动停止。请把任务拆分成更小的步骤再继续。', 'error'); } catch(e){}
+                try { Store.addLog('warn', chat.id, 'agent-max-depth', 'Agent reached max depth=' + depth); } catch(e){}
+                this._recoverFromMaxDepth(box, chat, model, depth);
+                return;
+            }
+
+            var self = this;
+
+            // ===== 请求失败自动重试（含上游 400 消息参数错误）=====
+            retryCount = retryCount || 0;
+            retryRound = retryRound || 0;
+            // 网络/限流错误只做少量退避重试，避免失败时重复消耗大量 token。
+var MAX_RETRY = (loopConfig.retryMaxPerRound != null ? loopConfig.retryMaxPerRound : 5);
+var MAX_RETRY_ROUNDS = (loopConfig.retryRounds != null ? loopConfig.retryRounds : 1);
+var MAX_RETRY_ROUNDS_429 = (loopConfig.retryRounds429 != null ? loopConfig.retryRounds429 : 2); // 429 限流专用轮次数（普通错误仍 1 轮；429 可等多轮恢复，避免直接判死）
+var RETRY_INTERVAL = (loopConfig.retryIntervalMs != null ? loopConfig.retryIntervalMs : 3000);
+var RETRY_ROUND_INTERVAL = (loopConfig.retryRoundIntervalMs != null ? loopConfig.retryRoundIntervalMs : 300000);
+// 0=网络错误；400=上游请求/消息格式错误；429=限流（需更长退避）；5xx=服务端错误（可配置）
+var RETRY_STATUS = (typeof loopConfig.retryStatusCodes === 'string' ? loopConfig.retryStatusCodes.split(',') : (Array.isArray(loopConfig.retryStatusCodes) ? loopConfig.retryStatusCodes : [0, 400, 429, 500, 502, 503, 504])).map(function(x){ return parseInt(x,10); });
+RETRY_STATUS = RETRY_STATUS.filter(function(n){ return !isNaN(n); });
+if (!RETRY_STATUS.length) RETRY_STATUS = [0, 400, 429, 500, 502, 503, 504];
+// 429 用单独的退避策略，给上游留出充足恢复时间，避免重试雪崩（毫秒，可配置）
+var RETRY_BACKOFF_429 = (typeof loopConfig.retryBackoff429Ms === 'string' ? loopConfig.retryBackoff429Ms.split(',') : (Array.isArray(loopConfig.retryBackoff429Ms) ? loopConfig.retryBackoff429Ms : [5000, 15000, 40000, 90000, 180000])).map(function(x){ return parseInt(x,10); });
+RETRY_BACKOFF_429 = RETRY_BACKOFF_429.filter(function(n){ return !isNaN(n) && n >= 0; });
+if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 180000];
+
+            // 柔和进度提示：每 30 步出现一次（30/60/90...），不中断、不催促、不落库（临时提示）
+            if (depth >= 30 && depth >= (chat._depthNoticeStep || 0) + 30) {
+                chat._depthNoticeStep = depth;
+                try { this.addMsg(box, '已执行 ' + depth + ' 步，继续执行中…', 'notice', null, false, true); } catch(e){}
+                try { Store.addLog('info', chat.id, 'depth-notice', 'Agent depth=' + depth + ' (progress notice)'); } catch(e){}
+            }
+
+            // 深度硬限制已移除（用户要求去掉），仅保留 depth>=30 的软警告
+
+            // ===== 工具结果管理（每次循环都执行）=====
+            if (typeof App !== 'undefined' && App._manageToolResults) { App._manageToolResults(messages, chat.id); } else { try { self._manageToolResults(messages, chat.id); } catch(e) {} }
+
+            // ===== 防卡死(1.6)：上下文长度检查 + 截断超长工具结果（不再做压缩摘要，避免失忆→重复搜索→恶性循环） =====
+            var cachePolicy = self._getModelCachePolicy(model, loopConfig);
+            // 保存本轮策略，便于日志和供应商返回的缓存统计对照。
+            chat._cachePolicy = cachePolicy;
+            var _compressed = { compressed: false, beforeTokens: self._estimateTokens(messages), afterTokens: self._estimateTokens(messages), removedCount: 0 };
+            var compressStep = loopConfig.steps.find(function(step) { return step.id === 'compress'; });
+            if (loopConfig.enabled && (!compressStep || compressStep.enabled !== false)) {
+                // 仅截断超长 tool 结果，不删除消息、不做摘要替换
+                _compressed = self._truncateToolResultsOnly(messages, model, depth, loopConfig, cachePolicy);
+            }
+            if (_compressed.compressed) {
+                try { Store.addLog('info', chat.id, 'context-compress',
+                    '上下文压缩 | depth=' + depth +
+                    ' | 压缩前~' + _compressed.beforeTokens + 'tokens' +
+                    ' → 压缩后~' + _compressed.afterTokens + 'tokens' +
+                    ' | 压缩了' + _compressed.removedCount + '条消息'); } catch(e){}
+            }
+
+            // 移除上一轮残留的 typing 指示器，避免闪烁
+            var _oldTypings = box.querySelectorAll('.msg.typing');
+            _oldTypings.forEach(function(t) { t.remove(); });
+            var typing = this.addMsg(box, depth === 0 ? '正在调用 ' + model.name + ' …' : '正在思考下一步…', 'typing');
+
+            // ===== 免费生图模型拦截（imageGen 标记）：不走 chat/completions，直接本地生图 =====
+            if (model.imageGen) {
+                var _lastUser = '';
+                for (var i = messages.length - 1; i >= 0; i--) {
+                    if (messages[i].role === 'user') { _lastUser = messages[i].content; break; }
+                }
+                if (!_lastUser) _lastUser = 'a cute picture';
+                var _sz = _lastUser.match(/(\d{3,4})\s*[xX×]\s*(\d{3,4})/);
+                var _size = _sz ? (_sz[1] + 'x' + _sz[2]) : '1024x1024';
+                var _preferredImageModel = '';
+                try { _preferredImageModel = localStorage.getItem('zf3d_image_model') || ''; } catch(e) {}
+                var _ch = _preferredImageModel || ((model.imageGen && model.modelId && model.modelId !== 'free-image-auto') ? model.modelId : 'poll-flux');
+                var _imgMsg = '';
+                var self2 = this;
+                fetch('/api/image-gen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'generate', prompt: _lastUser, size: _size, model: _ch })
+                }).then(function(r) { return r.json(); }).then(function(j) {
+                    var d = j.data || {};
+                    if (j.ok && d.url) {
+                        var info = '\n\n- **模型**: ' + (d.channel_name || d.model) +
+                                   '\n- **尺寸**: ' + d.size +
+                                   '\n- **文件**: ' + d.bytes + ' 字节';
+                        if (d.exhausted_today && d.exhausted_today.length) {
+                            info += '\n- **今日额度已耗尽**: ' + d.exhausted_today.join(', ');
+                        }
+                        _imgMsg = '✅ 已生成\n\n![' + _lastUser.slice(0, 30).replace(/[\[\]()]/g, '') + '](' + d.url + ')' + info;
+                    } else {
+                        _imgMsg = '❌ 生图失败: ' + (d.error || '未知错误') +
+                                  '\n\n> 可对 AI 说「查看生图渠道状态」或运行 image_gen 工具 (action=status)';
+                    }
+                    var box2 = box;
+                    var done = function() {
+                        try { self2.addMsg(box2, _imgMsg, 'ai', chat.modelId, true); } catch(e) {
+                            try { self2.addMsg(box2, _imgMsg, 'ai', chat.modelId, true); } catch(e2) {}
+                        }
+                        try { Store.addLog('info', chat.id, 'image-gen', '渠道=' + (d.channel || 'auto') + ' 尺寸=' + d.size); } catch(e) {}
+                        // 🎨 画布式生图：创建独立图片节点 + 动态连线
+                        if (j.ok && d.url && typeof App !== 'undefined' && App.createImageCanvasNode) {
+                            try {
+                                App.createImageCanvasNode(box2, d.url, _lastUser, { model: d.model || '', channel: d.channel_name || d.channel || '' });
+                            } catch(imgE) { console.warn('[imagenode] createImageCanvasNode failed:', imgE); }
+                        }
+                        try { self2._onSendComplete(box2, chat); } catch(e) {}
+                    };
+                    done();
+                }).catch(function(e) {
+                    _imgMsg = '❌ 生图请求异常: ' + e.message;
+                    try { self2.addMsg(box, _imgMsg, 'ai', chat.modelId, true); } catch(e2) {}
+                    try { self2._onSendComplete(box, chat); } catch(e2) {}
+                });
+                return;
+            }
+
+            // 请求头
+            var headers = {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + model.key
+            };
+            if (model.headers) {
+                for (var hk in model.headers) if (model.headers.hasOwnProperty(hk)) headers[hk] = model.headers[hk];
+            }
+
+            // ===== 消息格式清洗：移除孤立的 tool 消息和孤立的 tool_calls =====
+            // 压缩/重建后可能产生 tool 角色消息没有对应的 assistant tool_calls，
+            // 或 assistant tool_calls 没有对应的 tool 结果，GLM 等严格 API 会返回 400。
+            (function sanitizeMessages() {
+                var validToolCallIds = new Set();
+                var validToolResultIds = new Set();
+                // 第一遍：收集所有 tool_call_id
+                for (var si = 0; si < messages.length; si++) {
+                    var sm = messages[si];
+                    if (!sm) continue;
+                    if (sm.role === 'assistant' && Array.isArray(sm.tool_calls)) {
+                        for (var sc = 0; sc < sm.tool_calls.length; sc++) {
+                            if (sm.tool_calls[sc] && sm.tool_calls[sc].id) {
+                                validToolCallIds.add(sm.tool_calls[sc].id);
+                            }
+                        }
+                    }
+                    if (sm.role === 'tool' && sm.tool_call_id) {
+                        validToolResultIds.add(sm.tool_call_id);
+                    }
+                }
+                // 第二遍：移除不配对的消息
+                for (var ri = messages.length - 1; ri >= 0; ri--) {
+                    var rm = messages[ri];
+                    if (!rm) { messages.splice(ri, 1); continue; }
+                    // tool 消息必须有对应的 assistant tool_calls
+                    if (rm.role === 'tool' && rm.tool_call_id && !validToolCallIds.has(rm.tool_call_id)) {
+                        messages.splice(ri, 1);
+                        continue;
+                    }
+                    // assistant tool_calls 必须有对应的 tool 结果（如果中间有缺失就移除 tool_calls）
+                    if (rm.role === 'assistant' && Array.isArray(rm.tool_calls) && rm.tool_calls.length > 0) {
+                        var allResultsPresent = true;
+                        for (var rc = 0; rc < rm.tool_calls.length; rc++) {
+                            var tcid = rm.tool_calls[rc] && rm.tool_calls[rc].id;
+                            if (tcid && !validToolResultIds.has(tcid)) {
+                                allResultsPresent = false;
+                                break;
+                            }
+                        }
+                        if (!allResultsPresent) {
+                            // 保留 content 但移除 tool_calls（如果 content 为空则整个移除）
+                            if (rm.content && String(rm.content).trim()) {
+                                rm.tool_calls = undefined;
+                                delete rm.tool_calls;
+                            } else {
+                                messages.splice(ri, 1);
+                            }
+                        }
+                    }
+                }
+            })();
+
+            // ===== per-chat 覆盖生效（底部选择器设置）=====
+            // _modelIdOverride: 本对话覆盖模型 ID（不改全局配置）
+            // _reasoningEffort: 本对话覆盖思考强度（档位由 config/reasoning_levels.json 定义，如 disable/low/medium/high/ultra）
+            if (chat._modelIdOverride) {
+                model = Object.assign({}, model, { modelId: chat._modelIdOverride });
+            }
+            if (chat._reasoningEffort) {
+                model = Object.assign({}, model, { reasoningEffort: chat._reasoningEffort });
+            }
+
+            // 请求体（加入 tools 定义）
+            // maxTokens=null 时不注入 max_tokens，但 GLM 等模型不传 max_tokens 会用很小的默认值(4096)
+            // 启用思考模式的模型尤其需要更大预算，null 时默认给 32768
+            var _effMaxTokens = chat._maxTokensOverride || model.maxTokens;
+            if (!_effMaxTokens && model.reasoningEffort && model.reasoningEffort !== 'off' && model.reasoningEffort !== 'disable') {
+                _effMaxTokens = 32768;
+            }
+            var payload = {
+                model: model.modelId,
+                messages: messages,
+                // Tool-selection turns stay JSON. Once a tool result exists, stream the final reply.
+                stream: messages.some(function(msg) { return msg && msg.role === 'tool'; }),
+                tools: Tools.getDefinitions(null, chat.id),
+                tool_choice: 'auto'
+            };
+            if (_effMaxTokens) {
+                payload.max_tokens = _effMaxTokens;
+            }
+            if (model.body) {
+                for (var bk in model.body) {
+                    if (!model.body.hasOwnProperty(bk)) continue;
+                    // Local-only context setting. Sending it to OpenAI-compatible APIs can cause 400 errors.
+                    if (bk === 'context_rounds') continue;
+                    // maxTokens 已由上方 _effMaxTokens 处理，不重复注入
+                    if (bk === 'maxTokens') continue;
+                    payload[bk] = model.body[bk];
+                }
+            }
+            // 注入思考强度（reasoning_effort），支持火山方舟等模型的深度思考切换
+            // off/disable 均视为关闭思考，不注入该字段
+            if (model.reasoningEffort && model.reasoningEffort !== 'off' && model.reasoningEffort !== 'disable') {
+                payload.reasoning_effort = model.reasoningEffort;
+            }
+
+            // ===== 上下文展示（仅内存，不留痕迹）：原封不动保存最后一次发送给 AI 的完整请求体，新请求直接覆盖上一条 =====
+            try {
+                chat._lastContext = JSON.stringify(payload, null, 2);
+                if (typeof App !== 'undefined' && App.refreshLogPanelCtx) App.refreshLogPanelCtx(box);
+            } catch (e) {}
+
+            var reqStart = Date.now();
+            Store.addLog('info', chat.id, 'api-request', '→ ' + model.name + ' (depth=' + depth + ') | model=' + model.modelId);
+
+            // ===== 发送前清洗 messages：移除 reasoning_content 等非标准字段，防止 HTTP 400 =====
+            for (var _ci = 0; _ci < messages.length; _ci++) {
+                if (messages[_ci]) {
+                    delete messages[_ci].reasoning_content;
+                    delete messages[_ci]._thinking;
+                    delete messages[_ci]._maxDepthRecovery;
+                    if (messages[_ci].content === null || messages[_ci].content === undefined) {
+                        messages[_ci].content = '';
+                    }
+                }
+            }
+
+            // 所有模型统一通过标准 OpenAI 兼容代理请求。
+            var _proxyP = DB.proxy(model.endpoint, headers, payload, chat.abortController ? chat.abortController.signal : null);
+            var _proxyAbortTimer = null;
+            var _timeoutP = new Promise(function(_, reject) {
+                _proxyAbortTimer = setTimeout(function() {
+                    _proxyTimedOut = true;
+                    reject(new Error('代理请求超时（330 秒未响应），已自动停止以避免卡死。请检查网络/后端服务后重试。'));
+                }, 330000);
+            });
+            Promise.race([_proxyP, _timeoutP]).then(async function(res) {
+                if (_proxyAbortTimer) { clearTimeout(_proxyAbortTimer); _proxyAbortTimer = null; }
+                // 不在此处移除 typing：工具执行期间保持显示，避免闪烁
+                var elapsed = Date.now() - reqStart;
+
+                if (!res.ok || !res.data) {
+                    var errMsg = _translateApiError(res.status, res.error || res.raw);
+                    // 孤立 Unicode 代理项是本地上下文编码问题，原样重试不会改变输入。
+                    var isUnicodeEncodingError = /surrogates not allowed|codec can't encode character/i.test(errMsg);
+                    // ===== 400 自愈重建：400 是确定性错误（上游拒绝当前 messages），原样重发必然继续失败 =====
+                    // 参照"用户手动发『继续』就能恢复"的成功路径：从 chat.history 重建干净 messages
+                    //（_buildContext 自动过滤 tool/思考消息），追加恢复指令后接着干活。最多重建 3 次，超出则直接失败。
+                    if (res.status === 400 && !chat._stopped && (chat._rebuild400Count || 0) < loopConfig.rebuild400Max) {
+                        chat._rebuild400Count = (chat._rebuild400Count || 0) + 1;
+                        var _cleanMsgs = [{ role: 'system', content: Tools.getSystemPrompt(chat.id) }].concat(self._buildContext(chat.history, model));
+                        // ===== 项目记忆注入（400 自愈重建后同样带上，保证模型知道项目目录和 python 路径） =====
+                        var _pm400 = self._getProjectMemory(chat.projectId);
+                        if (_pm400) {
+                            _cleanMsgs.splice(1, 0, { role: 'system', content: '【项目背景记忆】' + _pm400 });
+                        }
+                        _cleanMsgs.push({ role: 'user', content: '（系统自动恢复：上一次请求因消息格式被 API 拒绝而中断，以上是有效对话记录。请继续完成刚才未完成的任务，已完成的部分不要重复执行。）' });
+                        messages.length = 0;
+                        for (var _mi = 0; _mi < _cleanMsgs.length; _mi++) messages.push(_cleanMsgs[_mi]);
+                        var _typingElsFix = box.querySelectorAll('.msg.typing');
+                        _typingElsFix.forEach(function(t) { t.remove(); });
+                        self.addMsg(box, '⚠ 请求被 API 拒绝（消息格式问题），已自动重建对话上下文（第' + chat._rebuild400Count + '/' + loopConfig.rebuild400Max + '次），' + RETRY_INTERVAL / 1000 + '秒后继续未完成的任务…', 'warning');
+                        Store.addLog('warn', chat.id, 'retry-400-rebuild', 'HTTP 400 → rebuild messages from history #' + chat._rebuild400Count + ' | ' + errMsg);
+                        setTimeout(function() {
+                            self._agentLoop(box, chat, model, messages, depth + 1, retryCount, retryRound);
+                        }, RETRY_INTERVAL);
+                        return;
+                    }
+                    // ===== 请求失败自动重试（400 已由上方自愈分支处理；重建耗尽时不再盲目重发，直接走失败提示）=====
+                    if (!isUnicodeEncodingError && res.status !== 400 && RETRY_STATUS.indexOf(res.status) >= 0 && !chat._stopped) {
+                        if (retryCount < MAX_RETRY) {
+                            retryCount++;
+                            // 🔄 429 限流专用指数退避（5s/15s/40s/90s/180s），避免重试雪崩
+                            var _isRateLimit = (res.status === 429);
+                            var _backoffDelay = _isRateLimit
+                                ? (RETRY_BACKOFF_429[Math.min(retryCount - 1, RETRY_BACKOFF_429.length - 1)])
+                                : RETRY_INTERVAL;
+                            var _waitSec = Math.round(_backoffDelay / 1000);
+                            var _maxRoundsDisp = _isRateLimit ? MAX_RETRY_ROUNDS_429 : MAX_RETRY_ROUNDS;
+                            var _retryMsg = '⚠ 请求失败（' + errMsg + '），' + _waitSec + '秒后自动重试…（第' + retryCount + '/' + MAX_RETRY + '次，第' + (retryRound + 1) + '/' + _maxRoundsDisp + '轮）';
+                            var _typingEls6 = box.querySelectorAll('.msg.typing');
+                            _typingEls6.forEach(function(t) { t.remove(); });
+                            self.addMsg(box, _retryMsg, 'warning');
+                            Store.addLog('warn', chat.id, 'retry' + (_isRateLimit ? '-429' : ''), 'retry round ' + (retryRound + 1) + '/' + _maxRoundsDisp + ', attempt ' + retryCount + '/' + MAX_RETRY + ' | ' + errMsg + ' | backoff=' + _waitSec + 's');
+                            setTimeout(function() {
+                                self._agentLoop(box, chat, model, messages, depth, retryCount, retryRound);
+                            }, _backoffDelay);
+                            return;
+                        }
+                        // 429 用专用多轮（MAX_RETRY_ROUNDS_429），普通错误仍 1 轮，避免限流长冷却期直接判死
+                        var _maxRounds = (res.status === 429) ? MAX_RETRY_ROUNDS_429 : MAX_RETRY_ROUNDS;
+                        if (retryRound + 1 < _maxRounds) {
+                            var _nextRound = retryRound + 1;
+                            var _roundMsg = '⚠ 本轮已重试 ' + MAX_RETRY + ' 次仍失败，5分钟后开始第' + (_nextRound + 1) + '/' + _maxRounds + '轮重试…';
+                            var _typingElsRound = box.querySelectorAll('.msg.typing');
+                            _typingElsRound.forEach(function(t) { t.remove(); });
+                            self.addMsg(box, _roundMsg, 'warning');
+                            Store.addLog('warn', chat.id, 'retry-round-wait', 'wait 300s before retry round ' + (_nextRound + 1) + '/' + _maxRounds);
+                            setTimeout(function() {
+                                self._agentLoop(box, chat, model, messages, depth, 0, _nextRound);
+                            }, RETRY_ROUND_INTERVAL);
+                            return;
+                        }
+                    }
+                    // ===== 降级逻辑已禁用：保持上下文稳定，不允许模型间自动切换 =====
+                    // 所有重试轮次用尽，显示提示
+                    var _typingEls5 = box.querySelectorAll('.msg.typing');
+                    _typingEls5.forEach(function(t) { t.remove(); });
+                    if (retryCount >= MAX_RETRY) {
+                        // 仅真正重试满 30 次才显示该消息；否则下面显示单次失败原因。
+                        // 原条件 || retryRound >= MAX_RETRY_ROUNDS - 1 在 MAX_RETRY_ROUNDS=1 时恒真，
+                        // 导致 0 次重试也误报"已完成最多 30 次重试仍失败"
+                        self.addMsg(box, '❌ 已完成最多 ' + MAX_RETRY + ' 次重试仍失败，请检查网络连接或 API 服务后手动重试。\n\n最后错误：' + errMsg, 'error');
+                    } else {
+                        self.addMsg(box, '调用失败：' + errMsg, 'error');
+                    }
+                    Store.addLog('error', chat.id, 'api-error', model.name + '  ' + errMsg + (retryCount > 0 ? ' (retried ' + retryCount + 'x)' : ''));
+                    self._onSendComplete(box, chat);
+                    return;
+                }
+
+                var choice = res.data.choices && res.data.choices[0];
+                if (!choice) {
+                    var _typingEls4 = box.querySelectorAll('.msg.typing');
+                    _typingEls4.forEach(function(t) { t.remove(); });
+                    self.addMsg(box, 'AI 返回格式异常', 'error');
+                    self._onSendComplete(box, chat);
+                    return;
+                }
+
+                var msg = choice.message || {};
+                // ===== 提取 token 使用量 + 缓存命中统计 =====
+                if (res.data.usage) {
+                    var u = res.data.usage;
+                    var promptTokens = Number(u.prompt_tokens ?? u.input_tokens ?? u.promptTokens ?? 0) || 0;
+                    var completionTokens = Number(u.completion_tokens ?? u.output_tokens ?? u.completionTokens ?? 0) || 0;
+                    // Providers expose prompt-cache usage under several OpenAI-compatible names.
+                    var promptDetails = u.prompt_tokens_details || u.promptTokensDetails || u.input_tokens_details || {};
+                    var cacheHit = Number(
+                        u.prompt_cache_hit_tokens ?? u.prompt_cache_read_tokens ?? u.prompt_cache_hit ??
+                        u.cached_tokens ?? u.cache_read_input_tokens ?? u.cache_read_tokens ??
+                        promptDetails.cached_tokens ?? promptDetails.cache_read_input_tokens ??
+                        promptDetails.cache_read_tokens ?? 0
+                    ) || 0;
+                    var cacheMiss = Number(
+                        u.prompt_cache_miss_tokens ?? u.prompt_cache_write_tokens ?? u.prompt_cache_miss ??
+                        promptDetails.cache_miss_tokens ?? promptDetails.cache_write_tokens ?? 0
+                    ) || 0;
+                    // Some providers report only hits; the rest of the prompt is uncached.
+                    cacheHit = Math.max(0, Math.min(cacheHit, promptTokens));
+                    cacheMiss = Math.max(0, Math.min(cacheMiss, promptTokens - cacheHit));
+                    if (!cacheMiss && promptTokens > cacheHit) cacheMiss = promptTokens - cacheHit;
+                    chat._promptTokens += promptTokens;
+                    chat._completionTokens += completionTokens;
+                    chat._cacheHitTokens += cacheHit;
+                    chat._cacheMissTokens += cacheMiss;
+                    chat._tokenCount += (u.total_tokens || (promptTokens + completionTokens));
+                    chat._apiCalls++;
+                    // 同步累加到会话级累计统计（整个对话历史累计，跨任务不清零）
+                    chat._sessionTotalTokens += (u.total_tokens || (promptTokens + completionTokens));
+                    chat._sessionTotalApiCalls++;
+                    chat._sessionTotalPromptTokens += promptTokens;
+                    chat._sessionTotalCompletionTokens += completionTokens;
+                    chat._sessionTotalCacheHitTokens += cacheHit;
+                    chat._sessionTotalCacheMissTokens += cacheMiss;
+                    // 日志记录缓存命中详情
+                    var cacheInfo = cacheHit > 0 ? ' | cache: ✅' + cacheHit + '/miss:' + cacheMiss : ' | cache: ❌miss';
+                    Store.addLog('info', chat.id, 'token-usage',
+                        'prompt:' + promptTokens + ' | completion:' + completionTokens +
+                        cacheInfo + ' | cumul: ' + chat._tokenCount + ' | calls: ' + chat._apiCalls);
+                }
+                Store.addLog('info', chat.id, 'api-response', '← ' + model.name + ' | ' + elapsed + 'ms' + (msg.tool_calls ? ' | tool_calls=' + msg.tool_calls.length : ''));
+
+                // ===== GLM思考模式截断检测：finish_reason=length 且无 content 且无 tool_calls =====
+                // 思考过程耗尽了 max_tokens 预算，导致实际回复为空。自动倍增 max_tokens 重试。
+                var _finishReason = choice.finish_reason || '';
+                var _isEmptyReply = !(msg.content && msg.content.trim()) && !(msg.tool_calls && msg.tool_calls.length);
+                if ((_finishReason === 'length' || res.data._truncated) && _isEmptyReply) {
+                    var _truncRetry = chat._truncRetryCount || 0;
+                    var _curMax = payload.max_tokens || model.maxTokens || 16384;  // null 时从 16384 起步倍增
+                    var _newMax = Math.min(_curMax * 2, 65536);
+                    var _reasoningText = msg.reasoning_content || msg.reasoning || msg.thinking || '';
+                    Store.addLog('warn', chat.id, 'truncation', 'finish_reason=length, content empty, reasoning_len=' + _reasoningText.length + ', max_tokens=' + _curMax + (msg.reasoning_content ? ' (has reasoning_content)' : ''));
+
+                    if (_truncRetry < 3 && _newMax > _curMax) {
+                        chat._truncRetryCount = _truncRetry + 1;
+                        chat._maxTokensOverride = _newMax;
+                        var _typingElsTrunc = box.querySelectorAll('.msg.typing');
+                        _typingElsTrunc.forEach(function(t) { t.remove(); });
+                        self.addMsg(box, '⚠ 模型思考耗尽输出额度（finish_reason=length），自动提升 max_tokens ' + _curMax + '→' + _newMax + '，重试第' + chat._truncRetryCount + '/3次…', 'warning');
+                        setTimeout(function() {
+                            self._agentLoop(box, chat, model, messages, depth + 1);
+                        }, 1000);
+                        return;
+                    } else {
+                        var _typingElsTrunc2 = box.querySelectorAll('.msg.typing');
+                        _typingElsTrunc2.forEach(function(t) { t.remove(); });
+                        if (_reasoningText) {
+                            self.addMsgStreaming(box, '⚠ 模型思考耗尽了输出额度，未能生成最终回复。以下是思考过程：\n\n' + _reasoningText, 'ai', chat.modelId, true, function() {
+                                self._onSendComplete(box, chat);
+                            });
+                            chat.history.push({ role: 'assistant', content: '模型思考耗尽了输出额度，思考过程：\n' + _reasoningText });
+                        } else {
+                            self.addMsg(box, '⚠ 模型输出被截断（finish_reason=length），思考过程耗尽了全部输出额度，未生成最终回复。建议降低思考强度或增大 max_tokens。', 'error');
+                        }
+                        chat._truncRetryCount = 0;
+                        delete chat._maxTokensOverride;
+                        self._onSendComplete(box, chat);
+                        return;
+                    }
+                }
+
+                // 情况1：AI 调用了工具
+                if (msg.tool_calls && msg.tool_calls.length > 0) {
+                    // 检测输出被截断（tool_calls 的 JSON 参数可能不完整）
+                    if (choice.finish_reason === 'length' || res.data._truncated) {
+                        var _typingElsTrunc = box.querySelectorAll('.msg.typing');
+                        _typingElsTrunc.forEach(function(t) { t.remove(); });
+                        self.addMsg(box, '⚠ AI 输出因达到模型最大 token 上限被截断（finish_reason=length），工具调用参数可能不完整。请简化任务后重试。', 'warning');
+                        Store.addLog('warn', chat.id, 'truncated', 'AI 输出因 finish_reason=length 被截断（tool_calls 阶段）');
+                    }
+                    // ===== 终止轮正文去重（代码级兜底）：本轮含 task_complete 时，正文会与 message 重复显示，直接跳过 =====
+                    var _roundHasTerminal = false;
+                    for (var _rti = 0; _rti < msg.tool_calls.length; _rti++) {
+                        if (msg.tool_calls[_rti].function && Tools.isTerminal(msg.tool_calls[_rti].function.name)) { _roundHasTerminal = true; break; }
+                    }
+                    // 如果有文本内容，先显示并记录（终止轮跳过，避免与 task_complete 的 message 重复）
+                    if (msg.content && !_roundHasTerminal) {
+                        // 显示AI文本前移除 typing
+                        var _typingEls2 = box.querySelectorAll('.msg.typing');
+                        _typingEls2.forEach(function(t) { t.remove(); });
+                        self.addMsgStreaming(box, msg.content, 'ai', chat.modelId);
+                        // 【本地保留全部】思考文字存入 history，但标记 _thinking，_buildContext 发给模型时会过滤掉
+                        chat.history.push({ role: 'assistant', content: msg.content, _thinking: true });
+                    }
+
+                    // 将 assistant 的 tool_calls 消息加入 messages
+                    // 注意：content 兜底为空字符串而非 null（litellm 等严格校验的中转不接受 null，会返回 400 messages 参数非法）
+                    var assistantMsg = {
+                        role: 'assistant',
+                        content: msg.content || '',
+                        tool_calls: msg.tool_calls.map(function(tc) {
+                            return { id: tc.id, type: 'function', function: tc.function };
+                        })
+                    };
+                    messages.push(assistantMsg);
+
+                    // 设置当前对话 ID，供工具（如 task_list）关联使用
+                    Tools.currentChatId = chat.id;
+
+                    // 逐个执行工具（支持异步工具）
+                    var lastResult = null;  // 记录最后一个工具的结果（终止判断用）
+                    var lastToolName = '';
+                    for (var ti = 0; ti < msg.tool_calls.length; ti++) {
+                        var tc = msg.tool_calls[ti];
+                        var toolName = tc.function.name;
+                        if (window.KiteDragon) window.KiteDragon.tool(chat, toolName);
+                        var toolArgs;
+                        var toolArgsError = null;
+                        var rawArgs = tc.function.arguments || '{}';
+                        try {
+                            toolArgs = JSON.parse(rawArgs);
+                            if (!toolArgs || typeof toolArgs !== 'object' || Array.isArray(toolArgs)) {
+                                throw new Error('工具参数必须是 JSON 对象');
+                            }
+                        } catch (e) {
+                            // ===== JSON 修复尝试：模型（尤其 GLM）常生成转义不合法的 JSON =====
+                            // 常见问题：Windows 路径反斜杠未转义、findstr 的引号冲突、行内换行等
+                            try {
+                                // 策略1：修复未转义的反斜杠（路径中的 \F: → \\F:）
+                                var fixed = rawArgs
+                                    .replace(/(?<!\\)\\(?!["\\nrtbf/])/g, '\\\\')  // 单独的 \ 后面不是 JSON 转义字符 → 转为 \\
+                                    .replace(/\\'/g, "'");  // \' 不是合法 JSON 转义，改为 '
+                                toolArgs = JSON.parse(fixed);
+                                if (!toolArgs || typeof toolArgs !== 'object' || Array.isArray(toolArgs)) {
+                                    throw new Error('工具参数必须是 JSON 对象');
+                                }
+                                // 修复成功，用修复后的参数替换原始参数
+                                tc.function.arguments = JSON.stringify(toolArgs);
+                            } catch (e2) {
+                                // 策略2：提取 code/codes 字段（run_code 最常见的失败场景）
+                                var codeMatch = rawArgs.match(/"code"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+                                if (codeMatch) {
+                                    var extractedCode = codeMatch[1]
+                                        .replace(/\\"/g, '"')
+                                        .replace(/\\\\/g, '\\')
+                                        .replace(/\\n/g, '\n')
+                                        .replace(/\\r/g, '\r')
+                                        .replace(/\\t/g, '\t');
+                                    toolArgs = { code: extractedCode };
+                                    tc.function.arguments = JSON.stringify(toolArgs);
+                                } else {
+                                    toolArgs = {};
+                                    toolArgsError = e.message || '工具参数 JSON 解析失败';
+                                    console.warn('[agent] invalid tool arguments', toolName, rawArgs, e);
+                                    if (window.Store && Store.addLog) Store.addLog('warn', chat.id, 'tool-args', toolName + ' → ' + toolArgsError);
+                                }
+                            }
+                        }
+
+                        // 参数无效时不要继续执行工具，避免空参数产生破坏性副作用。
+                        if (toolArgsError) {
+                            result = { ok: false, error: 'Invalid tool arguments: ' + toolArgsError };
+                            lastResult = result;
+                            lastToolName = toolName;
+                            Store.addMessage(chat.id, 'tool_call', toolName + ': invalid arguments', 'tool');
+                            messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+                            continue;
+                        }
+
+
+                        // 执行工具（可能是异步 Promise）
+                        if (toolName === 'ask_user') {
+                            // 询问用户：渲染提问卡片并阻塞等待用户回答，回答作为工具结果回传给 AI
+                            var askResult = await self.askUser(toolArgs, box, chat);
+                            result = askResult;
+                            lastResult = askResult;
+                            lastToolName = toolName;
+                            // 持久化工具调用日志
+                            Store.addMessage(chat.id, 'tool_call', toolName + ': ' + JSON.stringify(toolArgs), 'tool');
+                            // 将工具结果（用户回答）加入 messages 回传给 AI
+                            messages.push({
+                                role: 'tool',
+                                tool_call_id: tc.id,
+                                content: JSON.stringify(askResult)
+                            });
+                            // 用户取消询问 → 停止 Agent 循环
+                            if (askResult && askResult.cancelled) {
+                                Store.addLog('warn', chat.id, 'tool-exec', toolName + ' → 用户取消，对话停止');
+                                self.addMsg(box, '⚠ 用户取消了询问，对话已停止。', 'ai', chat.modelId);
+                                chat.history.push({ role: 'assistant', content: '用户取消了询问，对话已停止。' });
+                                self._onSendComplete(box, chat);
+                                return;
+                            }
+                            Store.addLog('info', chat.id, 'tool-exec', toolName + ' → success (用户已回答)');
+                            continue;
+                        }
+                        var result = Tools.execute(toolName, toolArgs, { chatId: chat.id });
+                        if (result && typeof result.then === 'function') {
+                            result = await result;
+                        }
+                        // 工具返回归一化
+                        if (!result || typeof result !== 'object' || Array.isArray(result)) {
+                            result = { success: false, message: '工具执行未返回有效结果', tool: toolName };
+                        }
+                        lastResult = result;
+                        lastToolName = toolName;
+
+
+                        // ===== 工具结果数据提取（用于画布建节点等）=====
+                        var _toolData = (result && (result.data || result.url || result.video_url)) || null;
+
+                        // ===== image_gen / video_gen：画布建节点（可拖拽/缩放/连线）=====
+                        if (toolName === 'image_gen' && _toolData) {
+                            var _imgUrl = _toolData.url || result.url;
+                            var _imgPrompt = toolArgs.prompt || toolArgs.text || '生图结果';
+                            if (_imgUrl && typeof App !== 'undefined' && App.createImageCanvasNode) {
+                                try { App.createImageCanvasNode(box, _imgUrl, _imgPrompt); } catch (e) { console.error('[imagenode]', e); }
+                            }
+                        } else if (toolName === 'video_gen' && _toolData) {
+                            var _vidUrl = _toolData.video_url || _toolData.url || result.url;
+                            var _vidPrompt = toolArgs.prompt || toolArgs.text || '视频结果';
+                            if (_vidUrl && typeof App !== 'undefined' && App.createVideoCanvasNode) {
+                                try { App.createVideoCanvasNode(box, _vidUrl, _vidPrompt); } catch (e) { console.error('[videonode]', e); }
+                            }
+                        }
+
+                        // 显示工具卡片（终止型工具跳过，由 showTaskNotify 展示结果，避免重复）
+                        if (!Tools.isTerminal(toolName)) {
+                            self.addToolCard(box, Tools.renderToolCard(toolName, toolArgs, result));
+                        // 任务清单工具执行后，自动刷新右侧任务面板
+                        if (toolName === 'task_list' && self.refreshTaskPanel) {
+                            self.refreshTaskPanel();
+                        }
+                        }
+
+                        // ===== 分类切换：更新对话框 UI =====
+                        if (toolName === 'switch_tool_category' && result.success && result.category) {
+                            var newCat = Tools.categories[result.category];
+                            if (newCat) {
+                                var catIconEl = box.querySelector('.tool-cat-icon');
+                                var catNameEl = box.querySelector('.tool-cat-name');
+                                if (catIconEl) catIconEl.textContent = newCat.icon;
+                                if (catNameEl) catNameEl.textContent = result.category;
+                                // Update menu active state
+                                var catMenu = box.querySelector('.tool-cat-menu');
+                                if (catMenu) {
+                                    catMenu.querySelectorAll('.tool-cat-item').forEach(function(i) {
+                                        i.classList.toggle('active', i.dataset.cat === result.category);
+                                    });
+                                }
+                                Store.addLog('info', chat.id, 'cat-switch-ai', 'AI 自动切换工具分类: ' + result.category);
+
+                                // ===== 分类切换提示框 + 声音 =====
+                                var swToolList = newCat.tools.filter(function(t) { return t !== 'task_complete' && t !== 'switch_tool_category'; });
+                                self.showCategorySwitchNotify({
+                                    catName: result.category,
+                                    catIcon: newCat.icon,
+                                    catDesc: newCat.desc,
+                                    toolCount: swToolList.length,
+                                    chatId: chat.id
+                                });
+                                self.playSwitchSound();
+                            }
+                        }
+
+                        // 持久化工具调用日志
+                        Store.addMessage(chat.id, 'tool_call', toolName + ': ' + JSON.stringify(toolArgs), 'tool');
+                        Store.addLog('info', chat.id, 'tool-exec', toolName + ' → ' + (result.success ? 'success' : 'failure'));
+
+                        // ===== 工具结果出口限额（源头拦截：进上下文前截断超长结果，原文归档可找回） =====
+                        if (typeof Tools !== 'undefined' && Tools.capResult) {
+                            try { result = Tools.capResult(toolName, result); } catch (e) {}
+                        }
+
+                        // 将工具结果加入 messages（终止型工具的也会 push，但 return 后不会发给 AI）
+                        messages.push({
+                            role: 'tool',
+                            tool_call_id: tc.id,
+                            content: JSON.stringify(result)
+                        });
+                    }
+
+                    // ===== 刷新系统提示词（仅在分类切换时）=====
+                    // 只有 AI 调用了 switch_tool_category 时才需要更新 system prompt
+                    // 避免每轮都重建 messages[0]，保持前缀稳定以提高 API 缓存命中率
+                    var _categoryChanged = false;
+                    for (var _ci = 0; _ci < msg.tool_calls.length; _ci++) {
+                        if (msg.tool_calls[_ci].function && msg.tool_calls[_ci].function.name === 'switch_tool_category') {
+                            _categoryChanged = true;
+                            break;
+                        }
+                    }
+                    if (_categoryChanged) {
+                        messages[0] = { role: 'system', content: Tools.getSystemPrompt(chat.id) };
+                    }
+
+                    // 如果是终止型工具，结束循环（复用已执行的结果，不重复执行）
+                    if (Tools.isTerminal(lastToolName) && lastResult) {
+                        // ===== 前缀去重（代码级兜底）：模型 message 自带“✅ 任务完成/❌ 任务失败”时先剥离，避免与 summaryPrefix 叠加显示两次 =====
+                        var _rawMsg = String(lastResult.message || '');
+                        var _msgLines = _rawMsg.split('\n');
+                        var _firstLine = (_msgLines[0] || '').trim();
+                        var _prefixStripped = false;
+                        // 情况A：整行恰好是“✅ 任务完成/❌ 任务失败”等（可带括号备注/收尾标点）→ 剥掉整行
+                        if (/^[\s#*]*(?:✅|❌)?[\s#*]*(?:任务完成|任务成功|任务失败)(?:[（(][^（）()]{0,20}[）)])?[\s#*]*(?:✅|❌)?[\s#:：。！!？?]*$/.test(_firstLine)) {
+                            _msgLines.shift();
+                            _prefixStripped = true;
+                        } else {
+                            // 情况B：首行形如“✅ 任务完成：实际内容”（前缀+分隔符+内容同一行）→ 只剥前缀，保留内容
+                            var _pmB = _firstLine.match(/^[\s#*]*(?:✅|❌)[\s#*]*(?:任务完成|任务成功|任务失败)(?:[（(][^（）()]{0,20}[）)])?[\s#*]*(?:✅|❌)?[\s:：\-—–|｜、]*\s*(.+)$/);
+                            // 情况C：无 emoji 但以“任务完成：”等开头（要求冒号分隔，避免误伤“任务完成的文件”等正常句子）
+                            var _pmC = (!_pmB) ? _firstLine.match(/^(?:任务完成|任务成功|任务失败)(?:[（(][^（）()]{0,20}[）)])?\s*[:：]\s*(.+)$/) : null;
+                            var _pm = _pmB || _pmC;
+                            if (_pm) {
+                                var _rest = (_pm[1] || '').trim();
+                                if (_rest) {
+                                    _msgLines[0] = _rest;
+                                } else {
+                                    _msgLines.shift();
+                                }
+                                _prefixStripped = true;
+                            }
+                        }
+                        if (_prefixStripped) {
+                            while (_msgLines.length && !(_msgLines[0] || '').trim()) _msgLines.shift();
+                            lastResult.message = _msgLines.join('\n');
+                        }
+                        // 移除残留的 typing 指示器（防止计时器继续运行）
+                        var _typingElsTerm = box.querySelectorAll('.msg.typing');
+                        _typingElsTerm.forEach(function(t) { t.remove(); });
+                        // 计算任务总耗时
+                        var _taskTotalMs = chat._taskStartTime ? (Date.now() - chat._taskStartTime) : 0;
+                        var _taskTotalStr = self._formatDuration(_taskTotalMs);
+                        Store.addLog(lastResult.success ? 'info' : 'warn', chat.id, 'terminal', lastToolName + ' → ' + (lastResult.success ? '任务完成' : '任务失败') + ': ' + lastResult.message + ' | 总耗时: ' + _taskTotalStr);
+
+                        // 1) 对话框边框变色，并保存结果供小地图持续导航。
+                        var borderCls = lastResult.success ? 'task-success' : 'task-fail';
+                        chat._taskStatus = lastResult.success ? 'success' : 'fail';
+                        box.classList.add(borderCls);
+                        // 同步：右下角小地图导航也显示边框动画
+                        var _minimap = document.getElementById('minimap');
+                        if (_minimap) {
+                            _minimap.classList.remove('task-success', 'task-fail');
+                            _minimap.classList.add(borderCls);
+                        }
+                        // 边框动画结束后恢复；chat._taskStatus 保留给小地图导航。
+                        setTimeout(function() {
+                            box.classList.remove(borderCls);
+                            if (_minimap) { _minimap.classList.remove(borderCls); }
+                            if (self.updateMinimap) self.updateMinimap();
+                        }, 4000);
+                        if (self.updateMinimap) self.updateMinimap();
+                        if (self._updateAllNavArrows) self._updateAllNavArrows(); // 立即刷新成功指示箭头
+                        // 立即同步：风筝龙该节颜色（金黄=成功 / 暗红=失败）——不依赖 RAF 下一帧
+                        if (window.KiteDragon && window.KiteDragon.refresh) { try { window.KiteDragon.refresh(); } catch (e) {} }
+
+                        // 2) 右下角通知弹窗
+                        self.showTaskNotify({
+                            success: lastResult.success,
+                            message: lastResult.message,
+                            chatId: chat.id,
+                            modelName: model.name,
+                            scope: lastResult.scope
+                        });
+
+                        // 3) 声音提示
+                        // 4) 将 AI 结束总结作为消息显示在对话流中（持久化，通知消失后仍可见）
+                        var summaryPrefix = lastResult.success ? "\u2705 任务完成\n\n" : "\u274C 任务失败\n\n";
+                        var summaryMsg = self.addMsg(box, summaryPrefix + lastResult.message, "ai", chat.modelId, true);
+                        summaryMsg.classList.add(lastResult.success ? 'task-result-success' : 'task-result-fail');
+                        chat.history.push({ role: "assistant", content: summaryPrefix + lastResult.message });
+                        self.playTaskSound(lastResult.success);
+
+                        // 5) 在最底部显示任务总耗时
+                        var _timeDiv = document.createElement('div');
+                        _timeDiv.className = 'msg task-duration';
+                        _timeDiv.innerHTML = '<span class="task-duration-icon">\u23F1</span> 本任务总耗时 <span class="task-duration-value">' + _taskTotalStr + '</span>';
+                        var _tBody = box.querySelector('.chatbox-body');
+                        if (_tBody) {
+                            _tBody.appendChild(_timeDiv);
+                            var _tc = self.chatBoxes.find(function(c) { return c.el === box; });
+                            if (_tc && _tc.autoFollowBottom) _tBody.scrollTop = _tBody.scrollHeight;
+                        }
+
+                        
+                        // ===== 自动邮件通知（任务成功时） =====
+                        if (lastResult.success) {
+                            self._sendEmailNotify(lastResult.message, model.name, chat.id);
+                        }
+
+                        // 清空工具结果存档（任务结束，不再需要）
+                        if (typeof Tools !== 'undefined' && Tools.toolResultArchive) {
+                            delete Tools.toolResultArchive[chat.id];
+                        }
+
+                        self._onSendComplete(box, chat);
+                        return;
+                    }
+
+                    // 递归调用，继续 Agent 循环（如果用户已停止则不递归）
+                    if (!chat._stopped) {
+                        self._agentLoop(box, chat, model, messages, depth + 1);
+                    } else {
+                        self._onSendComplete(box, chat);
+                    }
+                    return;
+                }
+
+                // 情况2：AI 返回普通文本
+                // 成功获得回复，重置截断重试状态
+                chat._truncRetryCount = 0;
+                delete chat._maxTokensOverride;
+                var reply = '';
+                if (msg.content) {
+                    reply = msg.content;
+                } else if (choice.text) {
+                    reply = choice.text;
+                } else if (res.data.output_text) {
+                    reply = res.data.output_text;
+                } else if (msg.reasoning_content || msg.reasoning || msg.thinking) {
+                    // content 为空但有思考内容（GLM 思考模式边缘情况）
+                    reply = (msg.reasoning_content || msg.reasoning || msg.thinking);
+                } else {
+                    reply = '（空回复）';
+                }
+                reply = (reply || '').trim() || '（空回复）';
+                // 检测输出被截断（max_tokens 不足导致 finish_reason=length，但仍有部分 content）
+                if (choice.finish_reason === 'length' || res.data._truncated) {
+                    reply += '\n\n⚠ **[输出被截断]** AI 回复因达到最大输出 token 上限被截断，可能内容不完整。如需完整回复请发送"继续"。';
+                    Store.addLog('warn', chat.id, 'truncated', 'AI 输出因 finish_reason=length 被截断（有部分 content），max_tokens=' + (payload.max_tokens || model.maxTokens || 8192));
+                }
+                // 显示回复前移除 typing 指示器
+                var _typingEls = box.querySelectorAll('.msg.typing');
+                _typingEls.forEach(function(t) { t.remove(); });
+                self.addMsgStreaming(box, reply, 'ai', chat.modelId, true, function() {
+                    self._onSendComplete(box, chat);
+                });
+                chat.history.push({ role: 'assistant', content: reply });
+                Store.addLog('info', chat.id, 'ai-reply', 'AI回复 | ' + reply.length + '字 | ' + reply.substring(0, 80) + (reply.length > 80 ? '…' : ''));
+
+            }).catch(function(err) {
+                // 统一清洗底层网络/SSL 错误，避免把英文运行时异常直接展示给用户
+                var _catchErrorMsg = _translateApiError(0, (err && err.message) || err);
+                // 移除所有 typing 指示器
+                var _typingEls3 = box.querySelectorAll('.msg.typing');
+                _typingEls3.forEach(function(t) { t.remove(); });
+                // 【2025 修复】只有 chat._stopped=true 才视为用户主动停止。
+                // 仅凭 AbortError 判定会把内部超时/db.js 旧版 300 秒 abort 误判为用户停止，
+                // 导致对话静默终止（无提示、无重试、无日志）——正是「对话自动停止」的根因之一。
+                var _isUserAbort = !!chat._stopped;
+                if (_isUserAbort) {
+                    // 用户停止 - stopSending() 已显示消息并处理排队
+                    // 如果 _onSendComplete 尚未被调用（防止遗漏），调用一次
+                    if (!chat._sendCompleteCalled) {
+                        self._onSendComplete(box, chat);
+                    }
+                } else if (err && err.name === 'AbortError' && !chat._stopped) {
+                    // 非用户触发的 AbortError（内部超时等）：明确提示并走重试
+                    try { err.message = '请求被中断（疑似超时），将自动重试'; } catch(e) {}
+                    Store.addLog('error', chat.id, 'abort-unexpected', 'AbortError without user stop | depth=' + depth + ' | ' + _catchErrorMsg);
+                    self.addMsg(box, '⚠ ' + _catchErrorMsg + '，将自动重试…', 'warning');
+                    if (retryCount >= MAX_RETRY) {
+                        self.addMsg(box, '❌ 已重试 ' + MAX_RETRY + ' 次仍失败，请检查网络连接或 API 服务后手动重试。\n\n最后错误：' + _catchErrorMsg, 'error');
+                        self._onSendComplete(box, chat);
+                        return;
+                    }
+                    retryCount++;
+                    setTimeout(function() {
+                        self._agentLoop(box, chat, model, messages, depth, retryCount, retryRound);
+                    }, RETRY_INTERVAL);
+                } else if (!chat._stopped) {
+                    // ===== 网络异常自动重试（catch 分支：连接超时、DNS解析失败等）=====
+                    if (retryCount >= MAX_RETRY) {
+                        if (retryRound + 1 < MAX_RETRY_ROUNDS) {
+                            var _nextRound2 = retryRound + 1;
+                            self.addMsg(box, '⚠ 本轮网络异常重试 ' + MAX_RETRY + ' 次仍失败，5分钟后开始第' + (_nextRound2 + 1) + '/' + MAX_RETRY_ROUNDS + '轮重试…', 'warning');
+                            Store.addLog('warn', chat.id, 'retry-round-wait', 'wait 300s before catch retry round ' + (_nextRound2 + 1) + '/' + MAX_RETRY_ROUNDS);
+                            setTimeout(function() { self._agentLoop(box, chat, model, messages, depth, 0, _nextRound2); }, RETRY_ROUND_INTERVAL);
+                            return;
+                        }
+                        var _typingElsFinal = box.querySelectorAll('.msg.typing');
+                        _typingElsFinal.forEach(function(t) { t.remove(); });
+                        self.addMsg(box, '❌ 已完成 ' + MAX_RETRY_ROUNDS + ' 轮重试（每轮 ' + MAX_RETRY + ' 次）仍失败，请检查网络连接或 API 服务后手动重试。\n\n最后错误：' + _catchErrorMsg, 'error');
+                        Store.addLog('error', chat.id, 'proxy-error', _catchErrorMsg + ' (retried ' + MAX_RETRY_ROUNDS + ' rounds)');
+                        self._onSendComplete(box, chat);
+                        return;
+                    } else {
+                        retryCount++;
+                    }
+                    var _retryMsg2 = '⚠ 网络异常（' + _catchErrorMsg + '），' + RETRY_INTERVAL / 1000 + '秒后自动重试…（第' + retryCount + '/' + MAX_RETRY + '次，第' + (retryRound + 1) + '/' + MAX_RETRY_ROUNDS + '轮）';
+                    var _typingEls7 = box.querySelectorAll('.msg.typing');
+                    _typingEls7.forEach(function(t) { t.remove(); });
+                    self.addMsg(box, _retryMsg2, 'warning');
+                    Store.addLog('warn', chat.id, 'retry', 'retry(catch) ' + retryCount + '/' + MAX_RETRY + ' | ' + _catchErrorMsg);
+                    setTimeout(function() {
+                        self._agentLoop(box, chat, model, messages, depth, retryCount, retryRound);
+                    }, RETRY_INTERVAL);
+                } else {
+                    // 重试次数用尽
+                    var _typingEls8 = box.querySelectorAll('.msg.typing');
+                    _typingEls8.forEach(function(t) { t.remove(); });
+                    if (retryCount >= MAX_RETRY) {
+                        self.addMsg(box, '❌ 已重试 ' + MAX_RETRY + ' 次仍失败，请检查网络连接或 API 服务后手动重试。\n\n最后错误：' + _catchErrorMsg, 'error');
+                    } else {
+                        self.addMsg(box, '代理请求失败：' + _catchErrorMsg, 'error');
+                    }
+                    Store.addLog('error', chat.id, 'proxy-error', _catchErrorMsg + (retryCount > 0 ? ' (retried ' + retryCount + 'x)' : ''));
+                    self._onSendComplete(box, chat);
+                }
+            });
+        },
+
+        // ===== 工具结果管理（每次循环都执行）=====
+        // 【2025 按用户要求】已移除工具结果丢弃规则：保留所有 tool 结果全文，不再替换为 [已丢弃]。
+        _manageToolResults: function(messages, chatId) {
+            // 【2025 按用户要求】已移除工具结果丢弃规则：保留所有 tool 结果全文，不再替换为 [已丢弃]。
+            return;
+        },
+
+        // ===== 上下文 token 估算 =====
+        // 粗略估算：中文约2字符/token，英文约4字符/token，JSON结构开销约+10%
+        _estimateTokens: function(messages) {
+            if (!messages || !messages.length) return 0;
+            var totalChars = 0;
+            for (var i = 0; i < messages.length; i++) {
+                var msg = messages[i];
+                // role 等结构开销
+                totalChars += 4;
+                if (msg.content) {
+                    totalChars += String(msg.content).length;
+                }
+                if (msg.tool_calls) {
+                    // tool_calls 的 JSON 序列化
+                    try {
+                        totalChars += JSON.stringify(msg.tool_calls).length;
+                    } catch(e) {}
+                }
+                if (msg.tool_call_id) {
+                    totalChars += String(msg.tool_call_id).length + 4;
+                }
+            }
+            // 混合估算：取中文/英文平均，约3字符/token，再加10%结构开销
+            return Math.ceil(totalChars / 3 * 1.1);
+        },
+
+        // ===== 仅截断超长工具结果（不删除消息、不做摘要，避免失忆→重复搜索→恶性循环） =====
+        _truncateToolResultsOnly: function(messages, model, depth, loopConfig, cachePolicy) {
+            var self = this;
+            var result = { compressed: false, beforeTokens: self._estimateTokens(messages), afterTokens: 0, removedCount: 0 };
+            var policy = cachePolicy || self._getModelCachePolicy(model, loopConfig);
+            var MAX_TOOL_CONTENT_CHARS = parseInt(policy.toolResultMaxChars, 10);
+            if (!MAX_TOOL_CONTENT_CHARS || MAX_TOOL_CONTENT_CHARS < 100) MAX_TOOL_CONTENT_CHARS = 3000;
+            MAX_TOOL_CONTENT_CHARS = Math.min(50000, MAX_TOOL_CONTENT_CHARS);
+
+            var truncatedCount = 0;
+            for (var i = 1; i < messages.length; i++) {
+                var msg = messages[i];
+                if (msg.role === 'tool' && msg.content) {
+                    var c = String(msg.content);
+                    if (c.length > MAX_TOOL_CONTENT_CHARS) {
+                        var head = c.substring(0, MAX_TOOL_CONTENT_CHARS * 0.7);
+                        var tail = c.substring(c.length - MAX_TOOL_CONTENT_CHARS * 0.2);
+                        msg.content = head + '\n\n...[已截断，原始' + c.length + '字符]...\n\n' + tail;
+                        truncatedCount++;
+                    }
+                }
+                if (msg.role === 'assistant' && msg.content) {
+                    var ac = String(msg.content);
+                    if (ac.length > MAX_TOOL_CONTENT_CHARS * 2) {
+                        msg.content = ac.substring(0, MAX_TOOL_CONTENT_CHARS) + '\n\n...[已截断，原始' + ac.length + '字符]...';
+                        truncatedCount++;
+                    }
+                }
+            }
+            result.afterTokens = self._estimateTokens(messages);
+            result.removedCount = truncatedCount;
+            result.compressed = truncatedCount > 0;
+            return result;
+        },
+
+        // ===== 上下文自动压缩（已禁用，保留代码备用） =====
+        // 原策略会移除中间消息并用摘要替代，导致智能体失忆→重复搜索→上下文膨胀→再次压缩的恶性循环。
+        // 现已替换为 _truncateToolResultsOnly，仅截断超长工具结果，不删除任何消息。
+        _compressContext: function(messages, model, depth, loopConfig) {
+            var self = this;
+            var result = { compressed: false, beforeTokens: 0, afterTokens: 0, removedCount: 0 };
+
+            // 模型上下文窗口（默认 64000，DeepSeek=64000，GLM=128000）
+            var contextWindow = 64000;
+            if (model && model.contextWindow) {
+                contextWindow = model.contextWindow;
+            } else if (model && model.modelId) {
+                var mid = model.modelId.toLowerCase();
+                if (mid.indexOf('glm') >= 0 || mid.indexOf('4-flash') >= 0) contextWindow = 128000;
+                else if (mid.indexOf('deepseek') >= 0) contextWindow = 64000;
+                else if (mid.indexOf('gpt-4') >= 0) contextWindow = 128000;
+                else if (mid.indexOf('gpt-3.5') >= 0) contextWindow = 16000;
+                else if (mid.indexOf('claude') >= 0) contextWindow = 200000;
+            }
+            // ===== 省钱模式：单次请求上下文 token 预算 =====
+            // 默认预算按模型窗口自适应；模型配置可显式覆盖。
+            var defaultTokenBudget = contextWindow >= 128000 ? 32000 : (contextWindow >= 64000 ? 16000 : 8000);
+            // 设置面板中的 0 表示继续使用模型自适应预算。
+            var configuredTokenBudget = loopConfig && parseInt(loopConfig.contextTokenBudget, 10);
+            var tokenBudget = configuredTokenBudget > 0
+                ? configuredTokenBudget
+                : ((model && model.tokenBudget) ? model.tokenBudget : defaultTokenBudget);
+            // 硬上限：模型窗口的 70%（保留输出空间），与预算取较小者
+            var threshold = Math.min(Math.floor(contextWindow * 0.7), tokenBudget);
+            // 单条 tool 结果的最大字符数（超过则截断）
+            var MAX_TOOL_CONTENT_CHARS = loopConfig && parseInt(loopConfig.toolResultMaxChars, 10);
+            if (!MAX_TOOL_CONTENT_CHARS || MAX_TOOL_CONTENT_CHARS < 100) MAX_TOOL_CONTENT_CHARS = 3000;
+            MAX_TOOL_CONTENT_CHARS = Math.min(50000, MAX_TOOL_CONTENT_CHARS);
+
+            var beforeTokens = self._estimateTokens(messages);
+            result.beforeTokens = beforeTokens;
+
+            if (beforeTokens <= threshold) {
+                result.afterTokens = beforeTokens;
+                return result;
+            }
+
+            // ===== 第一轮：截断超长的 tool 结果 =====
+            // 降低激进度：读取类工具（read_file/read_lines）的结果往往是后续写文件所需的关键代码，
+            // 必须保留更多内容，否则 AI 刚读完就被压缩丢掉，会反复重读导致死循环。
+            var truncatedCount = 0;
+            var recentReadGuard = 0; // 统计"刚读取过的代码"保留条数（最多保留最近2次读取）
+            for (var i = 1; i < messages.length; i++) {
+                var msg = messages[i];
+                if (msg.role === 'tool' && msg.content) {
+                    var c = String(msg.content);
+                    // 识别读取类工具结果（tool_call_id 对应的工具名在前面 assistant 的 tool_calls 里）
+                    var isReadTool = false;
+                    for (var ri = i - 1; ri >= 0 && ri >= i - 4; ri--) {
+                        var pm = messages[ri];
+                        if (pm && pm.role === 'assistant' && pm.tool_calls) {
+                            for (var rc = 0; rc < pm.tool_calls.length; rc++) {
+                                var tcall = pm.tool_calls[rc];
+                                if (tcall && tcall.id === msg.tool_call_id && tcall.function) {
+                                    var tn = tcall.function.name || '';
+                                    if (tn.indexOf('read_') === 0 || tn === 'read' || tn.indexOf('search_') === 0 || tn === 'find_files' || tn === 'list_dir' || tn === 'tree_dir' || tn === 'file_info') {
+                                        isReadTool = true;
+                                    }
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    // 读取类工具：放宽到 3 倍上限，且保留中间完整内容（不截断为头尾省略）
+                    var cap = isReadTool ? Math.min(50000, MAX_TOOL_CONTENT_CHARS * 3) : MAX_TOOL_CONTENT_CHARS;
+                    if (isReadTool && recentReadGuard < 2) recentReadGuard++;
+                    if (c.length > cap) {
+                        // 原始结果先归档，供 get_tool_result 在当前任务中按需取回。
+                        if (typeof Tools !== 'undefined' && Tools.toolResultArchive && Tools.currentChatId) {
+                            var archive = Tools.toolResultArchive[Tools.currentChatId] || (Tools.toolResultArchive[Tools.currentChatId] = []);
+                            if (!archive.some(function(item) { return item && item.content === c; })) {
+                                archive.push({ toolCallId: msg.tool_call_id || '', content: c });
+                            }
+                        }
+                        if (isReadTool && recentReadGuard <= 2) {
+                            // 最近读取的代码：保留中间 60% 完整内容，只裁掉最头尾
+                            var rdHead = c.substring(0, cap * 0.35);
+                            var rdTail = c.substring(c.length - cap * 0.15);
+                            var rdMid = c.substring(Math.floor(c.length * 0.3), Math.min(c.length, Math.floor(c.length * 0.3) + cap * 0.5));
+                            msg.content = rdHead + '\n\n...[保留代码片段，原始' + c.length + '字符]...\n\n' + rdMid + '\n\n...[尾部省略]...\n\n' + rdTail;
+                        } else {
+                            // 保留头部 + 尾部，中间省略
+                            var head = c.substring(0, cap * 0.7);
+                            var tail = c.substring(c.length - cap * 0.2);
+                            msg.content = head + '\n\n...[已截断，原始' + c.length + '字符]...\n\n' + tail;
+                        }
+                        truncatedCount++;
+                    }
+                }
+                // 也截断超长的 assistant content
+                if (msg.role === 'assistant' && msg.content) {
+                    var ac = String(msg.content);
+                    if (ac.length > MAX_TOOL_CONTENT_CHARS * 2) {
+                        msg.content = ac.substring(0, MAX_TOOL_CONTENT_CHARS) + '\n\n...[已截断，原始' + ac.length + '字符]...';
+                        truncatedCount++;
+                    }
+                }
+            }
+
+            var afterTruncTokens = self._estimateTokens(messages);
+
+            if (afterTruncTokens <= threshold) {
+                result.compressed = true;
+                result.afterTokens = afterTruncTokens;
+                result.removedCount = truncatedCount;
+                return result;
+            }
+
+            // ===== 第二轮：移除中间旧消息，用摘要替代 =====
+            // 保留：messages[0]（system）+ 最近N条（自适应：仍超预算则递减）
+            var keepRecent = loopConfig && loopConfig.keepRecentMessages ? loopConfig.keepRecentMessages : 20;
+            var _initKeepRecent = keepRecent;
+            var _compressIter = 0;
+            while (true) {
+                _compressIter++;
+                if (_compressIter > 50) {
+                    result.afterTokens = self._estimateTokens(messages);
+                    return result;
+                }
+                if (messages.length <= keepRecent + 1) {
+                    result.afterTokens = self._estimateTokens(messages);
+                    return result; // 太少，没法再压
+                }
+
+                // 找到需要保留的最近 N 条（确保 tool/assistant 配对完整）
+                var keepStart = messages.length - keepRecent;
+                // 向前调整：不要让保留区从一组 tool 结果或其 tool_calls assistant 中间开始。
+                while (keepStart > 1 && messages[keepStart] && messages[keepStart].role === 'tool') {
+                    keepStart--;
+                }
+                if (keepStart > 1 && messages[keepStart] && messages[keepStart].role === 'assistant' &&
+                    messages[keepStart].tool_calls && messages[keepStart].tool_calls.length > 0) {
+                    keepStart++;
+                    while (keepStart < messages.length && messages[keepStart].role === 'tool') keepStart++;
+                }
+                // ===== 降低激进度：若中间区含"最近的读取类工具结果"，前移 keepStart 保留它 =====
+                // 场景：AI 刚 read_file 拿到代码，准备 write_file，此时压缩若把读取结果丢进摘要，
+                // AI 就失去代码内容 → 反复重读 → 死循环。所以最多额外保留最近 1 组读取结果。
+                (function protectRecentRead() {
+                    var extraKeep = 0;
+                    var inReadTool = false;
+                    // 从 keepStart-1 往前找最近的读取类工具调用（至多向前 30 条）
+                    for (var scan = keepStart - 1; scan > 1 && scan > keepStart - 30; scan--) {
+                        var sm = messages[scan];
+                        if (!sm) break;
+                        if (sm.role === 'tool') {
+                            // 该 tool 对应的调用是否为读取类
+                            var isRd = false;
+                            for (var sk = scan - 1; sk >= 0 && sk >= scan - 4; sk--) {
+                                var pm2 = messages[sk];
+                                if (pm2 && pm2.role === 'assistant' && pm2.tool_calls) {
+                                    for (var tc2 = 0; tc2 < pm2.tool_calls.length; tc2++) {
+                                        var tcN = pm2.tool_calls[tc2];
+                                        if (tcN && tcN.id === sm.tool_call_id && tcN.function) {
+                                            var tn2 = tcN.function.name || '';
+                                            if (tn2.indexOf('read_') === 0 || tn2 === 'read' || tn2 === 'file_info') isRd = true;
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                            if (isRd) {
+                                // 遇到最近的读取结果：计算它及配对 assistant 需保留的条数
+                                var pairStart = scan;
+                                while (pairStart > 1 && messages[pairStart].role === 'tool') pairStart--;
+                                if (messages[pairStart] && messages[pairStart].role === 'assistant' &&
+                                    messages[pairStart].tool_calls && messages[pairStart].tool_calls.length > 0) pairStart--;
+                                // 前移 keepStart 保留这组读取
+                                if (pairStart < keepStart) {
+                                    extraKeep = keepStart - pairStart;
+                                    keepStart = pairStart;
+                                }
+                                break; // 只保留最近一组读取
+                            }
+                        }
+                    }
+                    if (extraKeep > 0) {
+                        keepRecent = Math.min(_initKeepRecent + extraKeep, keepRecent + extraKeep);
+                    }
+                })();
+
+                // 中间部分（1 ~ keepStart-1）用摘要替代
+                var middleMessages = messages.slice(1, keepStart);
+                var summaryParts = [];
+                var removedCount = 0;
+                var toolNameByCallId = {};
+
+                for (var j = 0; j < middleMessages.length; j++) {
+                    var mm = middleMessages[j];
+                    if (mm.role === 'assistant') {
+                        if (mm.tool_calls && mm.tool_calls.length > 0) {
+                            var toolNames = mm.tool_calls.map(function(tc) {
+                                if (tc.id) toolNameByCallId[tc.id] = tc.function ? tc.function.name : 'unknown';
+                                return tc.function ? tc.function.name : 'unknown';
+                            }).join(', ');
+                            summaryParts.push('[assistant调用工具: ' + toolNames + ']');
+                        } else if (mm.content) {
+                            var preview = String(mm.content).substring(0, 80);
+                            summaryParts.push('[assistant: ' + preview + '…]');
+                        }
+                        removedCount++;
+                    } else if (mm.role === 'tool') {
+                        // 尝试提取工具名和成功/失败
+                        var tc = String(mm.content || '');
+                        var isSuccess = tc.indexOf('"success":true') >= 0 || tc.indexOf('"success": true') >= 0;
+                        var isFail = tc.indexOf('"success":false') >= 0 || tc.indexOf('"success": false') >= 0;
+                        var status = isSuccess ? '成功' : (isFail ? '失败' : '完成');
+                        var toolName = toolNameByCallId[mm.tool_call_id] || 'unknown';
+                        // ===== 降低激进度：被压缩的读取类工具结果，摘要里保留内容预览 =====
+                        // 否则 AI 刚读过的代码被摘要成"[工具 read_file: 成功]"后完全丢失，
+                        // 只能反复重读 → 死循环。这里对读取类结果保留 200 字预览供后续参考。
+                        var isReadLike = toolName.indexOf('read_') === 0 || toolName === 'read' ||
+                            toolName === 'file_info' || toolName === 'search_in_files' ||
+                            toolName === 'regex_search' || toolName === 'search';
+                        if (isReadLike && tc.length > 20) {
+                            var cleanTc = tc.replace(/\\n/g, '\n').substring(0, 200);
+                            summaryParts.push('[工具 ' + toolName + ': ' + status + '，内容预览: ' + cleanTc + '…]');
+                        } else {
+                            summaryParts.push('[工具 ' + toolName + ': ' + status + ']');
+                        }
+                        removedCount++;
+                    } else if (mm.role === 'user') {
+                        var userPreview = String(mm.content || '').substring(0, 100);
+                        summaryParts.push('[用户: ' + userPreview + '…]');
+                        removedCount++;
+                    }
+                }
+
+                // 构建压缩后的 messages
+                var compressedMessages = [Object.assign({}, messages[0])]; // system
+                if (summaryParts.length > 0) {
+                    compressedMessages[0].content = String(compressedMessages[0].content || '') +
+                        '\n\n【上下文摘要】以下是之前' + removedCount + '条对话的压缩摘要：\n' + summaryParts.join('\n');
+                }
+                // 保留最近的消息
+                for (var k = keepStart; k < messages.length; k++) {
+                    compressedMessages.push(messages[k]);
+                }
+
+                // ===== 自适应检查：压缩后是否仍在预算内 =====
+                var afterTokens = self._estimateTokens(compressedMessages);
+                if (afterTokens <= threshold || keepRecent <= 2) {
+                    // 已达标（或已到下限），提交压缩结果
+                    messages.length = 0;
+                    for (var m = 0; m < compressedMessages.length; m++) {
+                        messages.push(compressedMessages[m]);
+                    }
+                    result.compressed = true;
+                    result.afterTokens = afterTokens;
+                    result.removedCount = removedCount + truncatedCount;
+                    return result;
+                }
+                // 仍超预算：减少保留条数，再压一轮
+                keepRecent = Math.max(2, keepRecent - 2);
+            }
+        },
+
+        // ===== 添加工具卡片消息（平铺模式：无折叠组，一行一个工具，面板可滚动） =====
+        addToolCard: function(box, html) {
+            var body = box.querySelector('.chatbox-toolpanel-body') || box.querySelector('.chatbox-body');
+
+            // 直接将工具卡片追加到面板（不再套 tool-group 折叠层）
+            var tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            var cardEl = tempDiv.firstElementChild;
+            body.appendChild(cardEl);
+
+            // 自动滚动到底部
+            var _tc = this.chatBoxes.find(function(c) { return c.el === box; });
+            if (!_tc || _tc.autoFollowBottom) {
+                body.scrollTop = body.scrollHeight;
+            }
+
+            // 绑定单个工具卡片的折叠/展开事件
+            var wrap = (cardEl.classList && cardEl.classList.contains('tool-wrap')) ? cardEl : cardEl.querySelector('.tool-wrap');
+            var noCollapse = wrap && wrap.classList.contains('tool-wrap--nocollapse');
+            var cardHeader = cardEl.querySelector('.tool-wrap__header');
+            if (cardHeader && !noCollapse) {
+                cardHeader.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (wrap) wrap.classList.toggle('tool-wrap--collapsed');
+                });
+            }
+
+            // 更新工具按钮徽章
+            var _badge = box.querySelector('.tool-badge');
+            if (_badge) {
+                var _totalCount = body.querySelectorAll('.tool-wrap').length;
+                _badge.textContent = _totalCount;
+                _badge.style.display = _totalCount > 0 ? '' : 'none';
+                var _tpBtn = box.querySelector('.tool-panel-btn');
+                if (_tpBtn) {
+                    _tpBtn.classList.add('tool-panel-btn--pulse');
+                    setTimeout(function() { _tpBtn.classList.remove('tool-panel-btn--pulse'); }, 700);
+                }
+            }
+
+            // ===== 工具统计面板实时刷新（面板已注入统计区时才刷新，避免无谓开销）=====
+            try { if (box.querySelector('.chatbox-toolstats') && this.renderToolStats) this.renderToolStats(box); } catch (e) {}
+
+            return cardEl;
+        },
+
+                // ===== 询问用户工具（ask_user）=====
+        // 全局浮动弹窗（挂 document.body，fixed 居中，无遮罩可点别处），返回 Promise
+                askUser: function(toolArgs, box, chat) {
+            var self = this;
+            var question = (toolArgs && toolArgs.question) || '请补充说明：';
+            var chatId = (chat && chat.id) || '';
+            // 多字段支持：toolArgs.fields 为字段数组（[{type,label,name,options,placeholder,...}]）；
+            // 未传 fields 时退化为单一文本框，保持向后兼容。
+            var rawFields = (toolArgs && Array.isArray(toolArgs.fields) && toolArgs.fields.length)
+                ? toolArgs.fields : null;
+
+            // ===== 字段类型注册表：可扩展——新增类型只需在下面加 {render, collect} 一组 =====
+            // render(field, fi, self) -> 返回该字段控件 HTML 字符串
+            // collect(root, fi, self) -> 返回该字段当前取值（或数组）
+            var FIELD_TYPES = {
+                'text': {
+                    label: '单行文本',
+                    render: function(f, fi, s) {
+                        var ph = f.placeholder || ('请输入' + (f.label || '内容') + '…');
+                        return '<input type="text" class="ask-user-modal-input ask-field-ctl" data-fi="' + fi + '" data-type="text" placeholder="' + s._esq(ph) + '" />';
+                    },
+                    collect: function(root, fi) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]');
+                        return (el && el.value || '').trim();
+                    },
+                    checkValid: function(root, fi, f, s) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]');
+                        return !(el && !(el.value || '').trim());
+                    }
+                },
+                'select': {
+                    label: '下拉选择',
+                    render: function(f, fi, s) {
+                        var opts = (f.options && f.options.length) ? f.options : (f.choices || []);
+                        var h = '<select class="ask-user-modal-input ask-field-ctl ask-field-select" data-fi="' + fi + '" data-type="select">';
+                        h += '<option value="">' + s._esq(f.placeholder || '请选择…') + '</option>';
+                        for (var i = 0; i < opts.length; i++) {
+                            var o = opts[i];
+                            var ov = (typeof o === 'object' && o !== null) ? o.value : o;
+                            var ol = (typeof o === 'object' && o !== null) ? (o.label || o.text || o.value) : o;
+                            h += '<option value="' + s._esq(String(ov)) + '">' + s._esq(String(ol)) + '</option>';
+                        }
+                        h += '</select>';
+                        return h;
+                    },
+                    collect: function(root, fi) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]');
+                        return (el && el.value || '').trim();
+                    },
+                    checkValid: function(root, fi, f, s) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]');
+                        return !(el && !(el.value || '').trim());
+                    }
+                },
+                'radio': {
+                    label: '单选',
+                    render: function(f, fi, s) {
+                        var opts = (f.options && f.options.length) ? f.options : (f.choices || []);
+                        var h = '<div class="ask-user-options" role="radiogroup" data-type="radio">';
+                        for (var i = 0; i < opts.length; i++) {
+                            var o = opts[i];
+                            var ov = (typeof o === 'object' && o !== null) ? o.value : o;
+                            var ol = (typeof o === 'object' && o !== null) ? (o.label || o.text || o.value) : o;
+                            if (typeof ov !== 'string') ov = String(ov);
+                            if (typeof ol !== 'string') ol = String(ol);
+                            var id = 'askopt-' + fi + '-' + i;
+                            h += '<label class="ask-user-opt">' +
+                                '<input type="radio" class="ask-field-ctl ask-radio" name="askq-' + fi + '" data-fi="' + fi + '" data-fieldtype="radio" value="' + s._esq(ov) + '" id="' + id + '"' + ((f.default === ov) ? ' checked' : '') + ' />' +
+                                '<span class="ask-opt-radio" aria-hidden="true"></span>' +
+                                '<span class="ask-opt-text">' + s._esq(ol) + '</span>' +
+                                '</label>';
+                        }
+                        h += '</div>';
+                        return h;
+                    },
+                    collect: function(root, fi) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]:checked');
+                        return el ? el.value : '';
+                    },
+                    checkValid: function(root, fi, f, s) {
+                        var el = root.querySelector('.ask-field-ctl[data-fi="' + fi + '"]:checked');
+                        return !!(el && el.value);
+                    }
+                },
+                'checkbox': {
+                    label: '多选',
+                    render: function(f, fi, s) {
+                        var opts = (f.options && f.options.length) ? f.options : (f.choices || []);
+                        var h = '<div class="ask-user-options" data-type="checkbox">';
+                        for (var i = 0; i < opts.length; i++) {
+                            var o = opts[i];
+                            var ov = (typeof o === 'object' && o !== null) ? o.value : o;
+                            var ol = (typeof o === 'object' && o !== null) ? (o.label || o.text || o.value) : o;
+                            if (typeof ov !== 'string') ov = String(ov);
+                            if (typeof ol !== 'string') ol = String(ol);
+                            var id = 'askcx-' + fi + '-' + i;
+                            var def = (f.default && f.default.indexOf(ov) >= 0);
+                            h += '<label class="ask-user-opt">' +
+                                '<input type="checkbox" class="ask-field-ctl ask-checkbox" data-fi="' + fi + '" data-fieldtype="checkbox" value="' + s._esq(ov) + '" id="' + id + '"' + (def ? ' checked' : '') + ' />' +
+                                '<span class="ask-opt-check" aria-hidden="true"></span>' +
+                                '<span class="ask-opt-text">' + s._esq(ol) + '</span>' +
+                                '</label>';
+                        }
+                        h += '</div>';
+                        return h;
+                    },
+                    collect: function(root, fi) {
+                        var els = root.querySelectorAll('.ask-field-ctl[data-fi="' + fi + '"]:checked');
+                        var arr = [];
+                        for (var i = 0; i < els.length; i++) arr.push(els[i].value);
+                        return arr;
+                    },
+                    checkValid: function(root, fi, f, s) {
+                        // 未设置 required 时允许多选为空
+                        if (f && f.required === false) return true;
+                        var els = root.querySelectorAll('.ask-field-ctl[data-fi="' + fi + '"]:checked');
+                        return els.length > 0;
+                    }
+                }
+                // ↓ 未来扩展：'date': {...}, 'number': {...}, 'rating': {...}, 'slider': {...} 等
+            };
+
+            // 归一化字段：为简单字段补默认配置
+            function normFields(list) {
+                var out = [];
+                for (var i = 0; i < list.length; i++) {
+                    var f = list[i];
+                    if (typeof f === 'string') f = { type: 'text', label: f };
+                    if (typeof f !== 'object' || f === null) f = {};
+                    var type = (f.type || 'text').toLowerCase();
+                    if (!FIELD_TYPES[type]) type = 'text';
+                    var name = f.name || ('field' + (i + 1));
+                    out.push({
+                        type: type,
+                        label: f.label || FIELD_TYPES[type].label || name,
+                        name: name,
+                        options: f.options || f.choices || [],
+                        placeholder: f.placeholder || '',
+                        default: f['default'],
+                        required: f.required !== false
+                    });
+                }
+                return out;
+            }
+
+            var fields = rawFields ? normFields(rawFields) : null;
+
+            return new Promise(function(resolve) {
+                
+                                // ===== 防卡死(3)：ask_user 模态框超时兜底 =====
+                                var askSettled = false;
+                                var askTimer = null;
+                                function askResolve(v) {
+                                    if (askSettled) return;
+                                    askSettled = true;
+                                    if (askTimer) { clearTimeout(askTimer); askTimer = null; }
+                                    resolve(v);
+                                }
+                                askTimer = setTimeout(function() {
+                                    askResolve({ success: false, cancelled: true, question: question, answer: '', message: '等待用户输入超时，已自动继续，请稍后重试。', tool: 'ask_user' });
+                                    try { if (modal && modal.parentNode) modal.parentNode.removeChild(modal); } catch(e){}
+                                    if (self._askUserQueue && self._askUserQueue.length > 0) { var _nq = self._askUserQueue.shift(); setTimeout(function(){ self.askUser(_nq.toolArgs, _nq.box, _nq.chat).then(_nq.resolve); }, 300); }
+                                }, 300000);
+                
+                // 排队机制：如果已有一个询问弹窗在等用户回答，新请求排队等待，不替换
+                var existing = document.getElementById('askUserModalGlobal');
+                if (existing) {
+                    self._askUserQueue = self._askUserQueue || [];
+                    self._askUserQueue.push({ resolve: resolve, toolArgs: toolArgs, box: box, chat: chat, question: question, fields: fields });
+                    var qBadge = existing.querySelector('.ask-user-queue-badge');
+                    if (!qBadge) {
+                        qBadge = document.createElement('span');
+                        qBadge.className = 'ask-user-queue-badge';
+                        qBadge.style.cssText = 'font-size:11px;color:rgba(255,193,7,0.95);background:rgba(255,193,7,0.18);padding:2px 8px;border-radius:8px;margin-left:8px;white-space:nowrap;';
+                        existing.querySelector('.ask-user-modal-head').appendChild(qBadge);
+                    }
+                    qBadge.textContent = '排队：' + self._askUserQueue.length;
+                    return;
+                }
+
+                var modal = document.createElement('div');
+                modal.id = 'askUserModalGlobal';
+                modal.className = 'ask-user-modal-global';
+                modal.innerHTML =
+                    '<div class="ask-user-modal-card ask-user-modal-card--form">' +
+                        '<div class="ask-user-modal-head">' +
+                            '<span class="ask-user-modal-icon">?</span>' +
+                            '<span class="ask-user-modal-title">询问用户</span>' +
+                            '<span class="ask-user-modal-status">等待你的回答</span>' +
+                            '<span class="ask-user-modal-close" title="取消并停止对话">&times;</span>' +
+                        '</div>' +
+                        '<div class="ask-user-modal-body">' +
+                            '<div class="ask-user-modal-question">' + self._escapeForAttr(question) + '</div>' +
+                            '<div class="ask-user-fields"></div>' +
+                            '<div class="ask-user-input-row ask-user-btn-row">' +
+                                '<button type="button" class="ask-user-submit ask-user-modal-submit">提交</button>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+                document.body.appendChild(modal);
+
+                var fieldsBox = modal.querySelector('.ask-user-fields');
+                var btn = modal.querySelector('.ask-user-modal-submit');
+                var closeBtn = modal.querySelector('.ask-user-modal-close');
+                var card = modal.querySelector('.ask-user-modal-card');
+                var statusEl = modal.querySelector('.ask-user-modal-status');
+                var finished = false;
+
+                // 渲染字段（若非表单则放一个普通文本框以保持兼容并聚焦）
+                function renderFields() {
+                    if (!fields) {
+                        var ph = '在此输入你的回答…';
+                        fieldsBox.innerHTML = '<div class="ask-field-row ask-field-row--single">' +
+                            '<input type="text" class="ask-user-modal-input ask-user-single-input" placeholder="' + ph + '" />' +
+                            '</div>';
+                        return;
+                    }
+                    var html = '';
+                    for (var i = 0; i < fields.length; i++) {
+                        var f = fields[i];
+                        var t = FIELD_TYPES[f.type];
+                        html += '<div class="ask-field-row" data-name="' + self._esq(f.name) + '">' +
+                            '<div class="ask-field-label">' + self._esq(f.label) +
+                                (f.required ? '<span class="ask-field-required"> *</span>' : '') +
+                            '</div>' +
+                            '<div class="ask-field-control">' + t.render(f, i, self) + '</div>' +
+                        '</div>';
+                    }
+                    fieldsBox.innerHTML = html;
+                }
+                renderFields();
+
+                function closeModal() {
+                    if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+                    finished = true;
+                    // 触发队列中的下一个 ask_user
+                    if (self._askUserQueue && self._askUserQueue.length > 0) {
+                        var next = self._askUserQueue.shift();
+                        setTimeout(function() {
+                            self.askUser(next.toolArgs, next.box, next.chat).then(next.resolve);
+                        }, 300);
+                    }
+                }
+
+                function flashReceived() {
+                    if (statusEl) statusEl.textContent = '? 已收到你的回答';
+                    if (card) card.style.borderColor = 'rgba(74, 187, 120, 0.6)';
+                }
+
+                function collectAnswer() {
+                    // 兼容纯文本模式：如果弹窗里存在单文本框（asub 模式），取其值
+                    var single = modal.querySelector('.ask-user-single-input');
+                    if (single) return (single.value || '').trim();
+
+                    var result = {};
+                    var firstErr = null;
+                    for (var i = 0; i < fields.length; i++) {
+                        var f = fields[i];
+                        var t = FIELD_TYPES[f.type];
+                        var v = t.collect(fieldsBox, i, self);
+                        // 校验必填
+                        if (firstErr === null && f.required && t && t.checkValid) {
+                            if (!t.checkValid(fieldsBox, i, f, self)) {
+                                firstErr = f.label;
+                            }
+                        }
+                        result[f.name] = v;
+                    }
+                    return { values: result, firstErr: firstErr };
+                }
+
+                function finish() {
+                    if (finished) return;
+                    var ans;
+                    if (fields) {
+                        ans = collectAnswer();
+                        var singleEl = modal.querySelector('.ask-user-single-input');
+                        if (ans && ans.firstErr && !singleEl) {
+                            // 必填未填，提示并聚焦第一个错误字段
+                            if (statusEl) statusEl.textContent = '\u26A0\uFE0F 请完善：' + ans.firstErr;
+                            var errCtl = fieldsBox.querySelector('.ask-field-label');
+                            if (errCtl) errCtl.scrollIntoView({ block: 'center' });
+                            return;
+                        }
+                        // 组装可读回答文本
+                        var parts = [];
+                        var valObj = (ans && ans.values) ? ans.values : {};
+                        for (var i = 0; i < fields.length; i++) {
+                            var f = fields[i];
+                            var v = valObj[f.name];
+                            var str;
+                            if (Array.isArray(v)) str = v.join('、');
+                            else str = (v === undefined || v === null || v === '') ? '' : String(v);
+                            if (str) { parts.push(f.label + '：' + str); }
+                        }
+                        var val = parts.length ? parts.join('；') : '';
+                        if (!val) { if (statusEl) statusEl.textContent = '\u26A0\uFE0F 请至少填写一项'; return; }
+                        flashReceived();
+                        var full = (valObj && Object.keys(valObj).length)
+                            ? valObj
+                            : val;
+                        setTimeout(closeModal, 250);
+                        // 在所属对话里补一条简洁的“问/答”记录，便于回溯
+                        try {
+                            if (chatId) {
+                                Store.addMessage(chatId, 'tool', '[询问用户] ' + question + ' → 你的回答：' + val, 'tool');
+                            }
+                        } catch (e) {}
+                        askResolve({
+                            success: true,
+                            question: question,
+                            answer: full,
+                            message: '用户回答：' + val,
+                            tool: 'ask_user'
+                        });
+                    } else {
+                        var single = modal.querySelector('.ask-user-single-input');
+                        var val = (single && single.value || '').trim();
+                        if (!val) { if (single) single.focus(); return; }
+                        flashReceived();
+                        setTimeout(closeModal, 250);
+                        try {
+                            if (chatId) {
+                                Store.addMessage(chatId, 'tool', '[询问用户] ' + question + ' → 你的回答：' + val, 'tool');
+                            }
+                        } catch (e) {}
+                        askResolve({
+                            success: true,
+                            question: question,
+                            answer: val,
+                            message: '用户回答：' + val,
+                            tool: 'ask_user'
+                        });
+                    }
+                }
+
+                // 关闭按钮：取消询问，停止 Agent 循环
+                if (closeBtn) closeBtn.addEventListener('click', function() {
+                    if (finished) return;
+                    flashReceived = null; // 不显示已收到
+                    if (statusEl) statusEl.textContent = '用户已取消';
+                    if (card) { card.style.borderColor = 'rgba(255,107,107,0.6)'; }
+                    // 记录取消日志
+                    try {
+                        if (chatId) {
+                            Store.addMessage(chatId, 'tool', '[询问用户] ' + question + ' → 用户取消', 'tool');
+                        }
+                    } catch(e) {}
+                    var cancelVal = { success: false, cancelled: true, question: question, answer: '', message: '用户取消了询问，对话已停止。', tool: 'ask_user' };
+                    setTimeout(function() {
+                        closeModal();
+                        askResolve(cancelVal);
+                    }, 200);
+                });
+
+                if (btn) btn.addEventListener('click', finish);
+                if (fields) {
+                    // 表单模式：聚焦第一个未填字段 / 或允许回车提交（在文本框上）
+                } else {
+                    var single = modal.querySelector('.ask-user-single-input');
+                    if (single) {
+                        single.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') { e.preventDefault(); finish(); }
+                        });
+                        setTimeout(function() { single.focus(); }, 60);
+                    }
+                }
+            });
+        },
+});

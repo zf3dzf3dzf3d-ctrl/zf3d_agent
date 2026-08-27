@@ -1,0 +1,159 @@
+{
+  "_meta": {
+    "version": 4,
+    "updated_at": "2026-08-27T14:00:00",
+    "说明": "思考强度统一配置。levels 为所有模型共用的默认档位；modelOverrides 按模型 modelId 覆盖档位列表。value 为发送到 API 的 reasoning_effort 值，label 直接用英文 value，不翻译。各API供应商支持的值不同，必须按模型单独配置。"
+  },
+  "levels": [
+    { "value": "disable", "label": "disable" },
+    { "value": "low",     "label": "low" },
+    { "value": "medium",  "label": "medium" },
+    { "value": "high",    "label": "high" },
+    { "value": "ultra",   "label": "ultra" }
+  ],
+  "modelOverrides": {
+    "doubao-seed-2.0-lite": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "doubao-seed-2.0-mini": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "kimi-k2.7-code": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "minimax-m3": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "doubao-seed-evolving": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "kimi-k3": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "doubao-seed-2.1-turbo": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "deepseek-v4-flash": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "deepseek-v4-pro": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" }
+    ],
+    "glm-4-flash": [
+      { "value": "low",  "label": "low" },
+      { "value": "high", "label": "high" },
+      { "value": "max",  "label": "max" }
+    ],
+    "glm-5.2": [
+      { "value": "low",  "label": "low" },
+      { "value": "high", "label": "high" },
+      { "value": "max",  "label": "max" }
+    ],
+    "glm-5.3": [
+      { "value": "low",  "label": "low" },
+      { "value": "high", "label": "high" },
+      { "value": "max",  "label": "max" }
+    ],
+    "glm-5.3-flash": [
+      { "value": "low",  "label": "low" },
+      { "value": "high", "label": "high" },
+      { "value": "max",  "label": "max" }
+    ],
+    "gpt-5.4": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "gpt-5.4-mini": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "gpt-5.5": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "gpt-5.6-luna": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "gpt-5.6-sol": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "gpt-5.6-terra": [
+      { "value": "low",    "label": "low" },
+      { "value": "medium", "label": "medium" },
+      { "value": "high",   "label": "high" },
+      { "value": "xhigh",  "label": "xhigh" }
+    ],
+    "Qwen/Qwen2.5-7B-Instruct": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-fable-5": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-haiku-4-5-20251001": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-opus-4-6": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-opus-4-7": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-opus-4-8": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-sonnet-4-6": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "claude-sonnet-5": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 2.5 Flash": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 2.5 Flash-Lite": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 2.5 Pro": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 3 Flash Preview": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 3.1 Flash-Lite Preview": [
+      { "value": "disable", "label": "disable" }
+    ],
+    "Gemini 3.1 Pro Preview": [
+      { "value": "disable", "label": "disable" }
+    ]
+  }
+}

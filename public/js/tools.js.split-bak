@@ -1,0 +1,2719 @@
+// ========== tools.js - 工具分类与执行器 ==========
+// 朱峰社区无限智能体 4.2.0
+// 工具分类架构：参考上级项目工具模式.json 设计
+// 每个分类包含一组工具，对话框左侧可切换分类
+// Agent 循环：AI 返回 tool_calls → 本地执行 → 结果回传 → 继续推理
+
+    var Tools = {
+
+        // ===== 当前激活的分类 =====
+        activeCategory: '极简',
+
+        // ===== 各对话独立分类映射（chatId → 分类名） =====
+        chatCategories: {},
+
+        // ===== 当前对话 ID（由 app-agent.js 在工具执行前设置） =====
+        currentChatId: '',
+
+        // ===== 工具结果上下文管理配置（可被 AI 通过 set_tool_result_config 每轮动态调整） =====
+        toolResultConfig: {
+            keepRecent: 3,      // 保留最近 N 条 tool 结果原文，更早的替换为 [已丢弃]
+            maxKeep: 50,         // 总上限安全阀，防止无限增长
+            maxCharsPerTool: 1500 // 单条 tool 结果保留的最大字符数（超出截断为头尾摘要），0=不限制
+        },
+
+        // ===== 工具结果存档（丢弃前存档，AI 可通过 get_tool_result 找回，task_complete 时清空） =====
+        toolResultArchive: {},  // { chatId: [ {id, toolName, content, archivedAt}, ... ] }
+        _archiveCounter: 0,     // 自增 ID 计数器
+
+        // ===== 工具结果出口限额（源头拦截：进上下文前截断，配置统一来自 private/tool_result_limits.json） =====
+        exitLimits: {
+            enabled: true,
+            defaults: { max_chars: 6000, head_ratio: 0.7, tail_ratio: 0.3 },
+            tools: {},
+            _exempt: ['get_tool_result', 'task_complete', 'ask_user', 'set_tool_result_config'],
+            _loaded: false
+        },
+
+        // ===== 已读文件/已搜索关键词缓存（对话级别，上下文重建后仍可访问） =====
+        // 格式: { chatId: { readFiles: { 'path': readCount, ... }, searchedKeywords: { 'keyword': searchCount, ... } } }
+        _toolCache: {},
+        _getToolCache: function(chatId) {
+            var cid = chatId || this.currentChatId;
+            if (!cid) return { readFiles: {}, searchedKeywords: {} };
+            if (!this._toolCache[cid]) this._toolCache[cid] = { readFiles: {}, searchedKeywords: {} };
+            return this._toolCache[cid];
+        },
+        // 记录已读文件
+        _trackReadFile: function(path, chatId) {
+            if (!path) return;
+            var cache = this._getToolCache(chatId);
+            cache.readFiles[path] = (cache.readFiles[path] || 0) + 1;
+        },
+        // 记录已搜索关键词
+        _trackSearch: function(keyword, chatId) {
+            if (!keyword) return;
+            var cache = this._getToolCache(chatId);
+            cache.searchedKeywords[keyword] = (cache.searchedKeywords[keyword] || 0) + 1;
+        },
+        // 获取已读文件提示（供工具结果附加）
+        _getReadFilesHint: function(chatId) {
+            var cache = this._getToolCache(chatId);
+            var paths = Object.keys(cache.readFiles);
+            if (paths.length === 0) return '';
+            var lines = ['\n\n--- 已读文件清单（避免重复读取）---'];
+            paths.forEach(function(p) {
+                var cnt = cache.readFiles[p];
+                lines.push('  ' + p + (cnt > 1 ? ' (已读' + cnt + '次⚠️重复)' : ''));
+            });
+            return lines.join('\n');
+        },
+        // 获取已搜索提示
+        _getSearchedHint: function(chatId) {
+            var cache = this._getToolCache(chatId);
+            var kws = Object.keys(cache.searchedKeywords);
+            if (kws.length === 0) return '';
+            var lines = ['\n\n--- 已搜索关键词清单（避免重复搜索）---'];
+            kws.forEach(function(k) {
+                var cnt = cache.searchedKeywords[k];
+                lines.push('  "' + k + '"' + (cnt > 1 ? ' (已搜' + cnt + '次⚠️重复)' : ''));
+            });
+            return lines.join('\n');
+        },
+        // 清空对话缓存（task_complete 时调用）
+        _clearToolCache: function(chatId) {
+            var cid = chatId || this.currentChatId;
+            if (cid && this._toolCache[cid]) delete this._toolCache[cid];
+        },
+
+        // ===== category definitions (provided by tools-definitions.js) =====
+        categories: window.ToolDefinitions.categories,
+
+        // ===== tool definitions (provided by tools-definitions.js) =====
+        allTools: window.ToolDefinitions.allTools,
+        getDefinitions: function(options, chatId) {
+            var cid = chatId || this.currentChatId;
+            var catName = this.chatCategories[cid] || this.activeCategory;
+            var cat = this.categories[catName];
+            if (!cat) return [];
+            var result = [];
+            var self = this;
+            var compact = !options || options.compact !== false;
+            cat.tools.forEach(function(name) {
+                // ===== 元工具（switch_tool_category / task_complete）始终包含，不受设置过滤 =====
+                var isMeta = (name === 'switch_tool_category' || name === 'task_complete');
+                if (!isMeta && typeof window.ToolsSettings !== 'undefined' &&
+                    typeof window.ToolsSettings.isToolEnabled === 'function' &&
+                    !window.ToolsSettings.isToolEnabled(name)) {
+                    return;
+                }
+                var t = self.allTools[name] || self[name];
+                if (!t) return;
+                if (!compact) { result.push(t); return; }
+                result.push({ type: t.type, function: {
+                    name: t.function.name,
+                    description: t.function.description,
+                    parameters: self._compactToolSchema(t.function.parameters)
+                }});
+            });
+            return result;
+        },
+
+        // Remove non-essential schema metadata before sending tool definitions.
+        // Keep the JSON Schema structure required by OpenAI-compatible endpoints.
+        _compactToolSchema: function(schema) {
+            if (!schema || typeof schema !== 'object') return schema;
+            var compact = {};
+            var allowed = ['type', 'description', 'enum', 'const', 'default', 'required', 'additionalProperties'];
+            allowed.forEach(function(key) {
+                if (Object.prototype.hasOwnProperty.call(schema, key)) {
+                    compact[key] = schema[key];
+                }
+            });
+            if (schema.properties && typeof schema.properties === 'object') {
+                compact.properties = {};
+                Object.keys(schema.properties).forEach(function(key) {
+                    compact.properties[key] = Tools._compactToolSchema(schema.properties[key]);
+                });
+            }
+            if (schema.items && typeof schema.items === 'object') {
+                compact.items = Tools._compactToolSchema(schema.items);
+            }
+            if (schema.anyOf && Array.isArray(schema.anyOf)) {
+                compact.anyOf = schema.anyOf.map(function(item) {
+                    return Tools._compactToolSchema(item);
+                });
+            }
+            if (schema.oneOf && Array.isArray(schema.oneOf)) {
+                compact.oneOf = schema.oneOf.map(function(item) {
+                    return Tools._compactToolSchema(item);
+                });
+            }
+            return compact;
+        },
+
+        // ===== 获取分类列表（用于渲染切换菜单） =====
+            // ===== 写作工具定义 =====
+            rewrite_text: {
+                type: 'function',
+                function: {
+                    name: 'rewrite_text',
+                    description: '对文本进行改写重述，保持原意但改变表达方式，降低重复率。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要改写的原文' },
+                            path: { type: 'string', description: '可选：要改写的文本文件路径' },
+                            style: { type: 'string', description: '改写风格，例如 更正式、更口语、更学术、更简洁' },
+                            strength: { type: 'string', description: '改写力度：轻度、中度、深度' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            expand_text: {
+                type: 'function',
+                function: {
+                    name: 'expand_text',
+                    description: '在保持原文主旨的基础上，丰富细节、补充论据、扩展场景，使内容更加充实饱满。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要扩写的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            target_length: { type: 'string', description: '目标长度，例如 扩充一倍、扩充到1000字' },
+                            direction: { type: 'string', description: '扩写方向，例如 补充细节、增加论据、扩展场景' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            shorten_text: {
+                type: 'function',
+                function: {
+                    name: 'shorten_text',
+                    description: '在保持原文核心信息和逻辑完整的前提下，删减冗余、压缩表达，使内容更加简洁有力。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要精简的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            target_length: { type: 'string', description: '目标长度，例如 缩短一半、300字' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            polish_text: {
+                type: 'function',
+                function: {
+                    name: 'polish_text',
+                    description: '对指定文本进行润色改写，可控制文风、目标长度、重点和是否保持原意，并返回改写说明。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要润色的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            style: { type: 'string', description: '目标文风，例如 更正式、更轻松、更生动' },
+                            target_length: { type: 'string', description: '目标长度，例如 保持、缩短、扩充到1000字' },
+                            focus: { type: 'string', description: '润色重点，例如 逻辑、表达、细节、说服力' },
+                            preserve_meaning: { type: 'boolean', description: '是否严格保持原意，默认true' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            translate_text: {
+                type: 'function',
+                function: {
+                    name: 'translate_text',
+                    description: '准确翻译文本，保持原文的语气和风格。只输出译文。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要翻译的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            target_lang: { type: 'string', description: '目标语言，例如 英语、日语、韩语、法语' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            proofread_text: {
+                type: 'function',
+                function: {
+                    name: 'proofread_text',
+                    description: '检查文本中的错别字、语法错误、标点问题和逻辑漏洞，逐条列出问题并给出修改建议。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要校对的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            change_tone: {
+                type: 'function',
+                function: {
+                    name: 'change_tone',
+                    description: '将文本转换为指定语气，保持核心内容不变。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要转换语气的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            tone: { type: 'string', description: '目标语气，例如 正式、轻松、严肃、幽默、热情' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            professional_edit: {
+                type: 'function',
+                function: {
+                    name: 'professional_edit',
+                    description: '对文本进行专业级修饰，提升用词精准度、逻辑严密性和表达规范性。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要修饰的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            field: { type: 'string', description: '专业领域，例如 学术、法律、医学、技术' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            fix_punctuation: {
+                type: 'function',
+                function: {
+                    name: 'fix_punctuation',
+                    description: '检查并修正文本中的标点符号错误，包括中英文标点混用、缺失、多余等问题。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要修正标点的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            convert_chars: {
+                type: 'function',
+                function: {
+                    name: 'convert_chars',
+                    description: '进行中文繁体和简体之间的转换。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要转换的原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            direction: { type: 'string', description: '转换方向：简转繁、繁转简' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            summarize_text: {
+                type: 'function',
+                function: {
+                    name: 'summarize_text',
+                    description: '对文本进行结构化总结，保留关键事实、结论和下一步。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要总结的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            target_length: { type: 'string', description: '总结长度：极短、短、中、长，或具体字数' },
+                            focus: { type: 'string', description: '总结重点，例如 结论、风险、行动项、关键数据' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            write_outline: {
+                type: 'function',
+                function: {
+                    name: 'write_outline',
+                    description: '根据主题或要求生成结构化大纲。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            topic: { type: 'string', description: '大纲主题' },
+                            format: { type: 'string', description: '输出格式：Markdown、编号、缩进' },
+                            detail_level: { type: 'string', description: '详细程度：粗略、标准、详细' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            quick_article: {
+                type: 'function',
+                function: {
+                    name: 'quick_article',
+                    description: '根据主题和要点快速生成一篇文章。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            topic: { type: 'string', description: '文章主题' },
+                            article_type: { type: 'string', description: '文章类型，例如 通用、技术、评论、故事' },
+                            word_count: { type: 'string', description: '目标字数，例如 800、1500' },
+                            points: { type: 'string', description: '要点提示' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            extract_keywords: {
+                type: 'function',
+                function: {
+                    name: 'extract_keywords',
+                    description: '提取最能代表文本核心内容的词语，按重要性排序。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要提取关键词的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            count: { type: 'integer', description: '关键词数量，默认10' },
+                            format: { type: 'string', description: '输出格式：列表、逗号分隔' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            extract_outline: {
+                type: 'function',
+                function: {
+                    name: 'extract_outline',
+                    description: '从已有文章反向提取结构化大纲，识别标题层级、段落主题和逻辑关系。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要提取大纲的文章' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            format: { type: 'string', description: '输出格式：Markdown、编号、缩进' },
+                            detail_level: { type: 'string', description: '详细程度：粗略、标准、详细' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            analyze_sentiment: {
+                type: 'function',
+                function: {
+                    name: 'analyze_sentiment',
+                    description: '分析文章的整体情感倾向、情绪强度、情绪变化轨迹。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要分析的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            detect_style: {
+                type: 'function',
+                function: {
+                    name: 'detect_style',
+                    description: '分析文章的文风特征，包括文风判断、用词特征、句式特征和改进建议。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要分析的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            detect_sensitive: {
+                type: 'function',
+                function: {
+                    name: 'detect_sensitive',
+                    description: '检测文本中的敏感词、违规词和广告法极限词（本地工具，不调用模型）。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要检测的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            categories: { type: 'string', description: '检测类别，逗号分隔：广告法,平台,政治；默认全部' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            analyze_text_metrics: {
+                type: 'function',
+                function: {
+                    name: 'analyze_text_metrics',
+                    description: '统计文本的基本指标：字符数、中英文、标点、段落、句子、长句、阅读时间（本地工具，不调用模型）。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要统计的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            compare_text: {
+                type: 'function',
+                function: {
+                    name: 'compare_text',
+                    description: '对比两段文本的差异，包括内容、结构、风格、长度等维度。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text_a: { type: 'string', description: '第一段文本' },
+                            text_b: { type: 'string', description: '第二段文本' },
+                            focus: { type: 'string', description: '对比重点：内容差异、结构差异、风格差异、全面对比' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            rate_article: {
+                type: 'function',
+                function: {
+                    name: 'rate_article',
+                    description: '对文章进行多维度评分（内容、逻辑、表达、创新、可读性），给出评语和总分。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要评分的文章' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            dimensions: { type: 'string', description: '评审维度，默认：内容、逻辑、表达、创新、可读性' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            fact_check: {
+                type: 'function',
+                function: {
+                    name: 'fact_check',
+                    description: '检查文本中可能存在的事实错误、数据错误和逻辑漏洞。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '需要核查的文本' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            opposing_view: {
+                type: 'function',
+                function: {
+                    name: 'opposing_view',
+                    description: '针对文章的核心观点，提出3-5个合理的不同或反对观点。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            role_brainstorm: {
+                type: 'function',
+                function: {
+                    name: 'role_brainstorm',
+                    description: '从不同角色/视角对主题进行发散性思考，每个角色给出独特见解。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '主题或原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            roles: { type: 'string', description: '角色设定，例如 产品经理、用户、开发者' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            expert_review: {
+                type: 'function',
+                function: {
+                    name: 'expert_review',
+                    description: '以专家的视角对内容进行深度评析，指出专业性问题和改进方向。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            field: { type: 'string', description: '专业领域，例如 技术、商业、法律' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            novice_view: {
+                type: 'function',
+                function: {
+                    name: 'novice_view',
+                    description: '以新手/初学者的视角阅读文章，指出看不懂的地方并提出疑问。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            bystander_view: {
+                type: 'function',
+                function: {
+                    name: 'bystander_view',
+                    description: '以普通路人的视角阅读文章，给出最直观的第一印象和感受。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            group_discussion: {
+                type: 'function',
+                function: {
+                    name: 'group_discussion',
+                    description: '模拟群聊场景，多个角色围绕主题展开讨论。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '讨论主题' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            roles: { type: 'string', description: '参与角色设定' },
+                            rounds: { type: 'string', description: '讨论轮数，例如 3-5轮' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            play_devil_advocate: {
+                type: 'function',
+                function: {
+                    name: 'play_devil_advocate',
+                    description: '对文章的每个论点都挑毛病、找漏洞、钻牛角尖，但要有理有据。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            praise_text: {
+                type: 'function',
+                function: {
+                    name: 'praise_text',
+                    description: '发现文章的亮点并给予真诚的赞美，指出具体好在哪里。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            list_formats: {
+                type: 'function',
+                function: {
+                    name: 'list_formats',
+                    description: '将文本内容整理成清晰的列表格式（要点列表、编号列表、任务列表等）。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文或主题' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            list_type: { type: 'string', description: '列表类型：要点列表、编号列表、任务列表、表格' },
+                            sort_by: { type: 'string', description: '排序方式：按原文顺序、按重要性' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            optimize_ends: {
+                type: 'function',
+                function: {
+                    name: 'optimize_ends',
+                    description: '优化文章的开头和结尾，使其更吸引人、更有力。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            part: { type: 'string', description: '优化部分：开头、结尾、开头和结尾' },
+                            goal: { type: 'string', description: '目标效果，例如 开头吸引人、结尾有力' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            generate_quotes: {
+                type: 'function',
+                function: {
+                    name: 'generate_quotes',
+                    description: '从文章中提炼或改写出精炼有力的金句。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            count: { type: 'integer', description: '金句数量，默认5' },
+                            style: { type: 'string', description: '金句风格，例如 精炼有力、诗意、哲理' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            generate_hook: {
+                type: 'function',
+                function: {
+                    name: 'generate_hook',
+                    description: '为文章生成吸引人的开头钩子，让读者忍不住继续阅读。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '主题或原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            hook_type: { type: 'string', description: '钩子类型：悬念式、提问式、数据式、故事式' },
+                            count: { type: 'integer', description: '生成数量，默认3' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            seo_optimize: {
+                type: 'function',
+                function: {
+                    name: 'seo_optimize',
+                    description: '对内容进行SEO优化分析，输出关键词分析、标题建议、meta描述和结构建议。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            keywords: { type: 'string', description: '目标关键词，不传则自动识别' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            adapt_audience: {
+                type: 'function',
+                function: {
+                    name: 'adapt_audience',
+                    description: '按目标读者调整文章的语言难度与表达风格。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            audience: { type: 'string', description: '目标读者，例如 儿童、学生、大众、职场人、专业人士' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            interpret_document: {
+                type: 'function',
+                function: {
+                    name: 'interpret_document',
+                    description: '对文档进行深度解读：提炼核心观点、梳理逻辑脉络、提取关键数据。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '文档内容' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            focus: { type: 'string', description: '解读重点：核心观点、逻辑脉络、关键数据' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            format_beautify: {
+                type: 'function',
+                function: {
+                    name: 'format_beautify',
+                    description: '对文本进行格式美化：优化标题层级、段落间距、列表格式等。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            format: { type: 'string', description: '输出格式：Markdown、纯文本' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            color_text: {
+                type: 'function',
+                function: {
+                    name: 'color_text',
+                    description: '用颜色突出关键词、重点、角色、步骤或情绪。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '原文' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            color_scheme: { type: 'string', description: '配色方案：主题色、暖色、冷色' },
+                            format: { type: 'string', description: '输出格式：html、markdown' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            generate_title: {
+                type: 'function',
+                function: {
+                    name: 'generate_title',
+                    description: '根据文章内容生成多个吸引人的标题供选择。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '文章内容' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            count: { type: 'integer', description: '标题数量，默认5' },
+                            style: { type: 'string', description: '标题风格，例如 吸引人、学术、新闻' }
+                        },
+                        required: []
+                    }
+                }
+            },
+            generate_description: {
+                type: 'function',
+                function: {
+                    name: 'generate_description',
+                    description: '根据内容生成简洁有力的介绍或描述文案。',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            text: { type: 'string', description: '内容' },
+                            path: { type: 'string', description: '可选：文本文件路径' },
+                            desc_type: { type: 'string', description: '描述类型：简介、摘要、推荐语' },
+                            word_count: { type: 'string', description: '目标字数，例如 100-200字' }
+                        },
+                        required: []
+                    }
+                }
+            },
+
+
+        getCategoryList: function(chatId) {
+            var cid = chatId || this.currentChatId;
+            var curCat = this.chatCategories[cid] || this.activeCategory;
+            var list = [];
+            for (var k in this.categories) {
+                if (this.categories.hasOwnProperty(k)) {
+                    list.push({
+                        name: k,
+                        icon: this.categories[k].icon,
+                        desc: this.categories[k].desc,
+                        active: k === curCat
+                    });
+                }
+            }
+            return list;
+        },
+
+        // ===== 切换分类 =====
+        setCategory: function(name, chatId) {
+            if (this.categories[name]) {
+                this.activeCategory = name;
+                var cid = chatId || this.currentChatId;
+                if (cid) { this.chatCategories[cid] = name; }
+                return true;
+            }
+            return false;
+        },
+
+
+        // ===== 写作工具配置（系统提示词、温度、提示构造器） =====
+        _writingTools: {
+            rewrite_text: {
+                sys: "你是专业中文写作编辑。在严格保持原意的前提下改写文本，改变句式结构和用词表达，降低与原文的重复率。只输出改写后的完整文本，不添加解释或说明。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n改写风格："+(a.style||"自然")+"\n改写力度："+(a.strength||"中度")+"\n要求：保持原意，改变表达方式，降低重复率。"; }
+            },
+            expand_text: {
+                sys: "你是专业内容扩写专家。在保持原文主旨和风格的基础上，丰富细节、补充论据、扩展场景，使内容更加充实饱满。只输出扩写后的完整文本。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n目标长度："+(a.target_length||"扩充一倍")+"\n方向："+(a.direction||"补充细节和论据")+"\n要求：保持原文主旨，丰富内容。"; }
+            },
+            shorten_text: {
+                sys: "你是专业内容精简专家。在保持原文核心信息和逻辑完整的前提下，删减冗余、压缩表达，使内容更加简洁有力。只输出精简后的完整文本。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n目标长度："+(a.target_length||"缩短一半")+"\n要求：保留核心信息，删减冗余。"; }
+            },
+            polish_text: {
+                sys: "你是专业中文写作编辑。先给出1-3条简短的润色说明，然后输出润色后的完整文本。保持原文核心内容不变，优化表达、逻辑和文风。",
+                temp: 0.5,
+                build: function(a, t) { return "原文：\n"+t+"\n\n目标文风："+(a.style||"更清晰")+"\n目标长度："+(a.target_length||"保持")+"\n润色重点："+(a.focus||"整体表达")+"\n约束："+(a.preserve_meaning!==false?"必须严格保持原意":"可以适度改写"); }
+            },
+            translate_text: {
+                sys: "你是专业翻译。准确翻译文本，保持原文的语气和风格。只输出译文，不添加解释。",
+                temp: 0.3,
+                build: function(a, t) { return "目标语言："+(a.target_lang||"英语")+"\n\n原文：\n"+t; }
+            },
+            proofread_text: {
+                sys: "你是专业校对编辑。检查文本中的错别字、语法错误、标点问题和逻辑漏洞，逐条列出问题并给出修改建议。如果没有问题，说明文本已无错误。",
+                temp: 0.3,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请逐条列出错误和修改建议。"; }
+            },
+            change_tone: {
+                sys: "你是语气改写专家。将文本转换为指定语气，保持核心内容不变。直接输出改写后的文本。",
+                temp: 0.6,
+                build: function(a, t) { return "目标语气："+(a.tone||"正式")+"\n\n原文：\n"+t; }
+            },
+            professional_edit: {
+                sys: "你是学术编辑专家。对文本进行专业级修饰，提升用词精准度、逻辑严密性和表达规范性，使其达到专业出版水平。",
+                temp: 0.4,
+                build: function(a, t) { return "专业领域："+(a.field||"通用")+"\n\n原文：\n"+t+"\n\n请进行专业级修饰。"; }
+            },
+            fix_punctuation: {
+                sys: "你是标点符号修正专家。检查并修正文本中的标点符号错误，包括中英文标点混用、缺失、多余等问题。直接输出修正后的文本。",
+                temp: 0.3,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请修正标点符号。"; }
+            },
+            convert_chars: {
+                sys: "你是繁简转换专家。准确进行中文繁体和简体之间的转换，保持其他内容不变。直接输出转换后的文本。",
+                temp: 0.3,
+                build: function(a, t) { return "转换方向："+(a.direction||"简转繁")+"\n\n原文：\n"+t; }
+            },
+            summarize_text: {
+                sys: "你是资深内容总结专家。输出清晰的结构化总结，包含核心结论、关键事实、待办/下一步；不要添加原文没有的信息。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n目标长度："+(a.target_length||"中")+"\n重点："+(a.focus||"核心结论与行动项"); }
+            },
+            write_outline: {
+                sys: "你是大纲撰写专家。根据主题或要求生成结构化大纲，层次清晰、逻辑合理。直接输出大纲。",
+                temp: 0.5,
+                build: function(a, t) { return "主题："+(a.topic||t)+"\n格式："+(a.format||"Markdown")+"\n详细程度："+(a.detail_level||"标准"); }
+            },
+            quick_article: {
+                sys: "你是快速写作专家。根据主题和要点快速生成一篇文章，结构完整、内容充实。直接输出文章。",
+                temp: 0.6,
+                build: function(a, t) { return "主题："+(a.topic||"")+"\n文章类型："+(a.article_type||"通用")+"\n字数："+(a.word_count||"800")+"\n要点："+(a.points||t||"无"); }
+            },
+            extract_keywords: {
+                sys: "你是关键词提取专家。提取最能代表文本核心内容的词语，按重要性排序；只输出关键词，不添加解释。",
+                temp: 0.3,
+                build: function(a, t) { return "原文：\n"+t+"\n\n数量："+parseInt(a.count||10)+"\n格式："+(a.format||"列表"); }
+            },
+            extract_outline: {
+                sys: "你是文章结构分析专家。从已有文章中反向提取结构化大纲，识别标题层级、段落主题和逻辑关系；只输出大纲，不添加评论。",
+                temp: 0.3,
+                build: function(a, t) { return "文章：\n"+t+"\n\n格式："+(a.format||"Markdown")+"\n详细程度："+(a.detail_level||"标准"); }
+            },
+            analyze_sentiment: {
+                sys: "你是情感分析专家。分析文章并输出：1)整体情感倾向（积极/消极/中性，给出百分比）；2)情绪强度（强烈/中等/温和）；3)情绪变化轨迹（按段落描述开头-中间-结尾的情绪起伏）；4)情绪把控建议。用清晰Markdown结构化输出，不要改写原文。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t; }
+            },
+            detect_style: {
+                sys: "你是文风分析专家。分析文章的文风特征并输出：1)整体文风判断（正式/口语/学术/文学/新闻等）；2)用词特征（偏书面/偏口语/专业术语密度）；3)句式特征（长句为主/短句为主/句式多样）；4)改进建议。用Markdown结构化输出。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t; }
+            },
+            compare_text: {
+                sys: "你是文本对比分析专家。对比两段文本的差异，从内容、结构、风格、长度等维度进行分析，用Markdown结构化输出。",
+                temp: 0.4,
+                build: function(a, t) { return "文本A：\n"+(a.text_a||"")+"\n\n文本B：\n"+(a.text_b||"")+"\n\n对比重点："+(a.focus||"全面对比"); }
+            },
+            rate_article: {
+                sys: "你是内容质量评审专家。对文章进行多维度评分（满分10分）：1)内容质量；2)逻辑结构；3)语言表达；4)创新性；5)可读性。给出每项分数和评语，最后给出总分和总评。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n评审维度："+(a.dimensions||"内容、逻辑、表达、创新、可读性"); }
+            },
+            fact_check: {
+                sys: "你是事实核查专家。检查文本中可能存在的事实错误、数据错误和逻辑漏洞，逐条列出问题并给出核查建议。如果内容准确无误，请明确说明。",
+                temp: 0.3,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请逐条核查事实。"; }
+            },
+            opposing_view: {
+                sys: "你是不同观点生成器。针对文章的核心观点，提出3-5个合理的不同或反对观点，每个观点附简短理由。保持客观理性。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请提出不同观点。"; }
+            },
+            role_brainstorm: {
+                sys: "你是多角色发散思维专家。从不同角色/视角对主题进行发散性思考，每个角色给出独特见解。",
+                temp: 0.7,
+                build: function(a, t) { return "主题："+t+"\n角色设定："+(a.roles||"产品经理、用户、开发者、投资人、批评家"); }
+            },
+            expert_review: {
+                sys: "你是资深领域专家。以专家的视角对内容进行深度评析，指出专业性问题和改进方向。",
+                temp: 0.5,
+                build: function(a, t) { return "领域："+(a.field||"通用")+"\n\n原文：\n"+t+"\n\n请以专家视角评析。"; }
+            },
+            novice_view: {
+                sys: "你是新手读者。以初学者/新手的视角阅读文章，指出看不懂的地方、觉得困难的概念，提出疑问。语气真实自然。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请以新手视角给出阅读感受和疑问。"; }
+            },
+            bystander_view: {
+                sys: "你是路人读者。以普通路人的视角阅读文章，给出最直观的第一印象和感受，是否吸引人、是否愿意继续看。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请以路人视角给出第一印象。"; }
+            },
+            group_discussion: {
+                sys: "你是群聊模拟器。模拟一个群聊场景，多个角色围绕主题展开讨论，各抒己见、互相回应，生成生动的群聊记录。",
+                temp: 0.7,
+                build: function(a, t) { return "主题："+t+"\n参与角色："+(a.roles||"3-5个不同观点的角色")+"\n轮数："+(a.rounds||"3-5轮"); }
+            },
+            play_devil_advocate: {
+                sys: "你是专业抬杠选手。对文章的每个论点都挑毛病、找漏洞、钻牛角尖。语气可以带点挑衅，但抬杠要有理有据，不能无理取闹。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请对以上内容进行抬杠，找出所有可以反驳的点。"; }
+            },
+            praise_text: {
+                sys: "你是热情的赞美者。发现文章中的所有亮点和优点，给予真诚的赞美。指出具体好在哪里，为什么好，让人感到被认可和鼓舞。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n请发现并赞美以上内容的亮点。"; }
+            },
+            list_formats: {
+                sys: "你是列表整理专家。将文本内容整理成清晰的列表格式。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n列表类型："+(a.list_type||"要点列表")+"\n排序："+(a.sort_by||"按原文顺序"); }
+            },
+            optimize_ends: {
+                sys: "你是开头结尾优化专家。优化文章的开头和结尾，使其更吸引人、更有力。",
+                temp: 0.5,
+                build: function(a, t) { return "原文：\n"+t+"\n\n优化部分："+(a.part||"开头和结尾")+"\n目标效果："+(a.goal||"开头吸引人，结尾有力"); }
+            },
+            generate_quotes: {
+                sys: "你是金句生成专家。从文章中提炼或改写出精炼有力的金句，适合引用和传播。",
+                temp: 0.6,
+                build: function(a, t) { return "原文：\n"+t+"\n\n数量："+parseInt(a.count||5)+"\n风格："+(a.style||"精炼有力"); }
+            },
+            generate_hook: {
+                sys: "你是钩子（Hook）生成专家。为文章生成吸引人的开头钩子，让读者忍不住继续阅读。",
+                temp: 0.6,
+                build: function(a, t) { return "主题/原文：\n"+t+"\n\n钩子类型："+(a.hook_type||"悬念式")+"\n数量："+parseInt(a.count||3); }
+            },
+            seo_optimize: {
+                sys: "你是SEO内容优化专家。输出：1)关键词分析（3-5个目标关键词、频率、密度建议）；2)标题优化建议（2-3个SEO友好标题）；3)meta描述（80-120字含关键词）；4)结构优化建议。用Markdown结构化输出，不改写原文。",
+                temp: 0.4,
+                build: function(a, t) { return "目标关键词："+(a.keywords||"（未指定，请自动识别）")+"\n\n原文：\n"+t; }
+            },
+            adapt_audience: {
+                sys: "你是内容适配专家。把文章改写成适合指定目标读者阅读的版本：调整词汇难度、句式复杂度、举例方式，保留原文核心信息不改变主旨。直接输出改写后的完整文章。",
+                temp: 0.6,
+                build: function(a, t) { return "目标读者："+(a.audience||"大众读者")+"\n\n原文：\n"+t; }
+            },
+            interpret_document: {
+                sys: "你是文档解读专家。对文档进行深度解读：提炼核心观点、梳理逻辑脉络、提取关键数据、回答针对性问题。",
+                temp: 0.4,
+                build: function(a, t) { return "文档内容：\n"+t+"\n\n解读重点："+(a.focus||"核心观点和逻辑脉络"); }
+            },
+            format_beautify: {
+                sys: "你是排版美化专家。对文本进行格式美化：优化标题层级、段落间距、列表格式、引用样式等。直接输出美化后的Markdown文本。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n输出格式："+(a.format||"Markdown"); }
+            },
+            color_text: {
+                sys: "你是视觉文字排版专家。用颜色突出关键词、重点、角色、步骤或情绪，保持原文可读；HTML使用span color，Markdown使用可阅读的标记并说明颜色用途。",
+                temp: 0.4,
+                build: function(a, t) { return "原文：\n"+t+"\n\n配色："+(a.color_scheme||"主题色")+"\n输出格式："+(a.format||"html"); }
+            },
+            generate_title: {
+                sys: "你是标题生成专家。根据文章内容生成多个吸引人的标题供选择。",
+                temp: 0.6,
+                build: function(a, t) { return "文章内容：\n"+t+"\n\n数量："+parseInt(a.count||5)+"\n风格："+(a.style||"吸引人"); }
+            },
+            generate_description: {
+                sys: "你是介绍描述生成专家。根据内容生成简洁有力的介绍或描述文案。",
+                temp: 0.5,
+                build: function(a, t) { return "内容：\n"+t+"\n\n类型："+(a.desc_type||"简介")+"\n字数："+(a.word_count||"100-200字"); }
+            }
+        },
+
+        // ===== 写作工具中文名和图标 =====
+        _writingToolMeta: {
+            rewrite_text: { name: "改写", icon: "📝" },
+            expand_text: { name: "扩写", icon: "🌱" },
+            shorten_text: { name: "缩写", icon: "✂️" },
+            polish_text: { name: "润色", icon: "✨" },
+            translate_text: { name: "翻译", icon: "🌐" },
+            proofread_text: { name: "审校", icon: "🔍" },
+            change_tone: { name: "换语气", icon: "🎭" },
+            professional_edit: { name: "专业修饰", icon: "🎓" },
+            fix_punctuation: { name: "标点修正", icon: "🔧" },
+            convert_chars: { name: "繁简转换", icon: "🔄" },
+            summarize_text: { name: "总结", icon: "🧾" },
+            write_outline: { name: "写大纲", icon: "📋" },
+            quick_article: { name: "快速写文章", icon: "⚡" },
+            extract_keywords: { name: "提取关键词", icon: "🏷️" },
+            extract_outline: { name: "提取大纲", icon: "📐" },
+            analyze_sentiment: { name: "情感分析", icon: "💗" },
+            detect_style: { name: "文风检测", icon: "🎨" },
+            detect_sensitive: { name: "敏感词检测", icon: "🚨" },
+            analyze_text_metrics: { name: "文本统计", icon: "📊" },
+            compare_text: { name: "文本对比", icon: "🔀" },
+            rate_article: { name: "评分", icon: "⭐" },
+            fact_check: { name: "事实核查", icon: "✔️" },
+            opposing_view: { name: "不同观点", icon: "💭" },
+            role_brainstorm: { name: "多角色发散", icon: "🧠" },
+            expert_review: { name: "专家视角", icon: "🔬" },
+            novice_view: { name: "新手视角", icon: "🐣" },
+            bystander_view: { name: "路人视角", icon: "🚶" },
+            group_discussion: { name: "群聊", icon: "💬" },
+            play_devil_advocate: { name: "抬杠", icon: "😈" },
+            praise_text: { name: "夸奖", icon: "👏" },
+            list_formats: { name: "列表列举", icon: "📋" },
+            optimize_ends: { name: "开头结尾优化", icon: "✏️" },
+            generate_quotes: { name: "金句生成", icon: "💎" },
+            generate_hook: { name: "钩子生成", icon: "🪝" },
+            seo_optimize: { name: "SEO优化", icon: "📈" },
+            adapt_audience: { name: "目标读者适配", icon: "🎯" },
+            interpret_document: { name: "文档解读", icon: "📖" },
+            format_beautify: { name: "格式美化", icon: "💄" },
+            color_text: { name: "颜色优化", icon: "🌈" },
+            generate_title: { name: "生成标题", icon: "📌" },
+            generate_description: { name: "生成介绍描述", icon: "📝" }
+        },
+
+        // ===== 调用写作模型（读取模型配置→调用API→返回结果）=====
+        _callWritingModel: function(toolName, args, context) {
+            context = context || {};
+            var chatId = context.chatId || this.currentChatId || '';
+            var self = this;
+            var cfg = this._writingTools[toolName];
+            if (!cfg) return Promise.resolve({ success: false, message: "未知写作工具：" + toolName, tool: toolName });
+
+            // 获取文本：优先 args.text，其次 args.path（需要后端读取）
+            var textPromise;
+            if (args.path) {
+                textPromise = fetch("/api/tools/read", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: args.path, max_chars: 50000, _chat_id: chatId })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    return (d && d.ok && d.content) ? d.content : "";
+                }).catch(function() { return ""; });
+            } else {
+                textPromise = Promise.resolve(args.text || "");
+            }
+
+            return textPromise.then(function(text) {
+                if (!text || text.trim().length < 2) {
+                    return { success: false, message: "未提供文本内容。请通过 text 参数传入需要处理的文本，或通过 path 参数指定文件路径。", tool: toolName };
+                }
+
+                // 构造用户消息
+                var userMsg = cfg.build(args, text);
+                var sysPrompt = cfg.sys;
+                var temp = cfg.temp || 0.5;
+
+                // 获取模型配置（优先使用当前对话的模型，其次第一个可用模型）
+                var model = null;
+                try {
+                    // 尝试从当前对话获取模型
+                    if (chatId && typeof Store !== "undefined" && Store.data && Store.data.chatBoxes) {
+                        for (var ci = 0; ci < Store.data.chatBoxes.length; ci++) {
+                            if (Store.data.chatBoxes[ci].id === chatId) {
+                                var mid = Store.data.chatBoxes[ci].modelId;
+                                if (mid && typeof Models !== "undefined") {
+                                    model = Models.get(mid);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    // 回退到最后一个使用的模型，其次第一个可用模型
+                    if (!model && typeof Models !== "undefined" && Models.list && Models.list.length > 0) {
+                        var _lu = window._lastUsedModel || null;
+                        if (_lu && _lu.endpoint && _lu.modelId) {
+                            model = Models.list.find(function(m){ return m && m.key && m.endpoint === _lu.endpoint && m.modelId === _lu.modelId; });
+                        }
+                        if (!model) model = Models.list[0];
+                    }
+                } catch(e) {}
+
+                if (!model || !model.endpoint || !model.key) {
+                    return { success: false, message: "未配置模型。请在设置中添加模型配置（API endpoint 和 key）。", tool: toolName };
+                }
+
+                // 通过后端代理调用模型 API（解决 CORS）
+                var headers = { "Content-Type": "application/json" };
+                headers["Authorization"] = "Bearer " + model.key;
+                if (model.headers) {
+                    for (var k in model.headers) { headers[k] = model.headers[k]; }
+                }
+
+                var payload = {
+                    model: model.modelId,
+                    messages: [
+                        { role: "system", content: sysPrompt },
+                        { role: "user", content: userMsg }
+                    ],
+                    temperature: temp,
+                    stream: false
+                };
+                if (model.body) {
+                    for (var bk in model.body) { if (model.body.hasOwnProperty(bk)) payload[bk] = model.body[bk]; }
+                }
+
+                return DB.proxy(model.endpoint, headers, payload).then(function(data) {
+                    var reply = "";
+                    if (data.choices && data.choices[0] && data.choices[0].message) {
+                        reply = data.choices[0].message.content || "";
+                    } else if (data.error) {
+                        return { success: false, message: "模型调用失败：" + (data.error.message || JSON.stringify(data.error)), tool: toolName };
+                    }
+                    reply = (reply || "").trim();
+                    if (!reply) {
+                        return { success: false, message: "模型返回空内容", tool: toolName };
+                    }
+                    var meta = self._writingToolMeta[toolName] || {};
+                    return { success: true, message: (meta.icon || "✍️") + " " + (meta.name || toolName) + "：\n\n" + reply, tool: toolName };
+                }).catch(function(err) {
+                    return { success: false, message: "请求失败：" + err.message, tool: toolName };
+                });
+            });
+        },
+
+        // ===== 敏感词检测（本地，不调用模型）=====
+        _detectSensitive: function(args) {
+            var text = args.text || "";
+            if (args.path) {
+                return fetch("/api/tools/read", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: args.path, max_chars: 50000, _chat_id: chatId })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    return (d && d.ok && d.content) ? d.content : "";
+                }).then(function(t) { return Tools._doDetectSensitive(t, args); });
+            }
+            return Promise.resolve(this._doDetectSensitive(text, args));
+        },
+        _doDetectSensitive: function(text, args) {
+            var ads = ["最","最好","最大","最小","最多","最低","最高","最优","最强","最先进","第一","顶级","极品","绝对","万能","百分百","100%","国家级","世界级","全网第一","销量第一","排名第一","唯一","首个","首家","独家","冠军","之王","之最","巅峰","终极","完美","空前","绝后","史无前例"];
+            var platform = ["加微信","加V信","加q群","加QQ群","微信号","vx","VX","免费领","零成本","躺赚","日入过万","月入十万","暴利","刷单","刷销量","刷好评","代刷","特效药","包治百病","药到病除","根治"];
+            var political = ["法轮功","六四","天安门事件","藏独","疆独","台独","颠覆国家","反华","辱华"];
+            var cats = (args.categories || "").toLowerCase();
+            var found = [];
+            function scan(list, cat) {
+                for (var i = 0; i < list.length; i++) {
+                    var w = list[i]; var idx = 0;
+                    while ((idx = text.indexOf(w, idx)) >= 0) {
+                        found.push({ word: w, category: cat, position: idx });
+                        idx += w.length;
+                    }
+                }
+            }
+            if (!cats || cats.indexOf("广告") >= 0) scan(ads, "广告法极限词");
+            if (!cats || cats.indexOf("平台") >= 0) scan(platform, "平台违规词");
+            if (!cats || cats.indexOf("政治") >= 0) scan(political, "政治敏感词");
+            if (found.length === 0) {
+                return { success: true, message: "🚨 敏感词检测：未发现敏感词。", tool: "detect_sensitive" };
+            }
+            var lines = ["🚨 敏感词检测：发现 " + found.length + " 处敏感词\n"];
+            for (var i = 0; i < found.length; i++) {
+                lines.push((i+1) + ". [" + found[i].category + "] \"" + found[i].word + "\" — 位置 " + found[i].position);
+            }
+            return { success: true, message: lines.join("\n"), tool: "detect_sensitive" };
+        },
+
+        // ===== 文本统计（本地，不调用模型）=====
+        _analyzeTextMetrics: function(args) {
+            var text = args.text || "";
+            if (args.path) {
+                return fetch("/api/tools/read", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ path: args.path, max_chars: 100000 })
+                }).then(function(r) { return r.json(); }).then(function(d) {
+                    return (d && d.ok && d.content) ? d.content : "";
+                }).then(function(t) { return Tools._doAnalyzeMetrics(t); });
+            }
+            return Promise.resolve(this._doAnalyzeMetrics(text));
+        },
+        _doAnalyzeMetrics: function(text) {
+            if (!text || text.length < 1) return { success: false, message: "未提供文本", tool: "analyze_text_metrics" };
+            var total = text.length;
+            var nonSpace = text.replace(/\s/g, "").length;
+            var chinese = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+            var englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+            var punct = (text.match(/[，。！？；：、,.!?;:""''（）()【】《》—…\-]/g) || []).length;
+            var paragraphs = text.split(/\n\s*\n/).filter(function(p){return p.trim();}).length;
+            var sentences = (text.match(/[。！？.!?]+/g) || []).length;
+            var longSentences = 0;
+            var sList = text.split(/[。！？.!?]+/);
+            for (var i = 0; i < sList.length; i++) { if (sList[i].length > 60) longSentences++; }
+            var readMin = Math.ceil(chinese / 400);
+            var lines = [
+                "📊 文本统计\n",
+                "总字符数：" + total,
+                "非空白字符：" + nonSpace,
+                "中文字符：" + chinese,
+                "英文单词：" + englishWords,
+                "标点符号：" + punct,
+                "段落数：" + paragraphs,
+                "句子数：" + sentences,
+                "长句数（>60字）：" + longSentences,
+                "估算阅读时间：" + readMin + " 分钟"
+            ];
+            return { success: true, message: lines.join("\n"), tool: "analyze_text_metrics" };
+        },
+
+
+        // ===== 动态生成系统提示词（根据当前分类） =====
+        getSystemPrompt: function(chatId) {
+            var cid = chatId || this.currentChatId;
+            var catName = this.chatCategories[cid] || this.activeCategory;
+            var cat = this.categories[catName];
+            if (!cat) return '你是一个智能助手。';
+            // 查找当前对话关联的项目信息
+            var projectInfo = '';
+            if (this.currentChatId && typeof Store !== 'undefined' && Store.data) {
+                var chatBox = null;
+                if (Store.data.chatBoxes) {
+                    for (var i = 0; i < Store.data.chatBoxes.length; i++) {
+                        if (Store.data.chatBoxes[i].id === this.currentChatId) {
+                            chatBox = Store.data.chatBoxes[i];
+                            break;
+                        }
+                    }
+                }
+                if (chatBox && chatBox.projectId) {
+                    var project = null;
+                    if (Store.data.projects) {
+                        for (var j = 0; j < Store.data.projects.length; j++) {
+                            if (Store.data.projects[j].id === chatBox.projectId) {
+                                project = Store.data.projects[j];
+                                break;
+                            }
+                        }
+                    }
+                    if (project) {
+                        projectInfo = '\n\n## 当前项目\n' +
+                            '项目名称：' + (project.name || '未命名') +
+                            (project.folder_path ? '\n项目路径：' + project.folder_path : '');
+                    }
+                }
+            }
+            // Keep invariant instructions first so provider-side prefix caches can reuse them.
+            return '你是一个智能助手，工作在 Agent 循环模式下：既能与用户多轮对话，也能调用工具自主完成任务。请严格遵循以下规则。\n' +
+                '## 核心规则\n' +
+                '1. 返回 tool_calls 则执行工具并回传结果，继续推理；返回纯文本则直接对话。\n' +
+                '2. task_complete 是终止型工具，调用后循环立即结束，不要在同一轮先调用其他工具再调用它。它的 message 参数就是给用户的最终答复（以“✅ 任务完成”消息展示并持久化），完整结论、改动清单都写进 message。\n' +
+                '3. 调用 task_complete 的那一轮，正文（content）不要再输出答案或总结（留空或仅一句过渡语），避免与 message 重复。\n' +
+                '4. 闲聊/简单提问直接文本回复，不要调用工具，不要调用 task_complete。\n' +
+                '5. 需要用户补充信息时用 ask_user(question, fields?) 暂停等待回答。\n' +
+                '6. 多步骤任务（3步以上）先用 task_list create 创建清单，每步完成后 update 状态，全部完成后再 task_complete。\n' +
+                '7. 任务完成前必须自检：是否有遗漏步骤、结果是否完整、是否需要先询问用户确认。\n\n' +
+                '## 效率要求\n' +
+                '- 优先批量操作：一次调用多个工具，减少往返轮次。\n' +
+                '- 能一步完成的不要拆成多步。读文件用 paths 批量读，写文件用 files 批量写。\n' +
+                '- 任务完成后必须调用 task_complete(success, message)：message 即给用户的最终答案，写清改了什么、改了哪些文件；不要在正文里重复输出。\n' +
+                '- 不确定时用 ask_user 问用户，不要猜测。\n' +
+                '- 若某步已做过或数据已拿到，不要重复执行，直接复用已有结果。\n' +
+                '- 上下文重建后，查看工具结果末尾的"已读文件清单"，不要重复读取已读过的文件！\n\n' +
+                '## 任务执行路径（重要！）\n' +
+                '1. **诊断阶段**（≤10步）：读取相关文件，搜索关键代码，理解问题根源。\n' +
+                '2. **修复阶段**（直接动手）：诊断清楚后立即用 write_file/replace_text/run_code 修复，不要再搜索！\n' +
+                '3. **验证阶段**（≤5步）：运行测试或读取修改后的文件确认修复生效。\n' +
+                '4. **完成**：调用 task_complete 报告改了什么。\n' +
+                '**禁止**：在诊断阶段无限搜索同一内容、反复读取同一文件、创建临时脚本来做可以用内置工具完成的操作。\n' +
+                '**原则**：能读一次就解决的问题不要读三次；能写文件修复的不要只输出诊断结论。\n\n' +
+                '## 回复规范（简洁自然）\n' +
+                '- 回复要精简直接，避免冗余。不需要重复问题或铺垫过多。\n' +
+                '- 任务总结只写关键信息：改了什么文件、核心结论。不要复述整个执行过程。\n' +
+                '- 能用一句话说清的不用两句话；能用短句不用长句；删掉客套话、口头禅、重复总结。\n' +
+                '- 不重复粘贴工具返回的原文，只提炼关键结论。\n' +
+                '- 对话回复以简洁为主（除非用户明确要求详细）；任务总结只写关键信息。\n' +
+                '- 最终答复只出现一次：完整答案写在 task_complete 的 message 里，前面的过程说明不要完整复述它。\n\n' +
+                '## 热更新\n' +
+                '本项目已启用热更新，修改前端/后端文件后无需重启或刷新，自动生效。直接说"已热更新"即可。' +
+                '\n\n## 模式切换\n' +
+                '本系统提供三种工作模式，每个对话可独立设置：\n' +
+                '- **极简模式**：基础工具集（16个工具：文件读写、代码运行、搜索替换、任务管理等），适合闲聊、轻量任务\n' +
+                '- **编程模式**：极简 + 编程扩展（共43个工具：Git、调试、搜索、定时、记忆、邮件、生图生视频等），适合代码项目\n' +
+                '- **写作模式**：极简 + 写作扩展（共57个工具：40+ AI文本处理——改写/润色/扩写/翻译/总结/分析/SEO等），适合文案创作\n' +
+                '切换方式：在对话框左上角点击模式名称即可切换；AI 也可调用 switch_tool_category 自动切换。' +
+                '\n\n当前模式：' + catName + '（' + cat.desc + '）' +
+                projectInfo +
+                '\n\n## 工具结果上下文管理\n' +
+                '工具结果（tool角色消息）会自动管理，避免上下文膨胀。保留最近N条原文，更早的替换为[已丢弃]。\n' +
+                '可用 set_tool_result_config 随时调整保留条数（keep_recent），每轮可动态设置——下一轮想保留更多或更少都行。\n' +
+                '已被丢弃的工具结果会自动存档，可用 get_tool_result 找回：action=list 查看存档列表，action=get&id=xxx 查回原文。' +
+                '\n\n## 已读文件/已搜索清单\n' +
+                '系统在对话级别自动维护"已读文件"和"已搜索关键词"清单，即使上下文重建后仍可访问。\n' +
+                '读取文件时，工具结果末尾会附加已读文件列表，标记重复读取的文件（⚠️）。\n' +
+                '**重要规则**：看到⚠️标记的文件，说明已经读过了，不要重复读取相同文件！\n' +
+                '如果确实需要重新读取（如文件已被修改），请明确说明原因。' +
+                (catName === '写作' ? '\n\n## 写作模式专用指令\n' +
+                '你处于写作模式，拥有40+个AI文本处理工具。\n' +
+                '- 使用 rewrite_text 改写文本、expand_text 扩写、shorten_text 缩写\n' +
+                '- 使用 polish_text 润色、translate_text 翻译、proofread_text 审校\n' +
+                '- 使用 summarize_text 总结、extract_keywords 提取关键词、extract_outline 提取大纲\n' +
+                '- 使用 analyze_sentiment 情感分析、detect_style 文风检测、rate_article 评分\n' +
+                '- 使用 detect_sensitive 敏感词检测、analyze_text_metrics 文本统计（本地工具，不调用模型）\n' +
+                '- 使用 generate_title 生成标题、generate_quotes 金句生成、generate_hook 钩子生成\n' +
+                '- 多数工具支持 text 参数直接传入文本，或 path 参数指定文件路径\n' +
+                '- 工具会调用AI模型处理文本并返回结果，无需手动调用模型' : '')
+        },
+
+        // ===== 执行工具 =====
+        // 注意：read_file / write_file / run_code 为异步工具，返回 Promise
+        execute: function(name, args, context) {
+            var self = this;
+            context = context || {};
+            // Keep the caller's chat in this invocation's closure so concurrent chats cannot overwrite it.
+            var executionChatId = context.chatId || self.currentChatId || '';
+            var callToolApi = function(tool, payload, label) {
+                if (!payload._chat_id) payload._chat_id = executionChatId;
+                return self._callToolApi(tool, payload, label);
+            };
+            // ===== 写作工具分发（在 switch 之前拦截）=====
+            if (self._writingTools && self._writingTools[name]) {
+                return self._callWritingModel(name, args, context);
+            }
+            if (name === 'detect_sensitive') { return self._detectSensitive(args); }
+            if (name === 'analyze_text_metrics') { return self._analyzeTextMetrics(args); }
+            switch (name) {
+                case 'task_complete':
+                    self._clearToolCache(executionChatId);
+                    return {
+                        success: !!args.success,
+                        message: args.message || (args.success ? '任务完成' : '任务失败'),
+                        scope: args.scope || '当前任务',
+                        tool: 'task_complete'
+                    };
+                case 'ask_user':
+                    // 返回一个带 pending 标记的同步对象，由 app.js 的循环拦截并弹出输入框等待用户回答。
+                    // 用户输入真正被填充到返回结果的 answer 字段中（由 app.js 的 askUser 处理）。
+                    // 支持 fields 数组（多字段表单模式），由 app.js 的 askUser 读取并渲染表单。
+                    return {
+                        success: false,
+                        pending: true,
+                        question: args.question || '请补充说明：',
+                        fields: args.fields || null,
+                        answer: '',
+                        message: '（等待用户回答…）',
+                        tool: 'ask_user'
+                    };
+                case 'read_file':
+                    // 支持单文件（path）与多文件（paths 数组）
+                    if (args.paths && args.paths.length) {
+                        args.paths.forEach(function(p) { self._trackReadFile(p, executionChatId); });
+                    } else if (args.path) {
+                        self._trackReadFile(args.path, executionChatId);
+                    }
+                    if (args.paths && args.paths.length) {
+                        return callToolApi('read', { paths: args.paths, max_chars: args.max_chars || 8000 }, '读取文件');
+                    }
+                    return callToolApi('read', { path: args.path, max_chars: args.max_chars || 8000 }, '读取文件');
+                case 'write_file':
+                    // 支持单文件（path+content）与批量多文件（files 数组）
+                    if (args.files && args.files.length) {
+                        return callToolApi('write', { files: args.files }, '写入文件');
+                    }
+                    return callToolApi('write', { path: args.path, content: args.content || '' }, '写入文件');
+                case 'run_code':
+                    // 支持单段（code）与批量多段（codes 数组）
+                    if (args.codes && args.codes.length) {
+                        return callToolApi('run', { codes: args.codes, timeout: args.timeout || 10 }, '运行代码');
+                    }
+                    return callToolApi('run', { code: args.code || '', timeout: args.timeout || 10 }, '运行代码');
+                case 'net':
+                    // 支持单 URL（url）与多 URL（urls 数组）
+                    if (args.urls && args.urls.length) {
+                        return callToolApi('net', { urls: args.urls, raw_html: !!args.raw_html, max_chars: args.max_chars || 6000, timeout: args.timeout || 15 }, '联网');
+                    }
+                    return callToolApi('net', { url: args.url || '', raw_html: !!args.raw_html, max_chars: args.max_chars || 6000, timeout: args.timeout || 15 }, '联网');
+                case 'read_lines':
+                    // 支持单文件（path）与多文件（paths 数组）
+                    if (args.path) self._trackReadFile(args.path, executionChatId);
+                    if (args.paths && args.paths.length) {
+                        args.paths.forEach(function(p) { self._trackReadFile(p, executionChatId); });
+                    }
+                    if (args.paths && args.paths.length) {
+                        return callToolApi('read_lines', {
+                            paths: args.paths,
+                            start: args.start || 1,
+                            end: args.end || null,
+                            num: !!args.num,
+                            contains: args.contains || null,
+                            line_char_limit: args.line_char_limit || 0
+                        }, '按行读取');
+                    }
+                    return callToolApi('read_lines', {
+                        path: args.path || '',
+                        start: args.start || 1,
+                        end: args.end || null,
+                        num: !!args.num,
+                        contains: args.contains || null
+                    }, '按行读取');
+                case 'git_save':
+                    return callToolApi('git_save', {
+                        message: args.message || '',
+                        path: args.path || '',
+                        push: !!args.push
+                    }, 'Git保存');
+                case 'project_record':
+                    return callToolApi('project_record', {
+                        action: args.action || 'list',
+                        name: args.name || '',
+                        names: args.names || null,
+                        content: args.content || '',
+                        keyword: args.keyword || ''
+                    }, '项目记录');
+                case 'wait':
+                    return callToolApi('wait', {
+                        seconds: parseFloat(args.seconds) || 1
+                    }, '等待');
+                case 'schedule':
+                    return callToolApi('schedule', {
+                        action: args.action || 'list',
+                        name: args.name || '',
+                        code: args.code || '',
+                        interval: parseFloat(args.interval) || 60,
+                        max_times: parseInt(args.max_times) || 0,
+                        stop_on_success: args.stop_on_success || false,
+                        stop_on_output: args.stop_on_output || ''
+                    }, '定时任务');
+                case 'chat_manage':
+                    // 纯前端工具：直接调用 App.chatManage 操作对话框
+                    if (typeof App !== 'undefined' && App.chatManage) {
+                        return App.chatManage(args);
+                    }
+                    return { success: false, message: 'App.chatManage 方法不可用', tool: 'chat_manage' };
+                case 'search_chat':
+                    return callToolApi('search_chat', {
+                        keyword: args.keyword || '',
+                        keywords: args.keywords || null,
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        match_mode: args.match_mode || 'any',
+                        limit: args.limit || 50,
+                        role: args.role || ''
+                    }, '搜索对话');
+                case 'recent_questions':
+                    return callToolApi('recent_questions', {
+                        keyword: args.keyword || '',
+                        regex: args.regex || false,
+                        limit: args.limit || 0,
+                        offset: args.offset || 0,
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        filter_noise: args.filter_noise !== false
+                    }, '近期问题');
+
+                case 'query_answers':
+                    return callToolApi('query_answers', {
+                        keyword: args.keyword || '',
+                        regex: args.regex || false,
+                        limit: args.limit || 0,
+                        offset: args.offset || 0,
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        answer_max_length: args.answer_max_length || 0,
+                        include_question: args.include_question !== false
+                    }, '查询答案');
+
+                case 'chat_context':
+                    return callToolApi('chat_context', {
+                        action: args.action || 'read',
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        limit: args.limit || 10,
+                        messages: args.messages || null,
+                        role: args.role || '',
+                        content: args.content || '',
+                        message_id: args.message_id || null,
+                        message_ids: args.message_ids || null,
+                        model_id: args.model_id || ''
+                    }, '上下文管理');
+                case 'chat_summary':
+                    return callToolApi('chat_summary', {
+                        action: args.action || 'generate',
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        summary: args.summary || '',
+                        summaries: args.summaries || null,
+                        title: args.title || '',
+                        limit: args.limit || 100
+                    }, '对话摘要');
+                case 'monitor':
+                    return callToolApi('monitor', {
+                        action: args.action || 'list',
+                        chat_id: args.chat_id || '',
+                        message: args.message || '',
+                        session_id: args.session_id || '',
+                        session_ids: args.session_ids || null,
+                        limit: args.limit || 5,
+                        context_limit: args.context_limit || 10
+                    }, '监控队列');
+                case 'task_list': {
+                    // 按 action 动态构建参数，避免把缺失的必填项强行以 null/'' 发出导致 400 刷屏
+                    const action = args.action || 'show';
+                    const payload = {
+                        action: action,
+                        id: args.id || '',
+                        chat_id: executionChatId
+                    };
+                    if (args.title !== undefined && args.title !== null) payload.title = args.title;
+                    if (args.tasks !== undefined && args.tasks !== null) payload.tasks = args.tasks;
+                    if (args.detail !== undefined && args.detail !== null) payload.detail = args.detail;
+                    if (args.task_id !== undefined && args.task_id !== null && args.task_id !== '') {
+                        payload.task_id = args.task_id;
+                    }
+
+                    if (action === 'update') {
+                        const validStatuses = ['pending', 'in_progress', 'completed', 'skipped'];
+                        if (payload.task_id === undefined) {
+                            return Promise.reject(new Error('任务清单 update 缺少 task_id 参数（任务序号），请先 show 查看后再更新'));
+                        }
+                        const st = args.status || '';
+                        if (!validStatuses.includes(st)) {
+                            return Promise.reject(new Error('任务清单 update 缺少或非法 status 参数，必须为: ' + validStatuses.join(' / ')));
+                        }
+                        payload.status = st;
+                    }
+                    return callToolApi('task_list', payload, '任务清单');
+                }
+                case 'replace_text':
+                    return callToolApi('replace_text', {
+                        path: args.path || '',
+                        paths: args.paths || null,
+                        old_text: args.old_text || '',
+                        new_text: args.new_text || '',
+                        all: args.all === true,
+                        backup: args.backup !== false
+                    }, '替换文本');
+                case 'tree_dir':
+                    return callToolApi('tree_dir', {
+                        path: args.path || '.',
+                        paths: args.paths || null,
+                        max_depth: args.max_depth || 3,
+                        show_files: args.show_files !== false
+                    }, '目录树');
+                case 'list_dir':
+                    return callToolApi('list_dir', {
+                        path: args.path || '',
+                        paths: args.paths || null,
+                        show_hidden: !!args.show_hidden,
+                        sort_by: args.sort_by || 'name'
+                    }, '列出目录');
+                case 'find_files':
+                    if (args.pattern) self._trackSearch('find:' + args.pattern, executionChatId);
+                    return callToolApi('find_files', {
+                        pattern: args.pattern || '',
+                        path: args.path || '.',
+                        paths: args.paths || null,
+                        max_results: args.max_results || 50,
+                        file_type: args.file_type || null
+                    }, '查找文件');
+                case 'search_in_files':
+                    if (args.keyword) self._trackSearch('search:' + args.keyword, executionChatId);
+                    return callToolApi('search_in_files', {
+                        keyword: args.keyword || '',
+                        path: args.path || '',
+                        paths: args.paths || null,
+                        regex: !!args.regex,
+                        case_insensitive: !!args.case_insensitive,
+                        max_results: args.max_results || 30,
+                        context_lines: args.context_lines !== undefined ? args.context_lines : 1,
+                        file_type: args.file_type || null
+                    }, '搜索内容');
+                case 'file_info':
+                    return callToolApi('file_info', {
+                        path: args.path || '',
+                        paths: args.paths || null
+                    }, '文件信息');
+                case 'diff_preview':
+                    return callToolApi('diff_preview', {
+                        path: args.path || '',
+                        staged: !!args.staged,
+                        file: args.file || '',
+                        files: args.files || null,
+                        max_lines: args.max_lines || 200
+                    }, '差异预览');
+                case 'git_log':
+                    return callToolApi('git_log', {
+                        path: args.path || '',
+                        count: args.count || 20,
+                        author: args.author || '',
+                        oneline: args.oneline !== false,
+                        file: args.file || '',
+                        files: args.files || null
+                    }, '提交历史');
+                case 'code_outline':
+                    return callToolApi('code_outline', {
+                        path: args.path || '',
+                        paths: args.paths || null
+                    }, '代码结构');
+                case 'move_file':
+                    return callToolApi('move_file', {
+                        src: args.src || '',
+                        dst: args.dst || '',
+                        moves: args.moves || null,
+                        overwrite: !!args.overwrite
+                    }, '移动文件');
+
+                case 'switch_tool_category':
+                    var swCatName = args.category || '';
+                    if (!swCatName) {
+                        var catList = [];
+                        for (var ck in self.categories) {
+                            if (self.categories.hasOwnProperty(ck)) {
+                                var cInfo = self.categories[ck];
+                                var cTools = cInfo.tools.filter(function(t) { return t !== 'task_complete' && t !== 'switch_tool_category'; });
+                                catList.push('  - ' + cInfo.icon + ' ' + ck + ': ' + cInfo.desc + '\\n    tools: ' + cTools.join(', '));
+                            }
+                        }
+                        return { success: true, message: 'Available categories:\\n\\n' + catList.join('\\n\\n') + '\\n\\nCurrent: ' + (self.chatCategories[executionChatId] || self.activeCategory), tool: 'switch_tool_category', category: '', available: Object.keys(self.categories) };
+                    }
+                    var swCat = self.categories[swCatName];
+                    if (!swCat) {
+                        for (var fk in self.categories) {
+                            if (self.categories.hasOwnProperty(fk) && fk.toLowerCase().indexOf(swCatName.toLowerCase()) >= 0) { swCatName = fk; swCat = self.categories[swCatName]; break; }
+                        }
+                    }
+                    if (swCat) {
+                        if (swCatName === (self.chatCategories[executionChatId] || self.activeCategory)) {
+                            return { success: true, message: 'Already on: ' + swCat.icon + ' ' + swCatName, tool: 'switch_tool_category', category: swCatName, already_active: true };
+                        }
+                        self.setCategory(swCatName, executionChatId);
+                        var swToolList = swCat.tools.filter(function(t) { return t !== 'task_complete' && t !== 'switch_tool_category'; });
+                        return { success: true, message: 'Switched to: ' + swCat.icon + ' ' + swCatName + '\\nDesc: ' + swCat.desc + '\\nTools: ' + swToolList.join(', ') + '\\n(System prompt and tool definitions updated for next round)', tool: 'switch_tool_category', category: swCatName, icon: swCat.icon, desc: swCat.desc, tools: swCat.tools };
+                    }
+                    return { success: false, message: 'Category not found: ' + swCatName + '. Available: ' + Object.keys(self.categories).join(', '), tool: 'switch_tool_category', category: '', available: Object.keys(self.categories) };
+                case 'set_tool_result_config':
+                    var cfg = self.toolResultConfig;
+                    var changed = false;
+                    if (args.keep_recent !== undefined && args.keep_recent !== null) {
+                        var kr = parseInt(args.keep_recent);
+                        if (kr >= 0 && kr <= 100) { cfg.keepRecent = kr; changed = true; }
+                    }
+                    if (args.max_keep !== undefined && args.max_keep !== null) {
+                        var mk = parseInt(args.max_keep);
+                        if (mk >= 1 && mk <= 500) { cfg.maxKeep = mk; changed = true; }
+                    }
+                    if (args.max_chars_per_tool !== undefined && args.max_chars_per_tool !== null) {
+                        var mc = parseInt(args.max_chars_per_tool);
+                        if (mc >= 100 && mc <= 50000) { cfg.maxCharsPerTool = mc; changed = true; }
+                        else if (mc === 0) { cfg.maxCharsPerTool = 0; changed = true; }
+                    }
+                    // 出口限额（源头拦截）动态调整：exit_max_chars 调整默认单工具出口字符数
+                    if (args.exit_max_chars !== undefined && args.exit_max_chars !== null) {
+                        var em = parseInt(args.exit_max_chars);
+                        if (em >= 0 && em <= 100000) {
+                            self.exitLimits.defaults = self.exitLimits.defaults || {};
+                            self.exitLimits.defaults.max_chars = em;
+                            changed = true;
+                        }
+                    }
+                    return { success: true, message: (changed ? '已更新' : '当前') + '工具结果管理配置：keepRecent=' + cfg.keepRecent + ', maxKeep=' + cfg.maxKeep + ', maxCharsPerTool=' + cfg.maxCharsPerTool + '\n\n说明：\n- 保留最近 ' + cfg.keepRecent + ' 条 tool 结果原文\n- 更早的替换为 [已丢弃]\n- 总上限 ' + cfg.maxKeep + ' 条\n- 单条结果超过 ' + cfg.maxCharsPerTool + ' 字符时截断为头尾摘要（0=不限制）\n- 可随时调整，下一轮立即生效', tool: 'set_tool_result_config', config: { keepRecent: cfg.keepRecent, maxKeep: cfg.maxKeep, maxCharsPerTool: cfg.maxCharsPerTool } };
+                case 'get_tool_result':
+                    var gaAction = args.action || 'list';
+                    var gaChatId = executionChatId;
+                    var archive = self.toolResultArchive[gaChatId] || [];
+                    if (gaAction === 'get' && args.id !== undefined && args.id !== null) {
+                        var gaId = parseInt(args.id);
+                        var found = null;
+                        for (var gi = 0; gi < archive.length; gi++) {
+                            if (archive[gi].id === gaId) { found = archive[gi]; break; }
+                        }
+                        if (found) {
+                            return { success: true, message: '存档 #' + found.id + ' [' + found.toolName + ']\n\n' + found.content, tool: 'get_tool_result', id: found.id, toolName: found.toolName, content: found.content };
+                        } else {
+                            return { success: false, message: '未找到存档 #' + gaId + '。可用 action=list 查看所有存档。', tool: 'get_tool_result' };
+                        }
+                    } else {
+                        // list
+                        if (archive.length === 0) {
+                            return { success: true, message: '当前没有已存档的工具结果（所有结果都还在上下文中）。', tool: 'get_tool_result', archive: [] };
+                        }
+                        var listMsg = '已存档 ' + archive.length + ' 条工具结果：\n';
+                        for (var li = 0; li < archive.length; li++) {
+                            var item = archive[li];
+                            var preview = item.content.substring(0, 80);
+                            if (item.content.length > 80) preview += '...';
+                            listMsg += '#' + item.id + ' [' + item.toolName + '] ' + preview + '\n';
+                        }
+                        listMsg += '\n使用 action=get + id 查回完整内容。';
+                        return { success: true, message: listMsg, tool: 'get_tool_result', archive: archive.map(function(a) { return { id: a.id, toolName: a.toolName, contentLength: a.content.length }; }) };
+                    }
+                case 'video_gen': {
+                    // AI 文生视频：Pollinations Veo-3（免费无key，默认）→ siliconflow Wan2.1
+                    var vgAction = args.action || 'generate';
+                    var vgParams = {
+                        prompt: args.prompt,
+                        duration: args.duration || 5,
+                        size: args.size || '832x480',
+                        model: args.model || 'veo3'
+                    };
+                    if (vgAction === 'status') {
+                        return callToolApi('video_status', {}, 'check video channels status');
+                    }
+                    var vgResp = callToolApi('video_gen', vgParams, 'generate video');
+                    // 如果返回了 video_url 列表，自动在 Kite 画布上添加视频节点
+                    if (vgResp && vgResp.success && vgResp.videos && vgResp.videos.length && typeof window.KiteCanvas !== 'undefined' && window.KiteCanvas.addVideoNode) {
+                        for (var vi = 0; vi < vgResp.videos.length; vi++) {
+                            window.KiteCanvas.addVideoNode({
+                                url: vgResp.videos[vi].url || vgResp.videos[vi],
+                                prompt: args.prompt,
+                                connectToChat: executionChatId || null
+                            });
+                        }
+                    }
+                    return vgResp;
+                }
+                case 'send_email':
+                    return callToolApi('send_email', {
+                        subject: args.subject || '通知',
+                        body: args.body || '',
+                        to: args.to || '',
+                        is_html: !!args.is_html
+                    }, 'send email');
+                case 'image_gen':
+                    // AI 文生图/图生图(修图)：默认固定 pollinations 免费渠道（不自动切换，不互相轮换）
+                    // 参数: action(generate默认/edit修图/status), prompt(必填), size(可选默认1024x1024)
+                    //       model(可选渠道id, 用户显式指定才用其他渠道, 传了则只走该渠道)
+                    // 生成/修图成功后的画布自动上节点逻辑在 _callToolApi 的 then 链内处理
+                    var imgAction = args.action || 'generate';
+                    var imgPayload = {
+                        action: imgAction,
+                        prompt: args.prompt || args.text || args.desc || ''
+                    };
+                    if (args.size) imgPayload.size = args.size;
+                    if (args.model) imgPayload.model = args.model;
+                    if (args.image_url) imgPayload.image_url = args.image_url;
+                    return callToolApi('image_gen', imgPayload, imgAction === 'status' ? 'image_gen status' : 'generate/edit image');
+                case 'set_camera':
+                    // 纯前端工具：直接调用 App.setCamera 操作画布摄像机
+                    if (typeof App !== 'undefined' && App.setCamera) {
+                        return App.setCamera(args);
+                    }
+                    return { success: false, message: 'App.setCamera 方法不可用', tool: 'set_camera' };
+                case 'locate_mouse':
+                    // 纯前端工具：直接调用 App.locateMouse 操作鼠标定位
+                    if (typeof App !== 'undefined' && App.locateMouse) {
+                        return App.locateMouse(args);
+                    }
+                    return { success: false, message: 'App.locateMouse 方法不可用', tool: 'locate_mouse' };
+                case 'long_term_memory':
+                    return callToolApi('long_term_memory', {
+                        action: args.action || 'list',
+                        title: args.title || '',
+                        content: args.content || '',
+                        keywords: args.keywords || [],
+                        tags: args.tags || [],
+                        memory_id: args.memory_id || '',
+                        memory_ids: args.memory_ids || [],
+                        keyword: args.keyword || '',
+                        match_mode: args.match_mode || 'any',
+                        limit: args.limit || 20
+                    }, 'long_term_memory ' + (args.action || 'list'));
+                case 'ram_cache':
+                    return callToolApi('ram_cache', {
+                        action: args.action || 'list',
+                        key: args.key || '',
+                        keys: args.keys || [],
+                        value: args.value || '',
+                        ttl: args.ttl || 0
+                    }, 'ram_cache ' + (args.action || 'list'));
+                case 'pixel_display':
+                    return callToolApi('pixel_display', {
+                        action: args.action || 'status',
+                        title: args.title || '',
+                        data: args.data || '',
+                        fps: args.fps || 2
+                    }, 'pixel_display ' + (args.action || 'status'));
+                case 'regex_search':
+                    return callToolApi('regex_search', {
+                        pattern: args.pattern || '',
+                        path: args.path || '',
+                        paths: args.paths || null,
+                        case_insensitive: !!args.case_insensitive,
+                        max_results: args.max_results || 50,
+                        context_lines: args.context_lines !== undefined ? args.context_lines : 2,
+                        file_type: args.file_type || null,
+                        show_groups: args.show_groups !== false
+                    }, '正则搜索');
+                case 'work_order':
+                    return callToolApi('work_order', {
+                        action: args.action || 'show',
+                        title: args.title || '',
+                        item_type: args.item_type || '',
+                        target: args.target || '',
+                        action_desc: args.action_desc || '',
+                        params: args.params || '',
+                        note: args.note || '',
+                        item_id: args.item_id || 0,
+                        new_note: args.new_note || '',
+                        new_status: args.new_status || '',
+                        _chat_id: executionChatId
+                    }, '工单 ' + (args.action || 'show'));
+                case 'switch_port':
+                    return callToolApi('switch_port', {
+                        port: args.port || null,
+                        start: args.start !== false,
+                        open_browser: !!args.open_browser,
+                        status: !!args.status
+                    }, '切换端口');
+                default:
+                    return { success: false, message: '未知工具: ' + name, tool: name };
+            }
+        },
+
+        // ===== 调用后端 /api/tools/*（异步） =====
+        _callToolApi: function(tool, payload, label) {
+            var self = this;
+            if (!payload._chat_id) payload._chat_id = self.currentChatId || '';
+            return fetch('/api/tools/' + tool, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function(res) {
+                return res.json();
+            }).then(function(data) {
+                if (data && data.ok) {
+                    var msg = '';
+                    if (tool === 'read') {
+                        if (data.multi && data.files) {
+                            // 多文件读取
+                            var lines = [];
+                            for (var fi = 0; fi < data.files.length; fi++) {
+                                var fr = data.files[fi];
+                                if (fr.error) {
+                                    lines.push('❌ ' + fr.path + '：' + fr.error);
+                                } else {
+                                    lines.push('📄 ' + fr.path + '（' + fr.meta.size + ' 字节）' + (fr.truncated ? '，内容过长已截断' : '') + '\n' + fr.content);
+                                }
+                            }
+                            msg = '已读取 ' + data.files.length + ' 个文件：\n\n' + lines.join('\n\n---\n\n');
+                        } else {
+                            msg = '已读取 ' + data.path + '（' + data.meta.size + ' 字节）' + (data.truncated ? '，内容过长已截断' : '') + '\n' + (data.content || '');
+                        }
+                        // 附加已读文件清单提示，避免重复读取
+                        msg += self._getReadFilesHint(self.currentChatId);
+                    } else if (tool === 'write') {
+                        if (data.multi && data.files) {
+                            // 多文件写入
+                            var wlines = [];
+                            for (var wi = 0; wi < data.files.length; wi++) {
+                                var wr = data.files[wi];
+                                if (wr.error) {
+                                    wlines.push('❌ ' + wr.path + '：' + wr.error);
+                                } else {
+                                    wlines.push('✅ ' + wr.path + '（' + wr.size + ' 字节）' + (wr.backup ? '，已备份原文件' : ''));
+                                }
+                            }
+                            msg = '已写入 ' + data.files.length + ' 个文件：\n' + wlines.join('\n');
+                        } else {
+                            msg = '已写入 ' + data.path + '（' + data.size + ' 字节）' + (data.backup ? '，已备份原文件' : '');
+                        }
+                    } else if (tool === 'run') {
+                        if (data.multi && data.runs) {
+                            // 多段运行
+                            var rlines = [];
+                            for (var ri = 0; ri < data.runs.length; ri++) {
+                                var rr = data.runs[ri];
+                                var rOut = (rr.stdout || '').trim();
+                                var rErr = (rr.stderr || '').trim();
+                                if (rr.timeout) {
+                                    rlines.push('⏱️ 第' + (ri + 1) + '段：' + rErr);
+                                } else if (rr.exit_code === 0) {
+                                    rlines.push('✅ 第' + (ri + 1) + '段成功（退出码 0）' + (rOut ? '\n' + rOut : ''));
+                                } else {
+                                    rlines.push('❌ 第' + (ri + 1) + '段失败（退出码 ' + rr.exit_code + '）' + (rErr ? '\n' + rErr : ''));
+                                }
+                            }
+                            msg = '已运行 ' + data.runs.length + ' 段代码：\n\n' + rlines.join('\n\n---\n\n');
+                        } else {
+                            var out = (data.stdout || '').trim();
+                            var err = (data.stderr || '').trim();
+                            if (data.timeout) {
+                                msg = '⏱️ ' + err;
+                            } else if (data.exit_code === 0) {
+                                msg = '✅ 运行成功（退出码 0）' + (out ? '\n输出：\n' + out : '');
+                            } else {
+                                msg = '❌ 运行失败（退出码 ' + data.exit_code + '）' + (err ? '\n错误：\n' + err : '');
+                            }
+                        }
+                    } else if (tool === 'read_lines') {
+                        // 后端返回: lines 为字符串数组("12: 内容"), total_lines, start/end
+                        // num_only 模式: 只有 total_lines, 无 lines 字段
+                        if (data.multi && data.files) {
+                            var rlLines = [];
+                            for (var rli = 0; rli < data.files.length; rli++) {
+                                var rf = data.files[rli];
+                                if (rf.error) {
+                                    rlLines.push('❌ ' + rf.path + '：' + rf.error);
+                                } else if (rf.lines) {
+                                    rlLines.push('📄 ' + rf.path + '（共 ' + rf.total_lines + ' 行）\n  ' + rf.lines.join('\n  '));
+                                } else {
+                                    rlLines.push('📄 ' + rf.path + '（共 ' + rf.total_lines + ' 行）');
+                                }
+                            }
+                            msg = '已读取 ' + data.files.length + ' 个文件：\n\n' + rlLines.join('\n\n---\n\n');
+                        } else {
+                            var base = '📄 ' + data.path + '（共 ' + data.total_lines + ' 行）';
+                            if (data.lines) {
+                                msg = base + '，第 ' + data.start + '–' + data.end + ' 行：\n  ' + data.lines.join('\n  ');
+                            } else {
+                                msg = base;
+                            }
+                        }
+                        // 附加已读文件清单提示
+                        msg += self._getReadFilesHint(self.currentChatId);
+                    } else if (tool === 'net') {
+                        if (data.multi && data.pages) {
+                            var nlines = [];
+                            for (var pi = 0; pi < data.pages.length; pi++) {
+                                var pr = data.pages[pi];
+                                if (pr.error) {
+                                    nlines.push('❌ ' + pr.url + '：' + pr.error);
+                                } else {
+                                    nlines.push('🌐 ' + pr.url + (pr.final_url && pr.final_url !== pr.url ? '（→' + pr.final_url + '）' : '') + (pr.title ? '｜' + pr.title : '') + (pr.truncated ? '，内容过长已截断' : '') + '\n' + pr.content);
+                                }
+                            }
+                            msg = '已抓取 ' + data.pages.length + ' 个网页：\n\n' + nlines.join('\n\n---\n\n');
+                        } else {
+                            if (data.error) {
+                                msg = '❌ ' + data.url + '：' + data.error;
+                            } else {
+                                msg = '🌐 ' + data.url + (data.final_url && data.final_url !== data.url ? '（→' + data.final_url + '）' : '') + (data.title ? '｜' + data.title : '') + (data.truncated ? '，内容过长已截断' : '') + '\n' + (data.content || '');
+                            }
+                        }
+                    }
+                    if (tool === 'git_save') {
+                        var steps = data.steps || [];
+                        var sLines = [];
+                        for (var si = 0; si < steps.length; si++) {
+                            var st = steps[si];
+                            var sIcon = st.exit_code === 0 ? '✅' : '❌';
+                            var sDetail = st.stdout || st.stderr || '';
+                            sLines.push(sIcon + ' ' + st.step + (sDetail ? '：' + sDetail : ''));
+                        }
+                        var gIcon = data.nothing_to_commit ? 'ℹ️' : '📦';
+                        msg = gIcon + ' Git保存完成' + (data.nothing_to_commit ? '（没有变更需要提交）' : '') + '\n' +
+                              '提交信息：' + data.message + '\n' +
+                              (data.last_commit ? '最近提交：' + data.last_commit + '\n' : '') +
+                              (data.status ? '变更摘要：\n' + data.status + '\n' : '') +
+                              '\n步骤详情：\n' + sLines.join('\n');
+                    }
+                    if (tool === 'project_record') {
+                        // 后端返回: list/search 返回 records(纯名字数组), read 返回 records 或单条 name+content,
+                        // write 返回 name+size, append 只返回 name, delete 只返回 name
+                        var action = data.action || 'list';
+                        if (action === 'list') {
+                            var recs = data.records || [];
+                            if (recs.length === 0) {
+                                msg = '📝 项目记录为空（暂无记录）';
+                            } else {
+                                var rLines = [];
+                                for (var ri = 0; ri < recs.length; ri++) {
+                                    rLines.push((ri+1) + '. ' + recs[ri]);
+                                }
+                                msg = '📝 项目记录（共 ' + recs.length + ' 条）：\n' + rLines.join('\n');
+                            }
+                        } else if (action === 'read') {
+                            if (data.multi && data.records) {
+                                var fLines = [];
+                                for (var fi = 0; fi < data.records.length; fi++) {
+                                    var fr = data.records[fi];
+                                    if (fr.error) {
+                                        fLines.push('❌ ' + fr.name + '：' + fr.error);
+                                    } else {
+                                        fLines.push('📄 ' + fr.name + '\n' + fr.content);
+                                    }
+                                }
+                                msg = '已读取 ' + data.records.length + ' 条记录：\n\n' + fLines.join('\n\n---\n\n');
+                            } else {
+                                msg = '📄 ' + data.name + '\n' + (data.content || '');
+                            }
+                        } else if (action === 'write') {
+                            msg = '✅ 已写入记录「' + data.name + '」（' + data.size + ' 字节）';
+                        } else if (action === 'append') {
+                            msg = '✅ 已追加内容到记录「' + data.name + '」';
+                        } else if (action === 'search') {
+                            var matches = data.records || [];
+                            if (matches.length === 0) {
+                                msg = '🔍 未找到包含「' + data.keyword + '」的记录';
+                            } else {
+                                msg = '🔍 搜索「' + data.keyword + '」找到 ' + matches.length + ' 条记录：\n' + matches.map(function(m, i) { return (i+1) + '. ' + m; }).join('\n');
+                            }
+                        } else if (action === 'delete') {
+                            msg = '🗑️ 已删除记录「' + data.name + '」';
+                        }
+                    }
+                    if (tool === 'wait') {
+                        msg = '⏳ 已等待 ' + data.actual + ' 秒（请求 ' + data.seconds + ' 秒）';
+                    }
+                    if (tool === 'schedule') {
+                        msg = data.message || '定时任务操作完成';
+                    }
+                    if (tool === 'search_chat') {
+                        var results = data.results || [];
+                        if (results.length === 0) {
+                            msg = '🔍 搜索「' + (data.keywords || []).join(', ') + '」未找到匹配结果（搜索了 ' + data.sessions_searched + ' 个窗口）';
+                        } else {
+                            var sLines = [];
+                            for (var si = 0; si < results.length; si++) {
+                                var sr = results[si];
+                                sLines.push('📌 [' + sr.session_id + '] ' + sr.title + '（' + sr.match_count + ' 处匹配）');
+                                for (var mi = 0; mi < sr.matches.length; mi++) {
+                                    var m = sr.matches[mi];
+                                    var roleLabel = m.role === 'user' ? '👤' : (m.role === 'assistant' ? '🤖' : '⚙️');
+                                    sLines.push('  ' + roleLabel + ' ' + (m.snippet || ''));
+                                }
+                            }
+                            var roleFilter = data.role ? '，角色=' + data.role : '';
+                            msg = '🔍 搜索「' + (data.keywords || []).join(', ') + '」（' + data.match_mode + '模式' + roleFilter + '）找到 ' + data.total_matches + ' 处匹配，涉及 ' + data.sessions_matched + '/' + data.sessions_searched + ' 个窗口：\n\n' + sLines.join('\n');
+                        }
+                    }
+                    if (tool === 'recent_questions') {
+                        var qList = data.questions || [];
+                        var kwLabel = '';
+                        if (data.keyword) {
+                            kwLabel = '，关键字: 「' + data.keyword + '」' + (data.regex ? '(正则)' : '');
+                        }
+                        if (qList.length === 0) {
+                            msg = '🔍 近期没有找到有效的用户问题（共搜索 ' + data.sessions_searched + ' 个窗口，过滤噪音: ' + data.filter_noise + kwLabel + '）';
+                        } else {
+                            var qLines = [];
+                            for (var qi = 0; qi < qList.length; qi++) {
+                                var q = qList[qi];
+                                qLines.push((qi+1) + '. [' + q.session_id + '] ' + q.session_title + '\n   ' + (q.content || '').substring(0, 300));
+                            }
+                            var pageMsg = '';
+                            if (data.has_more) { pageMsg = '\n\n👉 还有更多，使用 offset=' + data.next_offset + ' 查看下一页'; }
+                            msg = '🔍 近期 ' + data.returned + ' 条用户问题（共 ' + data.total_found + ' 条，过滤噪音: ' + data.filter_noise + kwLabel + '）：\n\n' + qLines.join('\n\n') + pageMsg;
+                        }
+                    }
+
+                    if (tool === 'query_answers') {
+                        var aList = data.results || [];
+                        var kwLabel2 = '';
+                        if (data.keyword) {
+                            kwLabel2 = '，关键字: 「' + data.keyword + '」' + (data.regex ? '(正则)' : '');
+                        }
+                        if (aList.length === 0) {
+                            msg = '🔍 未找到匹配「' + data.keyword + '」的问答记录' + kwLabel2;
+                        } else {
+                            var aLines = [];
+                            for (var ai = 0; ai < aList.length; ai++) {
+                                var a = aList[ai];
+                                var qText = a.question ? '\n   📝 问: ' + (a.question || '').substring(0, 200) : '';
+                                var aText = (a.answer || '').substring(0, 500);
+                                aLines.push((ai+1) + '. [' + a.session_id + '] ' + a.session_title + qText + '\n   💬 答: ' + aText);
+                            }
+                            var aPageMsg = '';
+                            if (data.has_more) { aPageMsg = '\n\n👉 还有更多，使用 offset=' + data.next_offset + ' 查看下一页'; }
+                            msg = '🔍 查询到 ' + data.returned + ' 条问答（共 ' + data.total_found + ' 条' + kwLabel2 + '）：\n\n' + aLines.join('\n\n') + aPageMsg;
+                        }
+                    }
+
+                    if (tool === 'chat_context') {
+                        var cAction = data.action || 'read';
+                        if (cAction === 'read') {
+                            var cResults = data.results || [];
+                            var cLines = [];
+                            for (var ci = 0; ci < cResults.length; ci++) {
+                                var cr = cResults[ci];
+                                cLines.push('📌 [' + cr.session_id + '] ' + cr.title + '（' + cr.count + ' 条消息）');
+                                for (var cj = 0; cj < cr.messages.length; cj++) {
+                                    var cm = cr.messages[cj];
+                                    var cLabel = cm.role === 'user' ? '👤' : (cm.role === 'assistant' ? '🤖' : '⚙️');
+                                    cLines.push('  ' + cLabel + ' [' + cm.id + '] ' + (cm.content || '').substring(0, 200));
+                                }
+                            }
+                            msg = '📋 读取 ' + data.sessions + ' 个窗口的上下文：\n\n' + cLines.join('\n');
+                        } else if (cAction === 'insert' || cAction === 'append') {
+                            var iResults = data.results || [];
+                            var iLines = [];
+                            for (var ii = 0; ii < iResults.length; ii++) {
+                                var ir = iResults[ii];
+                                iLines.push('✅ [' + ir.session_id + '] 插入了 ' + ir.count + ' 条消息');
+                            }
+                            msg = '✅ 向 ' + data.sessions + ' 个窗口插入了消息：\n' + iLines.join('\n');
+                        } else if (cAction === 'update') {
+                            msg = '✅ 已更新消息 [id=' + data.message_id + ']，影响 ' + data.updated + ' 行';
+                        } else if (cAction === 'delete') {
+                            msg = '🗑️ 已删除：' + (typeof data.deleted === 'string' ? data.deleted : (data.deleted + ' 条消息'));
+                        }
+                    }
+                    if (tool === 'chat_summary') {
+                        var sumAction = data.action || 'generate';
+                        if (sumAction === 'generate') {
+                            var gResults = data.results || [];
+                            var gLines = [];
+                            for (var gi = 0; gi < gResults.length; gi++) {
+                                var gr = gResults[gi];
+                                gLines.push('📌 [' + gr.session_id + '] ' + gr.title + '（模型: ' + gr.model_id + '）');
+                                gLines.push('  消息数: ' + gr.total_messages + '（用户 ' + gr.user_messages + ' / 助手 ' + gr.assistant_messages + '）');
+                                if (gr.existing_summary) {
+                                    var es = gr.existing_summary;
+                                    gLines.push('  已有摘要: ' + (es.summary || es).substring(0, 150) + '...');
+                                } else {
+                                    gLines.push('  已有摘要: 无');
+                                }
+                                for (var gj = 0; gj < gr.messages.length; gj++) {
+                                    var gm = gr.messages[gj];
+                                    var gLabel = gm.role === 'user' ? '👤' : (gm.role === 'assistant' ? '🤖' : '⚙️');
+                                    gLines.push('  ' + gLabel + ' ' + (gm.content || '').substring(0, 300));
+                                }
+                            }
+                            msg = '📝 获取 ' + data.sessions + ' 个窗口的对话内容（供生成摘要）：\n\n' + gLines.join('\n') + '\n\n💡 提示: ' + (data.hint || '');
+                        } else if (sumAction === 'save') {
+                            var sResults = data.results || [];
+                            msg = '✅ 已保存 ' + data.saved_count + ' 个窗口的摘要';
+                        } else if (sumAction === 'read') {
+                            var rResults = data.results || [];
+                            var rLines = [];
+                            for (var ri = 0; ri < rResults.length; ri++) {
+                                var rr = rResults[ri];
+                                if (rr.summary) {
+                                    rLines.push('📌 [' + rr.session_id + '] ' + (rr.title || '') + '\n' + rr.summary);
+                                } else {
+                                    rLines.push('📌 [' + rr.session_id + '] 无摘要');
+                                }
+                            }
+                            msg = '📋 已保存的摘要：\n\n' + rLines.join('\n\n---\n\n');
+                        } else if (sumAction === 'list') {
+                            var lSummaries = data.summaries || [];
+                            if (lSummaries.length === 0) {
+                                msg = '📝 暂无已保存的摘要';
+                            } else {
+                                var lLines = [];
+                                for (var li = 0; li < lSummaries.length; li++) {
+                                    var ls = lSummaries[li];
+                                    lLines.push((li+1) + '. [' + ls.session_id + '] ' + ls.title + '：' + ls.summary_preview + '...');
+                                }
+                                msg = '📝 已保存的摘要（共 ' + data.count + ' 条）：\n' + lLines.join('\n');
+                            }
+                        } else if (sumAction === 'delete') {
+                            msg = '🗑️ 已删除 ' + data.deleted + ' 个摘要';
+                        }
+                    }
+                    if (tool === 'task_list') {
+                        msg = data.message || '任务清单操作完成';
+                        // Build rich HTML if we have list data
+                        if (data.list || (data.lists && data.lists.length > 0)) {
+                            var html = self._renderTaskListHtml(data);
+                            if (html) {
+                                return { success: true, message: msg, html: html, tool: tool, data: data };
+                            }
+                        }
+                    }
+                    if (tool === 'monitor') {
+                        msg = data.message || '监控操作完成';
+                    }
+                    if (tool === 'diff_preview') {
+                        if (data.diff) {
+                            msg = '📝 Git 差异' + (data.staged ? '（暂存区）' : '（工作区）') + (data.file ? '｜文件: ' + data.file : '') + '\n' +
+                                  '变更统计: ' + data.stats + '\n\n' + data.diff;
+                        } else {
+                            msg = '✅ 没有未提交的变更' + (data.staged ? '（暂存区干净）' : '（工作区干净）');
+                        }
+                    }
+                    if (tool === 'git_log') {
+                        var commits = data.commits || [];
+                        if (commits.length === 0) {
+                            msg = '📝 没有提交记录';
+                        } else {
+                            msg = '📝 Git 提交历史（最近 ' + commits.length + ' 条）：\n\n' + data.formatted;
+                        }
+                    }
+                    if (tool === 'code_outline') {
+                        var outlines = data.outlines || [];
+                        if (outlines.length === 0) {
+                            msg = '📋 未能提取代码结构';
+                        } else {
+                            msg = data.formatted || '📋 代码结构分析完成';
+                        }
+                    }
+                    if (tool === 'move_file') {
+                        var mResults = data.results || [];
+                        var mLines = [];
+                        for (var mi = 0; mi < mResults.length; mi++) {
+                            var mr = mResults[mi];
+                            if (mr.ok) {
+                                mLines.push('  ✅ ' + mr.src + ' → ' + mr.dst);
+                            } else {
+                                mLines.push('  ❌ ' + mr.src + ' → ' + (mr.error || '失败'));
+                            }
+                        }
+                        msg = '📦 移动完成：' + data.ok_count + '/' + data.total + ' 成功\n' + mLines.join('\n');
+                    }
+                    if (tool === 'switch_port') {
+                        msg = data.message || '端口切换完成';
+                    }
+                    // ===== 生图/生视频完成：自动上 Kite 画布节点 =====
+                    if (data && data.ok) {
+                        var canvasApi = (typeof window !== 'undefined' && window.KiteCanvas) ? window.KiteCanvas : null;
+                        // 图片（文生图/图生图）
+                        if (tool === 'image_gen' && canvasApi && canvasApi.addImageNode) {
+                            var imgUrl = data.url || (data.result && data.result.url) || (data.data && data.data.url) || '';
+                            if (imgUrl) {
+                                try {
+                                    canvasApi.addImageNode({
+                                        url: imgUrl,
+                                        prompt: (payload && (payload.prompt || payload.desc)) || '',
+                                        connectToChat: payload._chat_id || self.currentChatId || null
+                                    });
+                                } catch (e) { /* 画布异常不影响主流程 */ }
+                            }
+                        }
+                        // 视频（文生视频）
+                        if (tool === 'video_gen' && canvasApi && canvasApi.addVideoNode) {
+                            var vArr = data.videos || (data.result && data.result.videos) || [];
+                            if (vArr && vArr.length) {
+                                for (var _vi = 0; _vi < vArr.length; _vi++) {
+                                    try {
+                                        canvasApi.addVideoNode({
+                                            url: vArr[_vi].url || vArr[_vi],
+                                            prompt: (payload && payload.prompt) || '',
+                                            connectToChat: payload._chat_id || self.currentChatId || null
+                                        });
+                                    } catch (e2) { /* 忽略 */ }
+                                }
+                            }
+                        }
+                    }
+                    return { success: true, message: msg, tool: tool, data: data };
+                }
+                return { success: false, message: (data && data.error) ? (label + '失败：' + data.error) : (label + '失败'), tool: tool, data: data || {} };
+            }).catch(function(err) {
+                return { success: false, message: label + '请求失败：' + err.message, tool: tool };
+            });
+        },
+
+        // ===== 判断是否为终止型工具（调用后结束循环） =====
+        isTerminal: function(name) {
+            return name === 'task_complete';
+        },
+
+        // ===== 默认展开的工具白名单 =====
+        // 只有此列表中的工具渲染时自动展开，其余默认折叠
+        // task_complete 始终不可折叠（走单独渲染路径），无需列入
+        _defaultExpanded: {
+            'ask_user': true,
+            'task_list': true
+        },
+
+        // ===== 工具显示名称映射 =====
+        _toolLabels: {
+            'task_complete': '任务结束',
+            'read_file': '读取文件',
+            'write_file': '写入文件',
+            'run_code': '运行代码',
+            'read_lines': '按行读取',
+            'ask_user': '询问用户',
+            'net': '联网',
+            'git_save': 'Git保存',
+            'project_record': '项目记录',
+            'chat_manage': '对话管理',
+            'wait': '等待',
+            'schedule': '定时任务',
+            'search_chat': '搜索对话',
+            'recent_questions': '近期问题',
+            'query_answers': '查询答案',
+            'chat_context': '上下文管理',
+            'chat_summary': '对话摘要',
+            'monitor': '监控队列',
+            'task_list': '任务清单',
+            'replace_text': '替换文本',
+            'tree_dir': '目录树',
+            'list_dir': '列出目录',
+            'find_files': '查找文件',
+            'search_in_files': '搜索内容',
+            'file_info': '文件信息',
+            'diff_preview': '差异预览',
+            'git_log': '提交历史',
+            'code_outline': '代码结构',
+            'move_file': '移动文件',
+                        'send_email': '发送邮件',
+            'regex_search': '正则搜索',
+            'work_order': '工单清单',
+            'switch_port': '切换端口',
+            'switch_tool_category': '切换分类'
+        },
+
+        _toolLabel: function(name) {
+            return this._toolLabels[name] || name;
+        },
+
+        // ===== 工具图标映射（折叠态左侧显示，区分工具类型） =====
+        _toolIcons: {
+            'task_complete': '🏁',
+            'read_file': '📄',
+            'write_file': '✏️',
+            'run_code': '▶️',
+            'read_lines': '📏',
+            'ask_user': '❓',
+            'net': '🌐',
+            'git_save': '📦',
+            'project_record': '📝',
+            'chat_manage': '💬',
+            'wait': '⏳',
+            'schedule': '🔁',
+            'search_chat': '🔍',
+            'recent_questions': '🔎',
+            'query_answers': '💡',
+            'chat_context': '📋',
+            'chat_summary': '📝',
+            'monitor': '🛡️',
+            'task_list': '📋',
+            'replace_text': '🔄',
+            'tree_dir': '🌳',
+            'list_dir': '📂',
+            'find_files': '🔍',
+            'search_in_files': '🔎',
+            'file_info': '📊',
+            'diff_preview': '📝',
+            'git_log': '📋',
+            'code_outline': '🗂️',
+            'move_file': '📦',
+            'send_email': '📧',
+            'regex_search': '🔍',
+            'work_order': '📋',
+            'switch_port': '🔌'
+        },
+
+        _toolIcon: function(name) {
+            return this._toolIcons[name] || '🔧';
+        },
+
+        // ===== 渲染统一工具卡片（可折叠：调用+结果合为一张卡） =====
+        // CSS 类名结构（BEM）：
+        //   .tool-wrap              基类（统一样式）
+        //   .tool-wrap--success     成功变体（绿色左边框）
+        //   .tool-wrap--fail        失败变体（红色左边框）
+        //   .tool-wrap--collapsed    折叠状态
+        //   .tool-wrap--{toolName}   按工具名单独覆盖（个别工具特殊样式）
+        renderToolCard: function(name, args, result) {
+            var toolIcon = this._toolIcon(name);
+            var statusIcon = result.success ? '✅' : '❌';
+            var label = this._toolLabel(name);
+            var status = result.success ? '成功' : '失败';
+            // 如果有 scope 且不是默认值，附加显示
+            if (result.scope && result.scope !== '当前任务') {
+                status += ' · ' + result.scope;
+            }
+
+            // 参数区
+            var argsHtml = '';
+            for (var k in args) {
+                if (args.hasOwnProperty(k)) {
+                    argsHtml += '<div class="tool-wrap__arg">' +
+                        '<span class="tool-wrap__arg-key">' + this.escapeHtml(k) + '</span>' +
+                        '<span class="tool-wrap__arg-sep">: </span>' +
+                        '<span class="tool-wrap__arg-val">' + this.escapeHtml(String(args[k])) + '</span>' +
+                        '</div>';
+                }
+            }
+
+            // 类名：基类 + 状态变体 + 工具名变体
+            // task_complete 不可折叠（消息必须始终可见）
+            // 默认折叠：只有 _defaultExpanded 白名单中的工具才自动展开
+            var isTerminal = this.isTerminal(name);
+            var cls = 'tool-wrap tool-wrap--' + (result.success ? 'success' : 'fail') + ' tool-wrap--' + name;
+            if (isTerminal) cls += ' tool-wrap--nocollapse';
+            if (!isTerminal && !this._defaultExpanded[name]) cls += ' tool-wrap--collapsed';
+
+            return '<div class="' + cls + '" data-tool="' + name + '">' +
+                // 头部（始终可见，点击折叠/展开——但 task_complete 不可折叠）
+                '<div class="tool-wrap__header">' +
+                    '<span class="tool-wrap__icon">' + toolIcon + '</span>' +
+                    '<span class="tool-wrap__name">' + this.escapeHtml(label) + '</span>' +
+                    '<span class="tool-wrap__status">' + status + '</span>' +
+                    '<span class="tool-wrap__status-icon">' + statusIcon + '</span>' +
+                    (isTerminal ? '' : '<span class="tool-wrap__toggle">▾</span>') +
+                '</div>' +
+                // 正文（可折叠）
+                '<div class="tool-wrap__body">' +
+                    (argsHtml ? '<div class="tool-wrap__section"><div class="tool-wrap__section-label">参数</div>' + argsHtml + '</div>' : '') +
+                    '<div class="tool-wrap__section"><div class="tool-wrap__section-label">结果</div>' +
+                        '<div class="tool-wrap__result">' + (result.html || this.escapeHtml(result.message)) + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        },
+
+        // ===== task_list 富文本渲染 =====
+        _renderTaskListHtml: function(data) {
+            var statusIcons = {
+                'pending': '☐',
+                'in_progress': '⟳️',
+                'completed': '✅',
+                'skipped': '⏭️'
+            };
+            var statusNames = {
+                'pending': '待处理',
+                'in_progress': '进行中',
+                'completed': '已完成',
+                'skipped': '已跳过'
+            };
+
+            // Single list mode (create/update/add/delete/show with id)
+            var lists = data.lists || (data.list ? [data.list] : []);
+            if (!lists.length) return '';
+
+            // If show without id -> overview mode
+            var isOverview = !data.id && data.action === 'show' && lists.length > 1;
+
+            if (isOverview) {
+                var ovHtml = '<div class="tl-overview">';
+                for (var oi = 0; oi < lists.length; oi++) {
+                    var tl = lists[oi];
+                    var total = tl.tasks.length;
+                    var done = 0;
+                    for (var ti = 0; ti < tl.tasks.length; ti++) {
+                        if (tl.tasks[ti].status === 'completed') done++;
+                    }
+                    var pct = total > 0 ? Math.round(done / total * 100) : 0;
+                    var allDone = done === total && total > 0;
+                    ovHtml += '<div class="tl-overview-item">' +
+                        '<span class="tl-overview-id">' + this.escapeHtml(tl.id) + '</span>' +
+                        '<span class="tl-overview-title">' + this.escapeHtml(tl.title) + '</span>' +
+                        '<span class="tl-overview-progress' + (allDone ? ' tl-all-done' : '') + '">' + done + '/' + total + ' (' + pct + '%)</span>' +
+                        '</div>';
+                }
+                ovHtml += '</div>';
+                return ovHtml;
+            }
+
+            // Single list detail mode
+            var tl = lists[0];
+            var total = tl.tasks.length;
+            var completed = 0, skipped = 0, inProgress = 0, pending = 0;
+            for (var i = 0; i < tl.tasks.length; i++) {
+                var s = tl.tasks[i].status;
+                if (s === 'completed') completed++;
+                else if (s === 'skipped') skipped++;
+                else if (s === 'in_progress') inProgress++;
+                else pending++;
+            }
+            var pct = total > 0 ? Math.round(completed / total * 100) : 0;
+            var allDone = completed === total && total > 0;
+
+            var html = '<div class="tl-detail">';
+            // Title
+            html += '<div class="tl-title">📋 ' + this.escapeHtml(tl.title) + '</div>';
+
+            // Progress bar
+            html += '<div class="tl-progress-bar"><div class="tl-progress-fill' + (allDone ? ' tl-complete' : '') + '" style="width:' + pct + '%"></div></div>';
+
+            // Stats row
+            html += '<div class="tl-stats">';
+            html += '<span class="tl-stat-item tl-stat-completed">✅ ' + completed + ' 完成</span>';
+            if (inProgress > 0) html += '<span class="tl-stat-item tl-stat-progress">⟳️ ' + inProgress + ' 进行中</span>';
+            if (pending > 0) html += '<span class="tl-stat-item tl-stat-pending">☐ ' + pending + ' 待处理</span>';
+            if (skipped > 0) html += '<span class="tl-stat-item tl-stat-skipped">⏭️ ' + skipped + ' 跳过</span>';
+            html += '</div>';
+
+            // Task list
+            html += '<ul class="tl-task-list">';
+            for (var j = 0; j < tl.tasks.length; j++) {
+                var t = tl.tasks[j];
+                var icon = statusIcons[t.status] || '☐';
+                html += '<li class="tl-task-item tl-status-' + t.status + '">' +
+                    '<span class="tl-task-id">#' + t.id + '</span>' +
+                    '<span class="tl-task-icon">' + icon + '</span>' +
+                    '<div class="tl-task-content"><div class="tl-task-title">' + this.escapeHtml(t.title) + '</div>';
+                if (t.detail) {
+                    html += '<div class="tl-task-detail">→ ' + this.escapeHtml(t.detail) + '</div>';
+                }
+                html += '</div></li>';
+            }
+            html += '</ul>';
+
+            html += '</div>';
+            return html;
+        },
+
+        // ===== HTML 转义 =====
+        escapeHtml: function(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        },
+
+        // ===== 加载出口限额配置（server 端 private/tool_result_limits.json，GET /api/tool-result-limits） =====
+        loadExitLimits: function() {
+            var self = this;
+            try {
+                fetch('/api/tool-result-limits').then(function(r) { return r.json(); }).then(function(cfg) {
+                    if (cfg && cfg.exit_limits && typeof cfg.exit_limits === 'object') {
+                        var el = cfg.exit_limits;
+                        if (el.enabled !== undefined) self.exitLimits.enabled = el.enabled !== false;
+                        if (el.defaults && typeof el.defaults === 'object') {
+                            for (var dk in el.defaults) {
+                                if (Object.prototype.hasOwnProperty.call(el.defaults, dk)) {
+                                    self.exitLimits.defaults[dk] = el.defaults[dk];
+                                }
+                            }
+                        }
+                        if (el.tools && typeof el.tools === 'object') self.exitLimits.tools = el.tools;
+                        if (Array.isArray(el._exempt)) self.exitLimits._exempt = el._exempt;
+                        self.exitLimits._loaded = true;
+                    }
+                }).catch(function() { /* 读失败保持默认 */ });
+            } catch (e) { /* ignore */ }
+        },
+
+        // ===== 工具结果出口限额：进入上下文前检查+截断（源头拦截） =====
+        // 超长结果：原文归档（get_tool_result 可找回）-> message 首尾截断 -> data 冗余字段同步截断
+        capResult: function(toolName, result) {
+            var self = this;
+            try {
+                if (!self.exitLimits || self.exitLimits.enabled === false) return result;
+                if (!result || typeof result !== 'object') return result;
+                // 豁免：找回型/终止型/配置型工具不截断（原文找回是兜底路径）
+                var exempt = self.exitLimits._exempt || [];
+                if (exempt.indexOf(toolName) >= 0) return result;
+
+                // 限额：工具级配置优先，缺省用 defaults.max_chars
+                var rule = self.exitLimits.tools && self.exitLimits.tools[toolName];
+                var maxChars = parseInt(rule && rule.max_chars, 10);
+                if (!maxChars || maxChars < 0) {
+                    maxChars = parseInt(self.exitLimits.defaults && self.exitLimits.defaults.max_chars, 10) || 6000;
+                }
+                if (maxChars <= 0) return result; // 0 = 不限制
+
+                // 总长检查（含 JSON 结构开销与 data 冗余）
+                var msg = (result.message != null) ? String(result.message) : '';
+                var total = 0;
+                try { total = JSON.stringify(result).length; } catch (e) { total = msg.length; }
+                if (total <= maxChars) return result; // 不超限，原样返回
+
+                // 原文归档（get_tool_result 找回）
+                var aid = 0;
+                var chatId = self.currentChatId || '';
+                if (chatId && self.toolResultArchive) {
+                    var archive = self.toolResultArchive[chatId] || (self.toolResultArchive[chatId] = []);
+                    self._archiveCounter = (self._archiveCounter || 0) + 1;
+                    aid = self._archiveCounter;
+                    archive.push({ id: aid, toolName: toolName, content: msg, archivedAt: Date.now() });
+                }
+
+                // 1) message 首尾截断（尾部常有 exit code / 错误信息，必须保留）
+                if (msg.length > maxChars * 0.5) {
+                    var headRatio = parseFloat(self.exitLimits.defaults && self.exitLimits.defaults.head_ratio) || 0.7;
+                    var tailRatio = parseFloat(self.exitLimits.defaults && self.exitLimits.defaults.tail_ratio) || 0.3;
+                    var headLen = Math.floor(maxChars * 0.5 * headRatio / (headRatio + tailRatio));
+                    var tailLen = Math.floor(maxChars * 0.5 * tailRatio / (headRatio + tailRatio));
+                    result.message = msg.slice(0, headLen)
+                        + '\n\n[⚠️ 输出超长已截断：原始 ' + msg.length + ' 字符，保留头 ' + headLen + ' + 尾 ' + tailLen
+                        + ' 字符' + (aid ? '，原文已存档 #' + aid + '（可用 get_tool_result 取回）' : '') + ']'
+                        + '\n[💡 建议缩小范围重试：加 findstr/关键词过滤、指定行号、减小 max_chars/max_results 等参数]'
+                        + '\n\n' + msg.slice(-tailLen);
+                }
+
+                // 2) data 内超长字符串字段同步截断（防 run_code 等 stdout/stderr 与 message 重复膨胀）
+                if (result.data && typeof result.data === 'object') {
+                    result.data = self._capDataFields(result.data, Math.floor(maxChars * 0.3), 0);
+                }
+                result._exitTruncated = { tool: toolName, originalTotal: total, limit: maxChars, archiveId: aid };
+            } catch (e) { /* 拦截失败不影响工具结果 */ }
+            return result;
+        },
+
+        // ===== 递归截断对象内超长字符串字段（供 capResult 使用） =====
+        _capDataFields: function(node, maxField, depth) {
+            var self = this;
+            if (depth > 5 || maxField <= 0) return node;
+            if (typeof node === 'string') {
+                if (node.length > maxField) {
+                    var fh = Math.floor(maxField * 0.7);
+                    var ft = Math.floor(maxField * 0.3);
+                    return node.slice(0, fh) + '\n[已截断' + node.length + '字符]' + node.slice(-ft);
+                }
+                return node;
+            }
+            if (Array.isArray(node)) {
+                return node.map(function(x) { return self._capDataFields(x, maxField, depth + 1); });
+            }
+            if (node && typeof node === 'object') {
+                var out = {};
+                for (var k in node) {
+                    if (Object.prototype.hasOwnProperty.call(node, k)) {
+                        out[k] = self._capDataFields(node[k], maxField, depth + 1);
+                    }
+                }
+                return out;
+            }
+            return node;
+        },
+
+        // ===== 工具选择变更回调（由 tools-settings.js 保存时调用） =====
+        // 让工具启用/停用设置立即生效：清空各对话缓存的工具定义，
+        // 并触发 UI 侧刷新（若存在 refreshToolDefinitions 接口）。
+        onToolSelectionChanged: function(selectedArr) {
+            var self = this;
+            if (self._toolDefCache && typeof self._toolDefCache === 'object') {
+                for (var k in self._toolDefCache) {
+                    if (Object.prototype.hasOwnProperty.call(self._toolDefCache, k)) {
+                        delete self._toolDefCache[k];
+                    }
+                }
+            }
+            // 触发全局刷新事件，供 app-agent.js 等监听（若已定义）
+            if (typeof window.dispatchEvent === 'function') {
+                try {
+                    window.dispatchEvent(new CustomEvent('tools:selection-changed', {
+                        detail: { tools: selectedArr || [] }
+                    }));
+                } catch (e) { /* ignore */ }
+            }
+        }
+    };
+
+// ===== 结构归位修复 ___STRUCT_FIX_APPLIED___ =====
+// 历史编辑事故导致 L783 的 '},' 提前关闭 allTools（只含 20 个工具），
+// 63 个工具定义错位挂到 Tools 对象直接属性上（L786-1449、L2094-2127）。
+// 原 getDefinitions 里的 self.allTools[name] || self[name] 回退让功能可用，
+// 但任何直接遍历 allTools 的代码会漏掉 63 个工具。
+// 此处启动时统一归位：把 self 上形如工具定义（type:'function' 且 function.name === key）
+// 的直接属性合并进 allTools。
+(function normalizeMisplacedTools() {
+    var self = window.Tools;
+    if (!self || !self.allTools) return;
+    var keys = Object.keys(self);
+    var moved = [];
+    for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (k === 'allTools' || k === 'categories' || k === 'activeCategory' ||
+            k === 'chatCategories' || k === 'currentChatId' || k === 'toolResultConfig' ||
+            k === 'toolResultArchive' || k === '_archiveCounter') continue;
+        var def = self[k];
+        if (def && typeof def === 'object' && !Array.isArray(def) &&
+            def.type === 'function' && def.function && def.function.name === k) {
+            if (!self.allTools[k]) {
+                self.allTools[k] = def;
+                moved.push(k);
+            }
+        }
+    }
+})();
+
+// ===== 启动时加载工具结果出口限额配置（private/tool_result_limits.json -> /api/tool-result-limits） =====
+(function exitLimitsBootstrap() {
+    try {
+        if (window.Tools && typeof window.Tools.loadExitLimits === 'function') {
+            window.Tools.loadExitLimits();
+        }
+    } catch (e) { /* ignore */ }
+})();

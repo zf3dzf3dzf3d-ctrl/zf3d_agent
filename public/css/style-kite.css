@@ -1,0 +1,237 @@
+/* ===== 风筝龙 v4：链式飘带 + 一句话背景提示 =====
+   - 龙头+一条线，各节=一个对话
+   - 所有对话提示均为纯背景层：z-index:0、pointer-events:none，不遮挡前景、不拦截点击
+   - 悬停/工具调用只弹出一句话文字提示（无左侧 AI 栏、无徽章），全局同时只显示最近一句 */
+
+.kite-dragon { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .7; }
+
+/* 风筝线：一条线从龙头垂下 */
+.kite-svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .32; }
+.kite-svg path { fill: none; stroke: rgba(203, 213, 225, .65); stroke-width: 1.5; }
+.kite-svg circle { fill: rgba(203, 213, 225, .55); }
+
+/* 龙头样式见下方注释 */
+/* 龙头：去掉圆圈（边框/背景清零），只留 emoji 头 + 两侧菱形；emoji 用 grid 居中于锚点 */
+.kite-head { position: absolute; left: 0; top: 0; width: 31px; height: 31px; margin: -15.5px 0 0 -15.5px; padding: 0; border: 0; background: none; display: grid; place-items: center; font-size: 29px; line-height: 1; cursor: grab; pointer-events: auto; user-select: none; touch-action: none; opacity: .9; }
+.kite-head.dragging { cursor: grabbing; filter: drop-shadow(0 4px 8px rgba(0,0,0,.35)); }
+/* 小菱形装饰：10px，贴在熊猫头两侧 */
+.kite-head:before,
+.kite-head:after { content: '◆'; position: absolute; color: #f2c77a; font-size: 10px; text-shadow: 0 0 4px rgba(242,199,122,.5); opacity: .85; pointer-events: none; }
+.kite-head:before { left: -5px;  top: 50%; transform: translateY(calc(-50% + 2px)) rotate(-15deg); }
+.kite-head:after  { right: -5px; top: 50%; transform: translateY(calc(-50% + 2px)) rotate(15deg); }
+.kite-face { user-select: none; pointer-events: none; margin-left: -5px; /* 补偿 Segoe UI Emoji 字形左侧留白，让熊猫头视觉居中 */ }
+.kite-head-overview { position: absolute; left: 0; top: 0; transform: translate(-50%, calc(-100% - 24px)); display: none; width: max-content; min-width: 170px; max-width: min(260px, 80vw); padding: 7px; border: 1px solid rgba(159,213,255,.55); border-radius: 6px; background: rgba(20,27,39,.97); box-shadow: 0 5px 16px rgba(0,0,0,.28); color: #dfeeff; font-size: 11px; line-height: 1.35; pointer-events: auto; z-index: 30; }
+.kite-head-overview.open { display: block; }
+.kite-head-overview.below { transform: translate(-50%, 24px); }
+.kho-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #9fd5ff; font-weight: 700; padding: 1px 4px 5px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 3px; }
+.kho-close { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #c8d8e8; font-size: 18px; line-height: 18px; cursor: pointer; }
+.kho-close:hover { background: rgba(255,255,255,.14); color: #fff; }
+.kho-row { display: flex; width: 100%; justify-content: space-between; gap: 14px; padding: 4px; border: 0; border-radius: 3px; background: transparent; color: #e8eaf1; text-align: left; cursor: pointer; font: inherit; }
+.kho-row:hover { background: rgba(159,213,255,.18); color: #fff; }
+.kho-row b { color: #ffd27a; font-weight: 700; white-space: nowrap; }
+
+/* 龙身节：JS 绝对定位，链式跟随 */
+.kite-seg { position: absolute; left: 0; top: 0; width: 30px; height: 24px; margin: -12px 0 0 -15px; pointer-events: auto; cursor: pointer; }
+.kite-blob { position: absolute; inset: 0; border-radius: 48% 52% 45% 55%; background: linear-gradient(135deg, #7fbcb2, #6d9ec0); border: 1.5px solid rgba(255,255,255,.32); box-shadow: 0 3px 7px rgba(0,0,0,.12); transition: transform .15s, opacity .15s, background .55s ease, box-shadow .55s ease, border-color .55s ease; opacity: .78; display: grid; place-items: center; }
+.kite-seg.alt .kite-blob { background: linear-gradient(135deg, #d9a273, #c07d8f); }
+.kite-seg:hover .kite-blob { transform: scale(1.15); opacity: .95; }
+.kite-speed-tip { position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); display: block; max-width: 180px; padding: 4px 8px; border: 1px solid rgba(159,213,255,.55); border-radius: 5px; background: rgba(20,27,39,.96); color: #bfe4ff; font-size: 11px; line-height: 1.25; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 20; transition: opacity .15s ease, visibility .15s ease; }
+.kite-speed-tip:after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; background: rgba(20,27,39,.96); border-right: 1px solid rgba(159,213,255,.55); border-bottom: 1px solid rgba(159,213,255,.55); transform: translateX(-50%) rotate(45deg); }
+.kite-seg:hover .kite-speed-tip { opacity: 1; visibility: visible; }
+
+/* ===== 任务状态色（成功/失败/进行中），CSS 过渡更顺滑 ===== */
+.kite-seg.task-success .kite-blob {
+  background: linear-gradient(135deg, #ffd86b, #ff9a3d);
+  border-color: rgba(255, 222, 130, .85);
+  box-shadow: 0 0 10px rgba(255, 196, 70, .55), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .95;
+}
+.kite-seg.task-fail .kite-blob {
+  background: linear-gradient(135deg, #ff6b6b, #c7385a);
+  border-color: rgba(255, 130, 130, .8);
+  box-shadow: 0 0 8px rgba(220, 60, 80, .45), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .92;
+}
+.kite-seg.task-pending .kite-blob {
+  background: linear-gradient(135deg, #6db1ff, #5b8cf2);
+  border-color: rgba(140, 180, 255, .8);
+  animation: kitePulse 1.4s ease-in-out infinite;
+}
+@keyframes kitePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(110, 170, 255, .3), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1); }
+  50%      { box-shadow: 0 0 14px rgba(110, 170, 255, .85), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1.08); }
+}
+
+/* 圆点中心的模型字母：居中，无左侧大字 */
+.kb-letter { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); line-height: 1; letter-spacing: 0; user-select: none; pointer-events: none; }
+
+/* ---- 一句话提示气泡：纯背景层，单行文字，不遮挡、不可点击 ---- */
+.kite-card {
+  position: absolute; left: 0; top: 0;
+  max-width: 220px;
+  transform: translate(-50%, calc(-100% - 26px));  /* 显示在节上方 */
+  transform-origin: 50% 100%;
+  background: rgba(30, 34, 45, .78);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.22);
+  padding: 5px 10px;
+  font-size: 12px; line-height: 1.5;
+  color: #e8eaf1;
+  opacity: 0; visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease, transform .18s ease;
+  z-index: 1;
+  pointer-events: none;   /* 背景：不拦截任何点击 */
+}
+.kite-card.show { opacity: 1; visibility: visible; transform: translate(-50%, calc(-100% - 26px)) translateY(4px); }
+
+/* 卡通小尾巴 */
+.kite-card .kc-tail {
+  position: absolute; left: 50%; bottom: -7px; margin-left: -7px;
+  width: 0; height: 0;
+  border: 7px solid transparent; border-top-width: 7px;
+  border-top-color: rgba(30, 34, 45, .78);
+  border-bottom: 0;
+}
+
+/* 单行文字：超长省略（每次只一句话） */
+.kite-card .kc-rate {
+  display: block;
+  min-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: #9fd5ff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.kite-card .kc-txt {
+  display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; color: #dfe4ee;
+}
+
+@keyframes kiteToolPop { 0% { opacity: 0; transform: translate(-50%,5px); } 14%,72% { opacity: 1; transform: translate(-50%,0); } 100% { opacity: 0; transform: translate(-50%,-6px); } }
+
+@media (max-width: 600px) {
+  .kite-head { width: 25px; height: 25px; margin: -12.5px 0 0 -12.5px; font-size: 24px; }
+  .kite-seg { width: 25px; height: 20px; margin: -10px 0 0 -13px; }
+  .kite-card { max-width: 170px; }
+}
+
+/* ========== Kite 鏃犻檺鐢诲竷 ========== */
+#kite-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    background: transparent;
+}
+#kite-canvas > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+#kite-canvas .kite-node {
+    position: absolute;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+#kite-canvas .kite-node img,
+#kite-canvas .kite-node video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    -webkit-user-drag: none;
+}
+#kite-canvas .kite-resize {
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff;
+    border: 1px solid #0984e3;
+    border-radius: 50%;
+    pointer-events: auto;
+    z-index: 2;
+}
+#kite-canvas .kite-resize.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+#kite-canvas .kite-resize.bl { left: -6px;  bottom: -6px; cursor: nesw-resize; }
+#kite-canvas .kite-resize.tr { right: -6px; top: -6px;    cursor: nesw-resize; }
+#kite-canvas .kite-resize.tl { left: -6px;  top: -6px;    cursor: nwse-resize; }
+#kite-canvas .kite-resize.t  { left: 50%; top: -6px;      transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.b  { left: 50%; bottom: -6px;   transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.l  { left: -6px;  top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-resize.r  { right: -6px; top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-node .kite-close {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: auto; height: auto;
+    line-height: 1;
+    text-align: center;
+    background: none;
+    color: var(--text2);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    z-index: 3;
+    transition: background 0.15s, color 0.15s;
+}
+#kite-canvas .kite-node .kite-close:hover {
+    background: var(--border);
+    color: var(--text);
+}
+#kite-canvas .kite-node .kite-title {
+    position: absolute;
+    left: 8px; top: 6px;
+    max-width: calc(100% - 60px);
+    padding: 2px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    background: transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#kite-canvas .kite-link {
+    fill: none;
+    stroke: rgba(91, 122, 156, 0.64);
+    stroke-width: 3;
+    filter: none;
+}
+
+/* ===== 浅色主题适配（与对话框风格统一） ===== */
+[data-theme="light"] #kite-canvas .kite-node {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12), 0 2px 8px rgba(33,102,209,.08) !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close {
+    color: #5a6b85 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close:hover {
+    background: rgba(60,100,160,.12) !important;
+    color: #333 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-title {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #kite-canvas .kite-resize {
+    border-color: #2166d1;
+}

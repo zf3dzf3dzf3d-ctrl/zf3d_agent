@@ -1,0 +1,421 @@
+/* ========== style-health.css - 健康守护模式样式 ========== */
+
+/* ===== 休息提醒遮罩层 ===== */
+.health-rest-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: healthFadeIn 0.3s ease;
+}
+
+.health-rest-overlay.closing {
+    animation: healthFadeOut 0.3s ease forwards;
+}
+
+@keyframes healthFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes healthFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* ===== 休息弹窗 ===== */
+.health-rest-box {
+    background: var(--bg, #1e1e2e);
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    border: 1px solid var(--border, #333);
+    animation: healthSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.health-rest-box.force-lock {
+    border-color: #e74c3c;
+    box-shadow: 0 20px 60px rgba(231,76,60,0.3);
+    animation: healthSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), forceLockPulse 2s ease-in-out infinite;
+}
+
+.health-rest-box.unlocking {
+    border-color: #27ae60;
+    box-shadow: 0 20px 60px rgba(39,174,96,0.3);
+}
+
+@keyframes healthSlideUp {
+    from { transform: translateY(40px) scale(0.95); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes forceLockPulse {
+    0%, 100% { box-shadow: 0 20px 60px rgba(231,76,60,0.3); }
+    50% { box-shadow: 0 20px 80px rgba(231,76,60,0.5); }
+}
+
+/* ===== 标题 ===== */
+.health-rest-header {
+    margin-bottom: 12px;
+}
+.health-rest-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text, #e0e0e0);
+}
+.health-rest-box.force-lock .health-rest-title {
+    color: #e74c3c;
+}
+
+/* ===== 消息文本 ===== */
+.health-rest-message {
+    font-size: 14px;
+    color: var(--text2, #aaa);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+.health-rest-message b {
+    color: var(--text, #e0e0e0);
+}
+
+/* ===== 体操动画区域 ===== */
+.health-exercise-area {
+    background: rgba(0,0,0,0.15);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.health-exercise-figure {
+    position: relative;
+    width: 80px;
+    height: 120px;
+    margin: 0 auto 12px;
+}
+
+/* 小人各部位基础样式 */
+.health-exercise-figure .fig-head {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #6c5ce7;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.health-exercise-figure .fig-body {
+    position: absolute;
+    width: 16px;
+    height: 40px;
+    background: #0984e3;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 4px;
+}
+.health-exercise-figure .fig-arm-l,
+.health-exercise-figure .fig-arm-r {
+    position: absolute;
+    width: 8px;
+    height: 32px;
+    background: #0984e3;
+    top: 30px;
+    border-radius: 4px;
+    transform-origin: top center;
+}
+.health-exercise-figure .fig-arm-l {
+    left: 50%;
+    margin-left: -16px;
+}
+.health-exercise-figure .fig-arm-r {
+    left: 50%;
+    margin-left: 8px;
+}
+.health-exercise-figure .fig-leg-l,
+.health-exercise-figure .fig-leg-r {
+    position: absolute;
+    width: 8px;
+    height: 32px;
+    background: #2d3436;
+    top: 68px;
+    border-radius: 4px;
+    transform-origin: top center;
+}
+.health-exercise-figure .fig-leg-l {
+    left: 50%;
+    margin-left: -10px;
+}
+.health-exercise-figure .fig-leg-r {
+    left: 50%;
+    margin-left: 2px;
+}
+
+/* ===== 伸展运动：双手向上伸 ===== */
+.health-exercise-figure.ex-stretch .fig-arm-l {
+    animation: exStretchArmL 1.5s ease-in-out infinite;
+}
+.health-exercise-figure.ex-stretch .fig-arm-r {
+    animation: exStretchArmR 1.5s ease-in-out infinite;
+}
+@keyframes exStretchArmL {
+    0%, 100% { transform: rotate(20deg) translateY(0); }
+    50% { transform: rotate(160deg) translateY(-20px); }
+}
+@keyframes exStretchArmR {
+    0%, 100% { transform: rotate(-20deg) translateY(0); }
+    50% { transform: rotate(-160deg) translateY(-20px); }
+}
+
+/* ===== 转颈运动：头部左右转 ===== */
+.health-exercise-figure.ex-neck .fig-head {
+    animation: exNeckTurn 2s ease-in-out infinite;
+}
+@keyframes exNeckTurn {
+    0%, 100% { transform: translateX(-50%) rotate(0deg); }
+    25% { transform: translateX(-50%) rotate(-30deg); }
+    50% { transform: translateX(-50%) rotate(0deg); }
+    75% { transform: translateX(-50%) rotate(30deg); }
+}
+
+/* ===== 扩胸运动：双臂向两侧扩展 ===== */
+.health-exercise-figure.ex-chest .fig-arm-l {
+    animation: exChestArmL 1.5s ease-in-out infinite;
+}
+.health-exercise-figure.ex-chest .fig-arm-r {
+    animation: exChestArmR 1.5s ease-in-out infinite;
+}
+@keyframes exChestArmL {
+    0%, 100% { transform: rotate(10deg); }
+    50% { transform: rotate(-80deg); }
+}
+@keyframes exChestArmR {
+    0%, 100% { transform: rotate(-10deg); }
+    50% { transform: rotate(80deg); }
+}
+
+/* ===== 眼部运动：头部上下移动 ===== */
+.health-exercise-figure.ex-eyes .fig-head {
+    animation: exEyesMove 1.8s ease-in-out infinite;
+}
+@keyframes exEyesMove {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    25% { transform: translateX(-50%) translateY(-8px); }
+    50% { transform: translateX(-50%) translateY(0); }
+    75% { transform: translateX(-50%) translateY(4px); }
+}
+
+/* ===== 扭腰运动：身体左右倾斜 ===== */
+.health-exercise-figure.ex-waist .fig-body {
+    animation: exWaistBody 1.5s ease-in-out infinite;
+    transform-origin: bottom center;
+}
+.health-exercise-figure.ex-waist .fig-arm-l,
+.health-exercise-figure.ex-waist .fig-arm-r {
+    animation: exWaistBody 1.5s ease-in-out infinite;
+}
+@keyframes exWaistBody {
+    0%, 100% { transform: translateX(-50%) rotate(0deg); }
+    25% { transform: translateX(-50%) rotate(15deg); }
+    50% { transform: translateX(-50%) rotate(0deg); }
+    75% { transform: translateX(-50%) rotate(-15deg); }
+}
+.health-exercise-figure.ex-waist .fig-arm-l {
+    transform-origin: top center;
+    animation: exWaistArmL 1.5s ease-in-out infinite;
+}
+.health-exercise-figure.ex-waist .fig-arm-r {
+    transform-origin: top center;
+    animation: exWaistArmR 1.5s ease-in-out infinite;
+}
+@keyframes exWaistArmL {
+    0%, 100% { transform: rotate(20deg); }
+    25% { transform: rotate(40deg); }
+    75% { transform: rotate(0deg); }
+}
+@keyframes exWaistArmR {
+    0%, 100% { transform: rotate(-20deg); }
+    25% { transform: rotate(0deg); }
+    75% { transform: rotate(-40deg); }
+}
+
+/* ===== 深蹲运动：整体上下蹲起 ===== */
+.health-exercise-figure.ex-squat .fig-body,
+.health-exercise-figure.ex-squat .fig-head,
+.health-exercise-figure.ex-squat .fig-arm-l,
+.health-exercise-figure.ex-squat .fig-arm-r {
+    animation: exSquatDown 1.5s ease-in-out infinite;
+}
+@keyframes exSquatDown {
+    0%, 100% { top: var(--top, 0); }
+    50% { top: calc(var(--top, 0) + 15px); }
+}
+.health-exercise-figure.ex-squat .fig-head { --top: 0; animation: exSquatHead 1.5s ease-in-out infinite; }
+.health-exercise-figure.ex-squat .fig-body { --top: 28px; animation: exSquatBody 1.5s ease-in-out infinite; }
+.health-exercise-figure.ex-squat .fig-arm-l { --top: 30px; }
+.health-exercise-figure.ex-squat .fig-arm-r { --top: 30px; }
+@keyframes exSquatHead {
+    0%, 100% { top: 0; }
+    50% { top: 12px; }
+}
+@keyframes exSquatBody {
+    0%, 100% { top: 28px; height: 40px; }
+    50% { top: 40px; height: 32px; }
+}
+
+/* ===== 体操标签 ===== */
+.health-exercise-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.health-exercise-label .ex-icon {
+    font-size: 20px;
+}
+.health-exercise-label .ex-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--text, #e0e0e0);
+}
+.health-exercise-tip {
+    font-size: 12px;
+    color: var(--text2, #aaa);
+    line-height: 1.5;
+}
+
+/* ===== 倒计时 ===== */
+.health-lock-countdown {
+    font-size: 18px;
+    font-weight: bold;
+    color: #e74c3c;
+    margin-bottom: 16px;
+    font-family: 'Courier New', monospace;
+}
+
+/* ===== 底部提示/按钮 ===== */
+.health-rest-tip {
+    font-size: 12px;
+    color: var(--text2, #888);
+    margin-bottom: 16px;
+}
+.health-rest-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+.health-btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.health-btn-primary {
+    background: #6c5ce7;
+    color: #fff;
+}
+.health-btn-primary:hover {
+    background: #5b4bdb;
+    transform: translateY(-1px);
+}
+.health-btn-primary.ready {
+    background: #27ae60;
+    animation: btnReadyPulse 1.5s ease-in-out infinite;
+}
+@keyframes btnReadyPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(39,174,96,0); }
+}
+.health-locked-badge {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 8px;
+    background: rgba(231,76,60,0.15);
+    color: #e74c3c;
+    font-size: 14px;
+    font-weight: bold;
+    border: 1px solid rgba(231,76,60,0.3);
+}
+
+/* ===== 设置面板 - 健康守护 ===== */
+.health-config-card {
+    background: rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.health-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.health-slider-row:last-child {
+    margin-bottom: 0;
+}
+.health-slider-row label {
+    width: 100px;
+    font-size: 13px;
+    color: var(--text, #e0e0e0);
+    flex-shrink: 0;
+}
+.health-slider-row input[type="range"] {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border, #444);
+    border-radius: 3px;
+    outline: none;
+}
+.health-slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6c5ce7;
+    cursor: pointer;
+}
+.health-slider-row input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #6c5ce7;
+    cursor: pointer;
+    border: none;
+}
+.health-slider-value {
+    min-width: 60px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: bold;
+    color: #6c5ce7;
+}
+
+/* 强制开启标识 */
+.health-forced-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: rgba(231,76,60,0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231,76,60,0.3);
+    font-size: 11px;
+    font-weight: bold;
+}

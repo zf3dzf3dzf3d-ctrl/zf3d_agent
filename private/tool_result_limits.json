@@ -1,0 +1,35 @@
+{
+  "name": "工具结果出口限额",
+  "version": "1.0.0",
+  "description": "统一规定所有工具结果进入上下文前的限额规则（源头拦截）。超长结果先归档原文（get_tool_result 可找回），再首尾截断并提示 AI 缩小范围重试。修改后刷新页面生效。",
+  "exit_limits": {
+    "enabled": true,
+    "defaults": {
+      "max_chars": 6000,
+      "head_ratio": 0.7,
+      "tail_ratio": 0.3
+    },
+    "tools": {
+      "run_code": { "max_chars": 6000 },
+      "read_file": { "max_chars": 12000 },
+      "read_lines": { "max_chars": 12000 },
+      "net": { "max_chars": 8000 },
+      "search_in_files": { "max_chars": 8000 },
+      "regex_search": { "max_chars": 8000 },
+      "tree_dir": { "max_chars": 6000 },
+      "list_dir": { "max_chars": 6000 },
+      "find_files": { "max_chars": 6000 },
+      "search_chat": { "max_chars": 8000 },
+      "recent_questions": { "max_chars": 8000 },
+      "query_answers": { "max_chars": 8000 },
+      "chat_context": { "max_chars": 8000 },
+      "chat_summary": { "max_chars": 8000 },
+      "code_outline": { "max_chars": 8000 },
+      "diff_preview": { "max_chars": 8000 },
+      "git_log": { "max_chars": 6000 },
+      "project_record": { "max_chars": 8000 },
+      "work_order": { "max_chars": 8000 }
+    },
+    "_exempt": ["get_tool_result", "task_complete", "ask_user", "set_tool_result_config"]
+  }
+}

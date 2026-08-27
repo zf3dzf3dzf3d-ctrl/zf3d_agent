@@ -1,0 +1,21 @@
+{
+  "taskPanelWidthOffset": "50",
+  "active_project_id": "proj_1787828700949",
+  "zf3d_lastBoxSize": "{\"w\":383,\"h\":507}",
+  "zf3d_create_panel_w": 560,
+  "zf3d_create_panel_h": 370,
+  "zf3d_image_w": "1280",
+  "zf3d_image_h": "720",
+  "zf3d_image_model": "doubao-seedream-5.0-lite",
+  "zf3d-kite-anchor": "155,260",
+  "project_panel_width": "351",
+  "zf3d-kite-face": "4",
+  "zf3d_kite_default_sizes": "{\"imagePanel\":{\"w\":316,\"h\":330}}",
+  "zf3d_kite_default_sizes_v2": "{\"prompt\":{\"w\":240,\"h\":776},\"imagePanel\":{\"w\":303,\"h\":403}}",
+  "zf3d_imageviewer_pos": "{\"x\":667,\"y\":142}",
+  "zf3d_imageviewer_size": "{\"w\":382,\"h\":337}",
+  "zf3d_kite_default_sizes_v3": "{\"image\":{\"w\":486,\"h\":476},\"prompt\":{\"w\":288,\"h\":309},\"editPanel\":{\"w\":293,\"h\":369}}",
+  "zf3d_kite_default_sizes_v4": "{\"prompt\":{\"w\":309,\"h\":248}}",
+  "appLang": "zh",
+  "zf_theme": "{\"darkAccent\":\"#0984e3\",\"lightAccent\":\"#0078d4\",\"current\":\"dark\"}"
+}

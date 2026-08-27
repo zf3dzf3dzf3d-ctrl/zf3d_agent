@@ -1,0 +1,1067 @@
+﻿<!DOCTYPE html>
+
+<html lang="zh-CN" translate="no">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>朱峰社区智能体无限 5.0.1</title>
+
+    <link rel="icon" href="assets/favicon.png">
+
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+
+        <link rel="stylesheet" href="css/style-base.css?v=443">
+    <link rel="stylesheet" href="css/style.css?v=2">
+
+    <link rel="stylesheet" href="css/style-chatbox.css?v=475">
+    <link rel="stylesheet" href="css/image-node.css?v=2">
+    <link rel="stylesheet" href="css/style-kite.css?v=2">
+    <link rel="stylesheet" href="css/app-imageviewer.css?v=3">
+    <link rel="stylesheet" href="css/style-tools.css?v=448">
+    <link rel="stylesheet" href="css/style-settings-nav.css?v=5">
+    <link rel="stylesheet" href="css/model-config-types.css?v=8">
+
+
+    <link rel="stylesheet" href="css/style-markdown.css?v=433">
+
+    <link rel="stylesheet" href="css/style-extras.css?v=460">
+    <link rel="stylesheet" href="css/tool-stats.css?v=1">
+    <link rel="stylesheet" href="css/settings-toggles.css?v=3">
+    <link rel="stylesheet" href="css/tools-settings.css?v=1">
+    <link rel="stylesheet" href="css/tools-settings-dark.css?v=1">
+    <link rel="stylesheet" href="css/logpanel.css">
+
+    <link rel="stylesheet" href="css/style-taskpanel.css?v=19">
+    <link rel="stylesheet" href="css/style-health.css?v=1">
+
+    <link rel="stylesheet" href="css/highlight-theme.min.css?v=1">
+
+
+
+
+</head>
+
+<body>
+
+
+
+    <!-- ====== 开机动画 ====== -->
+    <div id="bootScreen" style="position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s ease;">
+        <!-- 旋转圆环 + 中心 logo -->
+        <div style="position:relative;width:80px;height:80px;">
+            <svg style="position:absolute;inset:0;animation:bootSpin 1.2s linear infinite;" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="36" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+                <circle cx="40" cy="40" r="36" fill="none" stroke="#0078d4" stroke-width="3" stroke-linecap="round" stroke-dasharray="80 200" stroke-dashoffset="0"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+                <img src="assets/logo-transparent.png" style="width:32px;height:32px;object-fit:contain;animation:bootPulse 2s ease-in-out infinite;" alt="logo">
+            </div>
+        </div>
+        <div style="margin-top:24px;font-size:15px;color:#666;letter-spacing:2px;font-family:system-ui,sans-serif;animation:bootPulse 2s ease-in-out infinite;">朱峰社区智能体无限</div>
+        <div style="position:absolute;bottom:60px;font-size:12px;color:#333;font-family:system-ui,sans-serif;">正在启动...</div>
+    </div>
+    <style>
+        @keyframes bootSpin { to { transform: rotate(360deg); } }
+        @keyframes bootPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+    
+/* Settings comparison tables stay readable inside the panel. */
+.comparison-card .comparison-note { margin: -2px 0 12px; color: var(--muted, #687280); font-size: 13px; }
+.comparison-table-wrap { overflow-x: auto; border: 1px solid var(--border, #d9dee6); border-radius: 6px; }
+.comparison-table { width: 100%; min-width: 680px; table-layout: fixed; }
+.comparison-table th:first-child, .comparison-table td:first-child { width: 48px; text-align: center; }
+.comparison-table th:nth-child(2), .comparison-table td:nth-child(2) { width: 130px; }
+.comparison-table th, .comparison-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+/* Keep comparison column headers visible while the settings panel scrolls. */
+.comparison-table thead th { position: static; background: transparent; }
+.comparison-table thead th:nth-child(n+3) { font-size: 16px; font-weight: 700; color: inherit; }
+.unique-feature-table { min-width: 620px; }
+.unique-feature-table th:first-child, .unique-feature-table td:first-child { width: 170px; text-align: left; }
+.unique-feature-table th:nth-child(2), .unique-feature-table td:nth-child(2) { width: 48%; }
+@media (max-width: 760px) { .comparison-table { min-width: 620px; } }
+</style>
+    <script>
+        (function(){
+            var boot = document.getElementById('bootScreen');
+            function hideBoot(){
+                boot.style.opacity = '0';
+                setTimeout(function(){ boot.style.display = 'none'; }, 850);
+            }
+            if (document.readyState === 'complete') {
+                setTimeout(hideBoot, 1000);
+            } else {
+                window.addEventListener('load', function(){ setTimeout(hideBoot, 1000); });
+            }
+            setTimeout(function(){ if(boot.style.display!=='none') hideBoot(); }, 5000);
+        })();
+    </script>
+
+    <!-- ====== 朱峰社区登录遮罩 ====== -->
+    <div id="zf3dLoginOverlay" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);align-items:center;justify-content:center">
+        <form style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:32px 28px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.4);margin:0" onsubmit="event.preventDefault();App.zf3dTopbarDoLogin()">
+            <div style="text-align:center;margin-bottom:20px">
+                <img src="assets/biao.png" style="width:48px;height:48px;margin:0 auto 8px;border-radius:12px;display:block;object-fit:contain">
+                <div style="font-size:18px;font-weight:bold;color:var(--blue)">朱峰社区</div>
+                <div style="font-size:12px;color:var(--text2);margin-top:2px">登录朱峰社区账号以使用签到等功能</div>
+            </div>
+            <div style="margin-bottom:14px">
+                <input id="zf3dLoginUsername" name="username" type="text" autocomplete="username" placeholder="用户名" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;outline:none" onkeydown="if(event.key==='Enter')document.getElementById('zf3dLoginPassword').focus()">
+            </div>
+            <div style="margin-bottom:14px">
+                <input id="zf3dLoginPassword" name="password" type="password" autocomplete="current-password" placeholder="密码" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;outline:none" onkeydown="if(event.key==='Enter')App.zf3dTopbarDoLogin()">
+            </div>
+            <div id="zf3dLoginError" style="display:none;color:var(--red);font-size:13px;margin-bottom:10px;text-align:center"></div>
+            <button id="zf3dLoginBtn" type="submit" style="width:100%;padding:10px;border:none;border-radius:6px;background:var(--blue);color:#fff;font-size:14px;cursor:pointer;transition:opacity 0.15s">登录</button>
+            <div style="text-align:center;margin-top:12px">
+                <span style="font-size:12px;color:var(--text2);cursor:pointer" onclick="App.zf3dTopbarHideLogin()">取消</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- ====== 顶部标志栏 ====== -->
+
+    <div class="topbar">
+
+        <span class="topbar-title">
+
+            <span class="topbar-logo"></span>
+
+            <span data-i18n="brand">朱峰社区智能体无限</span>
+
+        </span>
+
+        <div class="topbar-right">
+            <button class="topbar-icon" id="languageToggle" title="切换语言" data-i18n-attr='{"title":"language"}' onclick="setLang(getLang() === 'zh' ? 'en' : 'zh')">EN</button>
+            <button class="topbar-icon" title="访问朱峰社区网站" onclick="window.open('http://www.zf3d.com','_blank')">🌐</button>
+            <button class="topbar-icon" id="updateBtn" title="检查更新" onclick="doUpdate()" style="display:none"></button>
+
+            <span class="topbar-sep"></span>
+
+            <button class="topbar-icon" id="themeBtn" title="主题设置">🌙</button>
+
+            <span class="topbar-sep"></span>
+
+            <button class="topbar-icon" id="projectBtn" title="项目管理">📁</button>
+
+            <button class="topbar-icon" id="settingsBtn" title="设置 / 模型配置" onclick="window.App && App.openSettingsPanel ? App.openSettingsPanel('models') : document.getElementById('settingsOverlay').classList.add('show')">⚙️</button>
+
+            <button class="topbar-icon" title="关于" data-i18n-attr='{"title":"about"}' onclick="openAbout()">❤️</button>
+
+
+
+            <span class="topbar-sep"></span>
+            <!-- 未登录：显示登录按钮 -->
+            <div id="zf3dLoginEntry" class="zf3d-topbar-login" onclick="App.zf3dTopbarShowLogin()" title="登录朱峰社区">
+                <span style="font-size:14px">👤</span>
+                <span class="zf3d-topbar-login-text">登录</span>
+            </div>
+            <!-- 已登录：显示头像 + 用户名 -->
+            <div id="zf3dUserEntry" class="zf3d-topbar-user" onclick="App.zf3dTopbarShowUserMenu(event)" title="点击查看菜单">
+                <div id="zf3dUserAvatar" class="zf3d-topbar-avatar"></div>
+                <span id="zf3dUserName" class="zf3d-topbar-username"></span>
+            </div>
+
+        </div>
+
+
+
+        <!-- ====== 主题配色面板 ====== -->
+
+        <div class="theme-panel" id="themePanel">
+
+            <div class="theme-panel-header">
+
+                <span class="theme-panel-title">🎨 主题设置</span>
+
+                <button class="theme-panel-close" onclick="document.getElementById('themePanel').classList.remove('open')">✕</button>
+
+            </div>
+
+            <div class="theme-panel-body">
+
+
+
+                <!-- 白天模式卡片 -->
+
+                <div class="theme-mode-card" id="themeModeLight">
+
+                    <div class="theme-mode-header">
+
+                        <span class="theme-mode-icon">☀️</span>
+
+                        <span class="theme-mode-name">白天</span>
+
+                        <span class="theme-mode-check">✓</span>
+
+                    </div>
+
+                    <div class="theme-mode-colors">
+
+                        <input type="color" id="themeLightPicker" class="theme-color-input" value="#0078d4">
+
+                        <div class="theme-preset-grid">
+
+                            <div class="theme-preset-color" data-color="#0078d4" data-target="light" style="background:#0078d4"></div>
+
+                            <div class="theme-preset-color" data-color="#7c3aed" data-target="light" style="background:#7c3aed"></div>
+
+                            <div class="theme-preset-color" data-color="#ea580c" data-target="light" style="background:#ea580c"></div>
+
+                            <div class="theme-preset-color" data-color="#059669" data-target="light" style="background:#059669"></div>
+
+                            <div class="theme-preset-color" data-color="#d97706" data-target="light" style="background:#d97706"></div>
+
+                            <div class="theme-preset-color" data-color="#db2777" data-target="light" style="background:#db2777"></div>
+
+                            <div class="theme-preset-color" data-color="#0284c7" data-target="light" style="background:#0284c7"></div>
+
+                            <div class="theme-preset-color" data-color="#6366f1" data-target="light" style="background:#6366f1"></div>
+
+                        </div>
+
+                        <span class="theme-color-value" id="themeLightValue">#0078D4</span>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- 黑夜模式卡片 -->
+
+                <div class="theme-mode-card" id="themeModeDark">
+
+                    <div class="theme-mode-header">
+
+                        <span class="theme-mode-icon">🌙</span>
+
+                        <span class="theme-mode-name">黑夜</span>
+
+                        <span class="theme-mode-check">✓</span>
+
+                    </div>
+
+                    <div class="theme-mode-colors">
+
+                        <input type="color" id="themeDarkPicker" class="theme-color-input" value="#0984e3">
+
+                        <div class="theme-preset-grid">
+
+                            <div class="theme-preset-color" data-color="#00b894" data-target="dark" style="background:#00b894"></div>
+
+                            <div class="theme-preset-color" data-color="#6c5ce7" data-target="dark" style="background:#6c5ce7"></div>
+
+                            <div class="theme-preset-color" data-color="#e17055" data-target="dark" style="background:#e17055"></div>
+
+                            <div class="theme-preset-color" data-color="#007acc" data-target="dark" style="background:#007acc"></div>
+
+                            <div class="theme-preset-color" data-color="#fdcb6e" data-target="dark" style="background:#fdcb6e"></div>
+
+                            <div class="theme-preset-color" data-color="#e84393" data-target="dark" style="background:#e84393"></div>
+
+                            <div class="theme-preset-color" data-color="#0984e3" data-target="dark" style="background:#0984e3"></div>
+
+                            <div class="theme-preset-color" data-color="#a29bfe" data-target="dark" style="background:#a29bfe"></div>
+
+                        </div>
+
+                        <span class="theme-color-value" id="themeDarkValue">#0984e3</span>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- 重置 -->
+
+                <button class="theme-reset-btn" onclick="Theme.reset()">↻ 恢复默认配色</button>
+
+
+
+                <!-- 提示 -->
+
+                <div class="theme-hint">
+
+                    💡 点击「白天」或「黑夜」切换模式，选择颜色实时预览<br>
+
+                    两种模式可分别设置不同主色
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ====== 中间无限画布 ====== -->
+
+    <div class="canvas-area" id="canvasArea">
+
+        <div class="canvas-content" id="canvasContent">
+
+            <div class="canvas-grid" id="canvasGrid"></div>
+
+        </div>
+
+        <div class="canvas-hint" id="canvasHint">
+
+            <div style="font-size:28px;margin-bottom:8px;">🤖</div>
+
+            <div><b>双击或右键点击</b> 创建对话框 · <b>左键拖拽空白</b> 平移画布</div>
+
+            <div style="font-size:12px;opacity:0.7;">每个对话框可连通不同大模型，互不干扰</div>
+
+        </div>
+
+        <div class="canvas-coord" id="canvasCoord">x:0 · y:0</div>
+
+
+
+        <!-- ====== 小地图（右下角半透明导航预览） ====== -->
+
+        <div class="minimap" id="minimap">
+
+            <div class="minimap-header">
+
+                <span class="minimap-title">🗺 导航</span>
+
+                <button class="minimap-btn" id="minimapFit" title="居中所有对话框"><svg class="minimap-btn-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/></svg></button>
+
+            </div>
+
+            <canvas class="minimap-canvas" id="minimapCanvas"></canvas>
+
+            <div class="minimap-legend">
+
+                <span class="ml-item"><i class="ml-dot ml-dot--error"></i>错误</span>
+
+                <span class="ml-item"><i class="ml-dot ml-dot--sending"></i>发送中</span>
+
+                <span class="ml-item"><i class="ml-dot ml-dot--queued"></i>排队</span>
+
+                <span class="ml-item"><i class="ml-dot ml-dot--active"></i>活动</span>
+
+                <span class="ml-item"><i class="ml-dot ml-dot--idle"></i>空闲</span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ====== 底部状态栏 ====== -->
+
+    <div class="statusbar">
+
+        <span><span class="dot on"></span>运行中</span>
+
+        <span class="status-sep">|</span>
+
+        <span class="status-count" id="statusCount">对话框: 0</span>
+
+        <span class="status-sep">|</span>
+
+        <button class="status-arrange-btn" onclick="App.showArrangeDialog()" title="网格排列对话框" aria-label="打开排列面板"><span class="status-arrange-icon" aria-hidden="true">▦</span><span>排列</span></button>
+
+        <button id="status-model-trigger" class="status-model-trigger" type="button" title="点击配置模型">模型: 未配置</button>
+
+        <span class="statusbar-right" id="statusbarVersion">v5.0.1 · zf3d.com</span>
+
+    </div>
+
+
+
+    <!-- ====== 设置弹窗（左侧分类导航 + 右侧内容） ====== -->
+    <div class="overlay" id="settingsOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+        <div class="modal settings-modal">
+            <button class="settings-close-btn" onclick="document.getElementById('settingsOverlay').classList.remove('show')" title="关闭设置">✕</button>
+            <!-- 左侧导航 -->
+            <div class="settings-nav">
+                <div class="settings-nav-header">⚙️ 设置</div>
+                <div class="settings-nav-item active" data-settings-tab="models" onclick="App.switchSettingsTab('models')">
+                    <span class="settings-nav-icon">🤖</span><span>模型配置</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="logs" onclick="App.switchSettingsTab('logs')">
+                    <span class="settings-nav-icon">📋</span><span>运行日志</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="email" onclick="App.switchSettingsTab('email')">
+                    <span class="settings-nav-icon">📧</span><span>邮件通知</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="backup" onclick="App.switchSettingsTab('backup')">
+                    <span class="settings-nav-icon">📦</span><span>备份管理</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="health" onclick="App.switchSettingsTab('health')">
+                    <span class="settings-nav-icon">🏃</span><span>健康守护</span>
+                </div>
+                <div class="settings-nav-item is-dev is-disabled-tab" data-settings-tab="context-loop" title="待开发，暂不可用"><span class="settings-nav-icon">🔁</span><span>上下文循环</span><span class="settings-nav-badge">待开发</span></div>
+                <div class="settings-nav-item is-dev is-disabled-tab" data-settings-tab="tools" title="待开发，暂不可用"><span class="settings-nav-icon">🧰</span><span>工具</span><span class="settings-nav-badge">待开发</span></div>
+                <div class="settings-nav-item" data-settings-tab="comparison" onclick="App.switchSettingsTab('comparison')">
+                    <span class="settings-nav-icon">⚖️</span><span>独有功能与对比</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="intro" onclick="App.switchSettingsTab('intro')">
+                    <span class="settings-nav-icon">📖</span><span>简介</span>
+                </div>
+                <div class="settings-nav-item" data-settings-tab="help" onclick="App.switchSettingsTab('help')">
+                    <span class="settings-nav-icon">❓</span><span>帮助</span>
+                </div>
+
+                <div class="settings-nav-item" data-settings-tab="about" onclick="App.switchSettingsTab('about')">
+                    <span class="settings-nav-icon">❤️</span><span>关于</span>
+                </div>
+            </div>
+            <!-- 右侧内容 -->
+            <div class="settings-content">
+                <!-- 模型配置 -->
+                <div class="settings-panel" id="settingsPanel-models">
+                    <div style="display:none;font-size:12px;color:var(--text2);margin-bottom:16px;">
+                        1. 支持任何大模型<br>
+                        2. 想办法连通一个大模型<br>
+                        3. 创建一个会话，和他说帮我连通，给他相关线索即可<br>
+                        4. 他会帮你解决一切连通问题，不需要手动配置
+                    </div>
+                    <div id="modelPanelMount"></div>
+                </div>
+                <!-- 运行日志 -->
+                <div class="settings-panel" id="settingsPanel-logs">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <div style="display:flex;gap:4px;">
+                            <button id="tabLog" class="btn" style="font-size:12px;padding:4px 14px;" onclick="App.switchTab('log')">📋 日志</button>
+                            <button id="tabChat" class="btn ghost" style="font-size:12px;padding:4px 14px;" onclick="App.switchTab('chat')">💬 对话</button>
+                        </div>
+                        <button class="btn ghost" style="font-size:11px;padding:4px 10px;" onclick="App.copyAll()">📋 复制全部</button>
+                    </div>
+                    <div id="logContent" style="height:calc(80vh - 140px);overflow-y:auto;padding:8px;background:var(--bg);border-radius:6px;border:1px solid var(--border);"></div>
+                    <div id="panelFooter" style="margin-top:8px;display:flex;justify-content:flex-end;gap:8px;"></div>
+                </div>
+                <!-- 邮件通知 -->
+                <div class="settings-panel" id="settingsPanel-email">
+                    <h3 style="margin:0 0 16px 0;">📧 邮件通知</h3>
+
+                    <div style="display:none;font-size:12px;color:var(--text2);margin-bottom:16px;">
+                        任务成功完成后自动发送邮件通知。<br>
+                        支持 QQ邮箱、Gmail、企业邮箱等 SMTP 服务。
+                    </div>
+                    <div class="field email-toggle-field">
+                        <div class="email-toggle-info">
+                            <div class="email-toggle-title">启用邮件通知</div>
+                        </div>
+                        <div class="email-toggle-control">
+                            <label class="email-toggle-wrapper" title="切换开关">
+                                <input type="checkbox" id="email-enabled" class="email-toggle-checkbox">
+                                <span class="email-toggle-track"><span class="email-toggle-thumb"></span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>SMTP 服务器地址</label>
+                        <input type="text" id="email-smtp-host" placeholder="如：smtp.qq.com" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label>SMTP 端口</label>
+                        <input type="number" id="email-smtp-port" placeholder="465（SSL）或 587（STARTTLS）" value="465">
+                    </div>
+                    <div class="field">
+                        <label>SSL / STARTTLS</label>
+                        <select id="email-use-ssl" style="width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);">
+                            <option value="true">SSL（端口 465）</option>
+                            <option value="false">STARTTLS（端口 587）</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>发件邮箱地址</label>
+                        <input type="text" id="email-smtp-user" placeholder="如：zf3d@vip.qq.com" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label>SMTP 授权码</label>
+                        <form onsubmit="return false"><input type="text" name="username" autocomplete="username" aria-label="Username" tabindex="-1" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0"><input type="password" id="email-smtp-pass" placeholder="QQ邮箱需用授权码（非登录密码）" autocomplete="new-password"></form>
+                    </div>
+                    <div class="field">
+                        <label>收件邮箱地址</label>
+                        <input type="text" id="email-to" placeholder="如：zf3d@vip.qq.com" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label>发件人显示名称（可选）</label>
+                        <input type="text" id="email-from-name" placeholder="如：朱峰智能体" value="朱峰智能体" autocomplete="off">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button class="btn" onclick="App.saveEmailConfig()">保存配置</button>
+                        <button class="btn ghost" onclick="App.testEmail()">发送测试邮件</button>
+                    </div>
+                    <div class="test-result" id="emailTestResult"></div>
+                </div>
+                <!-- 备份管理 -->
+                <div class="settings-panel" id="settingsPanel-backup">
+                    <h3 style="margin:0 0 12px 0;">📦 备份管理</h3>
+                    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+                        创建整个项目的完整快照（代码+数据库+配置），随时可恢复到任意快照点。类似 Git 的版本控制，自由存取。
+                    </div>
+                    <div id="backupContent" style="max-height:calc(80vh - 180px);overflow-y:auto;padding:4px;"></div>
+                    <div id="backupFooter" style="margin-top:8px;display:flex;align-items:center;gap:8px;"></div>
+                </div>
+                                <!-- 健康守护 -->
+                <div class="settings-panel" id="settingsPanel-health">
+                    <h3 style="margin:0 0 16px 0;">🏃 健康守护模式</h3>
+
+                    <div style="display:none;font-size:12px;color:var(--text2);margin-bottom:16px;">
+                        定时提醒休息，保护身体和视力。<br>
+                        <span class="health-forced-badge">🔒 强制开启 · 不可关闭</span>
+                    </div>
+
+                    <!-- 状态显示 -->
+                    <div id="healthStatusDisplay" style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(0,0,0,0.1);border-radius:8px;margin-bottom:16px;">
+                        <span id="healthStatusIcon" style="font-size:24px;">🏃</span>
+                        <div>
+                            <div id="healthStatusText" style="font-weight:bold;color:var(--text);">运行中</div>
+                            <div id="healthStatusDetail" style="font-size:12px;color:var(--text2);">下次提醒: 30 分钟后</div>
+                        </div>
+                    </div>
+
+                    <!-- 间隔设置 -->
+                    <div class="health-config-card">
+                        <div class="health-slider-row">
+                            <label>提醒间隔</label>
+                            <input type="range" id="health-interval" min="10" max="120" step="5" value="30">
+                            <span class="health-slider-value" id="health-interval-value">30 分钟</span>
+                        </div>
+                        <div class="health-slider-row">
+                            <label>强制锁定阈值</label>
+                            <input type="range" id="health-lock-hours" min="2" max="8" step="1" value="4">
+                            <span class="health-slider-value" id="health-lock-hours-value">4 小时</span>
+                        </div>
+                        <div class="health-slider-row">
+                            <label>强制休息时长</label>
+                            <input type="range" id="health-lock-minutes" min="5" max="30" step="1" value="10">
+                            <span class="health-slider-value" id="health-lock-minutes-value">10 分钟</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:16px;">
+                        💡 每 <b id="health-tip-interval" style="color:var(--text);">30</b> 分钟弹出休息提醒，连续工作 <b id="health-tip-hours" style="color:var(--text);">4</b> 小时后强制休息 <b id="health-tip-minutes" style="color:var(--text);">10</b> 分钟。<br>
+                        此功能为保护健康强制开启，不可关闭。
+                    </div>
+
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn" onclick="App.saveHealthConfig()">保存配置</button>
+                        <button class="btn ghost" onclick="App._testHealthReminder()">立即测试提醒</button>
+                    </div>
+                    <div class="test-result" id="healthTestResult"></div>
+                </div>
+                <!-- 设置面板与平台对比 -->
+                <div class="settings-panel" id="settingsPanel-comparison">
+                    <div class="scard guide-card guide-card--wide comparison-card">
+<div class="comparison-table-wrap"><table class="guide-table comparison-table"><thead><tr><th>#</th><th>项目</th><th>朱峰社区智能体无限</th><th>Codex</th><th>OpenCoder</th></tr></thead><tbody><tr><td>1</td><td>核心定位</td><td>多模型、多对话、无限画布工作台</td><td>代码工程代理</td><td>开放代码模型/代码代理方案</td></tr><tr><td>2</td><td>主要界面</td><td>桌面式设置面板和画布</td><td>代码任务界面/终端工作流</td><td>取决于集成宿主</td></tr><tr><td>3</td><td>无限画布</td><td>已实现，可并行放置节点</td><td>无</td><td>无</td></tr><tr><td>4</td><td>多对话并行</td><td>已实现</td><td>按项目几个对话切换</td><td>由外部编排器决定</td></tr><tr><td>5</td><td>多模型切换</td><td>按会话选择线路</td><td>受产品支持模型限制</td><td>可部署不同模型，需自行配置</td></tr><tr><td>6</td><td>模型密钥</td><td>配置项可本地管理</td><td>由账号或环境配置管理</td><td>由部署平台管理</td></tr><tr><td>7</td><td>工具分类</td><td>有独立的分类</td><td>无</td><td>无</td></tr><tr><td>8</td><td>长期任务</td><td>支持 schedule、wait、monitor</td><td>依运行环境</td><td>需外部调度器</td></tr><tr><td>10</td><td>风筝系统</td><td>可委派和监控其他对话</td><td>无</td><td>无</td></tr><tr><td>11</td><td>对话复制</td><td>支持 A/B 对照</td><td>无</td><td>无</td></tr><tr><td>12</td><td>上下文查看</td><td>可查看并控制保留结果</td><td>无</td><td>无</td></tr><tr><td>13</td><td>历史对话搜索</td><td>提供 chat 搜索工具</td><td>无</td><td>无</td></tr><tr><td>14</td><td>摘要记忆</td><td>提供 chat_summary</td><td>依产品会话能力</td><td>需应用实现</td></tr><tr><td>15</td><td>长期记忆</td><td>提供 long_term_memory</td><td>不是代码执行核心</td><td>不是模型固有能力</td></tr><tr><td>16</td><td>本地备份</td><td>设置面板支持备份恢复</td><td>通常依 Git/云端历史</td><td>无</td></tr><tr><td>17</td><td>状态可视化</td><td>节点显示任务状态</td><td>看不到内容</td><td>看不到内容</td></tr><tr><td>18</td><td>健康提醒</td><td>强制休息提醒已实现</td><td>通常不是核心功能</td><td>不是模型能力</td></tr><tr><td>19</td><td>中文本地化</td><td>界面与帮助中文化</td><td>依客户端和模型</td><td>依模型与宿主</td></tr><tr><td>20</td><td>权限边界</td><td>按工具类型和项目控制</td><td>重视沙箱/批准流程</td><td>由部署安全策略决定</td></tr><tr><td>21</td><td>扩展方式</td><td>增加工具和模型线路</td><td>围绕代码代理生态</td><td>开放部署与二次开发</td></tr><tr><td>22</td><td>最佳场景</td><td>多任务、资料、代码和长期协作</td><td>单仓库深度开发</td><td>自建代码模型实验与集成</td></tr></tbody></table></div><div class="comparison-table-wrap"><table class="guide-table comparison-table"><thead><tr><th>#</th><th>对比项目</th><th>朱峰社区智能体无限</th><th>OpenClaw</th><th>Claude Code</th><th>Cursor</th><th>Windsurf</th></tr></thead><tbody><tr><td>1</td><td>核心工作区</td><td>设置面板 + 无限画布，模型、会话、任务、日志集中在同一工作区</td><td>Gateway、CLI 与消息渠道</td><td>终端 CLI</td><td>桌面编辑器</td><td>桌面编辑器</td></tr><tr><td>2</td><td>无限画布</td><td>原生，对话节点可无限平铺、拖动、排列和聚焦</td><td>不适用</td><td>不适用</td><td>不适用</td><td>不适用</td></tr><tr><td>3</td><td>多对话并行</td><td>原生并行，每个节点保留独立上下文，可新建分支</td><td>会话路由</td><td>会话/任务上下文</td><td>多编辑器会话</td><td>多 Cascade 会话</td></tr><tr><td>4</td><td>按会话切换模型</td><td>每个会话独立选择线路，支持自定义接口地址、模型 ID 和密钥</td><td>取决于 Provider</td><td>以 Anthropic 模型为主</td><td>多模型选择</td><td>模型选择受套餐/版本影响</td></tr><tr><td>5</td><td>风筝协作</td><td>可交办、监控其他对话并回收结果，适合多任务协同</td><td>可配置，会话路由</td><td>需脚本或子代理方案</td><td>需子代理或外部编排</td><td>需工作流或多会话</td></tr><tr><td>6</td><td>对话复制与 A/B 对照</td><td>支持复制对话并进行 A/B 对照，便于比较模型回答和方案</td><td>未形成原生工作台能力</td><td>未形成原生工作台能力</td><td>未形成原生工作台能力</td><td>未形成原生工作台能力</td></tr><tr><td>7</td><td>上下文查看与控制</td><td>可查看、保留、清理和控制工具结果上下文</td><td>依实现</td><td>依会话机制</td><td>依编辑器机制</td><td>依编辑器机制</td></tr><tr><td>8</td><td>任务清单</td><td>原生拆解目标、跟踪状态和完成比例</td><td>依技能配置</td><td>有计划能力，形态不同</td><td>有 Agent 计划模式</td><td>有 Cascade 计划/执行</td></tr><tr><td>9</td><td>长期运行</td><td>原生 schedule、wait、monitor，可轮询、延时和后台执行</td><td>原生 Cron/自动化</td><td>需外部调度</td><td>需脚本或 CI</td><td>需脚本或 CI</td></tr><tr><td>11</td><td>历史搜索与摘要</td><td>提供 chat 搜索、chat_summary 和项目记录，方便恢复上下文</td><td>依文件、技能或存储实现</td><td>依项目规则和文件</td><td>依规则或 MCP</td><td>依规则或记忆机制</td></tr><tr><td>12</td><td>长期记忆</td><td>提供 long_term_memory 独立记忆管理，可跨会话复用</td><td>需文件、技能或存储实现</td><td>不是代码执行核心能力</td><td>需规则或 MCP</td><td>需规则或记忆机制</td></tr><tr><td>13</td><td>本地备份恢复</td><td>设置面板支持工作区备份与恢复，降低配置和历史丢失风险</td><td>自托管责任由用户承担</td><td>依 Git 或云端历史</td><td>依版本控制或云服务</td><td>依版本控制或云服务</td></tr><tr><td>14</td><td>强提醒与工作节奏</td><td>健康提醒已内置，支持长时间工作中的休息提示</td><td>不是核心能力</td><td>不是核心能力</td><td>不是核心能力</td><td>不是核心能力</td></tr><tr><td>15</td><td>独有组合价值</td><td>无限画布 + 多会话 + 风筝协作 + 任务清单 + 长期运行 + 本地记忆备份</td><td>跨渠道助手与自动化</td><td>终端工程闭环</td><td>编辑器内代码协作</td><td>编辑器内智能编码</td></tr></tbody></table></div>
+                </div>
+                </div>
+                <!-- 关于 -->
+                <div class="settings-panel settings-panel--guide" id="settingsPanel-intro">
+                    <h3>📖 朱峰社区智能体无限</h3>
+                    <p class="guide-lead"><strong>无套路，重任务！传统智能体 = 走路，朱峰智能体无限 = 飞行。</strong><br>一个本地优先的智能体工作台，把多模型、多对话、长期任务、工具执行和无限画布放进同一个工作空间。</p>
+                    <div class="guide-grid">
+                        <div class="scard guide-card guide-card--wide"><h3>简介</h3><p>有没有考虑过你的智能体，比如 <b>Codex</b> 或 <b>Claude Code</b> 该升级换代了？答案是：<b>朱峰社区智能体无限全部做到了。</b><br><br>这个项目，诞生于它的上一个版本。最开始我们只做了三个工具：读取、写入、执行。经过几天时间，就创建了如此好用的朱峰社区智能体无限！<br>开发速度是惊人的，朱峰老师几乎同时可以操作至少 8–30 个窗口，以超级惊人的速度进行任务执行工作。朱峰社区智能体绝对是干活效率领先的智能体头部产品！<br><br>免费开源 · 支持多模型多对话 · Windows / Web 双端 · 零依赖启动（纯 Python 标准库，双击即用）。</p></div>
+                        <div class="scard guide-card guide-card--wide"><h3>八大核心特性</h3><ul class="guide-list">
+<li><b>🖼️ 无限画布：</b>右键创建对话框，中键拖拽平移，随意缩放。小地图导航，双击展开菜单，任意创建会话，超级快。自由组织对话节点，哪个优先做、哪个之后做一目了然，最多可同时开启 400+ 个任务对话窗口。</li>
+<li><b>🧠 多模型连通：</b>我不属于任何模型，每个会话走最佳线路。DeepSeek、通义千问、智谱GLM、豆包、Kimi、GPT、Claude、Gemini、腾讯混元、百度文心、本地Ollama，任意 OpenAI 兼容接口，哪个最强走哪个。</li>
+<li><b>🤖 Agent工具模式：</b>AI不只是聊天。Agent 工具循环，让 AI 自主读写文件、运行代码、联网抓取、Git提交、定时调度、跨对话搜索、发邮件、管理记忆、向你提问。极简 29 / 编程 33 / 写作 58，三模式按需切换。</li>
+<li><b>📋 消息队列：</b>随意聊，随意停，AI 不会忘记你的任何一条消息。AI 回复期间新消息自动排队，支持编辑/删除/自动发送。</li>
+<li><b>💾 SQLite 持久化：</b>超快，超能大，大了自己分割。每 5 秒自动保存你的数据，对话永不丢失。后台离线自动回退本地存储，恢复后无缝切回。</li>
+<li><b>⚡ 零依赖启动：</b>零依赖，纯 Python 标准库，双击即用。前后端分离，热更新改完即生效。模块化架构，app.js 拆 10 模块、server.py 拆 7 模块。</li>
+<li><b>🎨 界面体验：</b>暗色主题、小地图导航、Markdown 渲染、代码高亮、Mermaid 图表。工具消息折叠，对话标题自动更新。</li>
+<li><b>🔒 安全隐私：</b>密钥本地存储，界面日志全掩码，你的密钥不离开你的电脑。</li></ul></div>
+                        <div class="scard guide-card guide-card--wide"><h3>七个与生俱来的优势</h3><ul class="guide-list">
+<li><b>1 同屏展示所有对话</b>，效率高 N 倍</li>
+<li><b>2 多网络多对话</b>，合理利用各种大模型</li>
+<li><b>3 拒绝上下文冗余</b>，告别浪费 Token</li>
+<li><b>4 失败自适应重启对话</b>，无人值守</li>
+<li><b>5 对话监控对话</b>，智能分配任务干活</li>
+<li><b>6 全部对话状态一目了然</b>，无需翻找</li>
+<li><b>7 历史对话永不丢失</b>，按日期随时续接</li>
+<li><b>∞ 还有更多…</b></li></ul></div>
+                        <div class="scard guide-card guide-card--wide"><h3>适合场景</h3><p>超大项目代码开发、多任务并行执行、资料整理、网页研究、项目规划、批量文件处理、多智能体协作。</p></div>
+                    </div>
+                </div>
+                <div class="settings-panel settings-panel--guide" id="settingsPanel-help">
+                    <h3>❓ 使用帮助</h3>
+                    <p class="guide-lead">从配置一个可用模型开始，再把复杂目标交给智能体拆解和持续执行。</p>
+                    <div class="guide-grid">
+                        <div class="scard guide-card guide-card--wide" style="order: 1"><h3>五分钟快速上手</h3><ol class="guide-list" style="padding-left:20px;margin:6px 0;"><li><b>下载安装：</b>从社区官网下载，解压后双击启动朱峰社区智能体无限，无需安装任何环境。</li><li><b>配置模型：</b>打开设置 → 模型管理，填入任一 OpenAI 兼容接口的 Base URL 和 API Key（DeepSeek、智谱、Kimi、本地 Ollama 均可），密钥只存本机。</li><li><b>创建对话：</b>在画布空白处右键（双击也可）→ 新建对话，选好模型和工具类型即可开聊。</li><li><b>下达任务：</b>简单问题直接问；复杂目标写清楚背景与期望产出，交给智能体拆解执行。</li><li><b>并行扩展：</b>继续右键创建更多对话，每个对话独立模型、独立上下文、互不干扰。</li></ol></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 2"><h3>Agent 工具模式（三模式按需切换）</h3><ul class="guide-list"><li><b>📄 极简模式（29 个工具）：</b>通用基础工具。文件读写、运行代码、联网抓取、Git提交、定时调度、跨对话搜索、邮件、记忆、项目记录等。</li><li><b>💻 编程模式（33 个工具）：</b>极简全部 + 编程专属。diff预览、Git日志、代码结构分析、文件移动。</li><li><b>✍️ 写作模式（58 个工具）：</b>41 个 AI 文本处理工具 + 极简全部工具。</li><li>每个对话可在「对话设置 → 工具类型」中独立选择模式，控制该智能体可调用的能力范围。</li></ul></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 3"><h3>常见问题</h3><ul class="guide-list"><li><b>AI 回复时还能发消息吗？</b>可以。消息自动进入队列，AI 处理完当前任务后按序接收，支持编辑和删除排队消息。</li><li><b>任务失败怎么办？</b>失败时会自适应重启对话，状态栏会显示失败原因供排查。</li><li><b>数据保存在哪里？</b>SQLite 本地数据库，每 5 秒自动保存；后台离线时自动回退 localStorage，恢复后无缝切回。</li><li><b>修改代码要重启吗？</b>不需要。前后端分离 + 热更新，改完即生效。</li><li><b>怎么让多个 AI 一起干活？</b>用风筝系统（monitor/chat_manage）把任务分派给其他对话，主对话守护监控并回收结果；也可以 shift+移动对话框复制会话做 A/B 对照。</li></ul></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 4"><h3>版本更新日志</h3><ul class="guide-list">
+<li><b><span id="helpCurrentVersion">v5.0.1</span>（当前）：</b>帮助中心全面增强——介绍/帮助/对比三面板扩充为详细版，融入八大核心特性、三模式说明、快速上手、常见问题与版本演进。</li>
+<li><b>v4.1.5（2026-08-19）：</b>发布版清理——移除开发临时文件与预置 API 密钥，画布切换优化与 CSS 修复。</li>
+<li><b>v4.0.5（2026-08-16）：</b>大文件模块化拆分（app.js→10 模块、server.py→7 模块、style.css→5 模块）；新增 14 个工具（replace_text、tree_dir、find_files、search_in_files、schedule、project_record、search_chat、chat_context、chat_summary、monitor、task_list 等）；小地图导航系统；消息队列系统；工具消息折叠；画布中键拖拽平移；对话标题自动更新；修复事件监听器泄漏。</li>
+<li><b>v4.0.4（2026-08-16）：</b>消息队列系统 + 发送/停止按钮状态管理；画布滚轮缩放 + 小地图导航；工具消息折叠/展开交互；修复对话盒内滚动问题。</li>
+<li><b>v4.0.3（2026-08-15）：</b>前后台分离架构 + SQLite 持久化（7 张表 WAL 模式）；Agent 工具循环（最大深度 10）+ API 代理解决 CORS；新增 8 个基础工具；后台离线自动回退 localStorage。</li>
+<li><b>v3.5.0（2026-07-25）：</b>优化智能体对话系统，增强节点工作流，修复模型配置和界面问题。</li>
+<li><b>v3.4.0（2026-07-24）：</b>增强图片查看器和删除确认。</li></ul></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 5"><h3>业界评价</h3><ul class="guide-list">
+<li><b>朱峰（朱峰社区创始人，专注 3D 教育 21 年）：</b>“对于大模型，我们要敬畏。让大模型去发挥，我们人是渺小的，而大模型会帮我们选择干事，减少约束，获取更多。”</li>
+<li><b>蔺可老师（资深 3D 建模师，朱峰社区教程讲师）：</b>“把重复劳动交给 AI，把精力留给创意。”</li>
+<li><b>陈一鸣（独立游戏开发者，Blender 用户）：</b>“智能助手让学习和创作更加高效。”</li>
+<li><b>林墨（影视特效师，Houdini 技术总监）：</b>“复杂知识也可以被拆解成容易理解的步骤。”</li>
+<li><b>赵宇飞（CG 行业投资人）：</b>“AI 驱动内容运营，让社区服务更多创作者。”</li></ul></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 4"><h3>功能导航</h3><ul class="guide-list"><li><b>1 设置颜色：</b>在颜色设置中调整画布、面板、文字和强调色，保存后全局生效。</li><li><b>2 项目设置：</b>配置当前项目名称、路径、默认模型、工作目录和项目级提示词。</li><li><b>3 设置面板：</b>集中管理常用显示、自动保存、布局、工具结果保留和联网选项。</li><li><b>4 网站登录：</b>通过右上角登录入口管理账号状态；登录信息与本地工作区设置分开保存。</li><li><b>5 底部排列：</b>使用底部排列功能快速整理画布中的对话框，适合清理重叠节点。</li><li><b>6 对话状态：</b>查看等待、运行、完成、暂停、失败等状态，判断任务是否仍在执行。</li><li><b>7 任务清单：</b>把目标拆成步骤，逐项标记状态并跟踪长期任务。</li><li><b>8 风筝系统：</b>用于把任务交给其他对话协作、持续守护并回收执行结果。</li></ul></div>
+                        <div class="scard guide-card" style="order: 5"><h3>对话设置</h3><ul class="guide-list"><li><b>标题：</b>修改节点名称，便于在无限画布中定位任务。</li><li><b>模型：</b>为当前对话选择模型和线路，不影响其他对话。</li><li><b>工具类型：</b>按任务启用或切换工具类别，控制智能体可以调用的能力。</li><li><b>当前项目：</b>绑定项目上下文，让文件操作和任务记录落在正确项目中。</li><li><b>工具展示：</b>展开后可查看工具调用名称、参数、结果和执行顺序。</li><li><b>上下文：</b>当前对话发送给模型的近期消息与工作信息。</li><li><b>对话历史：</b>完整查看、搜索或恢复已经保存的消息。</li><li><b>日志：</b>查看运行过程、错误和系统事件，用于排查任务问题。</li></ul></div>
+                        <div class="scard guide-card" style="order: 6"><h3>画布与排列</h3><ul class="guide-list"><li><b>平移与缩放：</b>左键或中键拖动空白处平移，滚轮缩放画布。</li><li><b>移动对话框：</b>按住 <kbd>Shift</kbd> 再拖拽对话框，可直接移动节点，避免误触输入区。</li><li><b>整理：</b>拖动节点调整位置和尺寸，也可使用底部排列快速规整全部对话。</li><li><b>状态：</b>节点颜色和状态标识反映当前任务进度，打开对话可查看详情。</li></ul></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 7"><h3>工具索引</h3><ul class="guide-list">
+                          <li>
+                            <b>任务与协作：</b>
+                            <ul class="guide-sublist">
+                              <li><code>task_complete</code> 结束任务</li>
+                              <li><code>task_list</code> 管理清单</li>
+                              <li><code>work_order</code> 安排工单</li>
+                              <li><code>chat_manage</code> 管理对话</li>
+                              <li><code>monitor</code> 监控队列</li>
+                              <li><code>ask_user</code> 向用户提问</li>
+                              <li><code>wait</code> 等待</li>
+                              <li><code>schedule</code> 定时执行</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <b>文件与代码：</b>
+                            <ul class="guide-sublist">
+                              <li><code>read_file</code> 读取文件</li>
+                              <li><code>write_file</code> 写入文件</li>
+                              <li><code>read_lines</code> 按行读取</li>
+                              <li><code>replace_text</code> 替换文本</li>
+                              <li><code>file_info</code> 查看信息</li>
+                              <li><code>find_files</code> 查找文件</li>
+                              <li><code>tree_dir</code> 查看目录树</li>
+                              <li><code>list_dir</code> 列目录</li>
+                              <li><code>run_code</code> 运行命令</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <b>搜索与版本：</b>
+                            <ul class="guide-sublist">
+                              <li><code>search_in_files</code> 全文搜索</li>
+                              <li><code>regex_search</code> 正则搜索</li>
+                              <li><code>git_save</code> 保存 Git 提交</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <b>联网与媒体：</b>
+                            <ul class="guide-sublist">
+                              <li><code>net</code> 抓取网页</li>
+                              <li><code>image_gen</code> 生成图片</li>
+                              <li><code>send_email</code> 发送邮件</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <b>对话记忆：</b>
+                            <ul class="guide-sublist">
+                              <li><code>chat_context</code> 读写消息</li>
+                              <li><code>chat_summary</code> 管理摘要</li>
+                              <li><code>search_chat</code> 搜索对话</li>
+                              <li><code>recent_questions</code> 查询问题</li>
+                              <li><code>query_answers</code> 查询答案</li>
+                              <li><code>long_term_memory</code> 管理长期记忆</li>
+                              <li><code>ram_cache</code> 管理临时缓存</li>
+                              <li><code>project_record</code> 管理项目记录</li>
+                            </ul>
+                          </li>
+                          <li>
+                            <b>画布与工具运行：</b>
+                            <ul class="guide-sublist">
+                              <li><code>set_camera</code> 定位画布</li>
+                              <li><code>locate_mouse</code> 定位或点击界面元素</li>
+                              <li><code>switch_tool_category</code> 切换工具分类</li>
+                              <li><code>set_tool_result_config</code> 设置结果保留数</li>
+                              <li><code>get_tool_result</code> 找回工具结果</li>
+                            </ul>
+                          </li>
+                        </ul></div>
+                        <div class="scard guide-card guide-card--wide guide-card--security" style="order: 8"><h3>联网与安全</h3><p>联网能力、API 密钥、额度和模型可用性由服务商决定。API 密钥不要写入对话、脚本、日志或截图。运行命令、修改文件、发送邮件前确认目标和范围，重要资料先备份，并明确限定允许访问的文件夹。发现目标不正确时立即暂停任务并要求停止。</p></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 1"><h3>开始使用</h3><p class="guide-copy">1. 在“模型配置”填写接口地址、模型 ID 和 API 密钥并保存测试。<br>2. 在画布创建或打开对话节点，选择模型后发送任务。<br>3. 把复杂目标拆成步骤，并明确说明需要读取、修改、搜索或运行的内容。</p></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 2"><h3>常用操作</h3><p class="guide-copy"><b>画布：</b>空白处拖动平移，滚轮缩放，节点可拖动整理。<br><b>对话：</b>每个节点保留独立上下文，可新建分支和切换模型。<br><b>任务清单：</b>拆分目标并跟踪完成比例。<br><b>自动化：</b>使用定时任务执行、查看长任务。<br><b>备份：</b>定期导出，恢复前先备份当前数据。</p></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 3"><h3>联网与安全</h3><p class="guide-copy">免费模型不代表一定无需密钥；401、额度或网络错误通常需要检查接口和服务状态。API 密钥不要写入对话、脚本或截图。运行命令、修改文件、发送邮件前确认目标和范围，重要资料先备份。</p></div>
+                        <div class="scard guide-card guide-card--wide" style="order: 9"><h3>设置面板逐项说明</h3><ul class="guide-list"><li><b>模型管理：</b>维护模型线路、接口地址、模型名和可用状态；会话可独立选模型。</li><li><b>默认模型：</b>新建对话使用的默认线路，不会强制覆盖已有对话。</li><li><b>API 配置：</b>保存服务商连接信息；密钥属于敏感配置，不应写进日志、对话或版本库。</li><li><b>本地优先：</b>设置、会话和工作区优先落在本机，减少对云端历史的依赖。</li><li><b>颜色主题：</b>调整画布、面板、文字和强调色，形成个人工作环境。</li><li><b>画布布局：</b>通过无限画布组织多个对话节点，支持拖拽和底部排列。</li><li><b>自动保存：</b>降低浏览器关闭或任务中断造成的状态丢失风险。</li><li><b>工具结果保留：</b>控制上下文中保留多少工具结果，平衡可追溯性与上下文长度。</li><li><b>日志面板：</b>查看运行过程、错误和系统事件，定位模型、工具或网络问题。</li><li><b>备份恢复：</b>对工作区和设置进行备份，便于迁移或故障恢复。</li><li><b>健康守护：</b>按间隔提醒休息，并可设置连续工作阈值和强制休息时长。</li><li><b>邮件通知：</b>配置任务完成或异常后的邮件发送能力，依赖 SMTP 设置。</li><li><b>网站登录：</b>右上角账号状态与本地工作区设置分开管理，登录不等于 API 密钥。</li><li><b>项目绑定：</b>指定当前项目、路径、工作目录和项目级上下文。</li><li><b>对话标题：</b>为画布节点命名，便于检索、排列和协作。</li><li><b>对话模型：</b>在单个节点切换模型，适合研究、编程、审核分别选型。</li><li><b>工具类型：</b>按任务限制工具类别，减少不必要的权限和调用。</li><li><b>工具展示：</b>展开查看工具名、参数、结果和调用顺序。</li><li><b>上下文管理：</b>控制当前请求携带的工作信息与近期消息。</li><li><b>对话历史：</b>读取、搜索和恢复已经保存的消息。</li><li><b>任务清单：</b>把复杂目标拆为步骤，记录 pending、in_progress、completed 等状态。</li><li><b>风筝系统：</b>把任务交给其他对话，持续监控队列并回收结果。</li><li><b>对话状态：</b>区分等待、运行、完成、暂停和失败，帮助判断是否需要介入。</li></ul></div>
+                    </div>
+                </div>
+                <!-- Gitee/GitHub 帮助面板 -->
+            <div class="settings-panel settings-panel--guide" id="settingsPanel-git">
+                <div class="guide-intro">
+                    <div class="guide-intro-icon">🐙</div>
+                    <div>
+                        <h2>Gitee / GitHub 使用帮助</h2>
+                        <p>本应用支持一键保存到 Gitee/GitHub 远程仓库。先在这里了解它们是什么、如何选择，再前往「保存/发布」配置仓库地址。</p>
+                    </div>
+                </div>
+
+                <div class="scard guide-card">
+                    <h3>🧭 Gitee vs GitHub 怎么选？</h3>
+                    <p class="guide-sub">两个都是代码托管平台，选哪个看你的网络环境和使用场景。</p>
+                    <div class="guide-table-wrap">
+                        <table class="guide-table">
+                            <thead>
+                                <tr><th></th><th><span class="gitee-badge">Gitee 码云</span></th><th><span class="gh-badge">GitHub</span></th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>所属</td><td>开源中国（国内）</td><td>Microsoft（国际）</td></tr>
+                                <tr><td>访问速度</td><td>国内直连，速度快</td><td>需稳定国际网络</td></tr>
+                                <tr><td>访问质量</td><td>稳定，无需代理</td><td>部分地区/网络不稳定</td></tr>
+                                <tr><td>私有仓库</td><td>免费（有成员数限制）</td><td>免费无限私有仓库</td></tr>
+                                <tr><td>适合人群</td><td>国内开发者、内网环境</td><td>国际协作、开源项目</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="guide-tip">💡 <b>建议</b>：如果你在国内、且只想备份项目，选 Gitee 更省心；如果要做开源、参与国际社区，选 GitHub。</div>
+                </div>
+
+                <div class="scard guide-card">
+                    <h3>📦 仓库地址是什么？</h3>
+                    <p class="guide-sub">就是仓库主页浏览器地址栏里的那个链接，两种形式都可以：</p>
+                    <ul class="guide-list">
+                        <li><b>HTTPS 地址</b>（推荐新手）：形如 <code>https://gitee.com/用户名/仓库名.git</code> 或 <code>https://github.com/用户名/仓库名.git</code></li>
+                        <li><b>SSH 地址</b>（推荐进阶）：形如 <code>git@gitee.com:用户名/仓库名.git</code> 或 <code>git@github.com:用户名/仓库名.git</code></li>
+                    </ul>
+                    <div class="guide-tip">🔑 <b>HTTPS</b> 需要账号密码/Token；<b>SSH</b> 需要提前配置密钥（见下文 SSH 教程）。不确定就用 HTTPS + 私人令牌。</div>
+                </div>
+
+                <div class="scard guide-card">
+                    <h3>🎫 私人令牌（Token）从哪来？</h3>
+                    <p class="guide-sub">远程推送需要身份验证，私人令牌比密码更安全。两步搞定：</p>
+                    <ol class="guide-list guide-list--ol">
+                        <li>登录 Gitee → 右上角头像 → <b>设置</b> → <b>安全设置</b> → <b>私人令牌</b> → 生成新令牌（勾选 <code>projects</code> 权限）。</li>
+                        <li>登录 GitHub → 右上角头像 → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → 生成新令牌（勾选 <code>repo</code> 权限）。</li>
+    </ol>
+                    <div class="guide-tip">⚠️ 令牌只显示一次，生成后立即复制保存。泄露了可在同页面随时吊销重建。</div>
+                </div>
+
+                <div class="scard guide-card">
+                    <h3>🔗 SSH 密钥怎么配置？</h3>
+                    <p class="guide-sub">一次配置，终身免密推送。四步完成：</p>
+                    <ol class="guide-list guide-list--ol">
+                        <li><b>生成密钥</b>：<code>ssh-keygen -t ed25519 -C "你的邮箱"</code>（一路回车即可）</li>
+                        <li><b>复制公钥</b>：Windows 下打开 <code>C:\Users\你的用户名\.ssh\id_ed25519.pub</code>，复制全部内容。</li>
+                        <li><b>添加到平台</b>：Gitee/GitHub → 设置 → <b>SSH 公钥</b> → 粘贴 → 保存。</li>
+        <li><b>验证连通</b>：<code>ssh -T git@gitee.com</code> 或 <code>ssh -T git@github.com</code>，看到 "Hi 用户名!" 即成功。</li>
+                    </ol>
+                    <div class="guide-tip">✅ 配置成功后，仓库地址换成 SSH 形式（<code>git@...</code> 开头）即可免密推送。</div>
+                </div>
+
+                <div class="scard guide-card">
+                    <h3>🚀 常见问题</h3>
+                    <div class="guide-qalist">
+                        <div class="guide-qa">
+                            <div class="guide-q">Q：推送时提示 Permission denied（publickey）？</div>
+                            <div class="guide-a">A：SSH 密钥未配置或未添加到平台。按上方 SSH 教程重新检查第 2、3 步。</div>
+                        </div>
+                        <div class="guide-qa">
+                            <div class="guide-q">Q：提示 Authentication failed？</div>
+                            <div class="guide-a">A：HTTPS 推送时密码应填<b>私人令牌</b>而不是登录密码（GitHub 已不支持密码）。</div>
+                        </div>
+                        <div class="guide-qa">
+                            <div class="guide-q">Q：remote 已存在 / 推错仓库了？</div>
+                            <div class="guide-a">A：到「保存/发布」面板重新设置仓库地址即可，应用会自动更新远程地址。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-panel"
+                 id="settingsPanel-context-loop"><div class="context-loop-header"><div><h3>上下文与智能体循环</h3><p>按执行顺序查看并调节每一轮对话使用的参数。配置只影响当前浏览器。</p></div><span class="context-loop-status" id="contextLoopStatus">未保存</span></div><div class="context-loop-flow" id="contextLoopFlow"></div><div class="context-loop-actions"><button class="btn-secondary" type="button" id="contextLoopReset">恢复默认</button><button class="btn-primary" type="button" id="contextLoopSave">保存配置</button></div></div>
+
+            <div class="settings-panel" id="settingsPanel-tools">
+                <div class="tools-settings-header">
+                    <div>
+                        <h3>🧰 工具设置</h3>
+                        <p>选择对话中可使用的工具。勾选后点击「保存配置」生效，未勾选的工具将不再提供给 AI。配置只影响当前浏览器。</p>
+                    </div>
+                    <span class="tools-settings-status" id="toolsSettingsStatus">未保存</span>
+                </div>
+                <div class="tools-settings-toolbar">
+                    <input type="text" class="tools-settings-search" id="toolsSettingsSearch" placeholder="🔍 搜索工具名称 / 说明…" autocomplete="off">
+                    <div class="tools-settings-category-filter" id="toolsSettingsCatFilter"></div>
+                </div>
+                <div class="tools-settings-categories" id="toolsSettingsCategories"></div>
+                <div class="tools-settings-actions">
+                    <button class="btn-secondary" type="button" id="toolsSettingsSelectAll">全选</button>
+                    <button class="btn-secondary" type="button" id="toolsSettingsSelectNone">全不选</button>
+                    <button class="btn-secondary" type="button" id="toolsSettingsReset">恢复默认</button>
+                    <button class="btn-primary" type="button" id="toolsSettingsSave">保存配置</button>
+                </div>
+            </div>
+
+            <div class="settings-panel"
+                 id="settingsPanel-about">
+                    <h3 style="margin:0 0 24px 0;">❤️ 关于</h3>
+
+                    <!-- ===== 顶部 Banner ===== -->
+                    <div style="background:var(--bg);border-radius:10px;padding:32px 28px;text-align:center;margin-bottom:14px;border:1px solid var(--border);position:relative;overflow:hidden;">
+                        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#055bbe,#1c80e0,#31a2fe,#ffffff,#31a2fe,#1c80e0,#055bbe);background-size:300% 100%;animation:logoGradient 6s ease infinite;"></div>
+                        <img src="assets/biao.png" style="width:56px;height:56px;margin:0 auto 14px auto;display:block;border-radius:8px;">
+                        <div style="font-size:20px;font-weight:bold;color:var(--blue);margin-bottom:4px;">朱峰社区无限智能体</div>
+                        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">版本 <span id="heroVersion">5.0.1</span> · 无限画布 · 多模型连通 · Agent 工具循环</div>
+                        <div style="display:inline-flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+                            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(0,122,204,0.15);color:var(--blue);border:1px solid rgba(0,122,204,0.3);">MIT 开源</span>
+                            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(40,167,69,0.15);color:var(--green);border:1px solid rgba(40,167,69,0.3);">永久免费</span>
+                            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(255,193,7,0.15);color:#ffc107;border:1px solid rgba(255,193,7,0.3);">零框架依赖</span>
+                            <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(108,92,231,0.15);color:#6c5ce7;border:1px solid rgba(108,92,231,0.3);">本地部署</span>
+                        </div>
+                    </div>
+
+                                        <!-- ===== 关于智能体 ===== -->
+                    <div class="scard">
+                        <h3>简介</h3>
+                        <div class="about-copy">
+                            <p style="margin:0 0 8px 0;">这个项目，诞生于它的上一个版本。最开始我们只做了三个工具：读取、写入、执行。经过几天时间，就创建了如此好用的朱峰社区智能体无限！</p>
+                            <p style="margin:0 0 8px 0;">开发速度是惊人的，朱峰老师几乎同时可以操作至少 8–30 个窗口，以超级惊人的速度进行任务执行工作。朱峰社区智能体绝对是干活效率领先的智能体头部产品！</p>
+                            <p style="margin:0 0 8px 0;">我们一直追求让你的效率提升更多，减少你的工作，同时发挥你的创造力。<b>人和大模型的关系从来没有这么近。</b></p>
+                            <p style="margin:0 0 8px 0;">朱峰社区作为老牌 <b>3D 教程社区</b>，为全天下人做了巨大贡献。这个智能体，是我们给你们留下的<b>最好礼物</b>。</p>
+                            <p style="margin:0 0 8px 0;">你可以随时编辑他、改造他、让他更好用。感谢你们的支持！我们还会不断更新。</p>
+                            <p style="margin:0;">如果你喜欢这个项目，支持我们可以对我们资助，让我们成为<b>更强大的智能体服务全人类</b>。</p>
+                        </div>
+                    </div>
+
+<!-- ===== 支持我们（收款码） ===== -->
+                    <div class="scard" style="border:1px solid rgba(255,99,132,0.2);background:rgba(255,99,132,0.03);">
+                        <h3 style="color:#e84393;">❤️ 支持我们</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 4px 0;">如果这个工具帮到了你，欢迎请作者喝杯咖啡 ☕</p>
+                            <p style="margin:0 0 12px 0;font-size:12px;color:var(--text2);">你的支持是我们持续开发的最大动力</p>
+                        </div>
+                        <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+                            <div style="text-align:center;">
+                                <div style="width:140px;height:140px;margin:0 auto 6px auto;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">
+                                    <img src="assets/wechat-donation.gif" alt="微信收款码" style="width:100%;height:100%;object-fit:contain;border-radius:4px;">
+                                </div>
+                                <div style="font-size:12px;font-weight:bold;color:#07c160;">💚 微信</div>
+                                <div style="font-size:11px;color:var(--text2);">扫一扫</div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="width:140px;height:140px;margin:0 auto 6px auto;background:#fff;border-radius:10px;padding:8px;border:1px solid var(--border);">
+                                    <img src="assets/alipay-donation.gif" alt="支付宝收款码" style="width:100%;height:100%;object-fit:contain;border-radius:4px;">
+                                </div>
+                                <div style="font-size:12px;font-weight:bold;color:#1677ff;">💙 支付宝</div>
+                                <div style="font-size:11px;color:var(--text2);">扫一扫</div>
+                            </div>
+                        </div>
+                        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text2);">
+                            一杯咖啡 15元 · 一顿外卖 30元 · 一本教程 50元
+                        </div>
+                    </div>
+
+                    <!-- ===== 联系我们 ===== -->
+                    <div class="scard">
+                        <h3>💬 联系我们</h3>
+                        <div style="font-size:13px;line-height:1.8;color:var(--text);">
+                            <p style="margin:0 0 6px 0;">🐧 <b>朱峰社区智能体QQ群</b>：<span style="font-size:16px;font-weight:bold;color:var(--blue);">290939358</span></p>
+                            <p style="margin:0 0 6px 0;color:var(--text2);font-size:12px;">技术交流 · 问题反馈 · 功能建议 · 版本更新通知</p>
+                            <p style="margin:0 0 6px 0;">🌐 官网：<a href="http://www.zf3d.com" target="_blank" style="color:var(--blue);text-decoration:none;">www.zf3d.com</a></p>
+                            <p style="margin:0 0 8px 0;">🤝 欢迎大型公司、社会团体、教育院校参与合作开发</p>
+                            <div style="margin:0 0 8px 0;padding:8px 0;border-top:1px solid var(--border);color:var(--text2);font-size:12px;line-height:1.6;">
+                                <p style="margin:0 0 6px 0;">朱峰社区智能体无限为完全独立原创代码。如引用本项目任何功能或代码进行商用，请注明来源：朱峰社区智能体无限。该引用免费。</p>
+                                <p style="margin:0;">如未注明来源而直接进行商业销售，即视为直接利用本项目代码进行商业化；我们有权追责，并主张相应收益分成。</p>
+                            </div>
+                            <div style="padding-top:8px;border-top:1px solid var(--border);text-align:center;">
+                                <span style="font-size:11px;color:var(--text2);">zf3d.com · 朱峰社区 · MIT 开源协议 · 永久免费 · © 2006-2026</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- ====== 复制提示 toast ====== -->
+
+    <!-- KEEP_FLOATING_TOOLS -->
+    <div class="tp-fab-group">
+        <button id="chatStatusBtn" title="对话状态">
+            <span class="cs-btn-icon">💬</span>
+            <span class="cs-btn-count">0</span>
+        </button>
+        <button id="taskPanelBtn" title="任务清单">
+            <span class="tp-btn-icon">📋</span>
+            <span class="tp-btn-pct">0%</span>
+            <span class="tp-btn-badge" style="display:none">0</span>
+        </button>
+    </div>
+
+    <!-- ====== 右侧面板（任务清单 + 对话状态，Tab 切换） ====== -->
+    <div id="taskPanelOverlay" class="task-panel-overlay"></div>
+    <div id="taskPanel" class="task-panel">
+        <div id="taskPanelResizeHandle" class="task-panel-resize-handle" title="拖拽调整面板宽度"></div>
+        <div class="tp-tabs">
+            <button class="tp-tab active" data-tab="chat">💬 对话</button>
+            <button class="tp-tab" data-tab="task">📋 任务</button>
+            <button class="tp-tab" data-tab="history">🕘 历史</button>
+            <button class="tp-tab" data-tab="model">🤖 大模型</button>
+            <button class="task-panel-close" id="taskPanelCloseBtn" title="关闭">✕</button>
+        </div>
+        <div id="taskPanelBody" class="task-panel-body" style="display:none"></div>
+        <div id="historyPanelBody" class="task-panel-body" style="display:none"></div>
+        <div id="modelPanelBody" class="task-panel-body" style="display:none"></div>
+        <div id="chatSearchBar" class="cs-search-bar">
+            <input type="text" id="chatSearchInputPrimary" class="cs-search-input" placeholder="🔍 搜索对话标题或消息..." autocomplete="off" />
+        </div>
+        <div id="chatPanelBody" class="task-panel-body"></div>
+    </div>
+
+    <!-- ====== 项目面板（右侧侧边栏） ====== -->
+    <div id="projPanelOverlay" class="proj-panel-overlay"></div>
+    <div id="projPanel" class="proj-panel">
+        <div class="proj-panel-header">
+            <span class="proj-panel-title">📁 项目管理</span>
+            <div class="proj-panel-actions">
+                <button class="proj-panel-btn" id="projNewBtn" title="新建项目">➕ 新建</button>
+                <button class="proj-panel-close" id="projCloseBtn" title="关闭">✕</button>
+            </div>
+        </div>
+        <div class="proj-panel-toolbar">
+            <input type="text" id="projSearchInputPrimary" class="proj-search-input" placeholder="🔍 搜索对话..." autocomplete="off" />
+            <span class="proj-sort-btn active" data-sort="time">⏱时间<span class="sort-arrow"></span></span>
+            <span class="proj-sort-btn" data-sort="title">📖标题<span class="sort-arrow"></span></span>
+            <span class="proj-sort-btn" data-sort="count">📊消息<span class="sort-arrow"></span></span>
+        </div>
+        <div id="projPanelBody" class="proj-panel-body"></div>
+    </div>
+
+<div id="copy-toast" class="copy-toast"></div>
+
+
+
+    <!-- ====== JavaScript（按加载顺序排列） ====== -->
+
+    <script src="js/i18n.js?v=1"></script>
+    <script src="js/confirm-dialog.js?v=1"></script>
+    <script src="js/highlight.min.js?v=1"></script>
+
+    <script src="js/mermaid.min.js?v=1"></script>
+
+    <script src="js/marked.min.js?v=2"></script>
+
+    <script src="js/db.js?v=411"></script>
+
+    <script src="js/reasoning-levels.js?v=2"></script>
+
+    <script src="js/models.js?v=14"></script>
+
+    <script src="js/store.js?v=410"></script>
+
+    <script src="js/tools-definitions.js?v=2"></script>
+    <script src="js/tools-00-当前激活的分类_各对话独立分类映_当前对话_ID__工具结果.js?v=419"></script>
+    <script src="js/tools-01-写作工具定义.js?v=418"></script>
+    <script src="js/tools-02-切换分类_写作工具配置_系_写作工具中文名和_调用写作模型_.js?v=418"></script>
+    <script src="js/tools-03-动态生成系统提示词_根据当前分类_.js?v=420"></script>
+    <script src="js/tools-04-执行工具.js?v=419"></script>
+    <script src="js/tools-05-调用后端_api_tools_异步__判断是否为终止型_默认.js?v=418"></script>
+    <script src="js/tools-06-工具图标映射_折叠态左侧显示_区分工具类型__渲染统一工具卡.js?v=418"></script>
+    <script src="js/tools-99-startup.js?v=418"></script>
+    <script src="js/tools-settings.js?v=2"></script>
+
+    <script src="js/user-settings.js?v=1"></script>
+    <script src="js/theme.js?v=5"></script>
+
+        <script src="js/app.js?v=466"></script>
+
+    <script src="js/app-canvas.js?v=439"></script>
+
+
+
+
+
+    <link rel="stylesheet" href="css/style-cbq.css?v=462">
+    <script src="js/chatbox-00-防风暴提示_右上角轻提示_自动消失__新建窗口尺寸记忆_创建.js?v=476"></script>
+    <script src="js/chatbox-01-底部模型选择器_增强版下拉__拖拽头部排除区域_刷新所有已存.js?v=479"></script>
+    <script src="js/chatbox-02-成功对话指示箭头_游戏小地图式_悬浮在对话框边框外缘_指向成.js?v=475"></script>
+    <script src="js/chatbox-03-绑定对话框交互_Markdown.js?v=477"></script>
+    <script src="js/chatbox-04-设置消息内容_AI_用_Markdown_代码高亮_复制按钮.js?v=475"></script>
+    <script src="js/chatbox-05-保存编辑后的用户消息_截断历史_删除后续消息_重新发送_取消.js?v=475"></script>
+    <script src="js/chatbox-06-格式化耗时_关闭对话框_更新右键菜单中__恢复最后一个关闭.js?v=476"></script>
+    <!-- 已禁用：右侧拉线小球 <script src="js/chatbox-07-提示词端口_右侧小圆圈_拉线请求大模型生成提示词面板.js?v=2"></script> -->
+    <script src="js/app-chatbox-projects.js?v=5"></script>
+
+    <script src="js/app-imagenode.js?v=5"></script>
+    <script src="js/app-imageviewer.js?v=6"></script>
+    <script src="js/context-loop.js?v=4"></script>
+    <script src="js/agent-errors.js?v=1"></script>
+    <script src="js/agent-00-发送到模型_Agent_循环__发送状态管理_更新标题栏状态.js?v=451"></script>
+    <script src="js/agent-01-确保项目有记忆_若无则后台调用大模型生成_首次对话注入前调用.js?v=451"></script>
+    <script src="js/agent-02-Agent_循环核心.js?v=459"></script>
+    <script src="js/agent-03-工具结果管理_每次循环都执行__上下文_toke_仅截断超长.js?v=451"></script>
+    <script src="js/agent-04-询问用户工具_ask_user_.js?v=451"></script>
+    <script src="js/app-kite.js?v=6"></script>
+    <script src="js/app-kiteportlink.js?v=1"></script>
+    <script src="js/app-kitecanvas.js?v=19"></script>
+    <script src="js/app-extras.js?v=434"></script>
+    <script src="js/app-panels.js?v=454"></script>
+    <script src="js/model-config-rewrite.js?v=16"></script>
+    <script>
+      (function() {
+        // 模型配置面板挂载：当 settings 打开时调 App.renderModelPanel 渲染到 #modelPanelMount
+        function _mountModelPanel() {
+          var mount = document.getElementById('modelPanelMount');
+          if (mount && window.App && App.renderModelPanel) {
+            App.renderModelPanel(mount);
+          }
+        }
+        // 打开 settingsOverlay 时挂载
+        function _wireSettingsOpen() {
+          var overlay = document.getElementById('settingsOverlay');
+          if (overlay) {
+            var obs = new MutationObserver(function() {
+              if (overlay.classList.contains('active') || overlay.style.display === 'block') {
+                _mountModelPanel();
+              }
+            });
+            obs.observe(overlay, { attributes: true, attributeFilter: ['class','style'] });
+          }
+          var sBtn = document.getElementById('settingsBtn');
+          if (sBtn) sBtn.addEventListener('click', function() {
+            setTimeout(_mountModelPanel, 60);
+          });
+          var mBtn = document.getElementById('status-model-trigger');
+          if (mBtn) mBtn.addEventListener('click', function() {
+            setTimeout(_mountModelPanel, 60);
+          });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', _wireSettingsOpen);
+        } else {
+          _wireSettingsOpen();
+        }
+      })();
+    </script>
+
+    <script src="js/app-minimap.js?v=434"></script>
+
+    <script src="js/app-upload.js?v=477"></script>
+
+    <script src="js/app-chatmgr.js?v=436"></script>
+
+    <script src="js/app-backup.js?v=3"></script>
+
+
+    <link rel="stylesheet" href="css/style-project.css?v=3">
+    <link rel="stylesheet" href="css/space-meteors.css?v=1">
+    <script src="js/app-project.js?v=7"></script>
+    <script src="js/app-taskpanel.js?v=27"></script>
+    <script src="js/app-health.js?v=2"></script>
+    <script src="js/app-monitor.js?v=433"></script>
+    <link rel="stylesheet" href="css/context-loop.css?v=2">
+    <script src="js/app-zf3d.js?v=5.0.1"></script>
+    <script src="js/app-version.js?v=5.0.1"></script>
+
+    <!-- ====== Toast 堆栈管理器（热更新之前加载） ====== -->
+    <script src="js/toast-stack.js?v=2"></script>
+    <script src="js/space-meteors.js?v=1"></script>
+
+    <!-- ====== 热更新客户端（最后加载） ====== -->
+    <script src="js/app-update.js?v=1"></script>
+    <script src="js/hot-reload.js?v=3"></script>
+
+</body>
+
+</html>
