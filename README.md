@@ -64,8 +64,6 @@ In one sentence: **turn a large model into a team that works on your computer.**
 
 # ZF3D Community Agent Infinity 5.1.0 - Complete Help (Full Documentation with Screenshots)
 
-# ZF3D Community Agent Infinity 5.1.0 · Full Feature Help
-
 > This document covers all current features of the software, written after a feature-by-feature code review (~150 frontend modules in public/js, server/ route Mixins and six engines, the three toolkits in tool/, extensions/, plugin modes in modes/, and archived notes in 项目记录/).
 
 ---
@@ -490,8 +488,6 @@ High-risk operations like deletion and system config changes require your confir
 
 ---
 # 朱峰社区智能体无限（Infinity）5.1.0 · 完整帮助（带截图全文档）
-
-# 朱峰社区智能体无限（Infinity）5.1.0 · 完整功能帮助文档
 
 ---
 
