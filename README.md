@@ -41,6 +41,17 @@ In one sentence: **turn a large model into a team that works on your computer.**
 | Install environments and dependencies | Pure Python standard library, double-click to run |
 | Manual rescue on errors | Guardian processes auto-rescue + receipt acceptance |
 
+## Screenshot Tour / 界面预览
+
+| | | |
+|---|---|---|
+| ![整体界面](docs/images/界面导览/整体界面.jpg) | ![对话列表](docs/images/界面导览/对话列表.jpg) | ![多种分类编程模式](docs/images/界面导览/多种分类编程模式.jpg) |
+| *Main UI · Infinite Canvas* | *400+ Parallel Dialogs* | *Coding Modes* |
+| ![集成多个底部引擎](docs/images/界面导览/集成多个底部引擎.jpg) | ![模型配置管家](docs/images/界面导览/模型配置管家.jpg) | ![任务列表](docs/images/界面导览/任务列表.jpg) |
+| *Six Engine Backends* | *Model Config Manager* | *Task List & Long Plans* |
+| ![风筝和小狗守卫](docs/images/界面导览/风筝和小狗守卫.jpg) | ![文件树和缩略图](docs/images/界面导览/文件树和缩略图.jpg) | ![日志和上下文](docs/images/界面导览/日志和上下文.jpg) |
+| *Kite & Puppy Guards* | *File Tree & Thumbnails* | *Logs & Context* |
+
 ## Links
 
 | Channel | Link |
@@ -96,6 +107,8 @@ For detailed features and guides, see `docs/使用帮助-EN.md`
 | 数据在云端 | 全部本地，API Key 存 private/ 不外传 |
 | 要装环境配依赖 | 纯 Python 标准库，双击即用 |
 | 出错人工兜底 | 守护进程自动救 + 回执验收 |
+
+详细带说明的完整截图见 [docs/使用帮助-5.1.0.md](docs/使用帮助-5.1.0.md)。
 
 ## 链接
 
