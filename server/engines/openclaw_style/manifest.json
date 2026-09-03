@@ -1,0 +1,13 @@
+{
+  "id": "openclaw_style",
+  "name": "OpenClaw",
+  "description": "Gateway 生命周期编排 + 多渠道会话绑定 + 队列去重 (local_loop mode)",
+  "version": "0.1.0",
+  "enabled": true,
+  "engine_mode": "local_loop",
+  "tools": {
+    "source": "self",
+    "dir": "tools/",
+    "list": ["o_routes", "o_bind", "o_task"]
+  }
+}

@@ -1,0 +1,605 @@
+{
+  "_meta": {
+    "version": 3,
+    "updated_at": "2026-09-02T04:58:07"
+  },
+  "models": [
+    {
+      "name": "智谱 GLM",
+      "displayName": "智谱 GLM(glm-5.3-flash)",
+      "provider": "ark",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "modelId": "glm-5.3-flash",
+      "officialUrl": "https://open.bigmodel.cn/",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": true,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "language",
+      "id": "glm-5.3-flash",
+      "reasoningEffort": "low",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "glm-4-flash",
+        "glm-5.2",
+        "glm-5.3",
+        "glm-5.3-flash"
+      ],
+      "updatedAt": "2026-08-31T02:58:43.932Z",
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "max",
+          "label": "max"
+        }
+      ]
+    },
+    {
+      "name": "火山方舟",
+      "displayName": "火山方舟(glm-5.3)",
+      "provider": "ark",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+      "modelId": "glm-5.3",
+      "officialUrl": "https://console.volcengine.com/ark/region:cn-beijing/overview",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "cachePolicy": {
+        "cacheMode": "prefix-auto",
+        "contextWindow": 128000,
+        "toolResultMaxChars": 5000
+      },
+      "modelType": "language",
+      "reasoningEffort": "low",
+      "keyRef": "user",
+      "useSystemKey": true,
+      "id": "火山方舟",
+      "modelIdOptions": [
+        "glm-5.3",
+        "doubao-seed-2.0-mini",
+        "kimi-k2.7-code",
+        "minimax-m3",
+        "doubao-seed-evolving",
+        "kimi-k3",
+        "doubao-seed-2.1-turbo",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "glm-5.3-flash"
+      ],
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "max",
+          "label": "max"
+        }
+      ],
+      "updatedAt": "2026-09-01T04:25:55.247Z"
+    },
+    {
+      "name": "火山Coding Plan",
+      "displayName": "火山Coding Plan(glm-5.3)",
+      "provider": "ark",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
+      "modelId": "glm-5.3",
+      "officialUrl": "https://console.volcengine.com/ark/region:cn-beijing/overview",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "cachePolicy": {
+        "cacheMode": "prefix-auto",
+        "contextWindow": 128000,
+        "toolResultMaxChars": 5000
+      },
+      "modelType": "language",
+      "reasoningEffort": "low",
+      "keyRef": "user",
+      "useSystemKey": true,
+      "id": "火山方舟-副本",
+      "modelIdOptions": [
+        "doubao-seed-2.0-lite",
+        "doubao-seed-2.0-mini",
+        "kimi-k2.7-code",
+        "minimax-m3",
+        "doubao-seed-evolving",
+        "kimi-k3",
+        "doubao-seed-2.1-turbo",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "max",
+          "label": "max"
+        }
+      ]
+    },
+    {
+      "name": "Miaomio",
+      "displayName": "GPT-5.5",
+      "provider": "ark",
+      "baseUrl": "https://miaomio.net/v1/chat/completions",
+      "endpoint": "https://miaomio.net/v1/chat/completions",
+      "modelId": "gpt-5.6-luna",
+      "officialUrl": "https://limiao.net/",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": false,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "cachePolicy": {
+        "cacheMode": "prefix-auto",
+        "contextWindow": 128000,
+        "toolResultMaxChars": 5000
+      },
+      "modelType": "language",
+      "reasoningEffort": "medium",
+      "keyRef": "user",
+      "useSystemKey": false,
+      "headers": {
+        "x-openai-actor-authorization": "local-image-extension"
+      },
+      "id": "Miaomio",
+      "modelIdOptions": [
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.5",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra"
+      ],
+      "updatedAt": "2026-08-27T03:58:39.202Z",
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "xhigh",
+          "label": "xhigh"
+        }
+      ]
+    },
+    {
+      "name": "智谱识图",
+      "displayName": "智谱 GLM 识图(glm-4.5v)",
+      "provider": "ark",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "modelId": "glm-4.5v",
+      "officialUrl": "https://open.bigmodel.cn/",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": false,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": true,
+      "visionInputFormats": [
+        "url",
+        "base64"
+      ],
+      "noKeyRequired": false,
+      "modelType": "types_vision",
+      "id": "glm-5.3-flash-vision",
+      "reasoningEffort": "disable",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "glm-4.5v",
+        "glm-4v-flash",
+        "glm-4.1v-thinking-flash"
+      ],
+      "updatedAt": "2026-08-30T23:11:26.005Z",
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "max",
+          "label": "max"
+        }
+      ]
+    },
+    {
+      "name": "DeepSeek",
+      "displayName": "DeepSeek(深度求索)",
+      "provider": "ark",
+      "baseUrl": "https://api.deepseek.com/chat/completions",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "modelId": "deepseek-v4-flash",
+      "officialUrl": "https://api-docs.deepseek.com/zh-cn/",
+      "maxTokens": 8192,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "cachePolicy": {
+        "cacheMode": "prefix-auto",
+        "contextWindow": 128000,
+        "toolResultMaxChars": 5000
+      },
+      "modelType": "language",
+      "reasoningEffort": "medium",
+      "keyRef": "system",
+      "useSystemKey": false,
+      "id": "DeepSeek 官方",
+      "modelIdOptions": [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "deepseek-v4-flash-vision-exp"
+      ],
+      "createdAt": "2026-08-27T16:23:20.807008",
+      "updatedAt": "2026-08-30T23:10:45.683Z",
+      "reasoningLevels": [
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        }
+      ]
+    },
+    {
+      "name": "硅基流动",
+      "displayName": "硅基流动 Qwen2.5-7B（免费）",
+      "provider": "ark",
+      "baseUrl": "https://api.siliconflow.cn/v1/chat/completions",
+      "endpoint": "https://api.siliconflow.cn/v1/chat/completions",
+      "modelId": "Qwen/Qwen2.5-7B-Instruct",
+      "officialUrl": "https://siliconflow.cn/",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "language",
+      "id": "siliconflow-qwen2.5-7b",
+      "reasoningEffort": "disable",
+      "keyRef": "system",
+      "modelIdOptions": [
+        "Qwen/Qwen2.5-7B-Instruct"
+      ],
+      "updatedAt": "2026-08-30T23:10:53.230Z",
+      "reasoningLevels": [
+        {
+          "value": "disable",
+          "label": "disable"
+        }
+      ]
+    },
+    {
+      "name": "火山方舟向量化",
+      "displayName": "火山方舟向量化",
+      "provider": "ark",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3",
+      "modelId": "doubao-embedding-vision",
+      "officialUrl": "",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": false,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "embedding",
+      "id": "ark-embedding-vision",
+      "reasoningEffort": "disable",
+      "keyRef": "system",
+      "modelIdOptions": [
+        "doubao-seed-2.0-lite",
+        "doubao-seed-2.0-mini",
+        "kimi-k2.7-code",
+        "minimax-m3",
+        "doubao-seed-evolving",
+        "kimi-k3",
+        "doubao-seed-2.1-turbo",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "reasoningLevels": [
+        {
+          "value": "disable",
+          "label": "disable"
+        },
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "ultra",
+          "label": "ultra"
+        }
+      ]
+    },
+    {
+      "name": "火山方舟视觉",
+      "displayName": "火山方舟视觉 (Seedream 5.0 Lite)",
+      "provider": "ark",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/images/generations",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/images/generations",
+      "modelId": "doubao-seedream-5.0-lite",
+      "officialUrl": "https://console.volcengine.com/ark/region:cn-beijing/overview",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": true,
+      "visible": true,
+      "imageGen": true,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "vision",
+      "id": "ark-vision-seedream",
+      "reasoningEffort": "disable",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "doubao-seed-2.0-lite",
+        "doubao-seed-2.0-mini",
+        "kimi-k2.7-code",
+        "minimax-m3",
+        "doubao-seed-evolving",
+        "kimi-k3",
+        "doubao-seed-2.1-turbo",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "reasoningLevels": [
+        {
+          "value": "disable",
+          "label": "disable"
+        },
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "ultra",
+          "label": "ultra"
+        }
+      ],
+      "updatedAt": "2026-08-31T04:04:16.467Z"
+    },
+    {
+      "name": "火山方舟视频",
+      "displayName": "火山方舟视频 (Seedance 2.0)",
+      "provider": "ark",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/contents/generations/tasks",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/contents/generations/tasks",
+      "modelId": "doubao-seedance-2.0",
+      "officialUrl": "https://console.volcengine.com/ark/region:cn-beijing/overview",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": true,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "video",
+      "id": "ark-video-seedance-2",
+      "reasoningEffort": "disable",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "doubao-seedance-2.0"
+      ],
+      "description": "火山方舟 Seedance 2.0 文生视频/图生视频（Coding Plan 通道）"
+    },
+    {
+      "name": "智谱视频",
+      "displayName": "智谱视频 (CogVideoX-3)",
+      "provider": "zhipu",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/videos/generations",
+      "endpoint": "https://open.bigmodel.cn/api/paas/v4/videos/generations",
+      "modelId": "cogvideox-3",
+      "officialUrl": "https://open.bigmodel.cn/",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "video",
+      "id": "zhipu-video-cogvideox-3",
+      "reasoningEffort": "disable",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "cogvideox-3",
+        "cogvideox-2",
+        "cogvideox-2.5"
+      ],
+      "reasoningLevels": [],
+      "updatedAt": "2026-09-01T22:55:00.000Z"
+    },
+    {
+      "name": "火山方舟语音",
+      "displayName": "火山方舟语音",
+      "provider": "ark",
+      "baseUrl": "https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional",
+      "endpoint": "https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional",
+      "modelId": "seed-tts-2.0",
+      "officialUrl": "",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": true,
+      "preset": false,
+      "visible": false,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "speech",
+      "id": "ark-speech-tts",
+      "reasoningEffort": "disable",
+      "keyRef": "user",
+      "modelIdOptions": [
+        "doubao-seed-2.0-lite",
+        "doubao-seed-2.0-mini",
+        "kimi-k2.7-code",
+        "minimax-m3",
+        "doubao-seed-evolving",
+        "kimi-k3",
+        "doubao-seed-2.1-turbo",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro"
+      ],
+      "updatedAt": "2026-08-27T03:58:46.896Z",
+      "reasoningLevels": [
+        {
+          "value": "disable",
+          "label": "disable"
+        },
+        {
+          "value": "low",
+          "label": "low"
+        },
+        {
+          "value": "medium",
+          "label": "medium"
+        },
+        {
+          "value": "high",
+          "label": "high"
+        },
+        {
+          "value": "ultra",
+          "label": "ultra"
+        }
+      ]
+    },
+    {
+      "name": "智谱生图",
+      "displayName": "智谱生图(CogView-4)",
+      "provider": "zhipu",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4/images/generations",
+      "endpoint": "https://open.bigmodel.cn/api/paas/v4/images/generations",
+      "modelId": "cogview-4-250304",
+      "officialUrl": "https://open.bigmodel.cn/",
+      "maxTokens": 4096,
+      "temperature": 0.7,
+      "enabled": true,
+      "isDefault": false,
+      "preset": true,
+      "visible": true,
+      "imageGen": true,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "vision",
+      "id": "cogview-4-250304",
+      "modelIdOptions": [
+        "cogview-4-250304",
+        "cogview-3-flash",
+        "cogview-3-plus-custo"
+      ],
+      "reasoningEffort": "disable",
+      "keyRef": "user"
+    }
+  ]
+}

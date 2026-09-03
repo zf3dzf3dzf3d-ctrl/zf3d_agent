@@ -1,0 +1,756 @@
+/* ========== style-dog-guard.css - 🐕 小狗守卫 ========== */
+
+.dog-guard {
+    position: absolute;
+    z-index: 9000;
+    width: 60px;
+    height: 60px;
+    pointer-events: none; /* 由 body 层接收事件，留出气泡穿透 */
+    transition: none;
+    will-change: left, top;
+}
+
+.dog-guard-body {
+    position: relative;
+    font-size: 36px;
+    line-height: 44px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: auto; /* 可点击/拖拽 */
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.dog-guard-face { position: relative; z-index: 2; font-size: 27px; line-height: 33px; transform: scale(0.9); transform-origin: bottom center; opacity: 0.8; } /* 脸调小 0.75，再放大 1.2 倍 → 0.9；默认透明度 0.8 */ /* 脸调小 0.75，再放大 1.2 倍 → 0.9 */
+
+/* 单爪：在头侧，挥动动画 */
+.dog-guard-paw {
+    position: absolute;
+    left: 30px;
+    top: 21px;
+    font-size: 16px;
+    color: #f5e6a8;
+    filter: sepia(0.5) saturate(1.5) hue-rotate(-10deg) brightness(1.15); /* 爪子微微泛黄 */
+    z-index: 3;
+    opacity: 0.8; /* 默认透明度 0.8 */
+    transform-origin: bottom left;
+    animation: dg-paw-idle 1.2s ease-in-out infinite alternate;
+}
+@keyframes dg-paw-idle {
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(10deg); }
+}
+.dg-paw-wave {
+    animation: dg-paw-wave 0.3s ease-in-out 5 !important;
+}
+@keyframes dg-paw-wave {
+    0%   { transform: rotate(0) translateY(0); }
+    50%  { transform: rotate(-50deg) translateY(-6px); }
+    100% { transform: rotate(15deg) translateY(0); }
+}
+
+/* 待机：平时微微摇晃（很轻的呼吸式摆动） */
+.dog-guard-body {
+    animation: dg-idle 1.6s ease-in-out infinite; /* 平时动画比原来快 2 倍 */
+}
+@keyframes dg-idle {
+    0%   { transform: rotate(0deg) translateY(0); }
+    25%  { transform: rotate(-1.5deg) translateY(-1px); }
+    50%  { transform: rotate(0deg) translateY(0); }
+    75%  { transform: rotate(1.5deg) translateY(-1px); }
+    100% { transform: rotate(0deg) translateY(0); }
+}
+
+/* 爪子：固定在身前，走路/巡查时小步扑腾 */
+.dog-guard-paw {
+    position: absolute;
+    bottom: -27px; /* 图标下方再往下 10px，再整体下移 15px */
+    left: 50%;
+    margin-left: -13px;
+    font-size: 18px; /* 比原来 14px 大 1.3 倍 */
+    color: #f2e394; /* 爪子微微黄色 */
+    z-index: 3;
+    opacity: 0.95;
+    transform-origin: top center;
+    animation: dg-paw 1.6s ease-in-out infinite;
+}
+@keyframes dg-paw {
+    0%, 100% { transform: translateX(-8px) rotate(0deg); }
+    25%      { transform: translateX(0) rotate(-12deg); }
+    50%      { transform: translateX(8px) rotate(0deg); }
+    75%      { transform: translateX(0) rotate(12deg); }
+}
+.dog-guard--running .dog-guard-paw { animation-duration: 0.4s; }
+.dog-guard--inspecting .dog-guard-paw { animation-duration: 0.8s; }
+
+/* 叫唤：身体兴奋抖动 */
+.dog-guard--barking .dog-guard-body {
+    animation: dg-bark 0.3s ease-in-out 6;
+}
+@keyframes dg-bark {
+    0%   { transform: translateY(0) scale(1); }
+    30%  { transform: translateY(-14px) scale(1.18) rotate(-8deg); }
+    60%  { transform: translateY(-4px) scale(1.06) rotate(6deg); }
+    100% { transform: translateY(0) scale(1); }
+}
+
+/* ===== 小狗聊天面板 ===== */
+/* ===== 小狗聊天面板：跟随全局主题（暗色/亮色），保留暖色可爱风 ===== */
+.dog-guard-chat {
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 340px;
+    max-width: 78vw;
+    background: var(--bg-card, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    overflow: hidden;
+    pointer-events: auto;
+    z-index: 20;
+    animation: dg-bubble-pop 0.25s ease-out;
+}
+.dog-guard-chat-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--bg-card, #fffdf8);
+    border-bottom: 1px solid var(--border, #e0c9a0);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: default;
+}
+.dg-chat-close { cursor: pointer; opacity: 0.5; font-size: 12px; padding: 0 3px; }
+.dg-chat-close:hover { opacity: 1; }
+.dog-guard-chat-msgs {
+    max-height: 180px;
+    min-height: 60px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+}
+.dg-msg {
+    max-width: 85%;
+    padding: 6px 9px;
+    border-radius: 9px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.dg-msg--dog { align-self: flex-start; background: rgba(255,180,60,0.18); border: 1px solid rgba(255,180,60,0.4); }
+/* 📒 守护账本记录条目 */
+.dg-chat-logbook {
+    background: rgba(255,180,60,0.2);
+    border: 1px solid rgba(255,180,60,0.45);
+    border-radius: 6px;
+    color: inherit;
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.dg-chat-logbook:hover { background: rgba(255,180,60,0.35); }
+.dg-msg--logbook {
+    align-self: stretch;
+    background: rgba(120,200,120,0.10);
+    border: 1px dashed rgba(120,200,120,0.4);
+    font-size: 11.5px;
+    font-family: Consolas, monospace;
+    color: inherit;
+    opacity: 0.95;
+}
+.dg-msg--user { align-self: flex-end; background: rgba(var(--blue-rgb, 90,150,255), 0.15); border: 1px solid rgba(var(--blue-rgb, 90,150,255), 0.35); }
+.dog-guard-chat-input {
+    display: flex;
+    gap: 6px;
+    padding: 7px 8px;
+    border-top: 1px solid var(--border, #e0c9a0);
+}
+.dog-guard-chat-input input {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    padding: 5px 8px;
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 8px;
+    background: var(--bg, #fffdf8);   /* 跟随主题：亮色浅底 / 暗色深底 */
+    color: var(--text, #3a2c18);
+    caret-color: #f0a040;
+    outline: none;
+}
+.dog-guard-chat-input input::placeholder { color: var(--text2, #a08a66); opacity: 0.7; }
+.dog-guard-chat-input input:focus { border-color: #f0a040; }
+
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* ===== 小狗专用模型下拉：跟随主题，暗色系适配 ===== */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* ===== 小狗专用模型下拉：跟随主题，暗色系适配 ===== */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* ===== 小狗专用模型下拉：跟随主题，暗色系适配 ===== */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+
+/* ===== 小狗专用模型下拉：跟随主题，暗色系适配 ===== */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* ===== 小狗专用模型下拉：跟随主题，暗色系适配 ===== */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+/* 小狗专用模型下拉：跟随主题，暗色系适配 */
+.dg-chat-model {
+    max-width: 120px;
+    font-size: 11px;
+    background: var(--bg, #fffdf8);
+    color: var(--text, #3a2c18);
+    border: 1px solid var(--border, #e0c9a0);
+    border-radius: 6px;
+    padding: 2px 4px;
+    outline: none;
+    cursor: pointer;
+}
+.dg-chat-model option {
+    background: #262638;
+    color: #e8e8f0;
+}
+.dg-chat-send {
+    font-size: 12px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 8px;
+    background: #f0a040;
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.dg-chat-send:hover { background: #e09030; }
+
+/* ===== 小狗语音按钮：无边框纯图标，点击录音，说完自动发送 ===== */
+.dog-guard-chat .voice-btn {
+    background: transparent;
+    border: none;
+    color: var(--text2, #a08a66);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+}
+.dog-guard-chat .voice-btn:hover {
+    color: var(--dg-accent, #f0a040);
+    background: rgba(240, 160, 64, 0.12);
+}
+.dog-guard-chat .voice-btn:active { transform: scale(0.9); }
+.dog-guard-chat .voice-btn--rec {
+    color: #fff;
+    background: #e5484d;
+    animation: voice-rec-pulse 1.2s ease-in-out infinite;
+}
+.dog-guard-chat .voice-btn--rec:hover { color: #fff; background: #e5484d; }
+[data-theme="light"] .dog-guard-chat .voice-btn { color: #a08a66; }
+
+/* 拖拽中 */
+.dog-guard--dragging .dog-guard-body { cursor: grabbing; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.4)); }
+
+.dog-guard-tail {
+    font-size: 20px;
+    margin-left: -6px;
+    transform-origin: bottom center;
+    animation: dg-wag 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes dg-wag {
+    from { transform: rotate(-25deg); }
+    to   { transform: rotate(25deg); }
+}
+
+/* 跑动状态：整体小幅度上下颠簸 */
+.dog-guard--running .dog-guard-body {
+    animation: dg-bounce 0.25s ease-in-out infinite alternate;
+}
+@keyframes dg-bounce {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-8px) rotate(-4deg); }
+}
+
+/* 巡查状态：停在对话框前，左右看 */
+.dog-guard--inspecting .dog-guard-body {
+    animation: dg-look 0.8s ease-in-out infinite alternate;
+}
+@keyframes dg-look {
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(8deg) translateX(3px); }
+}
+
+/* 开心：跳两下 */
+.dog-guard--happy .dog-guard-body {
+    animation: dg-jump 0.4s ease-in-out 3;
+}
+@keyframes dg-jump {
+    0%   { transform: translateY(0); }
+    50%  { transform: translateY(-14px) rotate(6deg); }
+    100% { transform: translateY(0); }
+}
+
+/* 语音气泡：跟随黑天/白天主题变量，尺寸适中 */
+.dog-guard-bubble {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 6px;
+    width: max-content;
+    max-width: 240px;
+    min-height: 20px;
+    background: var(--bg-card, #fff);
+    color: var(--text, #333);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 7px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #e0c9a0);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    border-bottom-left-radius: 3px; /* 可爱的小尖角感 */
+    white-space: normal;
+    word-break: break-word;
+    text-align: left;
+    pointer-events: none;
+    z-index: 10;
+}
+.dog-guard-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border: 5px solid transparent;
+    border-top-color: var(--border, #e0c9a0);
+}
+
+/* 叫唤气泡：更醒目 */
+.dog-guard-bubble--bark {
+    font-weight: bold;
+    font-size: 14px;
+    animation: dg-bubble-pop 0.25s ease-out;
+}
+@keyframes dg-bubble-pop {
+    from { transform: translateX(-50%) scale(0.5); opacity: 0; }
+    to   { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* 右下角开关按钮：无背景、无边框，只留图标 */
+.dog-guard-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px !important;
+    cursor: pointer;
+    font-size: 20px;
+    opacity: 0.5;
+    transition: opacity 0.2s, transform 0.2s;
+    user-select: none;
+}
+.dog-guard-btn:hover { opacity: 0.9; transform: scale(1.15); }
+.dog-guard-btn--on {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(255,180,60,0.8));
+}
+
+/* ===== 开关状态角标 ===== */
+.dog-guard-btn { position: relative; }
+.dog-guard-state-badge {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
+    text-align: center;
+    padding: 0 3px;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+.dog-guard-state-badge--on { background: #27ae60; }
+.dog-guard-state-badge--off { background: #95a5a6; }
+
+/* ===== 主题联动：小狗守卫随全局黑天/白天切换，但保持可爱暖色 ===== */
+/* 亮色主题（白天）：奶油底 + 暖棕字，比普通对话更软萌 */
+[data-theme="light"] .dog-guard-chat {
+    background: #fffdf5;
+    color: #5a4632;
+    border: 1px solid #f0dcae;
+    box-shadow: 0 6px 20px rgba(240, 160, 64, 0.15);
+}
+[data-theme="light"] .dog-guard-chat-head {
+    background: #fffdf5;
+    border-bottom-color: #f0dcae;
+}
+[data-theme="light"] .dog-guard-chat-input input {
+    background: #fffdf5;
+    color: #5a4632;
+    border-color: #f0dcae;
+}
+[data-theme="light"] .dog-guard-bubble {
+    background: #fffdf5;
+    color: #5a4632;
+    border-color: #f0dcae;
+}
+
+/* 暗色主题（黑天）：深色底 + 暖黄点缀，融入星空但保留可爱感 */
+.dog-guard-chat {
+    --dg-accent: #f0a040;
+}
+.dog-guard-chat .dg-chat-send { background: var(--dg-accent, #f0a040); }
+[data-theme="dark"] .dog-guard-chat,
+html:not([data-theme="light"]) .dog-guard-chat {
+    background: #262638;
+    color: #f0e6d2;
+    border-color: #3d3d52;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+}
+[data-theme="dark"] .dog-guard-chat-head,
+html:not([data-theme="light"]) .dog-guard-chat-head {
+    background: #262638;
+    border-bottom-color: #3d3d52;
+}
+[data-theme="dark"] .dog-guard-chat-input input,
+html:not([data-theme="light"]) .dog-guard-chat-input input {
+    background: #1e1e2e;
+    color: #f0e6d2;
+    border-color: #3d3d52;
+}
+[data-theme="dark"] .dg-msg--dog,
+html:not([data-theme="light"]) .dg-msg--dog {
+    background: rgba(240, 160, 64, 0.15);
+    border-color: rgba(240, 160, 64, 0.35);
+}
+[data-theme="dark"] .dg-msg--user,
+html:not([data-theme="light"]) .dg-msg--user {
+    background: rgba(var(--blue-rgb, 9,132,227), 0.2);
+    border-color: rgba(var(--blue-rgb, 9,132,227), 0.4);
+}
+[data-theme="dark"] .dog-guard-bubble,
+html:not([data-theme="light"]) .dog-guard-bubble {
+    background: #262638;
+    color: #f0e6d2;
+    border-color: #3d3d52;
+}
+
+/* 主题切换时平滑过渡 */
+.dog-guard-chat,
+.dog-guard-chat-head,
+.dog-guard-chat-input input,
+.dog-guard-bubble {
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}

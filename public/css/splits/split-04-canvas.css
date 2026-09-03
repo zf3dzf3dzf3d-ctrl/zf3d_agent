@@ -1,0 +1,178 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ??????? ========== */
+        .statusbar {
+            height: 28px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text2);
+            user-select: none;
+            z-index: 100;
+        }
+        .statusbar .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-right: 4px;
+        }
+        .statusbar .dot.on { background: var(--green); box-shadow: 0 0 4px var(--green); }
+        .status-sep { color: var(--border); }
+        .status-model-trigger {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .status-model-trigger:hover { background: var(--bg-hover); color: var(--text); }
+        .statusbar-right { margin-left: auto; font-size: 11px; opacity: 0.75; }
+        .status-count { color: var(--text2); }
+        .status-arrange-btn {
+            align-items: center;
+            appearance: none;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            gap: 6px;
+            line-height: 20px;
+            min-height: 26px;
+            padding: 2px 9px;
+            transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+        }
+        .status-arrange-icon {
+            align-items: center;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--accent);
+            display: inline-flex;
+            font-size: 16px;
+            height: 18px;
+            justify-content: center;
+            line-height: 1;
+            width: 18px;
+        }
+        .status-arrange-btn:hover,
+        .status-arrange-btn:focus-visible {
+            background: var(--bg-card);
+            border-color: var(--accent);
+            color: var(--text);
+            outline: none;
+        }
+        .status-arrange-btn:active { transform: translateY(1px); }
+
+        .arrange-overlay {
+            align-items: center;
+            background: rgba(6, 8, 14, 0.78);
+            display: flex;
+            inset: 0;
+            justify-content: center;
+            padding: 20px;
+            position: fixed;
+            z-index: 10001;
+        }
+        .arrange-dialog {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 22px 70px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.025);
+            color: var(--text);
+            max-width: 100%;
+            overflow: hidden;
+            width: 500px;
+        }
+        .arrange-dialog-header {
+            align-items: center;
+            background: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            min-height: 52px;
+            padding: 0 14px 0 18px;
+        }
+        .arrange-dialog-title { align-items: center; display: inline-flex; font-size: 14px; font-weight: 600; gap: 8px; }
+        .arrange-dialog-title::before { color: var(--accent); content: '▦'; font-size: 18px; }
+        .arrange-dialog-close {
+            align-items: center;
+            appearance: none;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text2);
+            cursor: pointer;
+            display: inline-flex;
+            font-size: 16px;
+            height: 28px;
+            justify-content: center;
+            line-height: 1;
+            width: 28px;
+        }
+        .arrange-dialog-close:hover,
+        .arrange-dialog-close:focus-visible { background: var(--bg-hover); border-color: var(--accent); color: var(--text); outline: none; }
+        .arrange-dialog-body { padding: 20px; }
+        .arrange-section-label { color: var(--text); font-size: 12px; font-weight: 600; margin-bottom: 10px; }
+        .arrange-presets { display: grid; gap: 9px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .arrange-preset-btn,
+        .arrange-apply-btn {
+            align-items: center;
+            appearance: none;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text2);
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            justify-content: center;
+            min-height: 36px;
+            padding: 6px 10px;
+            transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+        }
+        .arrange-preset-btn:hover,
+        .arrange-preset-btn:focus-visible { background: var(--bg); border-color: var(--accent); color: var(--accent); outline: none; }
+        .arrange-divider { background: var(--border); height: 1px; margin: 20px 0; }
+        .arrange-custom { align-items: flex-end; display: flex; gap: 10px; }
+        .arrange-input-group { display: grid; flex: 1; gap: 6px; min-width: 0; }
+        .arrange-input-group label { color: var(--text2); font-size: 12px; }
+        .arrange-input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            box-sizing: border-box;
+            color: var(--text);
+            font: inherit;
+            height: 36px;
+            min-width: 0;
+            padding: 0 9px;
+            width: 100%;
+        }
+        .arrange-input:hover { border-color: var(--text2); }
+        .arrange-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(120, 170, 255, 0.16); outline: none; }
+        .arrange-times { color: var(--text2); line-height: 36px; }
+        .arrange-apply-btn { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 72px; }
+        .arrange-apply-btn:hover,
+        .arrange-apply-btn:focus-visible { background: var(--accent); border-color: var(--accent); color: #fff; filter: brightness(1.1); outline: none; }
+        .arrange-hint { border-top: 1px solid rgba(255, 255, 255, 0.06); color: var(--text2); font-size: 11px; margin-top: 18px; padding-top: 12px; }
+        @media (max-width: 520px) {
+            .arrange-overlay { padding: 12px; }
+            .arrange-dialog { width: 100%; }
+            .arrange-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .arrange-custom { align-items: stretch; flex-wrap: wrap; }
+            .arrange-times { display: none; }
+            .arrange-apply-btn { width: 100%; }
+        }
+

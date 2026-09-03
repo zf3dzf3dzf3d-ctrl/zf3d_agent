@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双击创建对话框</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: #f0f2f5;
+    height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  .hint { color: #888; font-size: 13px; margin-top: 20px; }
+
+  /* ===== 创建对话框 ===== */
+  .create-dialog {
+    width: min(760px, calc(100vw - 32px));
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    overflow: hidden;
+    display: none;
+    animation: dlgIn .18s ease-out;
+  }
+  .create-dialog.open { display: block; }
+  @keyframes dlgIn {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .create-dialog .dlg-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid #eceef2;
+  }
+  .create-dialog .dlg-title { font-size: 16px; font-weight: 600; color: #1f2329; }
+  .create-dialog .dlg-sub   { font-size: 12px; color: #9aa0ab; margin-top: 3px; }
+
+  .create-dialog .dlg-body {
+    display: flex;
+    padding: 14px 20px 20px;
+    gap: 14px;
+  }
+  .create-dialog .col {
+    flex: 1;
+    border: 1px solid #e6e9ef;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fafbfc;
+  }
+  .create-dialog .col-title {
+    font-size: 13px; font-weight: 600; color: #556;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .create-dialog .col-title .icon { font-size: 14px; }
+
+  .create-dialog .item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 13px; color: #333;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .create-dialog .item:hover { background: #e8f1ff; }
+  .create-dialog .item .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #0078d4; flex: none;
+  }
+  .create-dialog .col.visual .item .dot { background: #9b59d0; }
+  .create-dialog .col.system .item .dot { background: #2f855a; }
+  .create-dialog .col.system .item { color: #24543a; }
+  .create-dialog .item.action { background: #f3faf5; }
+  .create-dialog .item.action:hover { background: #e0f3e6; }
+  .create-dialog .item .item-note {
+    margin-left: auto; color: #8b949e; font-size: 11px;
+  }
+
+  @media (max-width: 680px) {
+    .create-dialog .dlg-body { flex-direction: column; }
+    .create-dialog .col { width: 100%; }
+  }
+
+  .create-dialog .dlg-footer {
+    padding: 10px 20px;
+    border-top: 1px solid #eceef2;
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .create-dialog button {
+    padding: 7px 18px; border-radius: 6px; border: none;
+    font-size: 13px; cursor: pointer;
+  }
+  .create-dialog .btn-cancel { background: #f1f2f5; color: #555; }
+  .create-dialog .btn-ok     { background: #0078d4; color: #fff; }
+
+  /* 遮罩 */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.25);
+    display: none;
+    z-index: 999;
+  }
+  .overlay.open { display: block; }
+
+  /* 演示区域：双击打开 */
+  .demo-zone {
+    width: 420px; padding: 40px;
+    text-align: center;
+    background: #fff; border-radius: 12px;
+    border: 2px dashed #c4ccd8;
+    cursor: pointer;
+  }
+  .demo-zone:active { background: #f7f9fc; }
+  .result {
+    margin-top: 24px; font-size: 13px; color: #0a7d32;
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+
+  <!-- 双击打开对话框的区域 -->
+  <div class="demo-zone" id="demoZone">
+    <div style="font-size:36px;">📂</div>
+    <div style="font-size:15px;font-weight:600;color:#333;margin-top:10px;">双击此处打开「创建」对话框</div>
+  </div>
+  <div class="result" id="result"></div>
+
+  <!-- 遮罩 -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- 创建对话框 -->
+  <div class="create-dialog" id="createDialog">
+    <div class="dlg-header">
+      <div class="dlg-title">创建</div>
+      <div class="dlg-sub">选择要创建的内容类型</div>
+    </div>
+
+    <div class="dlg-body">
+      <!-- 左列：文本 -->
+      <div class="col text">
+        <div class="col-title"><span class="icon">📝</span>文本</div>
+        <div class="item" data-type="火山方舟"><span class="dot"></span>火山方舟</div>
+        <div class="item" data-type="火山"><span class="dot"></span>火山</div>
+        <div class="item" data-type="miaomio"><span class="dot"></span>miaomio</div>
+      </div>
+
+      <!-- 中列：视觉 -->
+      <div class="col visual">
+        <div class="col-title"><span class="icon">🎨</span>视觉</div>
+        <div class="item" data-type="文生图"><span class="dot"></span>文生图片/视频</div>
+        <div class="item" data-type="提示词"><span class="dot"></span>提示词</div>
+        <div class="item" data-type="图片或视频查看"><span class="dot"></span>图片或视频查看</div>
+      </div>
+
+      <!-- 右列：系统 -->
+      <div class="col system">
+        <div class="col-title"><span class="icon">⚙️</span>系统</div>
+        <div class="item action" data-action="restore"><span class="dot"></span>回复上一个对话<span class="item-note">恢复</span></div>
+        <div class="item action" data-action="model"><span class="dot"></span>设置大模型<span class="item-note">配置</span></div>
+        <div class="item action" data-action="project"><span class="dot"></span>项目设置<span class="item-note">管理</span></div>
+      </div>
+    </div>
+
+    <div class="dlg-footer">
+      <button class="btn-cancel" id="btnCancel">取消</button>
+      <button class="btn-ok" id="btnOk" disabled style="opacity:.5;">创建</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const dialog  = document.getElementById('createDialog');
+  const overlay = document.getElementById('overlay');
+  const demoZone = document.getElementById('demoZone');
+  const result  = document.getElementById('result');
+  const btnOk   = document.getElementById('btnOk');
+  let selected = null;
+
+  // 双击打开
+  demoZone.addEventListener('dblclick', openDialog);
+  overlay.addEventListener('click', closeDialog);
+
+  function openDialog() {
+    selected = null;
+    btnOk.disabled = true;
+    btnOk.style.opacity = .5;
+    document.querySelectorAll('.item.selected').forEach(el => el.classList.remove('selected'));
+    dialog.classList.add('open');
+    overlay.classList.add('open');
+  }
+  function closeDialog() {
+    dialog.classList.remove('open');
+    overlay.classList.remove('open');
+  }
+
+  // 选项点击
+  document.querySelectorAll('.item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.item.selected').forEach(el => {
+        el.classList.remove('selected');
+        el.style.background = '';
+      });
+      item.classList.add('selected');
+      item.style.background = '#d6e8ff';
+      selected = item.dataset.type;
+      btnOk.disabled = false;
+      btnOk.style.opacity = 1;
+    });
+    item.addEventListener('dblclick', () => {
+      selected = item.dataset.type;
+      confirmCreate();
+    });
+  });
+
+  // 系统入口：先提供统一反馈，后续可在这里接入对应的实际面板或恢复逻辑。
+  const systemActions = {
+    restore: '已选择：回复上一个对话',
+    model: '已选择：设置大模型',
+    project: '已选择：项目设置'
+  };
+  document.querySelectorAll('.system .item[data-action]').forEach(item => {
+    item.addEventListener('click', event => {
+      event.stopPropagation();
+      result.textContent = systemActions[item.dataset.action];
+      closeDialog();
+    });
+  });
+
+  // 按钮
+  document.getElementById('btnCancel').addEventListener('click', closeDialog);
+  btnOk.addEventListener('click', confirmCreate);
+
+  function confirmCreate() {
+    if (!selected) return;
+    result.textContent = '✅ 已创建：' + selected;
+    closeDialog();
+  }
+
+  // Esc 关闭
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDialog();
+  });
+</script>
+
+</body>
+</html>

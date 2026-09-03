@@ -1,0 +1,429 @@
+/* ========== style-markdown.css - 项目面板/ask_user浮层/Markdown渲染 ========== */
+/* 【注释：原中文因编码损坏已清除】 */
+        .project-panel {
+            position: absolute;
+            left: 6px; right: 6px;
+            bottom: 52px;
+            max-height: 60%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 0;
+            display: none;
+            z-index: 25;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .project-panel.open { display: flex; }
+        .project-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            background: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+            cursor: default;
+            flex-shrink: 0;
+        }
+        .project-panel .pp-new { cursor: pointer; color: #35c26c; padding: 0 4px; font-size: 12px; margin-right: 6px; }
+        .project-panel .pp-new:hover { color: #ffffff; }
+        .project-panel .pp-close { cursor: pointer; color: var(--text2); padding: 0 4px; font-size: 12px; }
+        .project-panel .pp-close:hover { color: #ff5555; }
+        .pp-body { padding: 6px; overflow-y: auto; }
+        .pp-empty { padding: 18px 10px; text-align: center; color: var(--text2); font-size: 12px; line-height: 1.8; }
+        .pp-item {
+            padding: 7px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 4px;
+            transition: background 0.15s;
+        }
+        .pp-item:hover { background: var(--bg-hover); border-color: var(--border); }
+        .pp-item-title { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pp-item-meta { font-size: 10px; color: var(--text2); }
+
+
+/* 【注释：原中文因编码损坏已清除】 */
+.ask-user-modal-global {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* --- */
+    z-index: 99999;
+}
+.ask-user-modal-card {
+    pointer-events: auto; /* --- */
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    width: min(460px, 90vw);
+    background: rgba(22, 30, 42, 0.97);
+    border: 1px solid rgba(var(--blue-rgb), 0.45);
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    padding: 18px 20px 20px 20px;
+    transition: border-color 0.2s;
+}
+.ask-user-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+.ask-user-modal-icon {
+    font-size: 16px;
+}
+.ask-user-modal-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+.ask-user-modal-status {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--blue);
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: rgba(var(--blue-rgb), 0.12);
+}
+.ask-user-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+.ask-user-modal-question {
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    border-left: 3px solid var(--blue);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.ask-user-modal-input {
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+}
+.ask-user-modal-submit {
+    font-size: 14px;
+    padding: 10px 24px;
+    border-radius: 8px;
+}
+.ask-user-modal-global .ask-user-input-row {
+    margin-top: 0;
+}
+
+/* 【注释：原中文因编码损坏已清除】 */
+.ask-user-modal-card--form { width: min(520px, 92vw); }
+.ask-user-fields { display: flex; flex-direction: column; gap: 14px; }
+.ask-field-row { display: flex; flex-direction: column; gap: 6px; }
+.ask-field-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.ask-field-required { color: #ff6b6b; }
+.ask-field-control { display: flex; flex-direction: column; gap: 8px; }
+.ask-field-cnt { font-size: 10px; color: rgba(255,255,255,0.55); text-align: right; }
+.ask-user-modal-card--form .ask-field-row .ask-user-modal-input,
+.ask-user-modal-card--form .ask-field-select { width: 100%; box-sizing: border-box; }
+.ask-field-select { background-color: rgba(255,255,255,0.06); color: var(--text); cursor: pointer; }
+.ask-field-select option { background: #1a2332; color: #e8eef7; }
+
+/* 【注释：原中文因编码损坏已清除】 */
+.ask-user-options { display: flex; flex-direction: column; gap: 8px; }
+.ask-user-opt { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text); }
+.ask-user-opt:hover .ask-opt-text { color: #8cc4ff; }
+.ask-opt-text { line-height: 1.4; }
+
+/* 【注释：原中文因编码损坏已清除】 */
+.ask-user-opt input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.ask-user-opt .ask-opt-radio {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: border-color .15s, box-shadow .15s;
+    box-sizing: border-box;
+}
+.ask-user-opt input[type="radio"]:checked + .ask-opt-radio {
+    border-color: var(--blue); box-shadow: 0 0 0 3px rgba(var(--blue-rgb), 0.18);
+}
+.ask-user-opt input[type="radio"]:checked + .ask-opt-radio::after {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+}
+
+/* 【注释：原中文因编码损坏已清除】 */
+.ask-user-opt input[type="checkbox"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.ask-user-opt .ask-opt-check {
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 2px solid rgba(255,255,255,0.25);
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: border-color .15s, background .15s;
+    box-sizing: border-box;
+}
+.ask-user-opt input[type="checkbox"]:checked + .ask-opt-check {
+    border-color: var(--blue); background: var(--blue);
+}
+.ask-user-opt input[type="checkbox"]:checked + .ask-opt-check::after {
+    content: '?'; font-size: 11px; font-weight: 700; color: #0b1522; line-height: 1;
+}
+.ask-user-opt input[type="checkbox"]:focus-visible + .ask-opt-check,
+.ask-user-opt input[type="radio"]:focus-visible + .ask-opt-radio { box-shadow: 0 0 0 3px rgba(var(--blue-rgb), 0.25); }
+
+/* 【注释：原中文因编码损坏已清除】 */
+/* 关闭按钮（取消询问） */
+.ask-user-modal-close {
+    margin-left: 8px;
+    font-size: 20px;
+    line-height: 1;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, transform 0.15s;
+    user-select: none;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+.ask-user-modal-close:hover {
+    color: #ff6b6b;
+    transform: scale(1.15);
+    background: rgba(255,107,107,0.12);
+}
+
+.ask-user-btn-row { margin-top: 4px; justify-content: flex-end; }
+
+/* ask_user controls follow the application theme */
+.ask-user-modal-card { background: var(--panel, var(--bg)); border-color: var(--border); border-radius: 10px; box-shadow: 0 16px 42px rgba(0,0,0,.28); }
+.ask-user-modal-question { background: var(--surface, rgba(255,255,255,.04)); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 6px; }
+.ask-user-modal-input, .ask-user-modal-card--form .ask-field-select, .ask-user-modal-card--form textarea { width: 100%; min-height: 40px; box-sizing: border-box; color: var(--text); background: var(--input-bg, rgba(255,255,255,.06)); border: 1px solid var(--border); border-radius: 6px; outline: none; transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
+.ask-user-modal-input::placeholder, .ask-user-modal-card--form textarea::placeholder { color: var(--text2); opacity: .72; }
+.ask-user-modal-input:hover, .ask-user-modal-card--form .ask-field-select:hover, .ask-user-modal-card--form textarea:hover { border-color: rgba(var(--blue-rgb), .58); }
+.ask-user-modal-input:focus, .ask-user-modal-card--form .ask-field-select:focus, .ask-user-modal-card--form textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(var(--blue-rgb), .16); }
+.ask-user-modal-submit { min-height: 40px; color: var(--button-text, #fff); background: var(--blue); border: 1px solid var(--blue); border-radius: 6px; font-weight: 650; cursor: pointer; transition: filter .16s ease, transform .16s ease, box-shadow .16s ease; }
+.ask-user-modal-submit:hover { filter: brightness(1.08); box-shadow: 0 5px 14px rgba(var(--blue-rgb), .24); }
+.ask-user-modal-submit:active { transform: translateY(1px); filter: brightness(.96); }
+.ask-user-modal-submit:focus-visible, .ask-user-modal-close:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.ask-user-modal-close { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: 8px; padding: 0; color: var(--text2); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: color .16s ease, background .16s ease, border-color .16s ease; }
+.ask-user-modal-close:hover { color: var(--text); background: var(--surface, rgba(255,255,255,.06)); border-color: var(--border); transform: none; }
+.ask-field-required { color: var(--danger, #ef6b73); }
+.ask-field-cnt { color: var(--text2); }
+.ask-user-opt:hover .ask-opt-text { color: var(--blue); }
+.ask-user-opt .ask-opt-radio, .ask-user-opt .ask-opt-check { border-color: var(--border); }
+[data-theme="light"] .ask-user-modal-card { box-shadow: 0 16px 42px rgba(15,23,42,.16); }
+[data-theme="light"] .ask-field-select option { background: var(--panel, #fff); color: var(--text); }
+@media (max-width: 560px) { .ask-user-modal-card, .ask-user-modal-card--form { width: min(520px, calc(100vw - 24px)); padding: 16px; } .ask-user-modal-submit { width: 100%; } }
+
+
+/* ========== 【样式段落注释：原中文注释因历史编码损坏已清除】 ========== */
+        .msg.md-body {
+            white-space: normal;
+        }
+        .msg.md-body > *:first-child { margin-top: 0; }
+        .msg.md-body > *:last-child { margin-bottom: 0; }
+
+        .msg.md-body p { margin: 6px 0; line-height: 1.7; }
+        .msg.md-body h1, .msg.md-body h2, .msg.md-body h3,
+        .msg.md-body h4, .msg.md-body h5, .msg.md-body h6 {
+            margin: 12px 0 6px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .msg.md-body h1 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .msg.md-body h2 { font-size: 18px; }
+        .msg.md-body h3 { font-size: 16px; }
+        .msg.md-body h4 { font-size: 15px; }
+        .msg.md-body h5 { font-size: 13px; }
+        .msg.md-body h6 { font-size: 12px; color: var(--text2); }
+
+        .msg.md-body ul, .msg.md-body ol {
+            margin: 6px 0;
+            padding-left: 20px;
+        }
+        .msg.md-body li { margin: 3px 0; line-height: 1.65; }
+
+        .msg.md-body code {
+            font-family: "Consolas", "Monaco", "Courier New", monospace;
+            font-size: 13px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1px 5px;
+            border-radius: 3px;
+            color: #f0b860;
+        }
+
+        .msg.md-body pre {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        .msg.md-body pre code {
+            background: none;
+            padding: 0;
+            color: #e8e8e8;
+            font-size: 14px;
+            border-radius: 0;
+        }
+
+        .msg.md-body blockquote {
+            margin: 8px 0;
+            padding: 4px 12px;
+            border-left: 3px solid var(--border);
+            color: var(--text2);
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.12) 0%, rgba(94, 70, 158, 0.06) 100%);
+        }
+
+        .msg.md-body a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+        .msg.md-body a:hover { text-decoration: underline; }
+
+        .msg.md-body table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .msg.md-body th, .msg.md-body td {
+            border: 1px solid var(--border);
+            padding: 5px 8px;
+            text-align: left;
+        }
+        .msg.md-body th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+
+        .msg.md-body hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 10px 0;
+        }
+
+        .msg.md-body img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .msg.md-body strong { font-weight: 600; color: #fff; }
+        .msg.md-body em { font-style: italic; }
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.md-body pre code[class*="language-"] {
+            display: block;
+        }
+
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.md-body pre {
+            position: relative;
+        }
+        .code-copy-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s;
+            color: #ccc;
+            z-index: 5;
+        }
+        .msg.md-body pre:hover .code-copy-btn {
+            opacity: 1;
+        }
+        .code-copy-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.3);
+        }
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .copy-toast {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1a1a2e;
+            color: #4EC9B0;
+            border: 1px solid #2a2a44;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 13px;
+            z-index: 99999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .copy-toast.copy-toast-in {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .copy-toast.copy-toast-out {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        /* ===== ???????? ===== */
+        .auto-option-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .auto-option-btn {
+            text-align: left;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .auto-option-btn:hover {
+            border-color: var(--blue);
+            background: rgba(74,158,255,0.1);
+        }
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.md-body .mermaid {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.md-body pre code.hljs {
+            padding-right: 36px;
+        }

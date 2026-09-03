@@ -1,0 +1,396 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+/* ========== 【样式段落注释：原中文注释因历史编码损坏已清除】 ========== */
+        .minimap {
+            position: absolute;
+            right: 12px;
+            bottom: 30px;
+            width: 180px;
+            height: 130px;
+            background: rgba(20, 20, 35, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 200;
+            overflow: hidden;
+            opacity: 0.6;
+            transition: opacity 0.25s ease;
+            user-select: none;
+        }
+        .minimap:hover {
+            opacity: 1;
+        }
+        .minimap-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 20px;
+            padding: 0 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .minimap-title {
+            font-size: 10px;
+            color: var(--text2);
+            white-space: nowrap;
+        }
+        .minimap-btn {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 11px;
+            cursor: pointer;
+            padding: 0 2px;
+            border-radius: 2px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            transition: color 0.15s;
+        }
+        .minimap-btn-icon {
+            display: block;
+            flex-shrink: 0;
+        }
+        .minimap-btn:hover {
+            color: var(--blue);
+        }
+        .minimap-canvas {
+            display: block;
+            width: 100%;
+            height: calc(100% - 20px);
+            cursor: crosshair;
+        }
+
+
+        /* ========== ?????? ???????? ========== */
+        .chatbox-inputrow .send-btn.sending {
+            background: transparent;
+            color: #e74c3c;
+            animation: btnBreath 1s ease-in-out infinite;
+        }
+        .chatbox-inputrow .send-btn.sending:hover {
+            background: transparent;
+            opacity: 0.7;
+        }
+        @keyframes btnBreath {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        /* ========== ??????? ========== */
+        .chatbox-queue {
+            flex-shrink: 0;
+            max-height: 140px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border);
+            background: rgba(255, 165, 0, 0.06);
+            padding: 4px 8px;
+        }
+        .chatbox-queue .queue-header {
+            font-size: 11px;
+            color: #ffa502;
+            font-weight: 600;
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+        .chatbox-queue .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 6px;
+            margin-bottom: 3px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            transition: border-color 0.15s;
+        }
+        .chatbox-queue .queue-item:hover {
+            border-color: #ffa502;
+        }
+        .chatbox-queue .queue-num {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            line-height: 18px;
+            text-align: center;
+            background: #ffa502;
+            color: #1a1a2e;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .chatbox-queue .queue-text {
+            flex: 1;
+            color: var(--text);
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .chatbox-queue .queue-text:hover {
+            color: #ffa502;
+        }
+        .chatbox-queue .queue-edit,
+        .chatbox-queue .queue-delete {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: all 0.15s;
+        }
+        .chatbox-queue .queue-edit:hover {
+            background: var(--bg-hover);
+            color: var(--blue);
+        }
+        .chatbox-queue .queue-delete:hover {
+            background: var(--bg-hover);
+            color: #e74c3c;
+        }
+        .chatbox-queue .queue-edit-input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid #ffa502;
+            border-radius: 3px;
+            color: var(--text);
+            font-size: 12px;
+            padding: 3px 6px;
+            outline: none;
+            min-width: 0;
+        }
+        .chatbox-queue .queue-save,
+        .chatbox-queue .queue-cancel {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .chatbox-queue .queue-save { color: var(--green); }
+        .chatbox-queue .queue-save:hover { background: rgba(40, 167, 69, 0.15); }
+        .chatbox-queue .queue-cancel { color: #e74c3c; }
+        .chatbox-queue .queue-cancel:hover { background: rgba(231, 76, 60, 0.15); }
+    
+
+        /* ========== ???????????? ========== */
+        .query-pin {
+            position: sticky;
+            top: -10px;
+            z-index: 5;
+            margin: -10px -10px 8px -10px;
+            padding: 6px 10px;
+            background: #3a3a3a;
+            border-bottom: 1px solid #555;
+            font-size: 14px;
+            color: #dceaff;
+            cursor: default;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            animation: pinIn 0.2s ease;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        @keyframes pinIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .query-pin--out {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        .query-pin__icon {
+            flex-shrink: 0;
+            font-size: 13px;
+        }
+        .query-pin__text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .query-pin__tooltip {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            padding: 8px 10px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .query-pin:hover .query-pin__tooltip {
+            display: block;
+        }
+        .query-pin:hover {
+            background: #444;
+        }
+
+        /* ????????????????????????????? */
+        .msg.query-reminder {
+            background: rgba(var(--blue-rgb), 0.06);
+            border-left: 3px solid rgba(var(--blue-rgb), 0.4);
+            color: var(--text2);
+            font-size: 12px;
+            line-height: 1.6;
+            cursor: pointer;
+        }
+        .msg.query-reminder .qr-label {
+            opacity: 0.75;
+            font-size: 11px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .msg.query-reminder .qr-text {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: max-height 0.25s ease;
+            max-height: 1.6em;
+        }
+        .msg.query-reminder .qr-toggle {
+            opacity: 0.65;
+            font-size: 10px;
+            margin-left: 4px;
+            white-space: nowrap;
+        }
+        .msg.query-reminder.expanded .qr-text {
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow: visible;
+        }
+  
+/* 【注释：原中文因编码损坏已清除】 */
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-group {
+            background: linear-gradient(135deg, #1a1a2a 0%, #15151f 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-left: 3px solid #4a6fa5;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            animation: msgIn 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+        .tool-group:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+        .tool-group__header {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 12px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .tool-group__header:hover { background: rgba(255, 255, 255, 0.04); }
+        .tool-group__icon { font-size: 14px; flex-shrink: 0; filter: drop-shadow(0 0 4px rgba(74,111,165,0.3)); }
+        .tool-group__name { font-weight: 600; flex-shrink: 0; color: #8aa8d0; letter-spacing: 0.3px; }
+        .tool-group__count {
+            font-size: 10px;
+            color: var(--text2);
+            opacity: 0.75;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .tool-group__stats {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .tool-group__stat {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-weight: 600;
+        }
+        .tool-group__stat--success {
+            color: #6fbf7f;
+            background: rgba(74, 153, 136, 0.15);
+        }
+        .tool-group__stat--fail {
+            color: #e88;
+            background: rgba(204, 68, 68, 0.15);
+        }
+        .tool-group__toggle {
+            margin-left: auto;
+            font-size: 12px;
+            color: var(--text2);
+            opacity: 0.75;
+            transition: transform 0.25s ease, opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .tool-group__header:hover .tool-group__toggle { opacity: 0.8; }
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-group--collapsed {
+            background: transparent !important;
+            border: none !important;
+            border-left: none !important;
+            box-shadow: none !important;
+            margin-bottom: 4px;
+            animation: none;
+        }
+        .tool-group--collapsed .tool-group__header {
+            display: inline-flex;
+            padding: 2px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            gap: 5px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .tool-group--collapsed .tool-group__header:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        .tool-group--collapsed .tool-group__icon { font-size: 11px; filter: none; }
+        .tool-group--collapsed .tool-group__name { font-size: 11px; font-weight: 500; color: var(--text2); letter-spacing: 0; }
+        .tool-group--collapsed .tool-group__count { font-size: 10px; opacity: 0.6; background: transparent; padding: 0; }
+        .tool-group--collapsed .tool-group__stat { font-size: 10px; padding: 0 4px; }
+        .tool-group--collapsed .tool-group__toggle { font-size: 10px; opacity: 0.5; transform: rotate(-90deg); }
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-group--collapsed .tool-group__body { display: none; }
+        .tool-group__body {
+            padding: 0 8px 8px 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-group__body .tool-wrap {
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+            margin-bottom: 0;
+        }
+
+

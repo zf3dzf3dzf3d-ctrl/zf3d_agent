@@ -1,0 +1,32 @@
+{
+  "name": "humanoid_walk",
+  "fps": 12,
+  "loop": true,
+  "bones": [
+    { "id": 0, "name": "root",    "parent": -1, "x": 0,    "y": 0,    "len": 20 },
+    { "id": 1, "name": "torso",   "parent": 0,  "x": 0,    "y": 0,    "len": 18, "angle": -90 },
+    { "id": 2, "name": "head",    "parent": 1,  "x": 0,    "y": 18,   "len": 8 },
+    { "id": 3, "name": "armL",    "parent": 1,  "x": 0,    "y": 16,   "len": 14, "angle": 40 },
+    { "id": 4, "name": "armR",    "parent": 1,  "x": 0,    "y": 16,   "len": 14, "angle": -40 },
+    { "id": 5, "name": "legL",    "parent": 0,  "x": 0,    "y": 0,    "len": 16, "angle": 20 },
+    { "id": 6, "name": "legR",    "parent": 0,  "x": 0,    "y": 0,    "len": 16, "angle": -20 }
+  ],
+  "animations": {
+    "walk": {
+      "duration": 1.0,
+      "tracks": {
+        "armL":  { "angle": [40, 70, 40, 10, 40] },
+        "armR":  { "angle": [-40, -10, -40, -70, -40] },
+        "legL":  { "angle": [20, 45, 20, -5, 20] },
+        "legR":  { "angle": [-20, -5, -20, -45, -20] },
+        "torso": { "angle": [-90, -88, -90, -92, -90] }
+      }
+    },
+    "idle": {
+      "duration": 2.0,
+      "tracks": {
+        "torso": { "angle": [-90, -89, -90, -91, -90] }
+      }
+    }
+  }
+}

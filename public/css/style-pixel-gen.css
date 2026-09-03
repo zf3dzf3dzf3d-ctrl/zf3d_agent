@@ -1,0 +1,288 @@
+/* ========== style-pixel-gen.css - AI 像素画生成器对话框 ========== */
+
+.pxgen-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 99998;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.pxgen-overlay.pxgen-visible {
+    opacity: 1;
+}
+
+.pxgen-dialog {
+    width: 360px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transform: scale(0.9);
+    transition: transform 0.2s ease;
+}
+
+.pxgen-overlay.pxgen-visible .pxgen-dialog {
+    transform: scale(1);
+}
+
+/* Header */
+.pxgen-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 8px;
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    cursor: move;
+    user-select: none;
+}
+
+.pxgen-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.pxgen-title {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.pxgen-model {
+    font-size: 10px;
+    color: var(--text2);
+    flex: 1;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.pxgen-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+.pxgen-close:hover {
+    color: var(--text);
+    background: var(--border);
+}
+
+/* Body */
+.pxgen-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Preview Area */
+.pxgen-preview-wrap {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 260px;
+}
+
+.pxgen-canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    max-width: 100%;
+    display: none;
+}
+
+.pxgen-placeholder {
+    color: #555;
+    font-size: 12px;
+    text-align: center;
+    padding: 40px 20px;
+    line-height: 1.6;
+}
+
+/* Controls */
+.pxgen-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pxgen-size-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pxgen-label {
+    font-size: 11px;
+    color: var(--text2);
+    flex-shrink: 0;
+}
+
+.pxgen-sizes {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.pxgen-size-btn {
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text2);
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: monospace;
+}
+
+.pxgen-size-btn:hover {
+    background: rgba(var(--blue-rgb), 0.2);
+    color: var(--text);
+}
+
+.pxgen-size-btn.active {
+    background: rgba(var(--blue-rgb), 0.4);
+    border-color: rgba(var(--blue-rgb), 0.6);
+    color: #fff;
+}
+
+.pxgen-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.pxgen-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 12px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: inherit;
+}
+
+.pxgen-input:focus {
+    border-color: var(--blue);
+}
+
+.pxgen-input::placeholder {
+    color: var(--text2);
+    opacity: 0.6;
+}
+
+.pxgen-send-btn {
+    background: rgba(var(--blue-rgb), 0.6);
+    border: 1px solid rgba(var(--blue-rgb), 0.8);
+    border-radius: 6px;
+    color: #fff;
+    padding: 6px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.pxgen-send-btn:hover:not(:disabled) {
+    background: rgba(var(--blue-rgb), 0.8);
+}
+
+.pxgen-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+/* ===== 右键菜单 ===== */
+.chat-context-menu {
+    position: fixed;
+    z-index: 99999;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    min-width: 160px;
+    padding: 4px;
+}
+
+.chat-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text2);
+    transition: background 0.15s, color 0.15s;
+}
+
+.chat-ctx-item:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+}
+
+.chat-ctx-icon {
+    font-size: 13px;
+}
+
+/* ===== 浅色主题适配（与对话框风格统一） ===== */
+[data-theme="light"] .pxgen-dialog {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12) !important;
+}
+[data-theme="light"] .pxgen-header {
+    background: #f5f9ff !important;
+    border-bottom-color: rgba(60,100,160,.15) !important;
+}
+[data-theme="light"] .pxgen-title { color: #1a1a1a !important; }
+[data-theme="light"] .pxgen-model { color: #5a6b85 !important; }
+[data-theme="light"] .pxgen-close { color: #5a6b85 !important; }
+[data-theme="light"] .pxgen-close:hover { background: rgba(60,100,160,.12) !important; color: #333 !important; }
+[data-theme="light"] .pxgen-label { color: #5a6b85 !important; }
+[data-theme="light"] .pxgen-input { background: rgba(255,255,255,.9) !important; color: #333 !important; border-color: rgba(60,100,160,.25) !important; }
+[data-theme="light"] .pxgen-input::placeholder { color: #8a9bb5 !important; }
+[data-theme="light"] .pxgen-placeholder { color: #8a9bb5 !important; }
+[data-theme="light"] .chat-context-menu {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12) !important;
+}
+[data-theme="light"] .chat-ctx-item { color: #5a6b85 !important; }
+[data-theme="light"] .chat-ctx-item:hover { background: #f5f9ff !important; color: #333 !important; }

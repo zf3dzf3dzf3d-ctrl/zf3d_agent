@@ -1,0 +1,237 @@
+/* ============================================================
+   background.css - 画布自定义背景 + 特效
+   依赖 background.js 注入的 #bgCustomLayer / #bgFxLayer
+   ============================================================ */
+
+/* ---------- 自定义背景层 ---------- */
+.bg-custom-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    display: none;
+}
+
+.bg-fx-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* 纯色模式下隐藏默认星空 */
+body.bg-star-off #starfield,
+body.bg-star-off .canvas-area canvas#starfield {
+    display: none !important;
+}
+body.bg-star-off .canvas-area::before {
+    opacity: 0 !important;
+}
+
+/* ---------- 图片背景模式 ---------- */
+body.bg-image-blur .bg-custom-layer {
+    filter: blur(6px);
+    transform: scale(1.05); /* 防止模糊后边缘露白 */
+}
+body.bg-image-dark .bg-custom-layer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] body.bg-image-dark .bg-custom-layer::after {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- 特效：粒子 ---------- */
+.bg-particle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    animation: bgFloat 14s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+@keyframes bgFloat {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(30px, -50px); }
+}
+
+/* ---------- 特效：云 ---------- */
+.bg-cloud {
+    position: absolute;
+    left: -260px;
+    width: 240px;
+    height: 70px;
+    border-radius: 60px;
+    background: rgba(255, 255, 255, 0.5);
+    filter: blur(6px);
+    animation: bgCloudMove linear infinite;
+    pointer-events: none;
+}
+.bg-cloud::before, .bg-cloud::after {
+    content: '';
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+}
+.bg-cloud::before {
+    width: 90px; height: 90px;
+    top: -40px; left: 40px;
+}
+.bg-cloud::after {
+    width: 60px; height: 60px;
+    top: -25px; left: 120px;
+}
+@keyframes bgCloudMove {
+    from { transform: translateX(0); }
+    to   { transform: translateX(calc(100vw + 400px)); }
+}
+
+/* ---------- 特效：气泡 ---------- */
+.bg-bubble {
+    position: absolute;
+    bottom: -30px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.25), rgba(255,255,255,0.05));
+    animation: bgBubbleUp linear infinite;
+    pointer-events: none;
+}
+@keyframes bgBubbleUp {
+    from { transform: translateY(0); opacity: 0.9; }
+    80%  { opacity: 0.7; }
+    to   { transform: translateY(-110vh); opacity: 0; }
+}
+
+/* ---------- 特效：极光 ---------- */
+.bg-fx-aurora {
+    background:
+        linear-gradient(120deg, transparent 20%, rgba(60, 255, 180, 0.08) 40%, transparent 60%),
+        linear-gradient(80deg,  transparent 10%, rgba(90, 120, 255, 0.10) 45%, transparent 75%),
+        linear-gradient(160deg, transparent 30%, rgba(200, 100, 255, 0.08) 55%, transparent 80%);
+    animation: bgAuroraShift 12s ease-in-out infinite alternate;
+}
+@keyframes bgAuroraShift {
+    from { opacity: 0.6; transform: translateX(-3%); }
+    to   { opacity: 1;   transform: translateX(3%); }
+}
+
+/* ---------- 特效：晴天（太阳 + 蓝天渐晕） ---------- */
+.bg-fx-sun {
+    background:
+        radial-gradient(circle at 85% 12%, rgba(255, 240, 180, 0.75) 0%, rgba(255, 220, 130, 0.35) 8%, transparent 22%),
+        linear-gradient(180deg, rgba(120, 190, 255, 0.18) 0%, rgba(180, 225, 255, 0.10) 50%, transparent 100%);
+}
+
+/* ============================================================
+   主题面板 - 背景设置区块样式
+   ============================================================ */
+.bg-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border, rgba(255,255,255,0.1));
+}
+.bg-section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--text, #fff);
+    margin-bottom: 10px;
+}
+.bg-mode-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.bg-mode-btn {
+    flex: 1;
+    padding: 7px 4px;
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 8px;
+    background: var(--bg-hover, rgba(255,255,255,0.05));
+    color: var(--text2, #aaa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.bg-mode-btn:hover { border-color: var(--blue, #0984e3); color: var(--text, #fff); }
+.bg-mode-btn.active {
+    background: var(--blue, #0984e3);
+    border-color: var(--blue, #0984e3);
+    color: #fff;
+}
+.bg-sub { margin-bottom: 8px; }
+.bg-sub-label {
+    font-size: 11px;
+    color: var(--text2, #999);
+    margin-bottom: 5px;
+}
+.bg-color-row, .bg-image-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.bg-url-input {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 6px;
+    background: var(--bg, rgba(0,0,0,0.3));
+    color: var(--text, #fff);
+    font-size: 12px;
+    outline: none;
+    min-width: 0;
+}
+.bg-image-btn {
+    padding: 6px 10px;
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 6px;
+    background: var(--bg-hover, rgba(255,255,255,0.05));
+    cursor: pointer;
+    font-size: 13px;
+}
+.bg-image-btn:hover { border-color: var(--blue, #0984e3); }
+.bg-image-preview {
+    width: 100%;
+    height: 70px;
+    border-radius: 6px;
+    background-size: cover;
+    background-position: center;
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    margin-top: 4px;
+}
+.bg-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text2, #999);
+    cursor: pointer;
+    margin-right: 12px;
+}
+.bg-toggle-row input { cursor: pointer; }
+
+/* 特效按钮网格 */
+.bg-fx-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+.bg-fx-btn {
+    padding: 6px 4px;
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 8px;
+    background: var(--bg-hover, rgba(255,255,255,0.05));
+    color: var(--text2, #aaa);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.bg-fx-btn:hover { border-color: var(--blue, #0984e3); color: var(--text, #fff); }
+.bg-fx-btn.active {
+    background: var(--blue, #0984e3);
+    border-color: var(--blue, #0984e3);
+    color: #fff;
+}

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>py-browser-2d 引擎</title>
+<style>body{margin:0;background:#111;color:#ccc;font-family:monospace}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="info">加载中...</div>
+<script>
+(async () => {
+  const info = document.getElementById("info");
+  // 骨架验证：从 Python 拉数据
+  const assets = await (await fetch("/api/assets")).json();
+  info.innerHTML =
+    `Python 服务已连通: ${assets.engine} | 资产数: ${assets.assets.length}` +
+    `<br><br><a href="/game/game.html" style="color:#6cf">▶ 开始游戏</a>` +
+    ` &nbsp;|&nbsp; <a href="/bench.html" style="color:#6cf">基准测试</a>` +
+    ` &nbsp;|&nbsp; <a href="/docs/help.md" style="color:#6cf">帮助文档</a>` +
+    `<br><br>操作：WASD 移动 · 空格 攻击 · Shift 冲刺 · B 商店 · P 暂停`;
+})();
+</script>
+<script src="engine.js"></script>
+</body>
+</html>

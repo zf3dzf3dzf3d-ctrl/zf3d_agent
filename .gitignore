@@ -1,0 +1,28 @@
+# 运行时数据与临时文件
+private/
+# 步骤日志与撤销记录（运行时生成，不入库）
+.step_log.md
+.agent_steps/
+*.db-shm
+*.db-wal
+__pycache__/
+*.bak
+*.bak.*
+*.pid
+*.jsonl
+logs/
+linux/
+backups/
+*.mojibake_bak
+public/_*.txt
+public/zztest.txt
+public/{
+_cleanup_chats.py
+server/engines/_eng_test.py
+public/index.html.repaired
+public/index.html.repaired2
+
+# 可选插件（录音/录像依赖）：默认不随程序分发，用户在设置面板点击安装后生效
+plugins/
+_tmp_scan_js.js 
+"engine2d/失败"  

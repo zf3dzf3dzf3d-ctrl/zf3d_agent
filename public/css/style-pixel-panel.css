@@ -1,0 +1,175 @@
+/* ========== style-pixel-panel.css - AI 像素显示器面板（可拖拽，风格同小地图） ========== */
+
+.pixel-panel {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    width: 260px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    z-index: 9000;
+    overflow: visible;
+    opacity: 0.92;
+    transition: opacity 0.25s ease;
+    user-select: none;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+
+.pixel-panel:hover {
+    opacity: 1;
+}
+
+.pixel-panel.minimized {
+    width: 160px;
+}
+
+.pixel-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 8px;
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    border-radius: 8px 8px 0 0;
+    cursor: move;
+    user-select: none;
+}
+
+.pixel-panel-header:active {
+    cursor: grabbing;
+}
+
+.pixel-panel.minimized .pixel-panel-header {
+    border-bottom: none;
+    border-radius: 8px;
+}
+
+.pixel-panel-icon {
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.pixel-panel-title {
+    font-size: 14px;
+    color: var(--text);
+    font-weight: 600;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pixel-panel-info {
+    font-size: 9px;
+    color: #555;
+    font-family: monospace;
+    margin-left: 2px;
+}
+
+.pixel-panel-btns {
+    display: flex;
+    gap: 2px;
+}
+
+.pixel-panel-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    width: auto;
+    height: auto;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    padding: 2px 5px;
+}
+
+.pixel-panel-btn:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.pixel-panel-body {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.pixel-panel.minimized .pixel-panel-body {
+    display: none;
+}
+
+#pixel-panel-canvas {
+    display: none;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    background: #000;
+    max-width: 100%;
+}
+
+.pixel-panel-empty {
+    color: #444;
+    font-size: 10px;
+    text-align: center;
+    padding: 20px 8px;
+    width: 100%;
+}
+
+.pixel-panel-anim-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.pixel-panel-play {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    color: var(--text2, #999);
+    padding: 1px 8px;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1.4;
+    transition: all 0.15s;
+}
+
+.pixel-panel-play:hover {
+    background: rgba(0, 120, 212, 0.4);
+    color: #fff;
+}
+
+.pixel-panel-framelabel {
+    font-size: 9px;
+    color: #666;
+    font-family: monospace;
+    min-width: 32px;
+    text-align: center;
+}
+
+/* ===== 浅色主题适配（与对话框风格统一） ===== */
+[data-theme="light"] .pixel-panel {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12) !important;
+}
+[data-theme="light"] .pixel-panel-header {
+    background: #f5f9ff !important;
+    border-bottom-color: rgba(60,100,160,.15) !important;
+}
+[data-theme="light"] .pixel-panel-title { color: #1a1a1a !important; }
+[data-theme="light"] .pixel-panel-btn { color: #5a6b85 !important; }
+[data-theme="light"] .pixel-panel-btn:hover { background: rgba(60,100,160,.12) !important; color: #333 !important; }
+[data-theme="light"] .pixel-panel-empty { color: #8a9bb5 !important; }

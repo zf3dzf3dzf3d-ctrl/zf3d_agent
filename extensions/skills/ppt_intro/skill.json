@@ -1,0 +1,12 @@
+{
+  "spec": 1,
+  "id": "ppt_intro",
+  "name": "PPT介绍稿生成",
+  "description": "生成朱峰社区风格的版本介绍 PPT（16:9、蓝色主题、微软雅黑，自动用 Node+pptxgenjs 生成 .pptx）",
+  "version": "1.0.0",
+  "enabled": true,
+  "prompt": "prompt.md",
+  "tools": [],
+  "triggers": ["PPT", "ppt", "做介绍PPT", "生成PPT", "介绍稿"],
+  "autoInject": false
+}

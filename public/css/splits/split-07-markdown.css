@@ -1,0 +1,199 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== Markdown ????????AI ????? ========== */
+        .msg.md-body {
+            white-space: normal;
+        }
+        .msg.md-body > *:first-child { margin-top: 0; }
+        .msg.md-body > *:last-child { margin-bottom: 0; }
+
+        .msg.md-body p { margin: 6px 0; line-height: 1.7; }
+        .msg.md-body h1, .msg.md-body h2, .msg.md-body h3,
+        .msg.md-body h4, .msg.md-body h5, .msg.md-body h6 {
+            margin: 12px 0 6px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .msg.md-body h1 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .msg.md-body h2 { font-size: 18px; }
+        .msg.md-body h3 { font-size: 16px; }
+        .msg.md-body h4 { font-size: 15px; }
+        .msg.md-body h5 { font-size: 13px; }
+        .msg.md-body h6 { font-size: 12px; color: var(--text2); }
+
+        .msg.md-body ul, .msg.md-body ol {
+            margin: 6px 0;
+            padding-left: 20px;
+        }
+        .msg.md-body li { margin: 3px 0; line-height: 1.65; }
+
+        .msg.md-body code {
+            font-family: "Consolas", "Monaco", "Courier New", monospace;
+            font-size: 13px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1px 5px;
+            border-radius: 3px;
+            color: #f0b860;
+        }
+
+        .msg.md-body pre {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        .msg.md-body pre code {
+            background: none;
+            padding: 0;
+            color: #e8e8e8;
+            font-size: 14px;
+            border-radius: 0;
+        }
+
+        .msg.md-body blockquote {
+            margin: 8px 0;
+            padding: 4px 12px;
+            border-left: 3px solid var(--border);
+            color: var(--text2);
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.12) 0%, rgba(94, 70, 158, 0.06) 100%);
+        }
+
+        .msg.md-body a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+        .msg.md-body a:hover { text-decoration: underline; }
+
+        .msg.md-body table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        .msg.md-body th, .msg.md-body td {
+            border: 1px solid var(--border);
+            padding: 5px 8px;
+            text-align: left;
+        }
+        .msg.md-body th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+
+        .msg.md-body hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 10px 0;
+        }
+
+        .msg.md-body img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+
+        .msg.md-body strong { font-weight: 600; color: #fff; }
+        .msg.md-body em { font-style: italic; }
+
+        /* ??????????? */
+        .msg.md-body pre code[class*="language-"] {
+            display: block;
+        }
+
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.md-body pre {
+            position: relative;
+        }
+        .code-copy-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s, background 0.2s;
+            color: #ccc;
+            z-index: 5;
+        }
+        .msg.md-body pre:hover .code-copy-btn {
+            opacity: 1;
+        }
+        .code-copy-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        /* ===== ??????? toast ===== */
+        .copy-toast {
+            position: fixed;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1a1a2e;
+            color: #4EC9B0;
+            border: 1px solid #2a2a44;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 13px;
+            z-index: 99999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s, transform 0.25s;
+        }
+        .copy-toast.copy-toast-in {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .copy-toast.copy-toast-out {
+            opacity: 0;
+            transform: translateX(-50%) translateY(20px);
+        }
+
+        /* ===== ???????? ===== */
+        .auto-option-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .auto-option-btn {
+            text-align: left;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+        .auto-option-btn:hover {
+            border-color: var(--blue);
+            background: rgba(74,158,255,0.1);
+        }
+
+        /* ===== Mermaid ????????? ===== */
+        .msg.md-body .mermaid {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        /* ===== hljs ????? padding ??????????????????? ===== */
+        .msg.md-body pre code.hljs {
+            padding-right: 36px;
+        }
+

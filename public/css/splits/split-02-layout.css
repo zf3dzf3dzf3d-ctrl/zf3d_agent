@@ -1,0 +1,594 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ???????? ========== */
+        .chatbox {
+            position: absolute;
+            /* 隔离层 */
+            isolation: isolate;
+            left: 40px;
+            top: 40px;
+            width: min(700px, 90vw);
+            height: 520px;
+            min-width: 120px;
+            min-height: 200px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 22;
+            resize: none;
+        }
+        .chatbox::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: #161625;
+            z-index: -1;
+            border-radius: inherit;
+            pointer-events: none;
+        }
+        .chatbox.active { border-color: var(--blue); z-index: 22; }
+
+        .chatbox-header {
+            position: relative;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            padding: 0;
+            background: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+            cursor: move;
+            user-select: none;
+        }
+        .chatbox-header .title {
+            flex-shrink: 1;
+            min-width: 0;
+            max-width: 140px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: move;
+        }
+        .chatbox-header .hd-btn {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 13px;
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .chatbox-header .hd-btn:hover { background: var(--border); color: var(--text); }
+        /* close button margin handled in row2 now */
+        .chatbox-header .hd-btn.close:hover { color: #ff5555; }
+.chatbox-header-row1 {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            overflow: hidden;
+            height: 36px;
+            padding: 0 8px;
+        }
+        .chatbox-header-row2 {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            height: 30px;
+            padding: 0 8px;
+            border-top: 1px solid var(--border);
+        }
+        .chatbox-header-row2 .hd-btn {
+            font-size: 13px;
+            padding: 2px 5px;
+        }
+
+        /* ?????????? */
+        .model-select {
+            flex: 1;
+            min-width: 80px;
+            max-width: 150px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 11px;
+            border-radius: 3px;
+            padding: 2px 4px;
+            outline: none;
+            cursor: pointer;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .model-select:hover { border-color: var(--blue); }
+
+        .chatbox-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .msg {
+            align-self: stretch;
+            max-width: 100%;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 1.7;
+            word-break: break-word;
+            white-space: pre-wrap;
+            animation: msgIn 0.18s ease;
+        }
+        @keyframes msgIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .msg.user {
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.20) 0%, rgba(var(--blue-rgb), 0.12) 100%);
+            border-left: 3px solid var(--border);
+            color: #ffffff;
+        }
+        .msg.ai {
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.12) 0%, rgba(94, 70, 158, 0.06) 100%);
+            border-left: 3px solid #7a5ac2;
+            color: #ffffff;
+        }
+        .msg.error {
+            background: rgba(204, 68, 68, 0.10);
+            color: #ff8888;
+        }
+        .msg.task-result-success {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.20) 0%, rgba(22, 163, 74, 0.08) 100%);
+            border-left-color: #22c55e;
+            color: #f5f5f5;
+        }
+        .msg.task-result-fail {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.20) 0%, rgba(220, 38, 38, 0.08) 100%);
+            border-left-color: #ef4444;
+            color: #ffe0e0;
+        }
+        .msg.typing {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.12) 0%, rgba(94, 70, 158, 0.06) 100%);
+            border-left: 3px solid #7a5ac2;
+            color: var(--text2);
+            font-style: italic;
+            font-size: 13px;
+            opacity: 0.85;
+        }
+        .typing-spinner {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            border: 2px solid rgba(120, 120, 140, 0.2);
+            border-top-color: rgba(120, 120, 140, 0.6);
+            border-radius: 50%;
+            animation: typing-spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes typing-spin {
+            to { transform: rotate(360deg); }
+        }
+        .typing-text {
+            opacity: 0.8;
+        }
+        .typing-timer {
+            margin-left: auto;
+            font-size: 11px;
+            color: rgba(120, 120, 140, 0.65);
+            font-variant-numeric: tabular-nums;
+        }
+/* 【注释：原中文因编码损坏已清除】 */
+        .msg.task-duration {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text2);
+            background: transparent;
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 6px 0;
+            opacity: 0.8;
+        }
+        .task-duration-icon {
+            font-size: 11px;
+        }
+        .task-duration-value {
+            font-weight: 600;
+            color: var(--text2);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ===== ????????? ===== */
+        .msg.tool-card {
+            align-self: stretch;
+            max-width: 100%;
+            padding: 0;
+            background: transparent;
+            border: none;
+            animation: msgIn 0.2s ease;
+        }
+        /* ===== ?????????????BEM ???????????? ===== */
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-wrap {
+            background: linear-gradient(135deg, #1c1c2e 0%, #181828 100%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            animation: msgIn 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+        .tool-wrap:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-wrap--success { border-left: 3px solid #4a9; }
+        .tool-wrap--fail    { border-left: 3px solid #c44; }
+
+        /* ????????????????????/????? */
+        .tool-wrap__header {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 12px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .tool-wrap__header:hover { background: rgba(255, 255, 255, 0.04); }
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-wrap--nocollapse .tool-wrap__header { cursor: default; }
+        .tool-wrap--nocollapse .tool-wrap__header:hover { background: transparent; }
+        .tool-wrap__icon   { font-size: 14px; flex-shrink: 0; filter: drop-shadow(0 0 4px rgba(255,255,255,0.1)); }
+        .tool-wrap__name   { font-weight: 600; flex-shrink: 0; letter-spacing: 0.3px; }
+        .tool-wrap--success .tool-wrap__name { color: #6fbf7f; }
+        .tool-wrap--fail    .tool-wrap__name { color: #e88; }
+        .tool-wrap__status  {
+            font-size: 10px;
+            color: var(--text2);
+            opacity: 0.7;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 1px 6px;
+            border-radius: 3px;
+        }
+        .tool-wrap--success .tool-wrap__status { color: #6fbf7f; opacity: 0.8; background: rgba(74,153,136,0.08); }
+        .tool-wrap--fail    .tool-wrap__status { color: #e88; opacity: 0.8; background: rgba(204,68,68,0.08); }
+        .tool-wrap__status-icon {
+            margin-left: auto;
+            font-size: 14px;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 4px rgba(74,153,136,0.3));
+        }
+        .tool-wrap--fail .tool-wrap__status-icon { filter: drop-shadow(0 0 4px rgba(204,68,68,0.3)); }
+        .tool-wrap__toggle  {
+            margin-left: 6px;
+            font-size: 10px;
+            color: var(--text2);
+            opacity: 0.75;
+            transition: transform 0.25s ease, opacity 0.15s;
+            flex-shrink: 0;
+        }
+        .tool-wrap__header:hover .tool-wrap__toggle { opacity: 0.8; }
+
+        /* ????? */
+        .tool-wrap--collapsed .tool-wrap__toggle { transform: rotate(-90deg); }
+        .tool-wrap--collapsed .tool-wrap__body   { display: none; }
+
+        /* ?????????????? */
+        .tool-wrap__body {
+            padding: 2px 12px 10px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .tool-wrap__section { margin-top: 6px; }
+        .tool-wrap__section-label {
+            font-size: 10px;
+            color: var(--text2);
+            opacity: 0.65;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        .tool-wrap__arg     {
+            font-size: 11px;
+            line-height: 1.7;
+            color: var(--text2);
+            padding: 2px 0;
+            display: flex;
+            gap: 2px;
+            align-items: baseline;
+        }
+        .tool-wrap__arg-key { color: #88ccaa; font-weight: 500; flex-shrink: 0; }
+        .tool-wrap__arg-sep { color: var(--text2); opacity: 0.5; }
+        .tool-wrap__arg-val { color: var(--text); word-break: break-word; }
+        .tool-wrap__result  {
+            font-size: 11px;
+            color: var(--text);
+            line-height: 1.6;
+            padding: 6px 8px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 4px;
+            border-left: 2px solid rgba(255, 255, 255, 0.06);
+        }
+        .tool-wrap--success .tool-wrap__result { border-left-color: rgba(74,153,136,0.3); }
+        .tool-wrap--fail    .tool-wrap__result { border-left-color: rgba(204,68,68,0.3); }
+
+        /* ===== ?????????????????????? .tool-wrap--{name} ????? ===== */
+/* 【注释：原中文因编码损坏已清除】 */
+        /* .tool-wrap--read_file .tool-wrap__result { max-height: 200px; overflow-y: auto; } */
+        /* .tool-wrap--search   .tool-wrap__header  { background: rgba(136,204,170,0.05); } */
+
+        /* ===== ask_user ????????????? ===== */
+        .tool-wrap--ask_user { border-left: 3px solid var(--border); }
+        .tool-wrap--ask_user .tool-wrap__icon { filter: drop-shadow(0 0 4px rgba(var(--blue-rgb), 0.35)); }
+        .tool-wrap--ask_user .tool-wrap__status-icon { filter: drop-shadow(0 0 4px rgba(var(--blue-rgb), 0.35)); }
+        .tool-wrap--ask_user .tool-wrap__name { color: var(--blue); }
+        .tool-wrap--ask_user .tool-wrap__header { cursor: default; }
+        .tool-wrap--ask_user .tool-wrap__question {
+            font-size: 12px;
+            color: var(--text);
+            line-height: 1.7;
+            padding: 4px 2px 2px 2px;
+        }
+        .tool-wrap--ask_user .ask-user-input-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .ask-user-input {
+            flex: 1;
+            min-width: 0;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(var(--blue-rgb), 0.35);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 12px;
+            padding: 7px 10px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .ask-user-input:focus {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(var(--blue-rgb), 0.15);
+        }
+        .ask-user-submit {
+            flex-shrink: 0;
+            background: rgba(var(--blue-rgb), 0.15);
+            border: 1px solid rgba(var(--blue-rgb), 0.45);
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 7px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .ask-user-submit:hover { background: rgba(var(--blue-rgb), 0.28); color: #cfe6ff; }
+        .ask-user-q { color: var(--text); line-height: 1.7; }
+        .ask-user-a {
+            margin-top: 6px;
+            color: #6fbf7f;
+            font-size: 11px;
+            line-height: 1.7;
+            padding: 5px 8px;
+            background: rgba(74, 153, 136, 0.1);
+            border-left: 2px solid #4a9;
+            border-radius: 4px;
+        }
+
+
+/* 【注释：原中文因编码损坏已清除】 */
+        .tool-cat-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .tool-cat-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 8px;
+            background: rgba(var(--blue-rgb), 0.15);
+            border: 1px solid rgba(var(--blue-rgb), 0.3);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .tool-cat-trigger:hover {
+            background: rgba(var(--blue-rgb), 0.25);
+        }
+        .tool-cat-icon {
+            font-size: 13px;
+        }
+        .tool-cat-arrow {
+            opacity: 0.75;
+            font-size: 10px;
+        }
+
+        /* 默认向上弹出（菜单在对话框底部 configrow 中，向下会被输入行遮挡）；JS 检测上方空间不足时加 opens-down 向下弹出 */
+        .tool-cat-menu {
+            position: absolute;
+            bottom: calc(100% + 4px);
+            top: auto;
+            left: 0;
+            min-width: 200px;
+            background: #1e1e2e;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+            padding: 4px 0;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .tool-cat-menu.opens-down {
+            top: calc(100% + 4px);
+            bottom: auto;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        .tool-cat-menu[hidden] {
+            display: none;
+        }
+        .tool-cat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text);
+            transition: background 0.12s;
+        }
+        .tool-cat-item:hover {
+            background: rgba(var(--blue-rgb), 0.1);
+        }
+        .tool-cat-item.active {
+            background: rgba(var(--blue-rgb), 0.2);
+            border-left: 2px solid var(--blue);
+        }
+        .tool-cat-item-icon {
+            font-size: 14px;
+        }
+        .tool-cat-item-name {
+            font-weight: 500;
+        }
+
+        .chatbox-inputrow {
+            flex-shrink: 0;
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            padding: 8px 8px 8px 10px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+        /* 输入条拉长：压缩左右留白，给 textarea 更多宽度 */
+        .chatbox-inputrow textarea {
+            min-width: 0;
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 14px;
+            padding: 8px 8px;
+            resize: none;
+            min-height: 36px;
+            max-height: 56px;
+            line-height: 20px;
+            outline: none;
+            overflow-y: auto;
+            transition: height 0.08s ease;
+        }
+        .chatbox-inputrow textarea:focus { border-color: var(--blue); }
+        .chatbox-inputrow textarea::placeholder {
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .chatbox-inputrow .send-btn {
+            background: transparent;
+            color: var(--blue);
+            border: none;
+            border-radius: 4px;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            animation: btnBreath 2s ease-in-out infinite;
+            transition: opacity 0.2s;
+        }
+        .chatbox-inputrow .send-btn:hover { background: transparent; opacity: 0.7; }
+        .chatbox-inputrow .send-btn .send-icon,
+        .chatbox-inputrow .send-btn .stop-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* chatbox-resize 手柄样式统一由 style-chatbox.css 管理 */
+
+
+            position: absolute;
+        .scroll-bottom-btn {
+            position: absolute;
+            bottom: 61px;
+            left: 50%;
+            margin-left: -15px;
+            z-index: 5;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            font-size: 15px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s ease, background 0.15s, color 0.15s, transform 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            line-height: 1;
+            padding: 0;
+        }
+        .scroll-bottom-btn.visible { display: flex; opacity: 0.85; }
+        .scroll-bottom-btn:hover { background: var(--blue); color: #fff; opacity: 1; transform: scale(1.1); }
+        .chatbox.collapsed .scroll-bottom-btn { display: none !important; }
+        .scroll-bottom-btn.is-processing {
+            border-color: var(--blue);
+            color: var(--blue);
+            animation: scrollBottomBreath 1.8s ease-in-out infinite;
+        }
+        .scroll-bottom-btn.is-processing span {
+            display: inline-block;
+            animation: scrollBottomArrow 0.9s ease-in-out infinite;
+        }
+        @keyframes scrollBottomBreath {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 0 rgba(var(--blue-rgb), 0);
+                opacity: 0.85;
+            }
+            50% {
+                transform: scale(1.12);
+                box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 0 0 7px rgba(var(--blue-rgb), 0.08);
+                opacity: 1;
+            }
+        }
+        @keyframes scrollBottomArrow {
+            50% { transform: translateY(2px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .scroll-bottom-btn.is-processing,
+            .scroll-bottom-btn.is-processing span { animation: none; }
+        }
+        /* ?????? */
+        .chatbox.collapsed .chatbox-header-row2,
+        .chatbox.collapsed .chatbox-body,
+        .chatbox.collapsed .chatbox-inputrow,
+        .chatbox.collapsed .chatbox-resize { display: none; }
+        .chatbox.collapsed { height: 36px !important; min-height: 36px; }
+

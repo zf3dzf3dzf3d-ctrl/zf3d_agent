@@ -1,0 +1,280 @@
+/* ========== style-remote.css - 远程控制面板 ========== */
+#remotePanel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 420px;
+    height: 100vh;
+    background: rgba(12, 16, 28, .97);
+    border-left: 1px solid rgba(120, 150, 255, .25);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, .5);
+    z-index: 11000;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(105%);
+    transition: transform .28s ease;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: #dde6ff;
+}
+#remotePanel.open { transform: translateX(0); }
+
+.rm-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(120, 150, 255, .18);
+    background: rgba(20, 26, 46, .8);
+    flex-shrink: 0;
+}
+.rm-header .rm-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #a8c0ff;
+    flex: 1;
+}
+.rm-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.rm-section {
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(120, 150, 255, .18);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+.rm-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.rm-row:last-child { margin-bottom: 0; }
+.rm-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c8d6ff;
+    flex: 1;
+}
+.rm-id {
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    color: #7fe0a8;
+    letter-spacing: 1px;
+}
+.rm-hint {
+    font-size: 11px;
+    color: rgba(170, 190, 230, .55);
+    line-height: 1.5;
+}
+
+.rm-btn {
+    background: rgba(100, 140, 255, .18);
+    border: 1px solid rgba(120, 150, 255, .35);
+    color: #cdd9ff;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.rm-btn:hover {
+    background: rgba(100, 140, 255, .32);
+    border-color: rgba(140, 170, 255, .55);
+}
+.rm-btn-danger {
+    background: rgba(255, 100, 100, .16);
+    border-color: rgba(255, 120, 120, .4);
+    color: #ffb0b0;
+}
+.rm-btn-danger:hover {
+    background: rgba(255, 100, 100, .32);
+    border-color: rgba(255, 140, 140, .6);
+}
+.rm-btn-sm { padding: 3px 8px; font-size: 11px; }
+
+.rm-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(120, 150, 255, .25);
+    border-radius: 6px;
+    color: #dde6ff;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: Consolas, monospace;
+    outline: none;
+}
+.rm-input:focus { border-color: rgba(140, 170, 255, .55); }
+
+.rm-pair-slot { padding: 4px 0; }
+.rm-pair-code {
+    font-family: Consolas, monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffd87f;
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 10px;
+    background: rgba(255, 216, 127, .07);
+    border: 1px dashed rgba(255, 216, 127, .35);
+    border-radius: 8px;
+    margin: 6px 0;
+    text-shadow: 0 0 12px rgba(255, 216, 127, .35);
+    user-select: all;
+}
+.rm-pair-count {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255, 200, 120, .7);
+}
+
+.rm-session-info {
+    font-size: 12px;
+    color: #9fd8b0;
+    padding: 6px 0 2px;
+}
+.rm-session-warn { color: #ffb070; }
+
+.rm-shadow-wrap {
+    flex: 1;
+    min-height: 320px;
+    border: 1px solid rgba(120, 150, 255, .22);
+    border-radius: 10px;
+    background: rgba(8, 10, 18, .7);
+    overflow: auto;
+    padding: 8px;
+    position: relative;
+    transition: filter .3s;
+}
+.rm-shadow-wrap.rm-degraded {
+    filter: grayscale(.8) brightness(.6);
+}
+.rm-shadow-wrap.rm-degraded::after {
+    content: '⚠ 连接中断';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #ff9090;
+    background: rgba(20, 10, 10, .35);
+    pointer-events: none;
+}
+.rm-shadow-loading {
+    text-align: center;
+    padding: 40px 0;
+    color: rgba(170, 190, 230, .5);
+    font-size: 13px;
+}
+.rm-shadow-doc {
+    pointer-events: auto;
+    transform-origin: top left;
+    font-size: 12px;
+    color: #dde6ff;
+    overflow-wrap: break-word;
+}
+.rm-canvas-ph { opacity: .8; }
+
+.rm-status {
+    font-size: 12px;
+    color: #8fa8d8;
+    padding: 8px 4px 4px;
+    border-top: 1px solid rgba(120, 150, 255, .12);
+    margin-top: auto;
+}
+.rm-status-err { color: #ff9090; }
+
+/* 授权弹窗 */
+.rm-invite-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    background: rgba(5, 8, 16, .72);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: rmFadeIn .2s ease;
+}
+@keyframes rmFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.rm-invite-box {
+    background: rgba(18, 24, 42, .98);
+    border: 1px solid rgba(120, 150, 255, .35);
+    border-radius: 14px;
+    padding: 22px;
+    width: 380px;
+    max-width: 92vw;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .6);
+    text-align: center;
+}
+.rm-invite-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #a8c0ff;
+    margin-bottom: 10px;
+}
+.rm-invite-desc {
+    font-size: 13px;
+    color: #c0ccf0;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+.rm-invite-durs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.rm-dur-btn {
+    background: rgba(100, 140, 255, .14);
+    border: 1px solid rgba(120, 150, 255, .3);
+    color: #cdd9ff;
+    border-radius: 8px;
+    padding: 10px 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+}
+.rm-dur-btn:hover {
+    background: rgba(110, 224, 168, .2);
+    border-color: rgba(110, 224, 168, .5);
+    color: #9fe8c0;
+}
+.rm-invite-actions { display: flex; justify-content: center; }
+.rm-invite-hint {
+    font-size: 11px;
+    color: rgba(170, 190, 230, .5);
+    margin-top: 12px;
+    line-height: 1.5;
+}
+
+/* 审计日志 */
+.rm-audit {
+    max-height: 200px;
+    overflow-y: auto;
+    border-top: 1px dashed rgba(120, 150, 255, .15);
+    padding-top: 6px;
+}
+.rm-audit-item {
+    font-size: 11px;
+    color: #a8b8d8;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(120, 150, 255, .06);
+    line-height: 1.5;
+}
+.rm-audit-time { color: rgba(150, 170, 210, .55); margin-right: 6px; }
+.rm-audit-who { color: #8fc8ff; margin-right: 4px; }
+.rm-audit-detail { color: rgba(160, 180, 220, .5); }
+
+/* 多机切换 */
+.rm-targets{margin-top:6px}
+.rm-target{display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-radius:6px;font-size:12px;color:#8fa3c0}
+.rm-target-active{background:rgba(80,160,255,.15);color:#cfe4ff}
+.rm-target button{margin-left:8px}

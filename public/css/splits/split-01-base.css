@@ -1,0 +1,185 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ??????? ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        :root {
+            --bg: #1a1a2e;
+            --bg-card: #1e1e2e;
+            --bg-hover: #252535;
+            --border: #333344;
+            --text: #ffffff;
+            --text2: #b8b8cc;
+            --blue: #0984e3;
+            --blue-rgb: 9, 132, 227;
+            --green: #28a745;
+            --radius: 6px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: auto;
+            -moz-osx-font-smoothing: auto;
+            text-rendering: geometricPrecision;
+            text-shadow: none;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== ????????? ========== */
+        .topbar {
+            height: 42px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            -webkit-app-region: drag;
+            user-select: none;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 17px;
+            font-weight: 600;
+            color: transparent;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: logoGradient 6s ease infinite;
+        }
+
+        /* light mode: title gradient without white */
+        [data-theme="light"] .topbar-title {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+        }
+
+        .topbar-logo {
+            width: 28px;
+            height: 28px;
+            display: inline-block;
+            flex-shrink: 0;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../../assets/logo-transparent.png)) center / contain no-repeat;
+            animation: logoGradient 6s ease infinite;
+            margin-left: 4px;
+        }
+
+        /* light mode: logo gradient matches title */
+        [data-theme="light"] .topbar-logo {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+        }
+
+        @keyframes logoGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            -webkit-app-region: no-drag;
+        }
+
+        .topbar-icon {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .topbar-icon:hover { background: var(--bg-hover); color: var(--text); }
+        .topbar-icon.active { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(var(--blue-rgb), 0.4); }
+
+        .topbar-sep {
+            display: inline-block;
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+/* ========== 【样式段落注释：原中文注释因历史编码损坏已清除】 ========== */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg);
+            cursor: grab;
+            touch-action: none; /* ??????? pinch ???? */
+        }
+
+        /* ?????????????????????????????? transform ???/?????GPU ????? */
+        .canvas-content {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+            will-change: auto;
+            transform: translate(0, 0) scale(1);
+        }
+
+        /* ???????? */
+        .canvas-grid {
+            position: absolute;
+            inset: -2000px;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            cursor: grab;
+            /* transform: translateZ(0) removed for clarity */
+        }
+        .canvas-content.dragging .canvas-grid { cursor: grabbing; }
+        .canvas-content.dragging { cursor: grabbing; }
+        .canvas-area.dragging { cursor: grabbing; }
+
+        /* ?????????? */
+        .canvas-coord {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            font-size: 11px;
+            color: var(--text2);
+            opacity: 0.7;
+            user-select: none;
+            font-family: monospace;
+        }
+
+        /* ?????? */
+        .canvas-hint {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text2);
+            opacity: 0.65;
+            font-size: 14px;
+            user-select: none;
+            pointer-events: none;
+            line-height: 2;
+        }
+        .canvas-hint b { color: var(--blue); opacity: 0.9; }
+

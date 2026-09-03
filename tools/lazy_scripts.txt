@@ -1,0 +1,6 @@
+# 懒加载脚本清单（由 tools/generate_scripts.py 读取）
+# 这里列出的 js 不会生成 <script> 标签，而是注入 window.LAZY_SCRIPTS 映射，
+# 运行时首次用到才由 public/js/lazy-loader.js 动态加载。
+# 注意：从 tools/script_order.txt 中删除对应行，避免重复。
+mermaid.min.js
+highlight.min.js

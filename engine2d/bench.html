@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="utf-8"><title>压测 bench</title>
+<style>body{margin:0;background:#000;overflow:hidden}#fps{position:fixed;top:8px;left:8px;color:#0f0;font:16px monospace}#tip{position:fixed;top:30px;left:8px;color:#888;font:12px monospace}</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="fps"></div><div id="tip">←/→ 或 A/D 调整精灵数：1k → 5k → 10k</div>
+<script src="engine.js"></script>
+<script>
+const r = new Renderer(document.getElementById("cv"));
+const fps = new Fps(document.getElementById("fps"));
+const counts = [1000, 5000, 10000];
+let idx = 2;
+addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft" || e.key === "a") idx = Math.max(0, idx - 1);
+  if (e.key === "ArrowRight" || e.key === "d") idx = Math.min(counts.length - 1, idx + 1);
+});
+
+// 初始化精灵
+const MAX = counts[counts.length - 1];
+const xs = new Float32Array(MAX), ys = new Float32Array(MAX);
+const vx = new Float32Array(MAX), vy = new Float32Array(MAX);
+const rr = new Float32Array(MAX), gg = new Float32Array(MAX), bb = new Float32Array(MAX);
+for (let i = 0; i < MAX; i++) {
+  xs[i] = Math.random(); ys[i] = Math.random();
+  vx[i] = (Math.random() - 0.5) * 0.0004; vy[i] = (Math.random() - 0.5) * 0.0004;
+  rr[i] = Math.random(); gg[i] = Math.random(); bb[i] = Math.random();
+}
+
+function frame(t) {
+  const n = counts[idx];
+  const d = r.instanceData, size = 8;
+  for (let i = 0; i < n; i++) {
+    xs[i] += vx[i] * t; ys[i] += vy[i] * t;
+    if (xs[i] < 0 || xs[i] > 1) vx[i] = -vx[i];
+    if (ys[i] < 0 || ys[i] > 1) vy[i] = -vy[i];
+    const o = i * 7;
+    d[o] = xs[i] * r.canvas.clientWidth; d[o+1] = ys[i] * r.canvas.clientHeight;
+    d[o+2] = size; d[o+3] = size;
+    d[o+4] = rr[i]; d[o+5] = gg[i]; d[o+6] = bb[i];
+  }
+  r.render(n);
+  fps.tick();
+  document.getElementById("tip").textContent =
+    `精灵数: ${n}  (←/→ 切换)`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

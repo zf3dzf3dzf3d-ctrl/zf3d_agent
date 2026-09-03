@@ -1,0 +1,163 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ????????????????? ========== */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        .overlay.show { display: flex; }
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 460px;
+            max-width: 560px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h3 { font-size: 16px; color: var(--text); margin-bottom: 16px; }
+        .modal .field { margin-bottom: 12px; }
+        .modal label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+        .modal input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 13px;
+            padding: 6px 8px;
+            outline: none;
+        }
+        .modal input:focus { border-color: var(--blue); }
+        .modal-row { display: flex; gap: 8px; align-items: center; }
+        .modal-row .grow { flex: 1; }
+        .modal .btn {
+            background: var(--blue);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .modal .btn.ghost { background: var(--bg-hover); color: var(--text); }
+        .modal .btn.danger { background: #3d2a2a; color: #ff8888; }
+        .modal .btn:hover { filter: brightness(1.15); }
+        .modal .model-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+        .modal .model-item .mi-name { font-size: 13px; font-weight: 600; color: var(--text); }
+        .modal .model-item .mi-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+        .modal .model-item .mi-actions { display: flex; gap: 6px; margin-top: 8px; }
+        .modal .hint { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.5; }
+        .modal .test-result { font-size: 12px; margin-top: 6px; }
+        .modal .test-result.ok { color: var(--green); }
+        .modal .test-result.err { color: #ff8888; }
+        /* ========== ????????? ========== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+        ::-webkit-scrollbar-corner { background: transparent; }
+        * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent; }
+
+        /* ========== ??????????????? ========== */
+        .chatbox.task-success {
+            border-color: #4a9;
+            box-shadow: 0 8px 30px rgba(74,153,136,0.3), 0 0 0 1px rgba(74,153,136,0.4);
+        }
+        .chatbox.task-fail {
+            border-color: #c44;
+            box-shadow: 0 8px 30px rgba(204,68,68,0.3), 0 0 0 1px rgba(204,68,68,0.4);
+        }
+
+        /* ========== ??????????? ========== */
+        .notify-container {
+            position: fixed;
+            right: 16px;
+            bottom: 40px;
+            z-index: 10001;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .notify-container > * { pointer-events: auto; }
+
+        .task-notify {
+            min-width: 280px;
+            max-width: 360px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            overflow: hidden;
+            animation: notifySlideIn 0.35s cubic-bezier(0.2,0.8,0.2,1);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .task-notify.notify-out { opacity: 0; transform: translateX(60px); }
+        .task-notify--success { border-left: 4px solid #4a9; background: var(--bg-card) linear-gradient(135deg, rgba(74,153,136,0.25), rgba(74,153,136,0.1)); animation: notifySlideIn 0.35s cubic-bezier(0.2,0.8,0.2,1), notifyPulse 1.2s ease-in-out 0.4s 3; }
+        .task-notify--fail { border-left: 4px solid #c44; }
+
+        .task-notify__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px 6px;
+        }
+        .task-notify__icon { font-size: 20px; flex-shrink: 0; }
+        .task-notify__title { font-size: 13px; font-weight: 700; flex: 1; }
+        .task-notify--success .task-notify__title { color: #6fbf7f; }
+        .task-notify--fail .task-notify__title { color: #e88; }
+        .task-notify__close {
+            background: none; border: none; color: var(--text2);
+            font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 3px;
+            opacity: 0.6; transition: opacity 0.15s;
+            line-height: 1;
+        }
+        .task-notify__close:hover { opacity: 1; }
+
+        .task-notify__body { padding: 0 14px 12px; }
+        .task-notify__source {
+            font-size: 11px; color: var(--text2); margin-bottom: 6px;
+            display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+        }
+        .task-notify__source .source-tag {
+            background: rgba(var(--blue-rgb), 0.18); color: var(--blue);
+            padding: 1px 7px; border-radius: 3px; font-family: monospace; font-size: 10px;
+        }
+        .task-notify__source .source-model {
+            color: var(--text2); font-size: 10px;
+        }
+        .task-notify__hint {
+            font-size: 11px; color: var(--text2); text-align: center;
+            padding: 6px 14px 10px; border-top: 1px solid rgba(255,255,255,0.05);
+            opacity: 0.8;
+        }
+
+        .task-notify__msg {
+            font-size: 12px; color: var(--text); line-height: 1.65;
+            max-height: 120px; overflow-y: auto;
+            word-break: break-word; white-space: pre-wrap;
+        }
+
+        @keyframes notifyPulse {
+            0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 0 rgba(74,153,136,0.5); }
+            50% { box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 24px 4px rgba(74,153,136,0.6); }
+        }
+
+        @keyframes notifySlideIn {
+            from { opacity: 0; transform: translateX(80px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+
