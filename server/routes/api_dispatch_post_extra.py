@@ -25,10 +25,10 @@ class MixinDispatchPostExtra:
             # 只允许合法音色名，防止任意参数
             if not (voice.replace('-', '').isalnum()):
                 voice = 'zh-CN-XiaoxiaoNeural'
-            # 用 Python311 解释器（装有 edge-tts 包）跑合成子进程
-            py311 = r'C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe'
+            # 优先用 sys.executable（自带 python），本机装了 edge-tts 的解释器可在此配置
+            py311 = sys.executable
             if not os.path.exists(py311):
-                py311 = sys.executable
+                py311 = 'python'
             fd, tmp = tempfile.mkstemp(suffix='.mp3')
             os.close(fd)
             code = ("import asyncio,edge_tts,sys\n"
