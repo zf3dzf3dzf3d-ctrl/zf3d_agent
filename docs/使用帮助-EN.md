@@ -1,4 +1,4 @@
-# Zhufeng Community Agent Unlimited (Infinity) 5.0.8 · Full Feature Help
+# ZF3D Community Agent Infinity 5.1.0 · Full Feature Help
 
 > This document covers all current features of the software, written after a feature-by-feature code review (~150 frontend modules in public/js, server/ route Mixins and six engines, the three toolkits in tool/, extensions/, plugin modes in modes/, and archived notes in 项目记录/).
 
@@ -328,7 +328,7 @@ A set of standalone desktop components shipped with the server (server/*.py, inc
 ## 22. Directory Structure Quick Reference
 
 ```
-ZhufengAgentUnlimited_5.0.8/
+ZhufengAgentUnlimited_5.1.0/
 ├── server/      # App server (HTTP route Mixin, six engines, RAG/TTS, hot reload, desktop components)
 ├── public/      # Frontend (infinite canvas, diverge-converge, dog guard, long-plan panel, voice)
 ├── python/      # Bundled Python 3.11 runtime
