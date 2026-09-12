@@ -1,0 +1,32 @@
+{
+  "meta": { "title": "朱峰格式家族总览", "author": "朱峰社区智能体", "created": "2026-09-06" },
+  "root": {
+    "text": "朱峰原生格式",
+    "children": [
+      { "text": "文档 .doc.json", "color": "#4da3ff", "children": [
+        { "text": "标题/段落/列表" },
+        { "text": "表格/图片/代码块" },
+        { "text": "自动目录 + 打印PDF" }
+      ]},
+      { "text": "演示 .pres.json", "color": "#4fd08a", "children": [
+        { "text": "1280×720 画布" },
+        { "text": "图表/动画" },
+        { "text": "←/→ 翻页" }
+      ]},
+      { "text": "表格 .sheet.json", "color": "#ffb64d", "children": [
+        { "text": "多 Sheet 标签" },
+        { "text": "排序/搜索" }
+      ]},
+      { "text": "思维导图 .mind.json", "color": "#ff6f91", "children": [
+        { "text": "树形嵌套" },
+        { "text": "折叠/缩放" },
+        { "text": "本图即示范" }
+      ]},
+      { "text": "规划中", "color": "#9f7bff", "children": [
+        { "text": "白板 .board.json" },
+        { "text": "图像 .diagram.json" },
+        { "text": "数据库 .db.json" }
+      ]}
+    ]
+  }
+}

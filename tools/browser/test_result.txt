@@ -1,0 +1,11 @@
+OK {"ok": true, "headless": true, "current_url": "about:blank", "title": "", "profile": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.1.2\\tools\\browser\\browser_data\\profile", "memory_count": 0}
+=====
+OK {"ok": true, "url": "https://example.com/", "title": "Example Domain", "text": "Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more", "incognito": true}
+=====
+OK null
+=====
+OK {"ok": true, "url": "https://example.com/", "title": "Example Domain", "text": "Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more", "incognito": false}
+=====
+OK {"ok": true, "count": 1, "records": [{"id": 1788573625412, "time": "2026-09-05 10:00:25", "url": "https://example.com/", "title": "Example Domain", "summary": "Example Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more"}]}
+=====
+OK {"ok": true, "count": 1, "records": [{"id": 1788573625412, "time": "2026-09-05 10:00:25", "url": "https://example.com/", "title": "Example Domain", "summary": "Example Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more"}]}

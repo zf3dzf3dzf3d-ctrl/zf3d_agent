@@ -1,0 +1,54 @@
+/* ===== 日志面板（chatbox-logpanel）：日志 | 上下文 ===== */
+.chatbox-logpanel { display: none; flex: 1 1 auto; flex-direction: column; min-height: 0; background: #14161b; overflow: hidden; }
+.chatbox-logpanel.open { display: flex; }
+.logpanel-tabs { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #2a2d35; flex: 0 0 auto; }
+.logpanel-tab { padding: 4px 14px; border-radius: 6px; cursor: pointer; color: #8b8f98; font-size: 13px; user-select: none; }
+.logpanel-tab:hover { color: #cfd3dc; }
+.logpanel-tab.active { background: #2d4a7a; color: #fff; }
+.logpanel-actions { margin-left: auto; display: flex; gap: 6px; }
+.lp-btn { background: #2a2d35; border: 1px solid #3a3f4a; color: #cfd3dc; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px; line-height: 1.6; }
+.lp-btn:hover { background: #3a3f4a; color: #fff; }
+.logpanel-body { flex: 1 1 auto; overflow-y: auto; padding: 8px 10px; font-size: 12px; min-height: 0; }
+.lp-log { padding: 3px 2px; color: #a8adb8; border-bottom: 1px dashed #23262d; word-break: break-all; line-height: 1.5; }
+.lp-log.lp-warn, .lp-log.lp-warning { color: #e6a23c; }
+.lp-log.lp-error { color: #f56c6c; }
+.lp-log.lp-info { color: #a8adb8; }
+.lp-empty { color: #666c78; text-align: center; padding: 40px 10px; }
+.logpanel-ctx .lp-ctx-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.logpanel-ctx .lp-ctx-tip { color: #8b8f98; font-size: 12px; }
+.logpanel-ctx pre { white-space: pre-wrap; word-break: break-all; background: #0f1116; border: 1px solid #23262d; padding: 10px; border-radius: 6px; color: #9ecbff; font-size: 11px; line-height: 1.5; margin: 0; }
+
+/* ===== 上下文分类占比统计条（可视化） ===== */
+.lp-ctx-stats { background: #0f1116; border: 1px solid #23262d; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+
+/* ===== 出错统计表（日志面板置顶） ===== */
+.lp-err-stats { background: #0f1116; border: 1px solid #3a2326; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
+.lp-err-stats-title { color: #f56c6c; font-size: 12px; font-weight: 600; margin-bottom: 6px; letter-spacing: 0.5px; }
+.lp-err-stats-empty { color: #67c23a; font-size: 12px; text-align: center; padding: 6px 0; }
+.lp-err-table { font-size: 11px; font-family: Consolas, 'Courier New', monospace; }
+.lp-err-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px dashed #23262d; }
+.lp-err-row:last-child { border-bottom: none; }
+.lp-err-head { color: #8b8f98; border-bottom: 1px solid #2a2d35; }
+.lp-err-c1 { flex: 0 0 44%; color: #e6a23c; word-break: break-all; }
+.lp-err-head .lp-err-c1 { color: #8b8f98; }
+.lp-err-c2 { flex: 0 0 8%; text-align: right; color: #f56c6c; }
+.lp-err-head .lp-err-c2 { color: #8b8f98; }
+.lp-err-c3 { flex: 0 0 12%; text-align: right; color: #cfd3dc; }
+.lp-err-head .lp-err-c3 { color: #8b8f98; }
+.lp-err-c4 { flex: 1 1 auto; min-width: 0; }
+.lp-err-bar { display: block; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #f56c6c, #ff8f6b); min-width: 2px; }
+.lp-err-top { background: rgba(245, 108, 108, 0.06); border-radius: 4px; padding-left: 4px; padding-right: 4px; }
+
+.lp-ctx-stats-title { color: #8b8f98; font-size: 11px; margin-bottom: 6px; letter-spacing: 0.5px; }
+.lp-ctx-stats-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #1a1d24; margin-bottom: 8px; }
+.lp-ctx-stats-seg { height: 100%; min-width: 0; transition: width 0.3s ease; }
+.lp-ctx-stats-seg:first-child { border-radius: 7px 0 0 7px; }
+.lp-ctx-stats-seg:last-child { border-radius: 0 7px 7px 0; }
+.lp-ctx-stats-seg:only-child { border-radius: 7px; }
+.lp-ctx-stats-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.lp-ctx-stat-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #a8adb8; }
+.lp-ctx-stat-dot { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+.lp-ctx-stat-name { color: #cfd3dc; }
+.lp-ctx-stat-pct { color: #e6e9ef; font-weight: 600; }
+.lp-ctx-stat-sub { color: #666c78; font-size: 10px; }
+.lp-ctx-stats-empty { color: #666c78; font-size: 11px; text-align: center; padding: 4px 0; }

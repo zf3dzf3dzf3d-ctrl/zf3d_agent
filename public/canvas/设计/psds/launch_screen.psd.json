@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "title": "朱峰社区 · 启动页设计稿",
+    "author": "朱峰社区智能体",
+    "created": "2026-09-06",
+    "note": "大模型原生 PSD 格式示例：layers 数组按从底到顶排列，group 可嵌套"
+  },
+  "canvas": { "width": 1280, "height": 720 },
+  "layers": [
+    {
+      "type": "group",
+      "name": "背景",
+      "children": [
+        { "type": "rect", "name": "底色", "x": 0, "y": 0, "width": 1280, "height": 720,
+          "fill": "linear-gradient(135deg,#141a2e,#1f1240)" },
+        { "type": "ellipse", "name": "光斑1", "x": 900, "y": 80, "width": 420, "height": 420,
+          "fill": "radial-gradient(circle,rgba(160,107,255,.35),transparent 70%)", "opacity": 0.9 },
+        { "type": "ellipse", "name": "光斑2", "x": -80, "y": 420, "width": 380, "height": 380,
+          "fill": "radial-gradient(circle,rgba(77,163,255,.3),transparent 70%)" }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "主视觉",
+      "children": [
+        { "type": "text", "name": "主标题", "x": 120, "y": 240, "width": 900,
+          "text": "朱峰社区智能体", "fontSize": 72, "bold": true, "color": "#ffffff", "font": "Microsoft YaHei" },
+        { "type": "text", "name": "副标题", "x": 122, "y": 350, "width": 900,
+          "text": "大模型原生格式 · PSD 也可以纯 JSON", "fontSize": 26, "color": "#a8b4cc" },
+        { "type": "rect", "name": "主按钮", "x": 122, "y": 450, "width": 200, "height": 56,
+          "fill": "linear-gradient(90deg,#a06bff,#4da3ff)", "radius": 28,
+          "shadow": { "x": 0, "y": 8, "blur": 24, "color": "rgba(160,107,255,.5)" } },
+        { "type": "text", "name": "按钮文字", "x": 122, "y": 466, "width": 200,
+          "text": "开始体验", "fontSize": 20, "color": "#fff", "align": "center", "bold": true }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "装饰",
+      "children": [
+        { "type": "rect", "name": "顶部导航条", "x": 0, "y": 0, "width": 1280, "height": 64,
+          "fill": "rgba(20,25,38,.7)", "border": { "width": 1, "color": "#2a3446" } },
+        { "type": "ellipse", "name": "Logo圆", "x": 24, "y": 14, "width": 36, "height": 36,
+          "fill": "linear-gradient(135deg,#a06bff,#4da3ff)" },
+        { "type": "text", "name": "Logo文字", "x": 70, "y": 22, "width": 300,
+          "text": "ZHUFENG · 无限画布", "fontSize": 15, "color": "#dde5f2" }
+      ]
+    }
+  ]
+}

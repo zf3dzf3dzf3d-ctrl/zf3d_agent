@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "out": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.1.2\\server\\video\\vpick_test_visionpick.mp4",
+  "fps": 1.0,
+  "frames_scored": 8,
+  "picked": [
+    {
+      "start": 0,
+      "end": 8.0,
+      "score": 0.2
+    }
+  ],
+  "notes": []
+}

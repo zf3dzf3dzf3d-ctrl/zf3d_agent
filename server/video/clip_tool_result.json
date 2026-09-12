@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "action": "clip_select",
+  "output": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.1.2\\server\\video\\vis_test_clip_select.mp4",
+  "mode": "uniform(8帧)",
+  "duration": 6.0,
+  "queries": [
+    "城市夜景",
+    "科技感画面"
+  ],
+  "top_matches": [
+    {
+      "time": 4.2,
+      "score": 0.227
+    },
+    {
+      "time": 5.0,
+      "score": 0.22
+    },
+    {
+      "time": 5.9,
+      "score": 0.217
+    }
+  ],
+  "segments": [
+    {
+      "start": 2.7,
+      "end": 6.0
+    }
+  ]
+}

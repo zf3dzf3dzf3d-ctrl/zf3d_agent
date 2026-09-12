@@ -1,0 +1,42 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ??????????? ========== */
+        .ctx-menu {
+            position: fixed; z-index: 9998; width: 470px; max-width: calc(100vw - 20px);
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6); padding: 0; display: none; overflow: hidden;
+        }
+        .ctx-layout { display: flex; min-height: 250px; }
+        .ctx-nav { width: 126px; flex: 0 0 126px; padding: 8px 6px; background: var(--bg); border-right: 1px solid var(--border); }
+        .ctx-nav-item { width: 100%; border: 0; background: transparent; color: var(--text2); text-align: left; padding: 12px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; margin: 3px 0; }
+        .ctx-nav-item:hover, .ctx-nav-item.active { background: var(--bg-hover); color: var(--text); }
+        .ctx-content { flex: 1; min-width: 0; padding: 4px; }
+        .ctx-panel { display: none; }
+        .ctx-panel.active { display: block; }
+        .ctx-form-label, .ctx-form-row label { display: block; color: var(--text2); font-size: 12px; margin: 8px 8px 4px; }
+        .ctx-form-input { box-sizing: border-box; width: calc(100% - 16px); margin: 0 8px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font: inherit; }
+        .ctx-form-row { display: flex; gap: 4px; }
+        .ctx-form-row label { flex: 1; margin-right: 0; }
+        .ctx-form-row .ctx-form-input { width: 100%; margin: 0; }
+        .ctx-form-status { min-height: 18px; margin: 8px; color: var(--blue); font-size: 12px; }
+        .ctx-primary-btn { margin: 2px 8px 8px; border: 1px solid var(--blue); border-radius: 4px; background: var(--blue); color: #fff; padding: 8px 16px; cursor: pointer; }
+        @media (max-width: 560px) { .ctx-menu { width: calc(100vw - 20px); } .ctx-nav { width: 104px; flex-basis: 104px; } }
+        .ctx-item {
+            padding: 10px 12px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ctx-item:hover { background: var(--bg-hover); }
+        .ctx-item .ctx-icon { font-size: 15px; }
+        .ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+        .ctx-title {
+            padding: 4px 12px;
+            font-size: 11px;
+            color: var(--text2);
+            font-weight: 600;
+        }
+

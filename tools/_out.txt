@@ -1,0 +1,76 @@
+1:                     ctx.fillStyle = colors.fill;
+2:                     ctx.fillRect(p1.x, p1.y, bw, bh);
+3:                     ctx.strokeStyle = colors.stroke;
+4:                     ctx.lineWidth = (status === 'sending' || status === 'error') ? 1 : 0.5;
+5:                     ctx.strokeRect(p1.x, p1.y, bw, bh);
+6:                     ctx.globalAlpha = 1;
+7: 
+8:                     // 【装水动画】方块内液体填充：水位 = 步数/预估总步数（默认30，超出自动扩展为30的倍数）
+9:                     var _tcW = (b.chat && typeof b.chat._toolUseCount === 'number') ? b.chat._toolUseCount : 0;
+10:                     if (_tcW > 0) {
+11:                         var _cidW = (b.chat && b.chat.id) || ('box' + _mmBi);
+12:                         // 预估总步数：默认30；超过后按30的倍数扩展（30→60→90…）
+13:                         var _est = b.chat._waterEst || (b.chat._waterEst = 30);
+14:                         if (_tcW >= _est) { _est = b.chat._waterEst = Math.ceil((_tcW + 1) / 30) * 30; }
+15:                         var _lvl = Math.min(1, _tcW / _est);
+16:                         var _wh = bh * _lvl;
+17:                         var _wy = p1.y + bh - _wh;
+18:                         ctx.save();
+19:                         ctx.beginPath(); ctx.rect(p1.x, p1.y, bw, bh); ctx.clip();
+20:                         // 水体（半透明蓝）+ 顶部波浪
+21:                         ctx.beginPath();
+22:                         ctx.moveTo(p1.x, p1.y + bh);
+23:                         var _wavT = Date.now() / 320;
+24:                         // 【水晃物理】叠加倾斜（off 前段抬后段压）与晃动波幅增益（每个方块独立状态）
+25:                         var _slState = _slOf(b);
+26:                         var _sl = _slState.off;
+27:                         var _slTilt = _sl * bw * 0.35;   // 两端高度差
+28:                         var _slGain = 1 + Math.min(2.2, Math.abs(_sl) * 90);
+29:                         for (var _wx = 0; _wx <= bw; _wx += 2) {
+30:                             var _slY = -_slTilt * (0.5 - _wx / bw) + Math.sin(_wx * 0.55 + _wavT + _sl * 6) * 1.1 * _slGain;
+31:                             ctx.lineTo(p1.x + _wx, _wy + _slY);
+32:                         }
+33:                         ctx.lineTo(p1.x + bw, p1.y + bh);
+34:                         ctx.closePath();
+35:                         ctx.fillStyle = 'rgba(64, 158, 255, 0.40)';
+36:                         ctx.fill();
+37:                         // 波浪峰高光线
+38:                         ctx.strokeStyle = 'rgba(140, 200, 255, 0.85)';
+39:                         ctx.lineWidth = 1;
+40:                         ctx.beginPath();
+41:                         for (var _wx2 = 0; _wx2 <= bw; _wx2 += 2) {
+42:                             var _yy = _wy - _slTilt * (0.5 - _wx2 / bw) + Math.sin(_wx2 * 0.55 + _wavT + _sl * 6) * 1.1 * _slGain;
+43:                             if (_wx2 === 0) ctx.moveTo(p1.x, _yy); else ctx.lineTo(p1.x + _wx2, _yy);
+44:                         }
+45:                         ctx.stroke();
+46:                         // +1 时上升小气泡（700ms 内）
+47:                         var _bubT = _tcAnimMap[_cidW] ? (Date.now() - _tcAnimMap[_cidW]) : 9999;
+48:                         if (_bubT < 700 && _wh > 4) {
+49:                             var _bt = _bubT / 700;
+50:                             ctx.fillStyle = 'rgba(200, 235, 255, 0.9)';
+51:                             for (var _bi = 0; _bi < 3; _bi++) {
+52:                                 var _bxp = p1.x + bw * (0.25 + 0.25 * _bi);
+53:                                 var _byp = p1.y + bh - _wh * _bt - 1 - _bi * 2;
+54:                                 var _br = 0.8 + (_bi % 2) * 0.5;
+55:                                 ctx.beginPath(); ctx.arc(_bxp, _byp, _br, 0, Math.PI * 2); ctx.fill();
+56:                             }
+57:                         }
+58:                         ctx.restore();
+59:                         // 灌满庆祝：满格时金色呼吸光晕
+60:                         if (_lvl >= 1) {
+61:                             var _glow = 0.5 + 0.5 * Math.sin(Date.now() / 250);
+62:                             ctx.save();
+63:                             ctx.strokeStyle = 'rgba(255, 200, 60, ' + (0.55 + 0.4 * _glow) + ')';
+64:                             ctx.lineWidth = 1.6;
+65:                             ctx.strokeRect(p1.x - 1, p1.y - 1, bw + 2, bh + 2);
+66:                             ctx.restore();
+67:                         }
+68:                         // 保证波浪有帧在动：水位在(0,1)区间时持续拉起重绘循环（1秒后自动停）
+69:                         if (_lvl < 1 || Math.abs(_slState.off) > 0.0004 || Math.abs(_slState.v) > 0.0004) {
+70:                             var _wNow = Date.now();
+71:                             if (!_waterRafUntil) _waterRafUntil = _wNow + 1000;
+72:                             else if (_wNow > _waterRafUntil) _waterRafUntil = _wNow + 1000;
+73:                             _startWaterAnimLoop(self);
+74:                         }
+75:                     }
+76: 

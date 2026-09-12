@@ -1,0 +1,27 @@
+{
+  "meta": { "title": "模型三件套格式对照表", "author": "朱峰社区智能体", "created": "2026-09-06" },
+  "sheets": [
+    {
+      "name": "格式对照",
+      "columns": ["对比项", "传统 Office", "朱峰三件套（JSON+HTML）"],
+      "rows": [
+        ["文件格式", ".pptx / .xlsx / .docx（二进制）", ".pres.json / .sheet.json / .doc.json（纯文本）"],
+        ["生成方式", "人工排版", "大模型直接输出"],
+        ["查看方式", "需安装 Office/WPS", "浏览器双击即看，零插件"],
+        ["文件体积", "几十 KB ~ 几 MB", "几 KB"],
+        ["程序可编辑", "困难（二进制）", "简单（改 JSON 即可）"],
+        ["嵌入画布", "需转换", "iframe 直接嵌节点"],
+        ["版本管理", "难 diff", "文本 diff，天然支持"]
+      ]
+    },
+    {
+      "name": "协议速查",
+      "columns": ["类型", "引擎", "内容目录", "清单文件"],
+      "rows": [
+        ["演示 PPT", "演示/viewer.html", "演示/slides/*.pres.json", "演示/index.json"],
+        ["表格 Excel", "表格/viewer.html", "表格/sheets/*.sheet.json", "表格/index.json"],
+        ["文档 Word", "文档/viewer.html", "文档/docs/*.doc.json", "文档/index.json"]
+      ]
+    }
+  ]
+}

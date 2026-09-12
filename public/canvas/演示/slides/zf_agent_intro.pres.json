@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "title": "朱峰社区智能体 · 产品介绍",
+    "author": "朱峰社区智能体",
+    "created": "2026-09-06",
+    "accent": "#4f6ef7"
+  },
+  "slides": [
+    {
+      "type": "cover",
+      "title": "朱峰社区智能体 · 无限",
+      "subtitle": "一块无限画布，一支真正干活的 AI 团队",
+      "accent": "#4f6ef7",
+      "bg": "radial-gradient(1100px 700px at 50% 115%, #2a3f8f, #0b0c12 70%)"
+    },
+    {
+      "type": "scene",
+      "title": "",
+      "bg": "linear-gradient(120deg,#101528,#1c1030)",
+      "elements": [
+        { "type": "text", "x": 90, "y": 150, "w": 640, "h": 90, "text": "它是什么？", "color": "#ffffff", "size": 56, "bold": true, "enter": "up", "delay": 0.1 },
+        { "type": "shape", "x": 90, "y": 260, "w": 6, "h": 300, "color": "linear-gradient(#4f6ef7,#9f7bff)", "radius": 3, "enter": "down", "delay": 0.3 },
+        { "type": "text", "x": 130, "y": 270, "w": 620, "h": 290, "text": "不是一个聊天框，\n而是驻扎在你电脑里的一支 AI 工程团队。\n\n自己勘察 · 拆解批次 · 逐批动手 · 失败自修 · 跨对话接力\n\n你只负责：在关键节点做决策。", "color": "#c9cfdd", "size": 26, "line": 1.7, "enter": "up", "delay": 0.5 },
+        { "type": "shape", "x": 820, "y": 170, "w": 330, "h": 330, "color": "radial-gradient(circle at 35% 35%, #5b7cff, #2a2f5e)", "radius": 165, "shadow": "0 0 80px rgba(79,110,247,.5)", "enter": "pop", "delay": 0.7, "loop": "float" },
+        { "type": "text", "x": 820, "y": 290, "w": 330, "h": 90, "text": "🤖", "color": "#fff", "size": 100, "align": "center", "enter": "pop", "delay": 0.9 }
+      ]
+    },
+    {
+      "type": "stats",
+      "title": "用数字说话",
+      "accent": "#2dd4bf",
+      "bg": "linear-gradient(180deg,#0b1a1e,#0b0c12)",
+      "stats": [
+        { "value": "100<small>%</small>", "label": "本地运行 · 数据不出门" },
+        { "value": "300<small>+</small>", "label": "对话可并行协作" },
+        { "value": "7<small>类</small>", "label": "主流大模型随意切换" },
+        { "value": "5<small>秒</small>", "label": "自动持久化 · 永不丢失" }
+      ]
+    },
+    {
+      "type": "timeline",
+      "title": "超长任务：自动拆批 · 断点接力",
+      "accent": "#f59e0b",
+      "bg": "linear-gradient(180deg,#171208,#0b0c12)",
+      "timeline": [
+        { "time": "① 勘察", "desc": "扫描项目现状，理解上下文" },
+        { "time": "② 拆批", "desc": "大目标拆成可验收的小批次" },
+        { "time": "③ 逐批动手", "desc": "写代码、跑测试、失败自修" },
+        { "time": "④ 接力", "desc": "关掉软件明天接着干，进度不丢" }
+      ]
+    },
+    {
+      "type": "scene",
+      "title": "工作方式：派工协议",
+      "bg": "linear-gradient(135deg,#1a1f2e,#2b2f45)",
+      "elements": [
+        { "type": "shape", "x": 90, "y": 250, "w": 280, "h": 180, "color": "#3b5998", "radius": 20, "shadow": "0 14px 40px rgba(0,0,0,.5)", "enter": "left", "delay": 0.2 },
+        { "type": "text", "x": 90, "y": 300, "w": 280, "h": 80, "text": "老板对话", "color": "#ffffff", "size": 34, "bold": true, "align": "center", "enter": "left", "delay": 0.3 },
+        { "type": "shape", "x": 500, "y": 130, "w": 280, "h": 180, "color": "#2f855a", "radius": 20, "shadow": "0 14px 40px rgba(0,0,0,.5)", "enter": "right", "delay": 0.5 },
+        { "type": "text", "x": 500, "y": 180, "w": 280, "h": 80, "text": "工人智能体 A", "color": "#ffffff", "size": 30, "bold": true, "align": "center", "enter": "right", "delay": 0.6 },
+        { "type": "shape", "x": 500, "y": 380, "w": 280, "h": 180, "color": "#2f855a", "radius": 20, "shadow": "0 14px 40px rgba(0,0,0,.5)", "enter": "right", "delay": 0.7 },
+        { "type": "text", "x": 500, "y": 430, "w": 280, "h": 80, "text": "工人智能体 B", "color": "#ffffff", "size": 30, "bold": true, "align": "center", "enter": "right", "delay": 0.8 },
+        { "type": "shape", "x": 910, "y": 250, "w": 280, "h": 180, "color": "#b7791f", "radius": 20, "shadow": "0 14px 40px rgba(0,0,0,.5)", "enter": "zoom", "delay": 1.0 },
+        { "type": "text", "x": 910, "y": 300, "w": 280, "h": 80, "text": "监工验收", "color": "#ffffff", "size": 34, "bold": true, "align": "center", "enter": "zoom", "delay": 1.1 },
+        { "type": "text", "x": 380, "y": 240, "w": 120, "h": 60, "text": "派活 →", "color": "#ffd866", "size": 26, "bold": true, "align": "center", "enter": "fade", "delay": 1.4 },
+        { "type": "text", "x": 380, "y": 440, "w": 120, "h": 60, "text": "派活 →", "color": "#ffd866", "size": 26, "bold": true, "align": "center", "enter": "fade", "delay": 1.5 },
+        { "type": "text", "x": 788, "y": 300, "w": 120, "h": 60, "text": "→ 回执", "color": "#ffd866", "size": 26, "bold": true, "align": "center", "enter": "fade", "delay": 1.6 },
+        { "type": "text", "x": 90, "y": 600, "w": 1100, "h": 60, "text": "有派活、有回执、有验收 —— 像真正的团队，而不是一问一答", "color": "#9fb3d9", "size": 24, "align": "center", "enter": "up", "delay": 1.9 }
+      ]
+    },
+    {
+      "type": "chart",
+      "kind": "donut",
+      "title": "多模型接入，随任务切换",
+      "accent": "#9f7bff",
+      "bg": "linear-gradient(180deg,#150f24,#0b0c12)",
+      "chart": {
+        "kind": "donut",
+        "data": [
+          { "label": "DeepSeek", "value": 30 },
+          { "label": "通义千问", "value": 20 },
+          { "label": "GLM / Kimi", "value": 20 },
+          { "label": "GPT / Claude", "value": 20 },
+          { "label": "Ollama 本地", "value": 10 }
+        ]
+      }
+    },
+    {
+      "type": "quote",
+      "accent": "#f472b6",
+      "bg": "radial-gradient(900px 600px at 50% 0%, #2b1220, #0b0c12 70%)",
+      "quote": "任务失败自动救，卡住了主动叫 —— 双守护系统让智能体像有责任心一样工作。",
+      "author": "设计理念"
+    },
+    {
+      "type": "table",
+      "title": "对比传统 AI 聊天",
+      "accent": "#4f6ef7",
+      "table": {
+        "head": ["维度", "传统 AI 聊天", "朱峰社区智能体"],
+        "rows": [
+          ["工作方式", "一问一答", "自主拆解 · 执行 · 验证 · 汇报"],
+          ["并行能力", "单对话", "数百对话并行、派工协作"],
+          ["数据安全", "云端存储", "全部本地 · 隐私自持"],
+          ["出错兜底", "人工救", "守护自动救 + 回执验收"]
+        ]
+      }
+    },
+    {
+      "type": "bullets",
+      "title": "无限画布：工具全部内嵌",
+      "accent": "#2dd4bf",
+      "bg": "linear-gradient(180deg,#071a1c,#0b0c12)",
+      "bullets": [
+        "网页浏览器：画布内直接打开网址、登录、截图、读内容",
+        "游戏开发界面：画布上直接开发与预览",
+        "HTML 演示引擎：本套幻灯片就是它做的，零插件双击即看",
+        "多形态：Windows / Linux / Web 全平台"
+      ]
+    },
+    {
+      "type": "scene",
+      "title": "",
+      "bg": "radial-gradient(1000px 700px at 50% 50%, #14203f, #0b0c12 75%)",
+      "elements": [
+        { "type": "text", "x": 140, "y": 200, "w": 1000, "h": 120, "text": "这份 PPT 本身就是证据", "color": "#ffffff", "size": 52, "bold": true, "align": "center", "enter": "zoom", "delay": 0.2 },
+        { "type": "shape", "x": 540, "y": 330, "w": 200, "h": 4, "color": "linear-gradient(90deg,#4f6ef7,#9f7bff)", "radius": 2, "enter": "fade", "delay": 0.5 },
+        { "type": "text", "x": 190, "y": 380, "w": 900, "h": 180, "text": "大模型写 Markdown / JSON 即可成片\nviewer.html 引擎 + pres.json 数据，双击即看、画布内嵌\n不需要 PowerPoint，不需要任何插件", "color": "#c9cfdd", "size": 27, "line": 1.9, "align": "center", "enter": "up", "delay": 0.7 }
+      ]
+    },
+    {
+      "type": "cover",
+      "title": "谢谢观看",
+      "subtitle": "www.zf3d.com/agent.asp · Gitee: zf3d/zf3d_agent",
+      "accent": "#4f6ef7",
+      "bg": "radial-gradient(900px 600px at 50% -20%, #2a3f8f, #0b0c12 70%)"
+    }
+  ]
+}

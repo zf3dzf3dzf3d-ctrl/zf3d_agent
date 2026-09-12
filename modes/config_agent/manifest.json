@@ -1,0 +1,31 @@
+{
+  "spec": 1,
+  "id": "config_agent",
+  "name": "模型配置管家",
+  "icon": "⚙️",
+  "description": "专门管理 models.json：查看/修改/测试模型配置，独立对话模式",
+  "version": "1.0.0",
+  "enabled": true,
+
+  "prompt": "prompt.md",
+
+  "tools": {
+    "backend": ["read_models.py", "write_models.py", "web_request.py"],
+    "frontend": []
+  },
+
+  "fileAccess": [
+    "public/config/models.json"
+  ],
+
+  "db": "db/config_agent.db",
+
+  "limits": {
+    "max_tools_in_request": 500,
+    "request_timeout_seconds": 1800
+  },
+
+  "entry": {
+    "panel": "frontend/panel.js"
+  }
+}

@@ -1,0 +1,1184 @@
+﻿/* ========== style-base.css - 鍏ㄥ眬閲嶇疆/鍙橀噺/澶撮儴/鐢诲竷 ========== */
+/* 鏆楄壊鍩鸿皟 路 鏃犻檺鐢诲竷 路 瀵硅瘽绯荤粺 */
+
+        /* ========== 鍏ㄥ眬閲嶇疆 ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        :root {
+            --bg: #1a1a2e;
+            --bg-card: #1e1e2e;
+            --bg-hover: #252535;
+            --border: #333344;
+            --text: #ffffff;
+            --text2: #b8b8cc;
+            --blue: #0984e3;
+            --blue-rgb: 9, 132, 227;
+            --green: #28a745;
+            --radius: 6px;
+            /* 兼容旧面板变量（记忆面板等），统一暗色基调 */
+            --bg2: #252535;
+            --panel: #1e1e2e;
+            --panel-bg: #1e1e2e;
+            --text-sub: #b8b8cc;
+            --text-sub2: #8a8aa0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            -webkit-font-smoothing: auto;
+            -moz-osx-font-smoothing: auto;
+            text-rendering: optimizeLegibility; /* v2：geometricPrecision 会让小字号中文笔画亚像素发虚，改回可读性优先 */
+            text-shadow: none;
+            background-color: var(--bg);
+            /* 鏄熺┖鑳屾櫙锛氬灞傚緞鍚戞笎鍙樻ā鎷熸槦鏄燂紝鍙犲姞寰鐨勬槦浜戝厜鏅?*/
+            background-image:
+                /* 寰皬鏄熺偣锛堟渶瀵嗭級 */
+                radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1px 1px at 28% 72%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 45% 35%, rgba(255,255,255,0.8), transparent 50%),
+                radial-gradient(1px 1px at 62% 85%, rgba(255,255,255,0.6), transparent 50%),
+                radial-gradient(1px 1px at 78% 12%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1px 1px at 88% 58%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 8% 92%, rgba(255,255,255,0.65), transparent 50%),
+                radial-gradient(1px 1px at 35% 8%, rgba(255,255,255,0.75), transparent 50%),
+                radial-gradient(1px 1px at 52% 62%, rgba(255,255,255,0.7), transparent 50%),
+                radial-gradient(1px 1px at 95% 32%, rgba(255,255,255,0.8), transparent 50%),
+                radial-gradient(1px 1px at 18% 45%, rgba(255,255,255,0.6), transparent 50%),
+                radial-gradient(1px 1px at 72% 48%, rgba(255,255,255,0.75), transparent 50%),
+                /* 涓瓑鏄熺偣锛堝甫鍏夋檿锛?*/
+                radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.95), transparent 50%),
+                radial-gradient(2px 2px at 55% 15%, rgba(200,220,255,0.9), transparent 50%),
+                radial-gradient(2px 2px at 80% 70%, rgba(255,235,200,0.85), transparent 50%),
+                radial-gradient(2px 2px at 40% 80%, rgba(220,200,255,0.9), transparent 50%),
+                radial-gradient(2px 2px at 92% 5%, rgba(255,255,255,0.95), transparent 50%),
+                /* 澶ф槦鐐癸紙甯︽煍鍜屽厜鏅曪級 */
+                radial-gradient(2.5px 2.5px at 5% 55%, rgba(255,255,255,1), transparent 60%),
+                radial-gradient(2.5px 2.5px at 65% 25%, rgba(180,210,255,0.95), transparent 60%),
+                radial-gradient(2.5px 2.5px at 15% 78%, rgba(255,220,180,0.9), transparent 60%),
+                /* 杩滃鏄熶簯鍏夋檿 */
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(60,90,180,0.18), transparent 70%),
+                radial-gradient(ellipse 500px 350px at 80% 70%, rgba(140,60,180,0.15), transparent 70%),
+                radial-gradient(ellipse 700px 500px at 50% 100%, rgba(30,80,160,0.2), transparent 70%);
+            background-attachment: fixed;
+            background-size: 100% 100%;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* 鏄熺┖鏁翠綋缂撴參婕傜Щ鍔ㄧ敾 */
+        @keyframes starDrift {
+            0% { background-position: 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%; }
+            100% { background-position: 2% -1%, -1% 2%, 1% -2%, -2% 1%, 2% 1%, -1% -2%, 1% 2%, -2% -1%, 2% -2%, -1% 1%, 1% -1%, -2% 2%, 2% 1%, -1% -1%, 1% 2%, -2% -2%, 2% 2%, -1% -2%, 1% -1%, 2% 1%, -1% 2%, 1% -2%, -2% 1%; }
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                /* 绗簩灞傜█鐤忔槦鐐癸紙鐢ㄤ簬闂儊锛?*/
+                radial-gradient(1.5px 1.5px at 15% 25%, rgba(255,255,255,0.9), transparent 50%),
+                radial-gradient(1.5px 1.5px at 38% 65%, rgba(180,200,255,0.85), transparent 50%),
+                radial-gradient(1.5px 1.5px at 58% 30%, rgba(255,255,255,0.95), transparent 50%),
+                radial-gradient(1.5px 1.5px at 75% 80%, rgba(255,220,200,0.8), transparent 50%),
+                radial-gradient(1.5px 1.5px at 25% 88%, rgba(255,255,255,0.85), transparent 50%),
+                radial-gradient(1.5px 1.5px at 88% 12%, rgba(200,220,255,0.9), transparent 50%),
+                radial-gradient(1.5px 1.5px at 48% 50%, rgba(255,255,255,0.8), transparent 50%);
+            background-size: 100% 100%;
+            animation: starTwinkle 4s ease-in-out infinite;
+        }
+
+        /* 鏄熸槦闂儊鏁堟灉锛堥€忔槑搴﹁剦鍔級 */
+        @keyframes starTwinkle {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* 鐧藉ぉ妯″紡锛氫繚鐣欐祬鑹叉槦鐐癸紝鏇存煍鍜?*/
+        [data-theme="light"] body {
+            background-color: #e8eef5;
+            background-image:
+                radial-gradient(1px 1px at 12% 18%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 28% 72%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 45% 35%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 62% 85%, rgba(100,130,180,0.35), transparent 50%),
+                radial-gradient(1px 1px at 78% 12%, rgba(100,130,180,0.5), transparent 50%),
+                radial-gradient(1px 1px at 88% 58%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 8% 92%, rgba(100,130,180,0.4), transparent 50%),
+                radial-gradient(1px 1px at 35% 8%, rgba(100,130,180,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 20% 30%, rgba(80,110,160,0.6), transparent 50%),
+                radial-gradient(1.5px 1.5px at 55% 15%, rgba(80,110,160,0.55), transparent 50%),
+                radial-gradient(1.5px 1.5px at 80% 70%, rgba(80,110,160,0.5), transparent 50%),
+                radial-gradient(ellipse 600px 400px at 20% 20%, rgba(150,180,220,0.25), transparent 70%),
+                radial-gradient(ellipse 500px 350px at 80% 70%, rgba(180,160,220,0.2), transparent 70%);
+        }
+
+        [data-theme="light"] body::before {
+            background-image:
+                radial-gradient(1.5px 1.5px at 15% 25%, rgba(80,110,160,0.5), transparent 50%),
+                radial-gradient(1.5px 1.5px at 38% 65%, rgba(80,110,160,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 58% 30%, rgba(80,110,160,0.55), transparent 50%),
+                radial-gradient(1.5px 1.5px at 75% 80%, rgba(80,110,160,0.4), transparent 50%),
+                radial-gradient(1.5px 1.5px at 25% 88%, rgba(80,110,160,0.45), transparent 50%),
+                radial-gradient(1.5px 1.5px at 88% 12%, rgba(80,110,160,0.5), transparent 50%);
+        }
+
+        /* ========== 椤堕儴鏍囧織鏍?========== */
+        .topbar {
+            height: 38px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: rgba(26, 26, 46, 0.6);
+            border-bottom: none;
+            -webkit-app-region: drag;
+            user-select: none;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 17px;
+            line-height: 1;
+            font-weight: 600;
+            color: transparent;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: logoGradient 6s ease infinite;
+        }
+
+        /* 鐧藉ぉ妯″紡锛氭爣棰樻笎鍙樺幓鎺夌櫧鑹诧紝涓巐ogo棰滆壊淇濇寔涓€鑷?*/
+        [data-theme="light"] .topbar-title {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        .topbar-logo {
+            width: 28px;
+            height: 28px;
+            display: inline-block;
+            flex-shrink: 0;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            animation: logoGradient 6s ease infinite;
+            margin-left: 4px;
+        }
+
+        /* 鐧藉ぉ妯″紡锛歭ogo娓愬彉涓庢爣棰橀鑹蹭繚鎸佷竴鑷?*/
+        [data-theme="light"] .topbar-logo {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../assets/logo-transparent.png)) center / contain no-repeat;
+        }
+
+        @keyframes logoGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            -webkit-app-region: no-drag;
+        }
+
+        .topbar-icon {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .topbar-icon:hover { background: var(--bg-hover); color: var(--text); }
+
+        .topbar-sep {
+            display: inline-block;
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        /* ========== 鏈卞嘲绀惧尯鍙充笂瑙掔櫥褰?澶村儚 ========== */
+        .zf3d-topbar-login {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 0 6px;
+            height: 28px;
+            border-radius: 4px;
+            transition: background 0.15s;
+            -webkit-app-region: no-drag;
+        }
+        .zf3d-topbar-login:hover { background: var(--bg-hover); }
+
+        /* ========== 鏃堕棿 + 澶╂皵灏忕粍浠?========== */
+        .zf3d-clock-weather {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 8px;
+            height: 28px;
+            border-radius: 4px;
+            transition: background 0.15s;
+            -webkit-app-region: no-drag;
+            user-select: none;
+        }
+        .zf3d-clock-weather:hover { background: var(--bg-hover); }
+        /* 鎸備欢鏈韩鍥哄畾灏哄锛屽脊灞備笉褰卞搷鍏跺搴?*/
+        .zf3d-clock-weather {
+            width: fit-content;
+            min-width: 0;
+            flex: 0 0 auto;
+        }
+        .zf3d-cw-time {
+            font-size: 12px;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .zf3d-cw-ampm {
+            font-size: 10px;
+            margin-right: 2px;
+            opacity: .75;
+        }
+        .zf3d-cw-time {
+            font-weight: 600;
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+        /* 鎮仠寮瑰眰锛氭棩鏈?+ 澶╂皵锛堢粷瀵瑰畾浣嶆偓娴紝瀹屽叏鑴辩鏂囨。娴侊紝涓嶆拺澶т换浣曠埗鍏冪礌锛?*/
+        .zf3d-cw-popup {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 8px;
+            width: max-content;
+            min-width: 190px;
+            max-width: 340px;
+            padding: 10px 16px 14px;
+            background: var(--bg, #fff);
+            border: 1px solid var(--border, #ddd);
+            border-radius: 6px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .zf3d-clock-weather:hover .zf3d-cw-popup { display: flex; }
+        .zf3d-cw-popup.zf3d-cw-show { display: flex; }
+        .zf3d-cw-date {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text, #333);
+            text-shadow: 0 1px 2px rgba(255,255,255,.7);
+        }
+        [data-theme="dark"] .zf3d-cw-date { color: var(--text, #ccc); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+        .zf3d-cw-lunar {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text, #333);
+            text-shadow: 0 1px 2px rgba(255,255,255,.7);
+        }
+        [data-theme="dark"] .zf3d-cw-lunar { color: var(--text, #ccc); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+        .zf3d-cw-bigtime {
+            font-size: 46px;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: 2px;
+            color: var(--text, #333);
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+        }
+        .zf3d-cw-divider {
+            width: 100%;
+            height: 1px;
+            background: var(--border, #ddd);
+        }
+        .zf3d-cw-weather {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text, #333);
+            text-shadow: 0 1px 2px rgba(255,255,255,.8);
+            cursor: pointer;
+        }
+        [data-theme="dark"] .zf3d-cw-weather { text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+        .zf3d-cw-weather:hover { color: #2166d1; }
+        .zf3d-cw-wxdesc {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text, #333);
+            text-shadow: 0 1px 2px rgba(255,255,255,.8);
+            line-height: 1.5;
+        }
+        [data-theme="dark"] .zf3d-cw-wxdesc { color: var(--text, #ccc); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+        .zf3d-cw-wxdesc.zf3d-cw-show { display: block; }
+        .zf3d-topbar-login-text {
+            font-size: 12px;
+            color: var(--text2);
+        }
+
+        .zf3d-topbar-user {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            padding: 0 6px;
+            height: 28px;
+            border-radius: 4px;
+            transition: background 0.15s;
+            -webkit-app-region: no-drag;
+        }
+        .zf3d-topbar-user:hover { background: var(--bg-hover); }
+        .zf3d-topbar-user.active { display: flex; }
+
+        .zf3d-topbar-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, var(--blue), #1c80e0);
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .zf3d-topbar-username {
+            font-size: 12px;
+            color: var(--text);
+            max-width: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 鏈卞嘲绀惧尯鐢ㄦ埛涓嬫媺鑿滃崟 */
+        .zf3d-user-menu {
+            position: fixed;
+            z-index: 99999;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            min-width: 180px;
+            overflow: hidden;
+        }
+        .zf3d-user-menu-header {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        .zf3d-user-menu-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text);
+            transition: background 0.15s;
+        }
+        .zf3d-user-menu-item:hover { background: var(--bg-hover); }
+        .zf3d-user-menu-item.danger { color: #e74c3c; }
+        .zf3d-user-menu-item.danger:hover { background: rgba(231,76,60,0.1); }
+        .zf3d-user-menu-item.disabled { color: var(--text2); cursor: default; }
+        .zf3d-user-menu-item.disabled:hover { background: transparent; }
+
+
+        /* ========== 涓棿鏃犻檺鐢诲竷鍖哄煙 ========== */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            /* 鏄熺┖娣辩┖搴曡壊锛堝鑹叉槦浜?+ 澶ч噺鏄熺偣 + 闂厜鏄燂級 */
+            background-color: #05060f;
+            background-image:
+                /* 绱摑鏄熶簯锛堝彸涓婏級 */
+                radial-gradient(ellipse 60% 50% at 80% 20%, rgba(120, 80, 220, 0.35), transparent 60%),
+                /* 闈掕摑鏄熶簯锛堝乏涓嬶級 */
+                radial-gradient(ellipse 70% 60% at 15% 80%, rgba(40, 120, 220, 0.30), transparent 65%),
+                /* 绮夎壊鏄熶簯锛堜腑涓婏級 */
+                radial-gradient(ellipse 40% 35% at 50% 0%, rgba(220, 80, 160, 0.18), transparent 70%),
+                /* 澶ч噺灏忔槦鐐?*/
+                radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+                radial-gradient(1px 1px at 80px 120px, #cfe2ff, transparent),
+                radial-gradient(1px 1px at 160px 60px, #fff, transparent),
+                radial-gradient(1px 1px at 240px 180px, #ffd6f0, transparent),
+                radial-gradient(1px 1px at 320px 90px, #fff, transparent),
+                radial-gradient(1px 1px at 400px 220px, #b8d4ff, transparent),
+                radial-gradient(1px 1px at 480px 50px, #fff, transparent),
+                radial-gradient(1px 1px at 560px 160px, #fff, transparent),
+                radial-gradient(1px 1px at 640px 240px, #cfe2ff, transparent),
+                radial-gradient(1px 1px at 720px 100px, #fff, transparent),
+                radial-gradient(1px 1px at 40px 280px, #fff, transparent),
+                radial-gradient(1px 1px at 200px 340px, #ffd6f0, transparent),
+                radial-gradient(1px 1px at 360px 400px, #fff, transparent),
+                radial-gradient(1px 1px at 520px 320px, #b8d4ff, transparent),
+                radial-gradient(1px 1px at 680px 380px, #fff, transparent),
+                /* 涓瓑浜偣 */
+                radial-gradient(1.5px 1.5px at 120px 200px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 300px 300px, #b8d4ff, transparent),
+                radial-gradient(1.5px 1.5px at 450px 150px, #ffd6f0, transparent),
+                radial-gradient(1.5px 1.5px at 600px 350px, #fff, transparent),
+                /* 闂厜澶ф槦 */
+                radial-gradient(2px 2px at 100px 100px, #fff, transparent),
+                radial-gradient(2px 2px at 500px 250px, #b8d4ff, transparent);
+            background-size:
+                100% 100%,
+                100% 100%,
+                100% 100%,
+                200px 200px, 240px 240px, 220px 220px, 260px 260px, 200px 200px,
+                240px 240px, 220px 220px, 260px 260px, 200px 200px, 220px 220px,
+                240px 240px, 260px 260px, 220px 220px, 240px 240px, 200px 200px,
+                300px 300px, 280px 280px, 320px 320px, 300px 300px,
+                400px 400px, 500px 500px;
+            background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        /* 闂儊鏄熷眰锛堢敤浼厓绱犲仛鍔ㄧ敾锛屼笉褰卞搷浜や簰锛?*/
+        .canvas-area::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                radial-gradient(1.5px 1.5px at 60px 80px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 180px 200px, #b8d4ff, transparent),
+                radial-gradient(1.5px 1.5px at 320px 120px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 440px 280px, #ffd6f0, transparent),
+                radial-gradient(1.5px 1.5px at 560px 60px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 140px 360px, #cfe2ff, transparent),
+                radial-gradient(1.5px 1.5px at 380px 400px, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 520px 340px, #b8d4ff, transparent);
+            background-size: 600px 500px;
+            background-repeat: repeat;
+            opacity: 0.85;
+            animation: canvasStarTwinkle 4s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+
+        @keyframes canvasStarTwinkle {
+            0%   { opacity: 0.35; }
+            50%  { opacity: 0.95; }
+            100% { opacity: 0.5;  }
+        }
+
+        /* 鎵弿鍏夋潫鍔ㄧ敾锛堢鎶€鎰燂級 */
+        .canvas-area::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(115deg,
+                transparent 0%,
+                transparent 40%,
+                rgba(120, 180, 255, 0.06) 50%,
+                transparent 60%,
+                transparent 100%);
+            background-size: 200% 200%;
+            animation: canvasScan 8s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes canvasScan {
+            0%   { background-position: 200% 200%; }
+            100% { background-position: -200% -200%; }
+        }
+
+        /* 璁╃敾甯冨唴瀹规诞鍦ㄦ槦绌轰箣涓?*/
+        .canvas-content,
+        .canvas-hint,
+        .canvas-coord {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== CSS3D 涓夌淮鐢诲竷锛氶€忚 + 淇鍊炬枩锛堟寜 3 閿垏鎹㈠钩闈?绔嬩綋锛?===== */
+        .canvas-3d {
+            position: absolute;
+            inset: 0;
+            perspective: 1400px;
+            perspective-origin: 50% 0%;
+            z-index: 1;
+        }
+        /* 楸肩溂妯″紡锛氭暣浣撲笉鍐嶅€炬枩锛岀珛浣撴劅鐢?app-canvas-fisheye.js 鎸夎妭鐐逛笌灞忓箷涓績鐨勮窛绂绘柦鍔?
+           锛堜腑闂村畬鍏ㄦ甯革紝瓒婇潬杈圭紭瓒婂€炬枩/缂╁皬/涓嬫矇锛屽儚璐村湪鍑歌捣鐨勭悆闈笂锛?*/
+        .canvas-tilt {
+            position: absolute;
+            inset: 0;
+            transform: none;
+            will-change: transform;
+        }
+        body.canvas-flat .canvas-tilt {
+            transform: none;
+        }
+
+        /* 楸肩溂娓呮櫚搴︿繚闅滐細3D 鍙樻崲涓嬮伩鍏嶉噸閲囨牱妯＄硦 */
+        .chatbox, .glam-node, .image-node-x, .engine-node {
+            backface-visibility: hidden;
+            transform-style: preserve-3d;
+        }
+        /* 鎷栧姩/骞崇Щ涓細绂佺敤涓€鍒囪繃娓?鈫?鍙樻崲鐬椂璺熶笂鎸囬拡锛岀敾闈㈤攼鍒┿€侀€熷害蹇?*/
+        body.fe-interacting .chatbox,
+        body.fe-interacting .glam-node,
+        body.fe-interacting .image-node-x,
+        body.fe-interacting .engine-node {
+            transition: none !important;
+        }
+
+        .canvas-content {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+            will-change: auto;
+            transform: translate(0, 0) scale(1);
+        }
+
+        /* 缃戞牸鑳屾櫙 - 璋冩贰浠ョ獊鍑烘槦绌?*/
+        .canvas-grid {
+            position: absolute;
+            inset: -2000px;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 40px 40px;
+            cursor: grab;
+        }
+        .canvas-content.dragging .canvas-grid { cursor: grabbing; }
+        .canvas-content.dragging { cursor: grabbing; }
+        .canvas-area.dragging { cursor: grabbing; }
+
+        /* 鐧藉ぉ妯″紡缃戞牸 */
+        [data-theme="light"] .canvas-grid {
+            background-image:
+                linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+        }
+
+        /* ===== 闅忔墜鏍囬锛堢敾甯冧究绛炬爣璁帮紝app-quick-note.js锛?==== */
+        .quick-note {
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 320px;
+            padding: 4px 10px;
+            background: rgba(255, 232, 148, 0.92);
+            border: 1px solid rgba(210, 170, 60, 0.8);
+            border-radius: 12px;
+            font-size: 13px;
+            color: #4a3a10;
+            box-shadow: 0 2px 8px rgba(0,0,0,.18);
+            cursor: grab;
+            user-select: none;
+            z-index: 5;
+            white-space: nowrap;
+        }
+        .quick-note:active { cursor: grabbing; }
+        /* 拖到/停在屏幕左侧时收窄：宽度不超过 40px，只显示 📍 */
+        .quick-note.qn-narrow {
+            max-width: 40px;
+            min-width: 40px;
+            width: 40px;
+            padding: 4px 2px;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .quick-note.qn-narrow .qn-text,
+        .quick-note.qn-narrow .qn-del,
+        .quick-note.qn-narrow .qn-fold,
+        .quick-note.qn-narrow .qn-ball { display: none; }
+        .quick-note .qn-icon { font-size: 12px; flex: none; }
+        .quick-note .qn-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+        }
+        .quick-note .qn-del {
+            display: none;
+            flex: none;
+            border: none;
+            background: rgba(0,0,0,.14);
+            color: #4a3a10;
+            width: 16px; height: 16px;
+            line-height: 15px;
+            text-align: center;
+            border-radius: 50%;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .quick-note:hover .qn-del { display: block; }
+        .quick-note .qn-del:hover { background: #d9534f; color: #fff; }
+        .quick-note .qn-input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a3a10;
+            width: 160px;
+            font-family: inherit;
+        }
+        [data-theme="light"] .quick-note {
+            background: #fff3c4;
+            border-color: #d9b83c;
+        }
+
+        /* ===== 闅忔墜鏍囬杩炵嚎鎺т欢锛坅pp-quick-note-link.js锛?==== */
+        .quick-note .qn-fold {
+            flex: none;
+            border: none;
+            background: rgba(0,0,0,.14);
+            color: #4a3a10;
+            width: 15px; height: 15px;
+            line-height: 13px;
+            text-align: center;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .quick-note .qn-fold:hover { background: rgba(0,0,0,.28); color: #fff; }
+        .quick-note .qn-ball {
+            flex: none;
+            width: 11px; height: 11px;
+            margin-right: 6px;
+            margin-left: 2px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #ffe08a, #e0a90f 70%);
+            border: 1px solid #a97c08;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
+            cursor: crosshair;
+        }
+        .quick-note .qn-ball:hover { transform: scale(1.25); }
+        /* 鎷栫嚎鎮仠鏃剁洰鏍囬珮浜紙鑴夊啿鍙戝厜锛屾彁绀哄彲鍚搁檮锛?*/
+        @keyframes qnLinkPulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(245, 180, 0, .45) !important; }
+            50% { box-shadow: 0 0 18px rgba(245, 180, 0, .9) !important; }
+        }
+        .qn-link-hover {
+            outline: 2px solid #f5b400 !important;
+            outline-offset: 2px;
+            animation: qnLinkPulse .8s ease-in-out infinite;
+        }
+        /* 闅忔墜鏍囬鏈€灏忓寲锛氳繛绾垮璇濇璺熺潃缂╁皬锛堝甫寮圭哀鍔ㄧ敾锛?*/
+        .chatbox {
+            transition: transform .28s cubic-bezier(.34, 1.4, .5, 1),
+                        opacity .2s ease;
+            /* 5.1.2：去掉常驻 will-change 合成层，避免 Windows DPI 缩放下文字整体发虚 */
+        }
+        .chatbox.qn-mini {
+            transform: scale(0.45);
+            transform-origin: top left;
+            opacity: 0.85;
+        }
+
+        /* ===== 随手标题「钉到左侧」停靠栏（app-quick-note-dock.js）==== */
+        #qnDockZone {
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            width: 44px;
+            z-index: 9998;
+            pointer-events: none;
+            background: transparent;
+            border-right: 2px dashed transparent;
+            transition: background .15s ease;
+        }
+        #qnDockZone.qn-zone-active {
+            background: linear-gradient(90deg, rgba(245,180,0,.25), transparent);
+            border-right-color: rgba(245,180,0,.7);
+        }
+        #qnDockBar {
+            position: fixed;
+            left: 6px; top: 72px; bottom: 90px;
+            width: 100px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow-y: auto;
+            padding: 4px 2px;
+            pointer-events: none; /* 容器不挡画布，chip 自己接事件 */
+        }
+        #qnDockBar.is-empty { display: none; }
+        .qn-dock-chip {
+            pointer-events: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 4px 6px;
+            width: fit-content;
+            max-width: 88px; /* 4个汉字(52px) + 图标(18px) + padding/gap */
+            background: rgba(255, 232, 148, 0.95);
+            border: 1px solid rgba(210, 170, 60, 0.8);
+            border-radius: 12px;
+            font-size: 13px;
+            color: #4a3a10;
+            box-shadow: 0 2px 8px rgba(0,0,0,.22);
+            cursor: grab;
+            user-select: none;
+            white-space: nowrap;
+            box-sizing: border-box;
+        }
+        .qn-dock-chip:active { cursor: grabbing; }
+        .qn-dock-chip.qn-dock-dragging { opacity: .55; }
+        .qn-dock-chip .qn-dock-text {
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .qn-dock-chip .qn-input {
+            border: none; outline: none; background: transparent;
+            font-size: 13px; font-weight: 600; color: #4a3a10;
+            width: 120px; font-family: inherit;
+        }
+        [data-theme="light"] .qn-dock-chip {
+            background: #fff3c4;
+            border-color: #d9b83c;
+        }
+        [data-theme="light"] .qn-dock-chip {
+            background: #fff3c4;
+            border-color: #d9b83c;
+        }
+        /* 鎶樺彔鎸夐挳鏃嬭浆鍔ㄧ敾 */
+        .quick-note .qn-fold { transition: transform .25s ease, background .15s ease; }
+        .quick-note .qn-fold.is-min { transform: rotate(-90deg); }
+        /* 瀵硅瘽妗嗕粠缂╁皬鎭㈠鏃剁殑寮逛竴涓?*/
+        @keyframes qnMiniPop {
+            0% { transform: scale(0.45); }
+            60% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+        .chatbox.qn-restore { animation: qnMiniPop .3s cubic-bezier(.34, 1.4, .5, 1); }
+        .chatbox.qn-mini .qn-mini-tip { display: none; }
+        /* 褰诲簳鏀剁撼锛氭渶灏忓寲鍚庡璇濇瀹屽叏闅愯棌锛堟敹杩涢殢鎵嬫爣棰橈級 */
+        .chatbox.qn-gone { display: none !important; }
+        /* 琚埗绾ф爣棰橀摼绾ц仈鏀惰捣鐨勯殢鎵嬫爣棰?*/
+        .quick-note.qn-hidden-by-parent { display: none !important; }
+
+        /* 鍧愭爣鏍囩 */
+        .canvas-coord {
+            position: absolute;
+            right: 12px;
+            bottom: 10px;
+            font-size: 11px;
+            color: var(--text2);
+            opacity: 0.7;
+            user-select: none;
+            font-family: monospace;
+        }
+
+        /* 鍙抽敭鎻愮ず */
+        .canvas-hint {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text2);
+            opacity: 0.65;
+            font-size: 14px;
+            user-select: none;
+            pointer-events: none;
+            line-height: 2;
+        }
+        .canvas-hint b { color: var(--blue); opacity: 0.9; }
+
+
+/* ===== 鏇存柊鎸夐挳 ===== */
+#updateBtn.has-update {
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+}
+
+/* ============================================================
+   [data-theme="light"] 鍏ㄥ眬涓婚瑕嗙洊锛堢儹鏇存柊杩藉姞锛?
+   瑙ｅ喅锛氬垏鍒扮櫧澶╁悗锛岀敾甯冩槦绌鸿儗鏅?+ 鐢诲竷瑁呴グ灞備笉鍒囨崲棰滆壊
+   ============================================================ */
+[data-theme="light"] .canvas-area {
+    background-color: #cfe3ff !important;
+    background-image:
+        radial-gradient(2px 2px at 12% 18%, rgba(255,255,255,.7) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 28% 72%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(2.5px 2.5px at 47% 33%, rgba(255,255,255,.75) 0%, transparent 60%),
+        radial-gradient(1px 1px at 63% 58%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(2px 2px at 78% 21%, rgba(255,255,255,.7) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 88% 79%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 8% 88%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 52% 12%, rgba(255,255,255,.6) 0%, transparent 60%),
+        radial-gradient(2.2px 2.2px at 35% 48%, rgba(255,255,255,.65) 0%, transparent 60%),
+        radial-gradient(1px 1px at 92% 46%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(1.5px 1.5px at 18% 58%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 72% 88%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1px 1px at 4% 38%, rgba(255,255,255,.35) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 58% 68%, rgba(255,255,255,.55) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 42% 92%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(2px 2px at 22% 28%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.4px 1.4px at 82% 36%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.6px 1.6px at 68% 8%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.8px 1.8px at 38% 78%, rgba(255,255,255,.5) 0%, transparent 60%),
+        radial-gradient(1.2px 1.2px at 96% 64%, rgba(255,255,255,.4) 0%, transparent 60%),
+        radial-gradient(2.4px 2.4px at 14% 6%, rgba(255,255,255,.6) 0%, transparent 60%),
+        radial-gradient(1.4px 1.4px at 76% 50%, rgba(255,255,255,.45) 0%, transparent 60%),
+        radial-gradient(1.6px 1.6px at 48% 54%, rgba(255,255,255,.5) 0%, transparent 60%),
+        linear-gradient(180deg, #b3d4f5 0%, #d6e8fb 45%, #e9f2fc 100%) !important;
+}
+
+[data-theme="light"] .canvas-area::before {
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.85) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, rgba(255,255,255,.7) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 50%, rgba(255,255,255,.5) 0%, transparent 70%) !important;
+    opacity: .9 !important;
+}
+
+[data-theme="light"] .canvas-area::after {
+    background:
+        linear-gradient(180deg, transparent 60%, rgba(255,255,255,.4) 100%) !important;
+}
+
+[data-theme="light"] .canvas-area #starfield,
+[data-theme="light"] #starfield,
+[data-theme="light"] .canvas-area canvas {
+    background: #b3d4f5 !important;
+}
+
+[data-theme="light"] .canvas-grid {
+    background-image:
+        linear-gradient(rgba(60,100,160,.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(60,100,160,.08) 1px, transparent 1px) !important;
+}
+
+[data-theme="light"] .canvas-coord-hud,
+[data-theme="light"] .canvas-hint {
+    color: #2a3f5f !important;
+    text-shadow: 0 0 4px rgba(255,255,255,.7);
+}
+[data-theme="light"] .canvas-coord-hud b { color: #2166d1 !important; }
+
+/* ========== 椤舵爮鏃堕棿澶╂皵锛氬姩鐢诲満鏅?========== */
+/* 寮瑰眰鍥哄畾灏哄锛氬満鏅负鑳屾櫙灞傦紝鍐呭浣嶇疆涓嶉殢澶╂皵鍙樺寲 */
+.zf3d-cw-popup {
+    min-width: 300px;
+    min-height: 250px;
+}
+.zf3d-cw-scene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+/* 鍦烘櫙涔嬩笂鍔犱竴灞傝交閬僵锛屼繚璇佹枃瀛楀彲璇?*/
+.zf3d-cw-scene::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,.55), rgba(255,255,255,.82));
+}
+[data-theme="dark"] .zf3d-cw-scene::after {
+    background: linear-gradient(to bottom, rgba(18,22,30,.55), rgba(18,22,30,.82));
+}
+.zf3d-clock-weather > *:not(.zf3d-cw-scene):not(.zf3d-cw-popup) { position: relative; z-index: 1; }
+/* 寮瑰眰鍐呮枃瀛楀繀椤诲湪鍔ㄧ敾鍦烘櫙灞備箣涓婏紝鍚﹀垯浼氳鍦烘櫙閬僵鐩栦綇鐪嬩笉娓?*/
+.zf3d-cw-popup > *:not(.zf3d-cw-scene) { position: relative; z-index: 2; }
+/* 寮瑰眰寮哄埗娴┖锛屼换浣曡鍒欓兘涓嶈兘鎶婂畠鎷夊洖鏂囨。娴?*/
+.zf3d-cw-popup { position: absolute !important; }
+
+/* --- 澶槼锛堢櫧澶╂櫞澶╋級--- */
+.zf3d-cw-sun {
+    position: absolute;
+    right: 14%;
+    top: 12%;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff3b0 0%, #ffd24d 55%, rgba(255,210,77,0) 75%);
+    animation: zf3d-cw-sun-glow 4s ease-in-out infinite;
+}
+.zf3d-cw-sun-core {
+    position: absolute;
+    inset: 25%;
+    border-radius: 50%;
+    background: #ffdf6b;
+    box-shadow: 0 0 18px 6px rgba(255, 214, 79, .65);
+}
+@keyframes zf3d-cw-sun-glow {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50%      { transform: scale(1.12); filter: brightness(1.18); }
+}
+
+/* --- 鏈堜寒涓庢槦鏄燂紙澶滄櫄锛?-- */
+.zf3d-cw-moon {
+    position: absolute;
+    right: 14%;
+    top: 12%;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fdfbe8, #d9d9f2 70%);
+    box-shadow: 0 0 14px 4px rgba(220, 220, 255, .5);
+    animation: zf3d-cw-moon-float 6s ease-in-out infinite;
+}
+@keyframes zf3d-cw-moon-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-3px); }
+}
+.zf3d-cw-star {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 4px 1px rgba(255,255,255,.8);
+    animation: zf3d-cw-star-twinkle 2.2s ease-in-out infinite;
+}
+@keyframes zf3d-cw-star-twinkle {
+    0%, 100% { opacity: .25; transform: scale(.8); }
+    50%      { opacity: 1;   transform: scale(1.2); }
+}
+
+/* --- 浜?--- */
+.zf3d-cw-cloud {
+    position: absolute;
+    left: -60px;
+    top: 22%;
+    width: 58px;
+    height: 20px;
+    border-radius: 20px;
+    background: rgba(255,255,255,.85);
+    box-shadow: 0 6px 14px rgba(0,0,0,.08);
+    animation: zf3d-cw-cloud-drift 22s linear infinite;
+}
+.zf3d-cw-cloud::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: -10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: inherit;
+}
+.zf3d-cw-cloud::after {
+    content: '';
+    position: absolute;
+    left: 30px;
+    top: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: inherit;
+}
+.zf3d-cw-cloud-s { transform: scale(.7); opacity: .7; }
+.zf3d-cw-cloud-dark {
+    background: #5a6472;
+    filter: brightness(.85);
+}
+/* --- 鎸夊ぉ姘斿彉鑹茬殑澶╃┖鑳屾櫙 --- */
+.zf3d-cw-sunny  { background: linear-gradient(to bottom, #aee3ff, #e8f7ff); }
+.zf3d-cw-cloudy { background: linear-gradient(to bottom, #b8c4d4, #dfe6ee); }
+.zf3d-cw-rain   { background: linear-gradient(to bottom, #7c8ba1, #aab7c7); }
+.zf3d-cw-thunder{ background: linear-gradient(to bottom, #4a5464, #6b7688); }
+.zf3d-cw-snow   { background: linear-gradient(to bottom, #c9d9e8, #eef4fa); }
+.zf3d-cw-fog    { background: linear-gradient(to bottom, #c2c8ce, #e4e7ea); }
+[data-theme="dark"] .zf3d-cw-sunny  { background: linear-gradient(to bottom, #1d3a5c, #2b4f78); }
+[data-theme="dark"] .zf3d-cw-cloudy { background: linear-gradient(to bottom, #232a36, #39434f); }
+[data-theme="dark"] .zf3d-cw-rain   { background: linear-gradient(to bottom, #1c2430, #2d3949); }
+[data-theme="dark"] .zf3d-cw-thunder{ background: linear-gradient(to bottom, #12161d, #262c38); }
+[data-theme="dark"] .zf3d-cw-snow   { background: linear-gradient(to bottom, #2a3646, #3d4c60); }
+[data-theme="dark"] .zf3d-cw-fog    { background: linear-gradient(to bottom, #262b31, #3a4046); }
+/* --- 鎸夊ぉ姘斿彉鑹茬殑浜戝僵 --- */
+.zf3d-cw-sunny  .zf3d-cw-cloud { background: rgba(255,255,255,.9); }
+.zf3d-cw-cloudy .zf3d-cw-cloud { background: rgba(240,244,248,.95); }
+.zf3d-cw-rain   .zf3d-cw-cloud { background: #6f7d90; }
+.zf3d-cw-thunder.zf3d-cw-scene .zf3d-cw-cloud,
+.zf3d-cw-thunder .zf3d-cw-cloud { background: #454e5c; }
+.zf3d-cw-snow   .zf3d-cw-cloud { background: rgba(250,252,255,.95); }
+.zf3d-cw-fog    .zf3d-cw-cloud { background: rgba(225,229,233,.8); }
+[data-theme="dark"] .zf3d-cw-rain    .zf3d-cw-cloud { background: #46536a; }
+[data-theme="dark"] .zf3d-cw-thunder .zf3d-cw-cloud { background: #333b47; }
+[data-theme="dark"] .zf3d-cw-cloudy  .zf3d-cw-cloud { background: #565f6b; }
+[data-theme="dark"] .zf3d-cw-sunny   .zf3d-cw-cloud { background: rgba(210,220,235,.85); }
+@keyframes zf3d-cw-cloud-drift {
+    from { left: -70px; }
+    to   { left: 105%; }
+}
+
+/* --- 闆?--- */
+.zf3d-cw-rain {
+    position: absolute;
+    top: 40%;
+    width: 2px;
+    height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(to bottom, rgba(140,190,255,0), rgba(140,190,255,.85));
+    animation: zf3d-cw-rain-fall 1s linear infinite;
+}
+@keyframes zf3d-cw-rain-fall {
+    from { transform: translateY(0);   opacity: 1; }
+    to   { transform: translateY(46px); opacity: 0; }
+}
+
+/* --- 闂數 --- */
+.zf3d-cw-bolt {
+    position: absolute;
+    left: 48%;
+    top: 34%;
+    font-size: 20px;
+    filter: drop-shadow(0 0 6px rgba(255,230,120,.9));
+    opacity: 0;
+    animation: zf3d-cw-bolt-flash 3.4s ease-in-out infinite;
+}
+@keyframes zf3d-cw-bolt-flash {
+    0%, 55%, 100% { opacity: 0; }
+    58%           { opacity: 1; }
+    62%           { opacity: .1; }
+    66%           { opacity: 1; }
+    72%           { opacity: 0; }
+}
+.zf3d-cw-thunder .zf3d-cw-scene { animation: zf3d-cw-sky-flash 3.4s ease-in-out infinite; }
+@keyframes zf3d-cw-sky-flash {
+    0%, 54%, 74%, 100% { background: transparent; }
+    58%, 66%           { background: rgba(255,255,220,.28); }
+}
+
+/* --- 闆?--- */
+.zf3d-cw-snow {
+    position: absolute;
+    top: 38%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 4px rgba(255,255,255,.9);
+    opacity: .9;
+    animation: zf3d-cw-snow-fall 4s linear infinite;
+}
+@keyframes zf3d-cw-snow-fall {
+    0%   { transform: translateY(0) translateX(0) rotate(0deg);   opacity: 1; }
+    50%  { transform: translateY(24px) translateX(6px) rotate(180deg); }
+    100% { transform: translateY(48px) translateX(-4px) rotate(360deg); opacity: .1; }
+}
+
+/* --- 闆?--- */
+.zf3d-cw-fog {
+    position: absolute;
+    left: -20%;
+    width: 140%;
+    height: 10px;
+    border-radius: 10px;
+    background: rgba(200,205,215,.35);
+    animation: zf3d-cw-fog-drift 12s ease-in-out infinite alternate;
+}
+@keyframes zf3d-cw-fog-drift {
+    from { transform: translateX(-14%); }
+    to   { transform: translateX(14%); }
+}
+
+/* --- 鏃堕挓绉掑啋鍙烽棯鐑?--- */
+.zf3d-cw-colon { transition: opacity .2s; }
+.zf3d-cw-colon-off { opacity: .25; }
+
+/* ========== 鏃舵澶╄壊锛氭竻鏅?鐧藉ぉ/鍌嶆櫄/澶滄櫄 ========== */
+/* 瑕嗙洊鎸夊ぉ姘旇缃殑鑳屾櫙锛岃寮圭獥鑳藉尯鍒嗙櫧澶╅粦澶?*/
+.zf3d-cw-scene.zf3d-cw-dawn  { background: linear-gradient(to bottom, #f5b47a, #ffd9a8 55%, #ffeccb) !important; }
+.zf3d-cw-scene.zf3d-cw-day   { background: linear-gradient(to bottom, #4aa7e8, #a8d8f5 60%, #d8f0fc) !important; }
+.zf3d-cw-scene.zf3d-cw-dusk  { background: linear-gradient(to bottom, #3d3a6e, #b85a7a 55%, #f0975a) !important; }
+.zf3d-cw-scene.zf3d-cw-night { background: linear-gradient(to bottom, #0b1024, #1c2748 60%, #2d3a5e) !important; }
+/* 澶滄櫄/鍌嶆櫄缁欐湀浜槦鏄熺暀鍑鸿鎰燂細鍔犳繁閬僵鍙嶈€屽奖鍝嶅彲璇绘€э紝杩欓噷闄嶄綆閬僵寮哄害 */
+.zf3d-cw-scene.zf3d-cw-night::after,
+.zf3d-cw-scene.zf3d-cw-dusk::after { background: linear-gradient(to bottom, rgba(18,22,30,.35), rgba(18,22,30,.6)); }
+/* 澶滄櫄/鍌嶆櫄鏃跺お闃抽殣钘忋€佷簯鏈靛彉鏆?*/
+.zf3d-cw-night .zf3d-cw-sun,
+.zf3d-cw-dusk  .zf3d-cw-sun { display: none; }
+.zf3d-cw-night .zf3d-cw-cloud { filter: brightness(.45); }
+.zf3d-cw-dusk  .zf3d-cw-cloud { filter: brightness(.6) sepia(.3); }
+.zf3d-cw-dawn  .zf3d-cw-cloud { filter: brightness(1.1) sepia(.25); }
+/* 澶滄櫄/鍌嶆櫄/娓呮櫒鏅村ぉ鏃舵樉绀烘湀浜?鏄熸槦锛圝S 鏋勫缓鏃舵寜灏忔椂鍒ゆ柇锛岃繖閲屽厹搴曠敤 CSS 寮哄埗锛?*/
+.zf3d-cw-night .zf3d-cw-sun-core { box-shadow: 0 0 14px 5px rgba(180,200,255,.5); }
+
+
+/* ===== FishEye edge nodes: animated neon flowing border ===== */
+.fe-edge { position: relative; }
+.fe-edge::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 10;
+    border: 1px solid transparent;
+    background: linear-gradient(120deg, rgba(0,229,255,0), rgba(0,229,255,0.55), rgba(140,90,255,0.5), rgba(0,229,255,0)) border-box;
+    background-size: 250% 250%;
+    animation: feEdgeFlow 3.2s linear infinite;
+    opacity: 0.85;
+}
+@keyframes feEdgeFlow {
+    0%   { background-position: 0% 50%; }
+    100% { background-position: 250% 50%; }
+}
+
+/* ===== 鱼眼边缘霓虹流光（fe-edge）+ 拖拽扫光（fe-sweeping） ===== */
+.fe-edge::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;border:2px solid transparent;background:linear-gradient(120deg,rgba(0,229,255,.9),rgba(179,136,255,.9),rgba(0,229,255,.9)) border-box;-webkit-mask:linear-gradient(#fff 0 0) padding-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:feEdgeFlow2 3.2s linear infinite;opacity:.85;}
+/* 流光改为动 background-position（合成器友好），不再用 filter:hue-rotate —— 那会每帧对整个节点做全像素重采样，核显/无独显机器上极贵 */
+@keyframes feEdgeFlow2{0%{background-position:0% 50%}100%{background-position:250% 50%}}
+.fe-sweep.chatbox::after,.fe-sweep.glam-node::after,.fe-sweep.image-node-x::after,.fe-sweep.engine-node::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.18) 45%,rgba(160,220,255,.28) 50%,rgba(255,255,255,.18) 55%,transparent 70%);background-size:250% 100%;animation:feSweepMove .9s linear infinite;mix-blend-mode:screen;}
+@keyframes feSweepMove{0%{background-position:120% 0}100%{background-position:-130% 0}}
+
+/* ===== 鱼眼低配降级（body.fe-low，JS 自动检测核显/少核机器挂载） =====
+   低配下省掉三大绘制开销：
+   1) fe-dim 叠加层的渐变（JS 端已跳过创建，这里兜底隐藏残留层）
+   2) 大半径多层 box-shadow（核显上逐像素光栅化，极贵）→ 换单层细阴影
+   3) 流光/扫光动画 → 全部关闭 */
+body.fe-low .fe-dim { display: none !important; }
+body.fe-low .chatbox,
+body.fe-low .glam-node,
+body.fe-low .image-node-x,
+body.fe-low .engine-node { box-shadow: 0 8px 22px rgba(0,0,0,.3) !important; }
+body.fe-low .fe-edge::after { animation: none !important; opacity: .5; }
+

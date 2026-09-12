@@ -1,0 +1,22 @@
+{
+  "id": "codex_style",
+  "name": "Codex",
+  "description": "Codex-style engine: local tool loop with its own isolated toolset (propose->apply approval flow, diff preview, audit log)",
+  "version": "3.0.0",
+  "enabled": true,
+  "engine_mode": "local_loop",
+  "tools": {
+    "source": "self",
+    "dir": "tools/",
+    "list": [
+      "codex_read",
+      "codex_read_lines",
+      "codex_list_dir",
+      "codex_propose_write",
+      "codex_apply_write",
+      "codex_replace",
+      "codex_run_code"
+    ]
+  },
+  "preferred_model": ""
+}

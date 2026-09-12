@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>设计查看器 · 大模型 PSD</title>
+<style>
+  :root{ --bg:#0f1218; --panel:#141926; --paper:#1a1f2e; --line:#2a3446; --txt:#dde5f2; --sub:#8b97ab; --acc:#a06bff; --acc2:#4da3ff; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; height:100vh; display:flex; overflow:hidden;}
+  #layers{width:270px; min-width:270px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column;}
+  #layers header{padding:12px 14px 8px; border-bottom:1px solid var(--line);}
+  #layers header h3{font-size:13px; color:var(--sub); letter-spacing:2px;}
+  #layerlist{flex:1; overflow-y:auto; padding:8px;}
+  .grp{margin:4px 0;}
+  .grp>.row{font-weight:600; color:var(--acc2);}
+  .row{display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row:hover{background:#1e2739;}
+  .row.on{background:#252f47; outline:1px solid var(--acc);}
+  .row .eye{opacity:.9; width:18px; text-align:center; flex:none;}
+  .row .sw{width:14px; height:14px; border-radius:4px; border:1px solid rgba(255,255,255,.25); flex:none;}
+  .row .nm{flex:1; overflow:hidden; text-overflow:ellipsis;}
+  .kids{margin-left:20px; border-left:1px dashed var(--line); padding-left:4px;}
+  .row.sel-active{outline:1px solid var(--acc2);}
+  #canvaswrap{flex:1; overflow:auto; display:flex; align-items:center; justify-content:center; padding:30px; background:
+    repeating-conic-gradient(#131826 0% 25%, #10141f 0% 50%) 0 0/24px 24px;}
+  #stage{position:relative; background:var(--paper); box-shadow:0 8px 40px rgba(0,0,0,.55); border-radius:4px; transform-origin:center;}
+  #stage .lyr{position:absolute; transform-origin:0 0;}
+  #stage .lyr.txt{white-space:pre-wrap; line-height:1.4;}
+  #stage .lyr.img{background-size:cover; background-position:center;}
+  #stage .lyr.rect{border-radius:2px;}
+  #infobar{position:fixed; bottom:14px; left:50%; transform:translateX(-50%); background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:6px 18px; font-size:12px; color:var(--sub); display:flex; gap:16px; z-index:9;}
+  #toolbar{position:fixed; top:14px; right:16px; display:flex; gap:8px; z-index:9;}
+  #toolbar button{width:36px; height:36px; border-radius:50%; background:var(--panel); border:1px solid var(--line); color:var(--txt); font-size:15px; cursor:pointer;}
+  #toolbar button:hover{border-color:var(--acc);}
+  #sidebar{position:fixed; top:60px; right:16px; width:260px; max-height:60vh; overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:none; z-index:9;}
+  #sidebar.open{display:block;}
+  #sidebar a{display:block; color:var(--sub); padding:6px 8px; border-radius:6px; cursor:pointer; font-size:13px;}
+  #sidebar a:hover{background:#1e2739; color:var(--txt);}
+  #props{width:250px; min-width:250px; background:var(--panel); border-left:1px solid var(--line); padding:14px; overflow-y:auto; font-size:12.5px;}
+  #props h3{font-size:13px; color:var(--sub); letter-spacing:2px; margin-bottom:10px;}
+  #props .kv{display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #1c2434;}
+  #props .kv b{color:var(--txt); font-weight:500; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  #props .kv span{color:var(--sub);}
+</style>
+</head>
+<body>
+<aside id="layers">
+  <header><h3>图 层</h3><div id="docinfo" style="font-size:12px;color:var(--sub);margin-top:4px;"></div></header>
+  <div id="layerlist"></div>
+</aside>
+<div id="canvaswrap"><div id="stage"></div></div>
+<aside id="props"><h3>属性</h3><div id="proplist"><span style="color:var(--sub)">点击图层查看属性</span></div></aside>
+<div id="toolbar">
+  <button id="zoomOut" title="缩小">−</button>
+  <button id="zoomIn" title="放大">＋</button>
+  <button id="fitBtn" title="适配屏幕">⛶</button>
+  <button id="fab" title="文件列表">📂</button>
+</div>
+<div id="infobar"><span id="zoomVal">100%</span><span id="docSize"></span></div>
+<div id="sidebar"><h3 style="color:var(--sub);font-size:13px;margin-bottom:8px;">设计文件</h3><div id="filelist"></div></div>
+<script>
+const qs = new URLSearchParams(location.search);
+let DATA=null, zoom=1, selected=null;
+const stage=document.getElementById('stage');
+
+async function boot(){
+  const file = qs.get('file');
+  try{
+    if(file){
+      const j = await (await fetch('/api/psds/get?file='+encodeURIComponent(file))).json();
+      if(j.ok) DATA=j.data;
+    } else {
+      const j = await (await fetch('/api/psds/list')).json();
+      if(j.ok && j.items.length){
+        DATA = (await (await fetch('/api/psds/get?file='+encodeURIComponent(j.items[0].file))).json()).data;
+        loadFileList(j.items);
+      }
+    }
+  }catch(e){}
+  if(DATA) render(); else document.getElementById('docinfo').textContent='未找到设计文件，可 ?file=xxx.psd.json';
+}
+function loadFileList(items){
+  const box=document.getElementById('filelist'); box.innerHTML='';
+  items.forEach(it=>{
+    const a=document.createElement('a');
+    a.textContent='🎨 '+(it.title||it.file);
+    a.onclick=()=>{ location.search='?file='+encodeURIComponent(it.file); };
+    box.appendChild(a);
+  });
+}
+
+function flatten(layers, out, depth, path){
+  (layers||[]).forEach((l,i)=>{
+    const p=[...path,i];
+    if(l.type==='group'){ out.push({l,depth,p,group:true}); flatten(l.children,out,depth+1,p); }
+    else out.push({l,depth,p});
+  });
+  return out;
+}
+
+function render(){
+  const m=DATA.meta||{};
+  document.getElementById('docinfo').textContent=(m.title||'未命名')+' · '+(DATA.canvas||{}).width+'×'+(DATA.canvas||{}).height;
+  document.getElementById('docSize').textContent=(DATA.canvas||{}).width+' × '+(DATA.canvas||{}).height+' px';
+  document.title=(m.title||'设计')+' · 大模型 PSD';
+  const rows=flatten(DATA.layers,[],0,[]);
+  const list=document.getElementById('layerlist'); list.innerHTML='';
+  rows.forEach(({l,depth,p,group})=>{
+    const d=document.createElement('div');
+    d.className='row'+(group?' grp':''); d.style.paddingLeft=(8+depth*14)+'px';
+    const eye=document.createElement('span'); eye.className='eye';
+    eye.textContent=(l.visible===false)?'◌':'◉';
+    eye.onclick=e=>{ e.stopPropagation(); l.visible=(l.visible===false); render(); };
+    d.appendChild(eye);
+    if(l.type==='rect'||l.type==='ellipse'){ const s=document.createElement('span'); s.className='sw'; s.style.background=l.fill||'#555'; d.appendChild(s); }
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=(group?'📁 ':'')+l.name;
+    d.appendChild(nm);
+    d.onclick=()=>select(p, d, l);
+    list.appendChild(d);
+  });
+  drawCanvas(rows);
+}
+
+function drawCanvas(rows){
+  const c=DATA.canvas||{width:1280,height:720};
+  stage.style.width=c.width+'px'; stage.style.height=c.height+'px';
+  stage.innerHTML='';
+  rows.forEach(({l,p})=>{
+    if(l.visible===false) return;
+    const el=document.createElement('div');
+    el.className='lyr '+({'text':'txt','image':'img','rect':'rect','ellipse':'rect'}[l.type]||'rect');
+    el.style.left=(l.x||0)+'px'; el.style.top=(l.y||0)+'px';
+    el.style.width=(l.width||0)+'px'; el.style.height=(l.height||0)+'px';
+    el.style.opacity=(l.opacity==null?1:l.opacity);
+    if(l.rotation) el.style.transform='rotate('+(l.rotation||0)+'deg)';
+    if(l.fill) el.style.background=l.fill;
+    if(l.radius) el.style.borderRadius=l.radius+'px';
+    if(l.border){ el.style.border=(l.border.width||1)+'px solid '+(l.border.color||'#fff'); }
+    if(l.shadow){ const s=l.shadow; el.style.boxShadow=(s.x||0)+'px '+(s.y||0)+'px '+(s.blur||0)+'px '+(s.color||'rgba(0,0,0,.4)'); }
+    if(l.type==='text'){
+      el.style.width='auto'; el.style.maxWidth=(l.width||c.width)+'px'; el.style.height='auto';
+      el.style.fontSize=(l.fontSize||16)+'px';
+      el.style.fontWeight=l.bold?'700':'400';
+      el.style.fontStyle=l.italic?'italic':'normal';
+      el.style.color=l.color||'#fff';
+      el.style.fontFamily=(l.font||'sans-serif');
+      if(l.align) el.style.textAlign=l.align;
+      el.textContent=l.text||'';
+    }
+    if(l.type==='image'&&l.src) el.style.backgroundImage='url("'+l.src+'")';
+    el.dataset.path=p.join(',');
+    el.onclick=()=>{ select(p, null, l); };
+    stage.appendChild(el);
+  });
+  applyZoom();
+}
+
+function select(path, rowEl, l){
+  selected=path;
+  document.querySelectorAll('#layerlist .row').forEach(r=>r.classList.remove('on'));
+  if(rowEl) rowEl.classList.add('on');
+  document.querySelectorAll('#stage .lyr').forEach(el=>{
+    el.classList.toggle('sel-active', el.dataset.path===path.join(','));
+    if(el.dataset.path===path.join(',')) el.style.outline='2px solid var(--acc2)';
+    else el.style.outline='';
+  });
+  const box=document.getElementById('proplist'); box.innerHTML='';
+  const show={名称:l.name, 类型:l.type, 位置:(l.x||0)+', '+(l.y||0), 尺寸:(l.width||'auto')+' × '+(l.height||'auto'),
+    填充:l.fill||'—', 透明度:(l.opacity==null?1:l.opacity), 字号:l.fontSize||'—', 字体:l.font||'—', 文本:l.text||'—'};
+  Object.entries(show).forEach(([k,v])=>{
+    const d=document.createElement('div'); d.className='kv';
+    d.innerHTML='<span>'+k+'</span><b></b>'; d.querySelector('b').textContent=String(v);
+    box.appendChild(d);
+  });
+}
+
+function applyZoom(){
+  stage.style.transform='scale('+zoom+')';
+  document.getElementById('zoomVal').textContent=Math.round(zoom*100)+'%';
+}
+document.getElementById('zoomIn').onclick=()=>{ zoom=Math.min(3,zoom+.1); applyZoom(); };
+document.getElementById('zoomOut').onclick=()=>{ zoom=Math.max(.1,zoom-.1); applyZoom(); };
+document.getElementById('fitBtn').onclick=()=>{
+  const c=DATA&&DATA.canvas||{width:1280,height:720};
+  const w=document.getElementById('canvaswrap').clientWidth-60, h=document.getElementById('canvaswrap').clientHeight-60;
+  zoom=Math.min(w/c.width, h/c.height); applyZoom();
+};
+document.getElementById('fab').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+window.addEventListener('resize',()=>{});
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+/* kite-voice-chat.css — 风筝龙头语音聊天对话框（右侧弹出）
+   风格：与全局深蓝紫星空统一，融入"风筝/天空"元素——
+   天蓝渐变头部、青色风筝尾装饰线、更轻盈活泼的气泡配色 */
+.kvc-panel {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    width: 300px;
+    height: 480px;
+    resize: both;          /* 右下角可拖拽调整宽高 */
+    min-width: 240px;
+    min-height: 260px;
+    display: none;
+    flex-direction: column;
+    background: linear-gradient(175deg, #1c2136 0%, #1a1a2e 55%, #182030 100%);
+    border: 1px solid #3d5578;
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0, 10, 30, .5), 0 0 0 1px rgba(120, 200, 255, .06) inset;
+    z-index: 9500;
+    color: #e8eef8;
+    font-size: 13px;
+    overflow: hidden;
+}
+.kvc-panel.show { display: flex; }
+
+/* 顶部：天空渐变（风筝飞在天上） */
+.kvc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    background: linear-gradient(90deg, #12325c 0%, #0d4a78 60%, #0a5d84 100%);
+    border-bottom: 1px solid #2c5a86;
+    cursor: move;
+    user-select: none;
+    position: relative;
+}
+/* 风筝尾巴：头底部一条飘动的青色渐变细线 */
+.kvc-head::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -2px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #4fd1ff 25%, #7ce7d8 55%, #4f8dff 80%, transparent);
+    opacity: .85;
+}
+.kvc-title { font-weight: 600; font-size: 13px; letter-spacing: .5px; }
+.kvc-close {
+    background: none;
+    border: none;
+    color: #a8c8e8;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.kvc-close:hover { color: #fff; background: rgba(255, 255, 255, .12); }
+
+.kvc-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 120px;
+    max-height: none;
+}
+.kvc-log:empty::after {
+    content: '你好，我是风筝小助手 🪁 点击下方麦克风和我聊天吧';
+    color: #7a92b8;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.kvc-msg {
+    padding: 6px 10px;
+    border-radius: 10px;
+    line-height: 1.5;
+    word-break: break-word;
+    max-width: 88%;
+}
+/* 用户气泡：天空蓝，与全局 --blue 同族但更明快 */
+.kvc-user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #1274d8, #0d5ab8);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+}
+/* AI 气泡：偏青的深蓝，带一点风筝线的浅色描边 */
+.kvc-ai {
+    align-self: flex-start;
+    background: #22304a;
+    color: #dce8f8;
+    border: 1px solid #33507a;
+    border-bottom-left-radius: 3px;
+}
+
+.kvc-status {
+    padding: 4px 12px 8px;
+    color: #8fa8cc;
+    font-size: 12px;
+    min-height: 20px;
+    word-break: break-all;
+}
+
+.kvc-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px 12px;
+}
+.kvc-mic {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #8fa8cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all .15s;
+}
+.kvc-mic:hover { color: #4c8dff; background: rgba(76, 141, 255, .1); }
+.kvc-mic:active { transform: scale(0.92); }
+.kvc-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #3d5578;
+    background: #1e2942;
+    color: #e8eef8;
+    font-size: 13px;
+    outline: none;
+}
+.kvc-input:focus { border-color: #4fa8e0; box-shadow: 0 0 0 2px rgba(79, 168, 224, .15); }
+.kvc-send {
+    flex: 0 0 auto;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid #1a6ec0;
+    background: linear-gradient(135deg, #1274d8, #0d5ab8);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter .15s;
+}
+.kvc-send:hover { filter: brightness(1.15); }
+.kvc-mic:hover { background: #2b3d5e; }
+.kvc-mic.on { color: #fff; background: #e5484d; animation: kvcPulse 1.2s ease-in-out infinite; }
+.kvc-mic.on:hover { color: #fff; background: #e5484d; }
+@keyframes kvcPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 110, 100, .4); }
+    50% { box-shadow: 0 0 0 8px rgba(255, 110, 100, 0); }
+}

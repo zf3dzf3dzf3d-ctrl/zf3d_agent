@@ -1,0 +1,21 @@
+.email-toggle-field{display:flex!important;align-items:center;justify-content:space-between;gap:24px;width:100%;max-width:100%;padding:12px 26px 12px 14px!important;box-sizing:border-box;overflow:visible}.email-toggle-info{display:block;min-width:0;flex:1 1 auto}.email-toggle-title{color:var(--text-primary,#e5e7eb);font-weight:600;line-height:26px}.email-toggle-control{display:flex;align-items:center;width:46px;height:26px;flex:0 0 46px;margin-left:auto;margin-right:0}.email-toggle-wrapper{display:block;cursor:pointer;width:46px;height:26px;flex:0 0 46px}.away-toggle-field{display:flex;align-items:center;justify-content:space-between;gap:16px}.away-toggle-title{color:var(--text-primary,#e5e7eb);font-weight:600}.away-toggle-control{display:flex;align-items:center;gap:10px}.away-toggle-label{min-width:52px;color:#ef4444;font-size:12px;font-weight:700;text-align:right}.away-toggle-label.is-on{color:#22c55e}.away-toggle-wrapper{display:inline-flex;cursor:pointer}.email-toggle-checkbox{position:absolute;opacity:0;pointer-events:none}.email-toggle-track{display:block;position:relative;width:46px;height:26px;padding:3px;border-radius:999px;background:#64748b;transition:.2s;box-sizing:border-box}.email-toggle-track::before{content:none!important}.email-toggle-thumb{display:block;position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#f8fafc;box-shadow:0 1px 3px #0006;transition:.2s}.email-toggle-checkbox:checked+.email-toggle-track{background:#16a34a}.email-toggle-checkbox:checked+.email-toggle-track .email-toggle-thumb{left:23px;right:auto;transform:none}.email-toggle-wrapper:focus-within .email-toggle-track{outline:2px solid #38bdf8;outline-offset:2px}
+
+.settings-modal{position:relative;box-sizing:border-box;width:920px;min-width:920px;max-width:calc(100vw - 32px);height:min(80vh,calc(100vh - 32px));min-height:0;display:none;overflow:hidden}
+.settings-modal.show,.settings-modal[style*="display: flex"],.settings-modal[style*="display:flex"],.overlay.show .settings-modal{display:flex !important}
+.settings-close-btn{position:absolute;top:12px;right:14px;z-index:2;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--text,#e5e7eb);font-size:20px;line-height:1;cursor:pointer}
+.settings-close-btn:hover{background:var(--bg-hover,rgba(255,255,255,.1));color:var(--text,#fff)}
+.settings-nav{padding:44px 10px 14px;box-sizing:border-box;background:rgba(0,0,0,.12);border-right:1px solid var(--border,rgba(255,255,255,.12));}
+.settings-nav-header{margin:0 6px 12px;font-size:16px;font-weight:700;color:var(--text,#f8fafc);}
+.settings-nav-item{display:flex;align-items:center;gap:8px;min-height:42px;margin:5px 0;padding:7px 9px;box-sizing:border-box;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:7px;background:rgba(255,255,255,.035);color:var(--text2,#aab4c3);cursor:pointer;transition:border-color .18s ease,background .18s ease,color .18s ease,transform .18s ease;}
+.settings-nav-item:hover{background:rgba(255,255,255,.08);border-color:rgba(56,189,248,.55);color:var(--text,#fff);transform:translateX(2px)}
+.settings-nav-item.active{background:linear-gradient(90deg,rgba(37,99,235,.28),rgba(14,165,233,.12));border-color:#38bdf8;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.18);}
+.settings-nav-icon{display:grid;place-items:center;width:24px;height:24px;flex:0 0 24px;border-radius:5px;background:rgba(255,255,255,.1);font-size:14px;}
+.settings-nav-item.active .settings-nav-icon{background:rgba(56,189,248,.2);}
+#settingsPanel-git{display:none!important}
+@media(max-width:952px){.settings-nav{padding:42px 8px 12px}.settings-nav-item{min-height:40px;padding:6px 8px}.settings-nav-header{margin-left:4px;margin-bottom:10px}}
+.settings-close-btn:focus-visible{outline:2px solid var(--blue,#38bdf8);outline-offset:2px}
+.settings-nav{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;flex:0 0 auto}
+.settings-content{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;flex:1 1 auto}
+.settings-content .settings-panel{display:none;visibility:hidden}
+.settings-content .settings-panel.active{display:block;visibility:visible}
+@media(max-width:952px){.settings-modal{width:calc(100vw - 32px);min-width:0}.settings-close-btn{top:10px;right:10px}}

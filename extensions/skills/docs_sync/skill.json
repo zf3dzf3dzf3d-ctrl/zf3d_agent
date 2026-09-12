@@ -1,0 +1,12 @@
+{
+  "spec": 1,
+  "id": "docs_sync",
+  "name": "介绍/帮助文档同步",
+  "description": "软件介绍与使用帮助只维护 docs/ 一份 MD 源，负责同步到设置面板、GitHub、Gitee、官网 agent.asp 四处的流程与检查点",
+  "version": "1.0.0",
+  "enabled": true,
+  "prompt": "prompt.md",
+  "tools": [],
+  "triggers": ["同步文档", "文档同步", "同步介绍", "同步帮助", "更新介绍", "更新帮助", "同步README", "发布官网", "介绍和帮助"],
+  "autoInject": false
+}

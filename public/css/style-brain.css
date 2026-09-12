@@ -1,0 +1,127 @@
+﻿/* ============ 主脑（Main Brain）面板 v1 ============ */
+
+/* 底栏按钮 + 运行绿点 */
+#brainDockBtn {
+    position: relative;
+}
+
+/* 主脑按钮：普通底栏按钮（跟在「对话」按钮前，不独立悬浮） */
+#brainDockBtn.brain-fab {
+    position: static !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    cursor: pointer;
+    border: none !important;
+}
+#brainDockBtn.brain-fab:hover { filter: brightness(1.12); }
+.brain-fab-icon { font-size: 15px; line-height: 1; }
+.brain-fab-text { line-height: 1; }
+
+.brain-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: #35d07f; margin-left: 4px; vertical-align: middle;
+  box-shadow: 0 0 4px #35d07f;
+}
+.brain-dot--alert { background: #ff5544; box-shadow: 0 0 6px #ff5544; }
+
+/* 面板本体：常驻 DOM，靠 brain-open 开合；关闭按钮不存在，只有 × 最小化 */
+.brain-panel {
+  position: fixed; right: 18px; bottom: 56px; width: 420px; height: 520px;
+  display: none; flex-direction: column; z-index: 10050;
+  background: rgba(16, 20, 28, .96); color: #dfe6f0;
+  border: 1px solid rgba(90, 140, 255, .35); border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  overflow: hidden; font-size: 13px;
+}
+.brain-panel.brain-open { display: flex; }
+
+.brain-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: rgba(30, 40, 60, .8);
+  border-bottom: 1px solid rgba(90, 140, 255, .25);
+  flex: 0 0 auto;
+}
+.brain-title { font-weight: 600; font-size: 14px; }
+.brain-sub { margin-left: 8px; font-size: 11px; color: #35d07f; font-weight: 400; }
+.brain-head-ops { display: flex; align-items: center; gap: 6px; }
+.brain-switch { font-size: 11px; color: #9fb2cc; display: flex; align-items: center; gap: 3px; cursor: pointer; }
+.brain-mini-btn {
+  background: rgba(60, 80, 120, .4); color: #cdd8ea; border: 1px solid rgba(120, 150, 200, .3);
+  border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer;
+}
+.brain-mini-btn:hover { background: rgba(90, 120, 180, .5); }
+.brain-close-x:hover { background: rgba(255, 85, 68, .4); }
+
+/* 消息流 */
+.brain-msgs { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.brain-msg { max-width: 86%; padding: 7px 10px; border-radius: 10px; line-height: 1.55; word-break: break-word; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brain-msg .brain-tm { display: block; font-size: 10px; color: #7d8aa0; margin-top: 3px; text-align: right; }
+/* 单条消息复制按钮（hover 显示） */
+.brain-ai .brain-ops { display: block; text-align: right; margin-top: 2px; }
+.brain-ai .brain-copy-one { display: none; font-size: 10px; padding: 1px 8px; border: 1px solid #3a4a63; background: #1c2736; color: #9fb4d4; border-radius: 10px; cursor: pointer; }
+.brain-ai:hover .brain-copy-one { display: inline-block; }
+.brain-ai .brain-copy-one:hover { background: #2a3a55; color: #fff; }
+
+/* 用户气泡：右对齐蓝底 */
+.brain-me { align-self: flex-end; background: #2d6cdf; color: #fff; }
+
+/* 主脑播报/回答：左对齐深灰、斜体感（自动播报区分） */
+.brain-ai {
+  align-self: flex-start; background: rgba(45, 55, 75, .8); color: #dfe6f0;
+  border-left: 3px solid #5a8cff;
+}
+.brain-ai--alert { border-left-color: #e6a23c; }
+
+/* 系统事件折叠条：细窄一行 */
+.brain-ev {
+  align-self: stretch; max-width: 100%; padding: 3px 8px; border-radius: 6px;
+  background: rgba(60, 60, 70, .4); font-size: 11px; color: #9fb2cc;
+  display: flex; justify-content: space-between; gap: 8px;
+}
+.brain-ev--warn { background: rgba(230, 162, 60, .15); color: #e6b96a; }
+.brain-ev--error { background: rgba(255, 85, 68, .15); color: #ff8a7a; }
+.brain-ev-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 输入行 */
+.brain-inputrow { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid rgba(90, 140, 255, .25); flex: 0 0 auto; }
+.brain-inputrow input {
+  flex: 1; background: rgba(20, 26, 38, .9); color: #dfe6f0;
+  border: 1px solid rgba(120, 150, 200, .3); border-radius: 8px; padding: 7px 10px; font-size: 12px; outline: none;
+}
+.brain-inputrow input:focus { border-color: #5a8cff; }
+.brain-inputrow button {
+  background: #2d6cdf; color: #fff; border: none; border-radius: 8px;
+  padding: 0 14px; cursor: pointer; font-size: 12px;
+}
+.brain-inputrow button:hover { background: #3b7cf0; }
+/* 语音输入按钮（主脑面板） */
+.brain-inputrow .brain-voice-btn {
+  background: rgba(20, 26, 38, .9); color: #9fb4d8; flex: 0 0 auto;
+  border: 1px solid rgba(90, 140, 255, .3); border-radius: 8px;
+  cursor: pointer; font-size: 15px; line-height: 1; padding: 0 10px;
+}
+.brain-inputrow .brain-voice-btn:hover { background: rgba(45, 70, 120, .5); color: #fff; }
+.brain-inputrow .brain-voice-btn.voice-btn--rec { background: #e5484d; color: #fff; border-color: #e5484d; animation: voicePulse 1.2s infinite; }
+@keyframes voicePulse { 0%,100% { box-shadow: 0 0 0 0 rgba(229,72,77,.5); } 50% { box-shadow: 0 0 0 5px rgba(229,72,77,0); } }
+
+/* 滚动条 */
+.brain-msgs::-webkit-scrollbar { width: 6px; }
+.brain-msgs::-webkit-scrollbar-thumb { background: rgba(120, 150, 200, .3); border-radius: 3px; }
+
+/* 浅色主题适配 */
+body.light-theme .brain-panel { background: rgba(248, 250, 253, .97); color: #2a3444; }
+body.light-theme .brain-head { background: rgba(235, 240, 248, .9); }
+body.light-theme .brain-ai { background: #eef2f8; color: #2a3444; }
+body.light-theme .brain-me { background: #2d6cdf; color: #fff; }
+body.light-theme .brain-ev { background: rgba(0, 0, 0, .05); color: #67788f; }
+body.light-theme .brain-inputrow input { background: #fff; color: #2a3444; }
+body.light-theme .brain-sub { color: #1f9d63; }

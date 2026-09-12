@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>🎬 超级视频工作台 · AI导演台 + 剪辑台</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#0d0f14; color:#d7dde6; font:13px/1.6 "Segoe UI",sans-serif; padding:12px; }
+  h1 { font-size:15px; margin:0 0 10px; color:#7ecbff; }
+  h2 { font-size:13px; margin:0 0 8px; color:#9fc6ef; }
+  .row { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:center; }
+  input[type=text], select, textarea {
+    background:#1c2230; color:#c8ceda; border:1px solid #3a4150; border-radius:6px;
+    padding:6px 8px; font:12px/1.5 Consolas,monospace; outline:none;
+  }
+  input[type=text] { flex:1; min-width:180px; }
+  input[type=number] { background:#1c2230; color:#c8ceda; border:1px solid #3a4150; border-radius:6px; padding:6px 8px; width:64px; }
+  textarea { width:100%; height:70px; resize:vertical; }
+  button {
+    background:#2a5d9e; color:#fff; border:none; border-radius:6px;
+    padding:6px 12px; cursor:pointer; font-size:12px;
+  }
+  button:hover { background:#3a76c4; }
+  button:disabled { opacity:.5; cursor:wait; }
+  button.ghost { background:#2a3140; }
+  button.gold { background:#8a6d1d; }
+  button.gold:hover { background:#b08a25; }
+  .acts { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .acts button { background:#243044; }
+  .acts button:hover { background:#33507a; }
+  #log, #dlog {
+    background:#12161f; border:1px solid #2a3140; border-radius:8px;
+    padding:8px; height:150px; overflow:auto; font:11px/1.5 Consolas,monospace;
+    white-space:pre-wrap; word-break:break-all; margin-top:8px;
+  }
+  video { width:100%; max-height:300px; border-radius:8px; background:#000; margin-top:8px; display:none; }
+  .tip { color:#7a8496; font-size:11px; }
+  /* 标签页 */
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button { background:#1c2230; color:#8a93a6; font-size:13px; padding:8px 18px; border-radius:8px 8px 0 0; }
+  .tabs button.on { background:#2a5d9e; color:#fff; }
+  .pane { display:none; }
+  .pane.on { display:block; }
+  /* 导演台 */
+  .statusbar { display:flex; gap:14px; font-size:11px; margin-bottom:10px; flex-wrap:wrap; }
+  .statusbar .ok { color:#7dff9b; } .statusbar .bad { color:#ff8a8a; }
+  .shotcard { background:#141a26; border:1px solid #2a3140; border-radius:8px; padding:8px; margin-bottom:8px; }
+  .shotcard .head { display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+  .shotcard .head b { color:#ffd479; }
+  .shotcard input[type=text] { width:100%; margin-bottom:4px; }
+  .shotcard textarea { height:44px; font-size:11px; }
+  .shotcard video, .shotcard img { width:160px; max-height:100px; border-radius:6px; background:#000; display:block; }
+  .badge { font-size:10px; padding:1px 7px; border-radius:9px; background:#243850; color:#8fd0ff; }
+  .badge.done { background:#1d3a26; color:#7dff9b; }
+  .badge.err { background:#3a1d1d; color:#ff8a8a; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px; }
+</style>
+</head>
+<body>
+<h1>🎬 超级视频工作台</h1>
+
+<div class="tabs">
+  <button id="tabDirector" class="on" onclick="switchTab('director')">🎥 AI 导演台</button>
+  <button id="tabEdit" onclick="switchTab('edit')">✂️ 剪辑台</button>
+</div>
+
+<!-- ==================== 导演台 ==================== -->
+<div id="paneDirector" class="pane on">
+  <div class="statusbar" id="dstatus">加载状态中…</div>
+
+  <h2>① 一句话创意 → 全自动出片</h2>
+  <div class="row">
+    <input type="text" id="dIdea" placeholder="一句话创意，例：一只机械蝴蝶在霓虹雨夜的城市中穿行，最终飞向月光">
+  </div>
+  <div class="row">
+    <label>分镜数 <input type="number" id="dCount" value="3" min="1" max="12"></label>
+    <label>每镜秒数 <input type="number" id="dDur" value="5" min="3" max="10"></label>
+    <label>转场
+      <select id="dTrans">
+        <option value="fade">fade 淡入淡出</option>
+        <option value="dissolve">dissolve 叠化</option>
+        <option value="wipeleft">wipeleft</option>
+        <option value="wiperight">wiperight</option>
+        <option value="slideleft">slideleft</option>
+        <option value="slideup">slideup</option>
+        <option value="circleopen">circleopen</option>
+        <option value="smoothup">smoothup</option>
+        <option value="pixelize">pixelize</option>
+        <option value="radial">radial</option>
+        <option value="none">none 硬切</option>
+      </select>
+    </label>
+    <input type="text" id="dName" placeholder="项目名(可选)" style="max-width:160px">
+  </div>
+  <div class="row">
+    <button class="gold" id="btnFull" onclick="dFull()">🚀 一句话直出成片（分镜→生成→拼装）</button>
+    <span class="tip">默认走「设置→大模型配置」的默认模型做编剧；视频走已配置渠道（火山seedance/智谱CogVideoX）</span>
+  </div>
+
+  <h2 style="margin-top:14px">② 分步控制</h2>
+  <div class="row">
+    <button onclick="dStoryboard()">📝 生成 / 重生成分镜</button>
+    <button onclick="dSave()">💾 保存分镜修改</button>
+    <button onclick="dGenerate()">🎬 逐镜生成（断点续拍）</button>
+    <button onclick="dAssemble()">✨ 拼装成片</button>
+    <button onclick="dList()">📂 项目列表</button>
+  </div>
+
+  <div id="shots"></div>
+  <video id="dplayer" controls></video>
+  <div id="dlog">就绪。推荐流程：①填一句话 → 点「一句话直出成片」；或 ②生成分镜 → 手工改 prompt → 逐镜生成 → 拼装。</div>
+</div>
+
+<!-- ==================== 剪辑台（原有功能不动） ==================== -->
+<div id="paneEdit" class="pane">
+  <div class="row">
+    <input type="text" id="videoPath" placeholder="视频文件完整路径，如 F:\videos\demo.mp4">
+  </div>
+  <div class="row">
+    <input type="text" id="textPath" placeholder="文案路径 / BGM / 第二段视频（按功能不同，可选）">
+  </div>
+
+  <div class="acts">
+    <button data-act="info">📄 信息</button>
+    <button data-act="analyze">🔍 分析</button>
+    <button data-act="highlight">⭐ 高光提取</button>
+    <button data-act="desilence">✂️ 去静音粗剪</button>
+    <button data-act="subtitle">💬 字幕转写</button>
+    <button data-act="produce">🎬 文案一键成片</button>
+    <button data-act="transition">✨ 转场特效</button>
+    <button data-act="beat_sync">🥁 卡点成片</button>
+    <button data-act="fade">🌅 淡入淡出</button>
+    <button data-act="cut">✂️ 切片</button>
+    <button data-act="auto_materials">📦 自动取材</button>
+    <button data-act="visual_highlight">🎯 画面高光</button>
+    <button data-act="concat">🔗 拼接</button>
+    <button data-act="speed">⏩ 变速</button>
+    <button data-act="mix">🎼 混音</button>
+    <button data-act="gif">🌀 转 GIF</button>
+    <button data-act="shot">📸 截图</button>
+    <button data-act="clip_select">🧠 CLIP 语义选片</button>
+    <button data-act="summary">📝 智能分段+文案</button>
+  </div>
+
+  <div class="row">
+    <span class="tip">附加参数(JSON，可选，会合并进请求)：</span>
+  </div>
+  <textarea id="extra" placeholder='{"start":0,"end":10,"out":"F:/out.mp4"}'></textarea>
+
+  <div class="row" style="margin-top:8px">
+    <button onclick="run(null)">▶ 执行附加参数对应的 action</button>
+    <select id="manualAct" style="max-width:140px">
+      <option value="">选择 action…</option>
+    </select>
+    <button class="ghost" onclick="run(document.getElementById('manualAct').value)">执行</button>
+  </div>
+
+  <div id="log">就绪。填入视频路径后点击上方按钮。输出文件路径会显示在这里，并自动尝试预览。</div>
+  <video id="player" controls></video>
+</div>
+
+<script>
+/* ============ 标签页 ============ */
+function switchTab(t) {
+  document.getElementById('paneDirector').classList.toggle('on', t === 'director');
+  document.getElementById('paneEdit').classList.toggle('on', t === 'edit');
+  document.getElementById('tabDirector').classList.toggle('on', t === 'director');
+  document.getElementById('tabEdit').classList.toggle('on', t === 'edit');
+}
+
+/* ============ 导演台 ============ */
+var SB = null;          // 当前分镜 storyboard
+var CUR = '';           // 当前项目名
+
+function dlog(msg, cls) {
+  var el = document.getElementById('dlog');
+  var d = document.createElement('div');
+  if (cls) d.style.color = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+function dpreview(path) {
+  if (!path || !/\.(mp4|webm|mov|mkv)$/i.test(path)) return;
+  var v = document.getElementById('dplayer');
+  v.src = path.replace(/\\/g, '/');
+  v.style.display = 'block';
+  v.play().catch(function(){});
+}
+function dpost(body, btn) {
+  if (btn) { btn.disabled = true; }
+  dlog('▶ ' + (body.action || '') + ' …', '#7ecbff');
+  return fetch('/api/video-director', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (btn) btn.disabled = false;
+    var data = (d && d.data !== undefined) ? d.data : d;
+    if (data && data.ok === false) { dlog('✗ ' + (data.error || '失败'), '#ff6c6c'); return data; }
+    return data;
+  }).catch(function(e){
+    if (btn) btn.disabled = false;
+    dlog('✗ 请求失败: ' + e.message, '#ff6c6c');
+    return null;
+  });
+}
+
+/* 状态栏 */
+dpost({ action: 'status' }).then(function(s) {
+  var el = document.getElementById('dstatus');
+  if (!s) { el.innerHTML = '<span class="bad">状态获取失败</span>'; return; }
+  var llm = s.llm || {}, vid = s.video || {};
+  var chans = (vid.channels || []).map(function(c) {
+    return '<span class="' + (c.ready ? 'ok' : 'bad') + '">' + (c.provider || '?') + ':' + (c.model || '-') + (c.ready ? ' ✓' : ' ✗') + '</span>';
+  }).join(' ');
+  el.innerHTML =
+    '编剧(默认模型): <span class="' + (llm.has_key ? 'ok' : 'bad') + '">' + (llm.name || '未配置') + (llm.has_key ? ' ✓' : ' 缺Key,去设置→大模型配置') + '</span>' +
+    ' &nbsp;|&nbsp; 视频渠道: ' + (chans || '<span class="bad">无</span>');
+});
+
+/* 分镜卡片渲染 */
+function renderShots() {
+  var box = document.getElementById('shots');
+  box.innerHTML = '';
+  if (!SB || !SB.shots || !SB.shots.length) return;
+  var h2 = document.createElement('h2');
+  h2.textContent = '📋 分镜脚本「' + (SB.title || '') + '」';
+  box.appendChild(h2);
+  var grid = document.createElement('div');
+  grid.className = 'grid';
+  SB.shots.forEach(function(s, i) {
+    var card = document.createElement('div');
+    card.className = 'shotcard';
+    var head = '<div class="head"><b>#' + s.id + '</b> ' + (s.name || '') +
+      ' <span class="badge">' + s.duration + 's</span>' +
+      ' <span class="badge" id="st' + s.id + '">未生成</span>' +
+      ' <button class="ghost" style="margin-left:auto;padding:2px 8px" onclick="dGenOne(' + s.id + ',this)">单拍</button></div>';
+    card.innerHTML = head;
+    var dName = document.createElement('input');
+    dName.type = 'text'; dName.value = s.desc || '';
+    dName.placeholder = '中文画面描述';
+    dName.oninput = function(){ s.desc = this.value; };
+    var dPrompt = document.createElement('textarea');
+    dPrompt.value = s.video_prompt || '';
+    dPrompt.placeholder = '英文视频 prompt';
+    dPrompt.oninput = function(){ s.video_prompt = this.value; };
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<label>时长 <input type="number" min="3" max="10" step="1" style="width:52px"></label>' +
+      '<label>转场 <select style="max-width:110px"></select></label>' +
+      '<span class="tip" style="margin-left:auto">视频: <video style="display:none;width:160px"></video></span>';
+    var num = row.querySelector('input'); num.value = s.duration;
+    num.oninput = function(){ s.duration = parseInt(this.value || '5', 10); };
+    var selTr = row.querySelector('select');
+    ['none','fade','dissolve','wipeleft','wiperight','wipeup','wipedown','slideleft','slideright','slideup','circleopen','circleclose','pixelize','radial','smoothup'].forEach(function(t) {
+      var o = document.createElement('option'); o.value = o.textContent = t;
+      if (t === (s.transition || 'none')) o.selected = true;
+      selTr.appendChild(o);
+    });
+    selTr.onchange = function(){ s.transition = this.value; };
+    var vv = row.querySelector('video');
+    vv.dataset.shot = s.id;
+    card.appendChild(dName);
+    card.appendChild(dPrompt);
+    card.appendChild(row);
+    grid.appendChild(card);
+  });
+  box.appendChild(grid);
+}
+
+function markShot(id, text, cls) {
+  var el = document.getElementById('st' + id);
+  if (el) { el.textContent = text; el.className = 'badge ' + (cls || ''); }
+}
+
+/* 收集界面参数 */
+function dparams() {
+  return {
+    idea: document.getElementById('dIdea').value.trim(),
+    count: parseInt(document.getElementById('dCount').value || '3', 10),
+    duration: parseInt(document.getElementById('dDur').value || '5', 10),
+    kind: document.getElementById('dTrans').value,
+    name: document.getElementById('dName').value.trim()
+  };
+}
+
+/* 一句话全流程 */
+function dFull() {
+  var p = dparams();
+  if (!p.idea) { dlog('请先输入一句话创意', '#ffb86c'); return; }
+  dlog('🚀 全流程开工：分镜 → ' + p.count + ' 镜生成 → 拼装，预计 1~3 分钟…', '#ffd479');
+  var btn = document.getElementById('btnFull');
+  dpost({ action: 'full', idea: p.idea, count: p.count, duration: p.duration,
+          kind: p.kind, name: p.name }, btn).then(function(r) {
+    if (!r) return;
+    if (r.storyboard) { SB = { title: r.storyboard.title, shots: r.storyboard.shots }; CUR = r.name; renderShots(); }
+    dlog('生成: ' + (r.generate && r.generate.summary), r.generate && r.generate.errors && r.generate.errors.length ? '#ffb86c' : '#7dff9b');
+    if (r.output) { dlog('✅ 成片: ' + r.output + '（用时 ' + r.elapsed + 's）', '#7dff9b'); dpreview(r.output); }
+    else if (r.generate && r.generate.errors && r.generate.errors.length) {
+      (r.generate.errors || []).forEach(function(e) { dlog('  镜' + e.id + ' 失败: ' + e.error, '#ff8a8a'); });
+    }
+  });
+}
+
+/* 生成分镜 */
+function dStoryboard() {
+  var p = dparams();
+  if (!p.idea) { dlog('请先输入一句话创意', '#ffb86c'); return; }
+  dpost({ action: 'storyboard', idea: p.idea, count: p.count, duration: p.duration }).then(function(r) {
+    if (!r) return;
+    SB = r; CUR = p.name || r.title || 'project';
+    renderShots();
+    dlog('✅ 分镜就绪「' + r.title + '」（' + r.shots.length + ' 镜，' + r.llm + '）。可手工修改后「保存分镜修改」。', '#7dff9b');
+  });
+}
+
+/* 保存分镜 */
+function dSave() {
+  if (!SB) { dlog('还没有分镜', '#ffb86c'); return; }
+  var p = dparams();
+  dpost({ action: 'save', name: p.name || CUR, storyboard: SB }).then(function(r) {
+    if (r && r.ok) { CUR = p.name || CUR; dlog('✅ 已保存到 ' + r.dir + '\\storyboard.json', '#7dff9b'); }
+  });
+}
+
+/* 逐镜生成 */
+function dGenerate() {
+  if (!SB) { dlog('请先生成分镜', '#ffb86c'); return; }
+  var p = dparams();
+  dpost({ action: 'save', name: p.name || CUR, storyboard: SB }).then(function(r) {
+    dpost({ action: 'generate', name: p.name || CUR }).then(function(g) {
+      if (!g) return;
+      dlog(g.summary, g.ok ? '#7dff9b' : '#ffb86c');
+      (g.generated || []).forEach(function(x) {
+        markShot(x.id, x.status === 'cached' ? '已缓存' : '已生成', 'done');
+        var v = document.querySelector('video[data-shot="' + x.id + '"]');
+        if (v) { v.src = String(x.path).replace(/\\/g, '/'); v.style.display = 'block'; }
+      });
+      (g.errors || []).forEach(function(e) { markShot(e.id, '失败', 'err'); dlog('  镜' + e.id + ': ' + e.error, '#ff8a8a'); });
+    });
+  });
+}
+
+/* 单镜重拍 */
+function dGenOne(id, btn) {
+  var p = dparams();
+  dpost({ action: 'save', name: p.name || CUR, storyboard: SB }).then(function(r) {
+    dpost({ action: 'generate', name: p.name || CUR, ids: [id] }, btn).then(function(g) {
+      if (!g) return;
+      (g.generated || []).forEach(function(x) {
+        markShot(x.id, '已生成', 'done');
+        var v = document.querySelector('video[data-shot="' + x.id + '"]');
+        if (v) { v.src = String(x.path).replace(/\\/g, '/'); v.style.display = 'block'; }
+      });
+      (g.errors || []).forEach(function(e) { markShot(e.id, '失败', 'err'); dlog('镜' + e.id + ': ' + e.error, '#ff8a8a'); });
+    });
+  });
+}
+
+/* 拼装成片 */
+function dAssemble() {
+  var p = dparams();
+  dpost({ action: 'assemble', name: p.name || CUR, kind: p.kind }).then(function(r) {
+    if (r && r.ok) { dlog('✅ 成片: ' + r.output, '#7dff9b'); dpreview(r.output); }
+  });
+}
+
+/* 项目列表 */
+function dList() {
+  dpost({ action: 'list' }).then(function(r) {
+    if (!r) return;
+    (r.projects || []).forEach(function(p) {
+      dlog('📂 ' + p.name + ' —「' + (p.title || '') + '」镜头 ' + (p.shots_done || 0) + '/' + (p.shots_total || 0) + (p.has_final ? ' ✅有成片: ' + p.dir + '\\final.mp4' : ''), '#8fd0ff');
+    });
+    if (!r.projects || !r.projects.length) dlog('（还没有项目）');
+  });
+}
+
+/* ============ 剪辑台（原有逻辑不动） ============ */
+var ACTIONS = ['info','cut','concat','subtitle','analyze','highlight','desilence','speed','volume','mix','text','gif','shot','produce','transition','beat_sync','fade','auto_materials','visual_highlight','clip_select','summary'];
+var sel = document.getElementById('manualAct');
+ACTIONS.forEach(function(a){ var o=document.createElement('option'); o.value=o.textContent=a; sel.appendChild(o); });
+
+var actArgs = {
+  subtitle: { burn: true },
+  produce: {},
+  transition: { transition: 'fade', dur: 0.8 },
+  beat_sync: {},
+  fade: { fin: 1, fout: 1 },
+  visual_highlight: { top: 3, seg: 8 },
+  clip_select: { query: '城市夜景;人物特写', fps: 'auto', top: 5, minlen: 6 },
+  summary: { whisper_size: 'small', language: 'zh', max_frames: 16 },
+  vision_pick: { fps: 'auto', top: 3, seg: 8 }
+};
+
+function log(msg, cls) {
+  var el = document.getElementById('log');
+  var d = document.createElement('div');
+  if (cls) d.style.color = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function tryPreview(path) {
+  if (!path || !/\.(mp4|webm|mov|mkv)$/i.test(path)) return;
+  var v = document.getElementById('player');
+  // 同源可访问时直接预览；跨盘路径由主服务静态托管，失败则只显示路径
+  v.src = path.replace(/\\/g, '/');
+  v.style.display = 'block';
+  v.play().catch(function(){});
+}
+
+function run(actOverride) {
+  var act = actOverride;
+  if (!act) {
+    var btns = document.querySelectorAll('.acts button');
+    for (var i=0;i<btns.length;i++) if (btns[i]===window._lastBtn) act = btns[i].dataset.act;
+  }
+  if (!act) { log('请先点击上方功能按钮或选择 action', '#ffb86c'); return; }
+  var body = { action: act };
+  var vp = document.getElementById('videoPath').value.trim();
+  var tp = document.getElementById('textPath').value.trim();
+  if (vp) body.file = vp;
+  if (tp) {
+    if (act === 'produce') body.text_file = tp;
+    else if (act === 'beat_sync' || act === 'mix') body.bgm = tp;
+    else if (act === 'transition' || act === 'concat' || act === 'auto_materials') body.second = tp;
+    else body.text = tp;
+  }
+  Object.assign(body, actArgs[act] || {});
+  var extra = document.getElementById('extra').value.trim();
+  if (extra) { try { Object.assign(body, JSON.parse(extra)); } catch(e) { log('附加参数 JSON 解析失败: '+e.message, '#ff6c6c'); return; } }
+
+  log('▶ 执行 ' + act + ' …', '#7ecbff');
+  fetch('/api/tools/video_edit', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); }).then(function(d) {
+    if (d.ok === false) { log('✗ 失败: ' + (d.error||'未知错误'), '#ff6c6c'); return; }
+    log('✓ 完成 ' + (d.action||act));
+    ['output','out','srt','clip_dir','clips','result','materials','segments','beats','shots','info'].forEach(function(k){
+      if (d[k] !== undefined) log(k + ': ' + JSON.stringify(d[k]));
+    });
+    var outp = d.output || d.out || (d.clips && d.clips[0]);
+    if (typeof outp === 'string') { log('输出: ' + outp, '#7dff9b'); tryPreview(outp); }
+    else log(JSON.stringify(d).slice(0, 800));
+  }).catch(function(e){ log('✗ 请求失败: ' + e.message, '#ff6c6c'); });
+}
+
+document.querySelectorAll('.acts button').forEach(function(b){
+  b.addEventListener('click', function(){ window._lastBtn = b; run(b.dataset.act); });
+});
+</script>
+</body>
+</html>

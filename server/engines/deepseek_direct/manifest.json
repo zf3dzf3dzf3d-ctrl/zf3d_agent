@@ -1,0 +1,13 @@
+{
+  "id": "deepseek_direct",
+  "name": "DeepSeek",
+  "description": "DeepSeek direct engine: local tool loop with its own isolated minimal toolset (flat schemas, plain text returns)",
+  "version": "3.0.0",
+  "enabled": true,
+  "engine_mode": "local_loop",
+  "tools": {
+    "source": "self",
+    "dir": "tools/",
+    "list": ["ds_read", "ds_write", "ds_files", "ds_run"]
+  }
+}

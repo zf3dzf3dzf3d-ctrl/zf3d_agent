@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>py-browser-2d 引擎 · 游戏中心</title>
+<style>
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1a2440,#0b0e1a 60%);color:#ccc;
+    font-family:"Segoe UI",monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  #info{margin:8px 0 0;font-size:12px;color:#678}
+  h1{margin:34px 0 4px;color:#fff;font-size:26px;letter-spacing:6px;text-align:center;
+    text-shadow:0 0 18px rgba(90,160,255,.7)}
+  .sub{color:#7a8bb0;font-size:13px;margin-bottom:26px;letter-spacing:2px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;
+    width:min(960px,92vw);padding-bottom:30px}
+  a.card{display:block;text-decoration:none;color:inherit;border-radius:14px;overflow:hidden;
+    background:linear-gradient(160deg,#182238,#101728);border:1px solid #2a3a5e;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);transition:.18s;position:relative}
+  a.card:hover{transform:translateY(-4px);border-color:#5a90ff;box-shadow:0 10px 26px rgba(90,144,255,.25)}
+  .thumb{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;
+    filter:drop-shadow(0 0 10px rgba(255,255,255,.25))}
+  .meta{padding:10px 14px 14px}
+  .meta b{display:block;color:#fff;font-size:15px;margin-bottom:4px;letter-spacing:1px}
+  .meta span{font-size:12px;color:#8fa3c8;line-height:1.5}
+  .tag{position:absolute;top:10px;right:10px;font-size:10px;color:#ffd27f;
+    border:1px solid #6a5a2e;border-radius:20px;padding:2px 9px;background:rgba(40,32,10,.6)}
+  .tools{width:min(960px,92vw);display:flex;flex-wrap:wrap;gap:10px;padding-bottom:20px}
+  .tools a{color:#6cf;text-decoration:none;font-size:12px;border:1px solid #29405e;border-radius:8px;
+    padding:5px 12px;background:rgba(20,30,50,.5)}
+  .tools a:hover{border-color:#5a90ff}
+  #backCanvas{display:none;position:fixed;right:10px;top:10px;z-index:60;cursor:pointer;
+    background:rgba(20,28,44,.85);border:1px solid rgba(255,110,70,.55);color:#ffb9a0;
+    padding:5px 14px;border-radius:8px;font-family:monospace;font-size:12px;letter-spacing:2px;
+    box-shadow:0 2px 12px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+<h1>PY-BROWSER-2D</h1>
+<div class="sub">街 机 游 戏 中 心</div>
+<div id="info">加载中...</div>
+<button id="backCanvas" title="退出引擎，返回无限画布">✕ 退出引擎</button>
+<script>
+  try { if (window.parent && window.parent !== window) document.getElementById("backCanvas").style.display = "block"; } catch (e) {}
+  document.getElementById("backCanvas").addEventListener("click", function () {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "engine-node:close", src: "menu-exit" }, "*");
+        return;
+      }
+    } catch (e) {}
+    try { if (window.opener && !window.opener.closed) { window.close(); return; } } catch (e) {}
+    history.length > 1 ? history.back() : (location.href = "/");
+  });
+</script>
+<div class="grid" id="gameGrid"></div>
+<div class="tools">
+  <a href="demo-game.html">▶ 星火守卫（引擎示例）</a>
+  <a href="bench.html">基准测试</a>
+  <a href="flowfield.html">流场寻路</a>
+  <a href="core-demo.html">核心功能Demo</a>
+  <a href="scene-editor.html">场景编辑器</a>
+</div>
+<script>
+(async () => {
+  const info = document.getElementById("info");
+  try {
+    const assets = await (await fetch("/api/assets")).json();
+    info.textContent = `Python 服务已连通: ${assets.engine} | 资产数: ${assets.assets.length}`;
+  } catch (e) { info.textContent = "离线模式（Python 服务未连通，游戏仍可运行）"; }
+
+  const games = [
+    { href:"games/super-mario/index.html", icon:"🍄", name:"超级玛丽", desc:"横版跳跃 · 踩敌人吃金币", bg:"#1e3a24", tag:"FC复刻" },
+    { href:"games/contra/index.html",      icon:"🔫", name:"魂斗罗",   desc:"横版射击 · 冲锋陷阵",     bg:"#3a1e1e", tag:"FC复刻" },
+    { href:"games/salamander/index.html",  icon:"🚀", name:"沙罗曼蛇", desc:"纵向卷轴 · 弹幕空战",     bg:"#1e2440", tag:"FC复刻" },
+    { href:"games/space-shooter/index.html",icon:"🛸", name:"太空射击", desc:"无尽弹幕 · 火力升级",     bg:"#12283a", tag:"原创" },
+    { href:"games/pinball/index.html",     icon:"🎱", name:"弹球打砖块", desc:"物理碰撞 · 挡板反弹连击", bg:"#2a1e3a", tag:"热门" },
+    { href:"games/ragdoll/index.html",     icon:"🧍", name:"布娃娃小人", desc:"Verlet物理 · 拖拽甩动 · 行走跳跃", bg:"#1e3a2a", tag:"新上架" },
+    { href:"/auto2d/actor.html",           icon:"🦸", name:"骨骼角色",   desc:"2D角色管线 · 走跑跳攻击死亡 · 可操作", bg:"#33261a", tag:"新上架" },
+    { href:"games/scenery/index.html",     icon:"🏞️", name:"山水间",     desc:"风景漫游 · 视差山水 · 昼夜循环", bg:"#0f2030", tag:"休闲" },
+  ];
+  document.getElementById("gameGrid").innerHTML = games.map(g => `
+    <a class="card" href="${g.href}">
+      <div class="thumb" style="background:${g.bg}">${g.icon}</div>
+      <div class="meta"><b>${g.name}</b><span>${g.desc}</span></div>
+      <div class="tag">${g.tag}</div>
+    </a>`).join("");
+})();
+</script>
+<script src="engine.js"></script>
+</body>
+</html>

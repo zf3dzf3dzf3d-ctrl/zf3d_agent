@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>大模型文档 · PDF 查看器</title>
+<style>
+  :root{--bg:#1e2229;--panel:#262b34;--line:#3a4150;--fg:#e8ecf3;--dim:#9aa5b5;--acc:#4da3ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.8 "Segoe UI","Microsoft YaHei",sans-serif;height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header b{font-size:16px}
+  header .meta{color:var(--dim);font-size:12px}
+  #stage{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:24px}
+  #page{width:min(820px,92%);aspect-ratio:210/297;background:#f5f2ea;color:#22262e;border-radius:4px;
+    box-shadow:0 6px 32px rgba(0,0,0,.5);padding:56px 60px;position:relative;overflow:hidden}
+  #page h2{font-size:22px;color:#1a4b8f;border-bottom:2px solid #1a4b8f;padding-bottom:8px;margin-bottom:16px}
+  #page p{margin:10px 0}
+  #page ul{margin:10px 0 10px 26px}
+  #page blockquote{border-left:4px solid #1a4b8f;background:#e8ecf3;padding:8px 16px;margin:12px 0;border-radius:0 8px 8px 0}
+  #page code,#page pre{font:13px/1.6 Consolas,monospace;background:#e5e2d8;border-radius:6px;padding:2px 6px}
+  #page pre{padding:12px;overflow:auto;margin:12px 0}
+  #page table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}
+  #page th,#page td{border:1px solid #b9b4a4;padding:5px 10px;text-align:left}
+  #page th{background:#e2ddcf}
+  #page hr{border:none;border-top:1px solid #b9b4a4;margin:16px 0}
+  #pageNum{position:absolute;bottom:14px;right:24px;color:#888;font-size:12px;font-family:Consolas,monospace}
+  #empty{color:var(--dim);padding:40px;text-align:center}
+  footer{display:flex;align-items:center;justify-content:center;gap:14px;padding:8px;background:var(--panel);border-top:1px solid var(--line)}
+  footer button{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 16px;cursor:pointer}
+  footer button:hover{border-color:var(--acc);color:var(--acc)}
+  footer span{color:var(--dim);font-size:13px;min-width:80px;text-align:center}
+</style>
+</head>
+<body>
+<header><b>📕</b><b id="title">加载中…</b><span class="meta" id="meta"></span></header>
+<div id="stage"><div id="empty">加载中…</div><div id="page" style="display:none"></div></div>
+<footer>
+  <button id="prev">◀ 上一页</button><span id="ind">- / -</span><button id="next">下一页 ▶</button>
+</footer>
+<script>
+let doc=null, cur=0;
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function md(t){return esc(t).replace(/`([^`]+)`/g,'<code>$1</code>');}
+function renderBlock(b){
+  switch(b.type){
+    case 'p': return '<p>'+md(b.text)+'</p>';
+    case 'h1': case 'h2': return '<h2>'+md(b.text)+'</h2>';
+    case 'h3': return '<h3 style="margin:14px 0 6px">'+md(b.text)+'</h3>';
+    case 'ul': return '<ul>'+b.items.map(i=>'<li>'+md(i)+'</li>').join('')+'</ul>';
+    case 'ol': return '<ol>'+b.items.map(i=>'<li>'+md(i)+'</li>').join('')+'</ol>';
+    case 'quote': return '<blockquote>'+md(b.text)+'</blockquote>';
+    case 'code': return '<pre>'+esc(b.text)+'</pre>';
+    case 'hr': return '<hr>';
+    case 'table': return '<table><tr>'+(b.header||[]).map(h=>'<th>'+md(h)+'</th>').join('')+'</tr>'+
+      (b.rows||[]).map(r=>'<tr>'+r.map(c=>'<td>'+md(c)+'</td>').join('')+'</tr>').join('')+'</table>';
+    default: return '';
+  }
+}
+function show(){
+  const pg=doc.pages[cur], el=document.getElementById('page');
+  el.innerHTML='<h2>'+md(pg.title||'')+'</h2>'+(pg.blocks||[]).map(renderBlock).join('')+
+    '<div id="pageNum">- '+(cur+1)+' -</div>';
+  document.getElementById('ind').textContent=(cur+1)+' / '+doc.pages.length;
+  document.getElementById('stage').scrollTop=0;
+}
+function load(){
+  const f=new URLSearchParams(location.search).get('file');
+  if(!f){document.getElementById('empty').textContent='未指定文件（?file=xxx.pdf.json）';return;}
+  fetch('/pres/'+encodeURIComponent(f)).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>{
+    doc=d;
+    document.getElementById('title').textContent=d.title||f;
+    document.getElementById('meta').textContent=f;
+    document.getElementById('empty').style.display='none';
+    document.getElementById('page').style.display='';
+    show();
+  }).catch(e=>{document.getElementById('empty').textContent='加载失败：'+e.message});
+}
+document.getElementById('prev').onclick=()=>{if(doc&&cur>0){cur--;show();}};
+document.getElementById('next').onclick=()=>{if(doc&&cur<doc.pages.length-1){cur++;show();}};
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft')document.getElementById('prev').click();
+  if(e.key==='ArrowRight')document.getElementById('next').click();
+});
+load();
+</script>
+</body>
+</html>

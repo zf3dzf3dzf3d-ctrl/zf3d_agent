@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>表格查看器 · 大模型 Excel</title>
+<style>
+  :root{ --bg:#10141c; --panel:#171d29; --line:#2a3446; --txt:#dde5f2; --sub:#8b97ab; --acc:#4da3ff; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden;}
+  header{display:flex; align-items:center; gap:10px; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line);}
+  header h1{font-size:16px; font-weight:600;}
+  header .meta{color:var(--sub); font-size:12px;}
+  header .spacer{flex:1;}
+  #search{background:#0d1119; border:1px solid var(--line); color:var(--txt); border-radius:6px; padding:6px 10px; width:220px; outline:none;}
+  #search:focus{border-color:var(--acc);}
+  #tabs{display:flex; gap:6px; padding:8px 16px 0; background:var(--panel); overflow-x:auto; border-bottom:1px solid var(--line);}
+  #tabs button{background:transparent; border:1px solid var(--line); border-bottom:none; color:var(--sub); padding:7px 16px; border-radius:8px 8px 0 0; cursor:pointer; white-space:nowrap; font-size:13px;}
+  #tabs button.on{background:var(--bg); color:var(--txt); border-color:var(--acc);}
+  #wrap{flex:1; overflow:auto; padding:16px;}
+  table{border-collapse:collapse; width:max-content; min-width:60%; background:#0d1119;}
+  th,td{border:1px solid var(--line); padding:7px 12px; text-align:left; white-space:nowrap;}
+  th{background:#1b2334; color:var(--acc); cursor:pointer; user-select:none; position:sticky; top:0;}
+  th:hover{background:#22304a;}
+  th .ind{margin-left:6px; font-size:10px; opacity:.8;}
+  tr:nth-child(even) td{background:#111725;}
+  tr:hover td{background:#1a2438;}
+  td.num{text-align:right; font-variant-numeric:tabular-nums;}
+  #status{color:var(--sub); font-size:12px; padding:6px 16px; border-top:1px solid var(--line); background:var(--panel);}
+  #empty{color:var(--sub); text-align:center; padding:60px;}
+  #sidebar{position:fixed; top:0; right:-300px; width:280px; height:100vh; background:var(--panel); border-left:1px solid var(--line); transition:right .2s; padding:16px; overflow-y:auto; z-index:10;}
+  #sidebar.open{right:0;}
+  #sidebar h3{font-size:14px; margin-bottom:10px;}
+  #sidebar a{display:block; color:var(--sub); padding:6px 8px; border-radius:6px; cursor:pointer; text-decoration:none;}
+  #sidebar a:hover{background:#1e2739; color:var(--txt);}
+  #fab{position:fixed; top:12px; right:12px; z-index:11; width:38px; height:38px; border-radius:50%; background:var(--panel); border:1px solid var(--line); color:var(--txt); font-size:18px; cursor:pointer;}
+  #printBtn{position:fixed; top:58px; right:12px; z-index:11; width:38px; height:38px; border-radius:50%; background:var(--panel); border:1px solid var(--line); color:var(--txt); font-size:18px; cursor:pointer;}
+  @media print{
+    body{background:#fff; color:#000; overflow:visible; height:auto;}
+    #fab,#printBtn,#sidebar,#tabs,#search{display:none !important;}
+    header,#status{background:#fff; border-color:#ccc; color:#000;}
+    #wrap{overflow:visible; padding:0;}
+    table{background:#fff; width:100%;}
+    th,td{border-color:#bbb; color:#000; white-space:normal;}
+    th{background:#eee; color:#000;}
+    tr:nth-child(even) td{background:#f6f6f6;}
+  }
+</style>
+</head>
+<body>
+<button id="fab" title="文件列表">📂</button>
+<button id="printBtn" title="打印 / 导出 PDF">🖨</button>
+<button id="editBtn" title="编辑 JSON">✏️</button>
+<div id="editOverlay" style="display:none; position:fixed; inset:0; background:rgba(5,8,14,.88); z-index:99; padding:40px;">
+  <div style="max-width:900px; margin:0 auto; height:100%; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;">
+    <div style="display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line);">
+      <b>✏️ 编辑表格 JSON</b>
+      <span class="meta" id="editFileName"></span>
+      <span class="spacer"></span>
+      <button id="editSave" style="background:var(--acc); color:#06121f; border:none; border-radius:6px; padding:7px 18px; cursor:pointer; font-weight:600;">💾 保存</button>
+      <button id="editClose" style="background:#1e2739; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:7px 14px; cursor:pointer;">✕</button>
+    </div>
+    <textarea id="editArea" spellcheck="false" style="flex:1; background:#0b0f18; color:#c9f0d0; border:none; outline:none; resize:none; padding:18px; font:13px/1.6 Consolas,monospace;"></textarea>
+  </div>
+</div>
+<div id="sidebar"><h3>表格文件</h3><div id="filelist"></div></div>
+<header>
+  <h1 id="title">…</h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <input id="search" placeholder="🔍 搜索本表…">
+</header>
+<div id="tabs"></div>
+<div id="wrap"><div id="empty">加载中…</div></div>
+<div id="status"></div>
+<script>
+const qs = new URLSearchParams(location.search);
+let DATA=null, cur=0, sortCol=-1, sortAsc=true;
+
+async function boot(){
+  const file = qs.get('file');
+  try{
+    if(file){
+      const r = await fetch('/api/sheets/get?file='+encodeURIComponent(file));
+      const j = await r.json();
+      if(j.ok){ DATA=j.data; }
+    } else {
+      const r = await fetch('/api/sheets/list');
+      const j = await r.json();
+      if(j.ok && j.items.length){
+        DATA = (await (await fetch('/api/sheets/get?file='+encodeURIComponent(j.items[0].file))).json()).data;
+        loadFileList(j.items);
+      }
+    }
+  }catch(e){ /* 离线 file:// 时忽略 */ }
+  if(DATA) render(); else document.getElementById('empty').textContent='未找到表格文件。可通过 ?file=xxx.sheet.json 指定。';
+}
+
+async function loadFileList(items){
+  const box=document.getElementById('filelist'); box.innerHTML='';
+  items.forEach(it=>{
+    const a=document.createElement('a');
+    a.textContent='📄 '+(it.title||it.file);
+    a.onclick=()=>{ location.search='?file='+encodeURIComponent(it.file); };
+    box.appendChild(a);
+  });
+}
+
+function render(){
+  const m=DATA.meta||{};
+  document.getElementById('title').textContent=m.title||'未命名表格';
+  document.getElementById('meta').textContent=(m.author?'作者:'+m.author+'　':'')+(m.created||'');
+  const tabs=document.getElementById('tabs'); tabs.innerHTML='';
+  (DATA.sheets||[]).forEach((s,i)=>{
+    const b=document.createElement('button');
+    b.textContent=s.name||('Sheet'+(i+1));
+    if(i===cur) b.className='on';
+    b.onclick=()=>{cur=i; sortCol=-1; document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); drawTable();};
+    tabs.appendChild(b);
+  });
+  drawTable();
+}
+
+function cellIsNum(v){ return typeof v==='number' || (typeof v==='string' && v!=='' && !isNaN(v) && /^[\d.,%¥$-]+$/.test(v)); }
+
+function drawTable(){
+  const wrap=document.getElementById('wrap');
+  const s=(DATA.sheets||[])[cur];
+  if(!s){ wrap.innerHTML='<div id="empty">无数据</div>'; return; }
+  const cols=s.columns||[];
+  const kw=(document.getElementById('search').value||'').toLowerCase();
+  let rows=(s.rows||[]).map((r,i)=>({cells:r,_i:i}));
+  if(kw) rows=rows.filter(r=>r.cells.some(c=>String(c??'').toLowerCase().includes(kw)));
+  if(sortCol>=0){
+    rows.sort((a,b)=>{
+      const x=a.cells[sortCol], y=b.cells[sortCol];
+      if(cellIsNum(x)&&cellIsNum(y)) return (Number(String(x).replace(/[,%¥$]/g,''))-Number(String(y).replace(/[,%¥$]/g,'')))*(sortAsc?1:-1);
+      return String(x??'').localeCompare(String(y??''),'zh')*(sortAsc?1:-1);
+    });
+  }
+  let html='<table><thead><tr>';
+  cols.forEach((c,i)=>{ html+=`<th data-i="${i}">${esc(String(c))}${i===sortCol?'<span class="ind">'+(sortAsc?'▲':'▼')+'</span>':''}</th>`; });
+  html+='</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html+='<tr>'+r.cells.map(c=>{
+      const num=cellIsNum(c)?' class="num"':'';
+      return `<td${num}>${esc(String(c??''))}</td>`;
+    }).join('')+'</tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=rows.length?html:'<div id="empty">无匹配行</div>';
+  wrap.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const i=+th.dataset.i;
+    if(sortCol===i) sortAsc=!sortAsc; else {sortCol=i; sortAsc=true;}
+    drawTable();
+  });
+  document.getElementById('status').textContent=`${s.name||'Sheet'}：${cols.length} 列 × ${(s.rows||[]).length} 行`+(kw?`（搜索命中 ${rows.length} 行）`:'');
+}
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+document.getElementById('search').oninput=()=>drawTable();
+document.getElementById('fab').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('printBtn').onclick=()=>window.print();
+// ---- 编辑模式 ----
+function currentFileName(){ return qs.get('file')||'sample.sheet.json'; }
+document.getElementById('editBtn').onclick=()=>{
+  const ov=document.getElementById('editOverlay');
+  document.getElementById('editFileName').textContent=currentFileName();
+  document.getElementById('editArea').value=JSON.stringify(DATA,null,2);
+  ov.style.display='block';
+};
+document.getElementById('editClose').onclick=()=>{ document.getElementById('editOverlay').style.display='none'; };
+document.getElementById('editSave').onclick=async()=>{
+  let obj;
+  try{ obj=JSON.parse(document.getElementById('editArea').value); }
+  catch(e){ alert('JSON 格式错误：'+e.message); return; }
+  const btn=document.getElementById('editSave'); btn.textContent='保存中…'; btn.disabled=true;
+  try{
+    const r=await fetch('/api/sheets/save',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({file:currentFileName(),data:obj})});
+    const j=await r.json();
+    if(j.ok){ DATA=obj; document.getElementById('editOverlay').style.display='none'; cur=0; sortCol=-1; render(); btn.textContent='✅ 已保存'; }
+    else alert('保存失败：'+(j.err||'未知错误'));
+  }catch(e){ alert('保存失败：'+e.message); }
+  setTimeout(()=>{ btn.textContent='💾 保存'; btn.disabled=false; },1500);
+};
+boot();
+</script>
+</body>
+</html>

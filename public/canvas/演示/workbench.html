@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>演示工作台 · 协商式编辑</title>
+<style>
+  :root{
+    --bg:#0d0f1c; --panel:#151830; --panel2:#1b1f3d; --line:#2a2f55;
+    --txt:#e8eaf0; --dim:#8b90b5; --acc:#4f6ef7; --acc2:#36d399; --warn:#ffb84d; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+  html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);overflow:hidden}
+  #app{display:grid;grid-template-columns:260px 1fr 300px;grid-template-rows:44px 1fr;height:100%}
+  header{grid-column:1/4;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header b{font-size:15px}
+  header .file{color:var(--dim);font-size:12px}
+  header .sp{flex:1}
+  button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--acc)}
+  button.pri{background:var(--acc);border-color:var(--acc)}
+  button.ok{background:var(--acc2);border-color:var(--acc2);color:#08130d}
+  button.mini{padding:3px 8px;font-size:12px;border-radius:6px}
+  select,input[type=text]{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 8px;font-size:13px}
+
+  /* 左栏：大纲卡 */
+  #left{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:10px}
+  .lv-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .lv-h span{font-size:12px;color:var(--dim)}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;cursor:pointer}
+  .card:hover{border-color:var(--acc)}
+  .card.cur{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+  .card .t{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+  .card .idea{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.4}
+  .badge{font-size:10px;padding:1px 6px;border-radius:8px}
+  .b-ok{background:rgba(54,211,153,.18);color:var(--acc2)}
+  .b-pend{background:rgba(255,184,77,.18);color:var(--warn)}
+  .b-bad{background:rgba(255,107,107,.18);color:var(--bad)}
+  .card .ops{display:flex;gap:4px;margin-top:6px}
+
+  /* 中栏：预览 */
+  #mid{display:flex;flex-direction:column;overflow:hidden}
+  #stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px}
+  #stage{width:1280px;height:720px;background:#000;border-radius:10px;transform-origin:center;position:relative;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+  #stage iframe{width:1280px;height:720px;border:0;border-radius:10px}
+  #stage .sel-box{position:absolute;border:2px solid var(--acc2);border-radius:4px;pointer-events:none;box-shadow:0 0 12px rgba(54,211,153,.6);z-index:5}
+  #stage .sel-tag{position:absolute;top:-20px;left:0;background:var(--acc2);color:#08130d;font-size:10px;padding:1px 6px;border-radius:4px;white-space:nowrap;z-index:6}
+  #midbar{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
+
+  /* 右栏：属性 + 对话 */
+  #right{display:grid;grid-template-rows:1fr 220px;background:var(--panel);border-left:1px solid var(--line)}
+  #props{overflow-y:auto;padding:10px}
+  .p-h{font-size:12px;color:var(--dim);margin:8px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+  .p-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px}
+  .p-row label{width:64px;color:var(--dim);flex-shrink:0}
+  .p-row input[type=text],.p-row input[type=number],.p-row select{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:4px 6px;font-size:12px}
+  .p-row input[type=color]{width:40px;height:26px;border:1px solid var(--line);border-radius:6px;background:none;padding:1px}
+  .p-empty{color:var(--dim);font-size:12px;text-align:center;margin-top:40px;line-height:1.8}
+  .anim-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);margin:2px;cursor:pointer;color:var(--dim)}
+  .anim-chip.on{border-color:var(--acc2);color:var(--acc2)}
+  #chat{border-top:1px solid var(--line);display:flex;flex-direction:column}
+  #chatlog{flex:1;overflow-y:auto;padding:8px 10px;font-size:12px;line-height:1.5}
+  .msg{margin-bottom:8px;padding:6px 8px;border-radius:8px;max-width:92%}
+  .msg.u{background:var(--panel2);margin-left:auto}
+  .msg.a{background:rgba(79,110,247,.15);border:1px solid rgba(79,110,247,.3)}
+  #chatbar{display:flex;gap:6px;padding:8px}
+  #chatbar input{flex:1}
+  #right{display:flex;flex-direction:column;overflow:hidden}
+  #lib{padding:10px;border-bottom:1px solid var(--line);overflow-y:auto;max-height:44%}
+  #props{flex:1;overflow-y:auto;padding:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <b>🎬 演示工作台</b>
+    <select id="fileSel" style="max-width:220px"></select>
+    <span class="file" id="fileInfo"></span>
+    <div class="sp"></div>
+    <button onclick="openViewer()">▶ 放映</button>
+    <button class="pri" onclick="saveAll()">💾 保存</button>
+  </header>
+
+  <div id="left">
+    <div class="lv-h"><span>大纲卡（协商态）</span><button class="mini" onclick="addOutline()">➕ 页</button></div>
+    <div id="cards"></div>
+  </div>
+
+  <div id="mid">
+    <div id="stage-wrap"><div id="stage"><iframe id="preview" src="/演示/viewer.html"></iframe></div></div>
+    <div id="midbar">
+      页 <input type="number" id="pageNo" value="1" min="1" style="width:56px" onchange="gotoPage()">
+      <span id="pageInfo"></span>
+      <div class="sp" style="flex:1"></div>
+      <span id="selInfo">点击预览中的元素可精细编辑（仅 scene 页）</span>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="lib">
+      <div class="p-h">🧩 组件库（点击插入到当前页）</div>
+      <div id="libBtns"></div>
+      <div class="p-h">📐 布局预制</div>
+      <select id="layoutSel" style="width:100%;margin-bottom:6px" onchange="applyLayout(this.value)">
+        <option value="">— 选择布局应用到当前页 —</option>
+        <option value="titleTop">标题在上 · 内容区</option>
+        <option value="imgLeft">左图右文</option>
+        <option value="imgRight">左文右图</option>
+        <option value="twoCol">双栏图文</option>
+        <option value="kpi3">三卡 KPI</option>
+        <option value="chartBar">柱状图表页</option>
+      </select>
+      <button class="mini" style="width:100%" onclick="addScenePage()">➕ 新建自由画布页（scene）</button>
+    </div>
+    <div id="props"><div class="p-empty">未选中元素<br>中栏打开一个「自由画布 scene」页后，<br>点击其中的元素即可编辑属性，<br>也可直接鼠标拖拽移动元素</div></div>
+    <div id="chat">
+      <div id="chatlog"><div class="msg a">我在。选中元素后直接说要求，比如「从下往上长、慢一点」，我改完立即刷新预览。</div></div>
+      <div id="chatbar"><input type="text" id="chatInput" placeholder="对选中元素/当前页提出修改要求…" onkeydown="if(event.key==='Enter')sendChat()"><button class="pri" onclick="sendChat()">发送</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= 状态 ================= */
+let FILES=[], CUR=null, DATA=null, PAGE=1, SEL=null; // SEL={slideIdx, elIdx}
+
+const $=id=>document.getElementById(id);
+
+/* ================= 加载 ================= */
+async function loadList(){
+  const r=await fetch('/api/demo/list').then(r=>r.json()).catch(()=>({ok:false}));
+  FILES=(r.items||[]).map(it=>typeof it==='string'?it:(it.file||it.name||'')).filter(Boolean);
+  const sel=$('fileSel'); sel.innerHTML='';
+  FILES.forEach(f=>{const o=document.createElement('option');o.value=f;o.textContent=f.replace(/\.pres\.json$/,'');sel.appendChild(o);});
+  if(FILES.length){sel.value=FILES[0];await loadFile(sel.value);}
+}
+async function loadFile(name){
+  CUR=name;
+  const r=await fetch('/api/demo/get?file='+encodeURIComponent(name)).then(r=>r.json()).catch(()=>({ok:false}));
+  if(!r.ok){alert('加载失败: '+(r.err||''));return;}
+  DATA=r.data; PAGE=1; SEL=null;
+  $('fileInfo').textContent=(DATA.slides.length)+' 页 · '+(DATA.outline.length?'大纲'+DATA.outline.length+'卡':'无大纲');
+  renderCards(); gotoPage(1);
+}
+function gotoPage(n){
+  if(n!==undefined)PAGE=n;
+  PAGE=Math.max(1,Math.min(DATA.slides.length,PAGE|0));
+  $('pageNo').value=PAGE;
+  const s=DATA.slides[PAGE-1];
+  $('pageInfo').textContent=' / '+DATA.slides.length+(s&&s.type?(' · '+s.type):'');
+  renderPreview(); renderProps(); renderCards();
+}
+function renderPreview(){
+  const f=$('preview');
+  f.src='/pres/viewer.html?embed&edit=1#page='+PAGE+'&t='+Date.now();
+}
+/* 通知 viewer 高亮当前选中元素 */
+function syncHighlight(){
+  const f=$('preview');
+  if(!f||!f.contentWindow)return;
+  try{f.contentWindow.postMessage({type:'pres-page',n:PAGE-1},'*');
+      if(SEL&&SEL.slide===PAGE-1)f.contentWindow.postMessage({type:'pres-highlight',el:SEL.el},'*');
+      else f.contentWindow.postMessage({type:'pres-highlight',el:-1},'*');}catch(e){}
+}
+$('fileSel').onchange=e=>loadFile(e.target.value);
+function openViewer(){window.open('/演示/viewer.html','_blank');}
+
+  /* ================= 组件库 + 布局预制 ================= */
+  const LIB = [
+    {icon:'🅰', name:'标题', make:()=>({type:'text',x:80,y:80,w:500,h:60,text:'页面标题',size:44,bold:700,color:'#ffffff'})},
+    {icon:'📝', name:'正文', make:()=>({type:'text',x:80,y:180,w:520,h:200,text:'在这里输入正文内容，支持多行说明文字。',size:22,color:'#c9cede',line:1.6})},
+    {icon:'🖼', name:'图片', make:()=>({type:'image',x:660,y:140,w:520,h:380,src:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="520" height="380"><rect width="100%" height="100%" rx="16" fill="#232849"/><text x="50%" y="50%" fill="#5a6386" font-size="28" text-anchor="middle" dominant-baseline="middle">图片占位 · 换 src</text></svg>'),fit:'cover'})},
+    {icon:'⬛', name:'色块', make:()=>({type:'shape',x:80,y:420,w:400,h:180,color:'rgba(79,110,247,.18)',radius:16,border:'1px solid rgba(79,110,247,.5)'})},
+    {icon:'🔘', name:'按钮', make:()=>({type:'shape',x:80,y:520,w:180,h:56,color:'#4f6ef7',radius:28,shadow:'0 6px 20px rgba(79,110,247,.45)'})},
+    {icon:'🔤', name:'按钮文字', make:()=>({type:'text',x:120,y:532,w:120,h:36,text:'了 解 更 多',size:20,bold:600,color:'#ffffff',align:'center'})},
+    {icon:'⭐', name:'图标SVG', make:()=>({type:'image',x:660,y:60,w:72,h:72,src:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#36d399"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"/></svg>')})},
+    {icon:'💠', name:'数字卡片', make:()=>({type:'shape',x:80,y:300,w:280,h:140,color:'rgba(54,211,153,.12)',radius:14,border:'1px solid rgba(54,211,153,.4)'})},
+  ];
+  function renderLib(){
+    const box=$('libBtns'); if(!box)return;
+    box.style.cssText='display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:6px';
+    LIB.forEach(it=>{
+      const b=document.createElement('button');
+      b.className='mini'; b.textContent=it.icon+' '+it.name;
+      b.onclick=()=>insertEl(it.make());
+      box.appendChild(b);
+    });
+  }
+  function insertEl(el){
+    if(!DATA)return;
+    const s=DATA.slides[PAGE-1];
+    if(s.type!=='scene'){
+      if(!confirm('当前页不是自由画布页，转换成 scene 页？'))return;
+      DATA.slides[PAGE-1]={type:'scene',title:s.title||'',bg:s.bg,elements:[el]};
+    }else{ (s.elements=s.elements||[]).push(el); }
+    SEL={slide:PAGE-1, el:(DATA.slides[PAGE-1].elements.length-1)};
+    renderPreview(); renderProps(); saveAll();
+  }
+  function addScenePage(){
+    if(!DATA)return;
+    DATA.slides.splice(PAGE,0,{type:'scene',title:'新页面',elements:[]});
+    gotoPage(PAGE+1); saveAll();
+  }
+  const LAYOUTS={
+    titleTop:()=>({type:'scene',elements:[
+      {type:'text',x:80,y:60,w:900,h:70,text:'页面标题',size:42,bold:700,color:'#ffffff'},
+      {type:'shape',x:80,y:145,w:120,h:6,color:'#4f6ef7',radius:3},
+      {type:'text',x:80,y:190,w:1120,h:420,text:'正文内容区：在这里写说明文字或补充要点。',size:24,color:'#c9cede',line:1.7}]}),
+    imgLeft:()=>({type:'scene',elements:[
+      {type:'image',x:60,y:90,w:540,h:500,src:'',fit:'cover'},
+      {type:'text',x:650,y:110,w:560,h:60,text:'标题要点',size:36,bold:700,color:'#ffffff'},
+      {type:'text',x:650,y:200,w:560,h:340,text:'右侧文字说明区，描述与图片相关的内容。',size:22,color:'#c9cede',line:1.7}]}),
+    imgRight:()=>({type:'scene',elements:[
+      {type:'text',x:80,y:110,w:560,h:60,text:'标题要点',size:36,bold:700,color:'#ffffff'},
+      {type:'text',x:80,y:200,w:560,h:340,text:'左侧文字说明区，描述与图片相关的内容。',size:22,color:'#c9cede',line:1.7},
+      {type:'image',x:680,y:90,w:540,h:500,src:'',fit:'cover'}]}),
+    twoCol:()=>({type:'scene',elements:[
+      {type:'text',x:80,y:60,w:900,h:70,text:'对比 / 双栏标题',size:40,bold:700,color:'#ffffff'},
+      {type:'shape',x:80,y:170,w:540,h:420,color:'rgba(79,110,247,.10)',radius:16},
+      {type:'shape',x:660,y:170,w:540,h:420,color:'rgba(54,211,153,.10)',radius:16},
+      {type:'text',x:110,y:200,w:480,h:360,text:'栏 A 内容',size:22,color:'#c9cede',line:1.7},
+      {type:'text',x:690,y:200,w:480,h:360,text:'栏 B 内容',size:22,color:'#c9cede',line:1.7}]}),
+    kpi3:()=>({type:'scene',elements:[
+      {type:'text',x:80,y:60,w:900,h:70,text:'核心数据',size:40,bold:700,color:'#ffffff'},
+      {type:'shape',x:80,y:200,w:340,h:300,color:'rgba(79,110,247,.12)',radius:18},
+      {type:'shape',x:470,y:200,w:340,h:300,color:'rgba(159,123,255,.12)',radius:18},
+      {type:'shape',x:860,y:200,w:340,h:300,color:'rgba(54,211,153,.12)',radius:18},
+      {type:'text',x:80,y:250,w:340,h:80,text:'99%',size:60,bold:800,color:'#4f6ef7',align:'center'},
+      {type:'text',x:80,y:380,w:340,h:50,text:'指标一',size:24,color:'#c9cede',align:'center'},
+      {type:'text',x:470,y:250,w:340,h:80,text:'1200',size:60,bold:800,color:'#9f7bff',align:'center'},
+      {type:'text',x:470,y:380,w:340,h:50,text:'指标二',size:24,color:'#c9cede',align:'center'},
+      {type:'text',x:860,y:250,w:340,h:80,text:'3x',size:60,bold:800,color:'#36d399',align:'center'},
+      {type:'text',x:860,y:380,w:340,h:50,text:'指标三',size:24,color:'#c9cede',align:'center'}]}),
+    chartBar:()=>({type:'chart',title:'图表标题',kind:'bar',
+      data:[{value:60,label:'一月'},{value:90,label:'二月'},{value:45,label:'三月'},{value:75,label:'四月'},{value:100,label:'五月'}]}),
+  };
+  function applyLayout(name){
+    if(!name||!DATA)return;
+    const gen=LAYOUTS[name]; if(!gen)return;
+    DATA.slides[PAGE-1]=gen();
+    SEL=null; $('layoutSel').value='';
+    renderPreview(); renderProps(); renderCards(); saveAll();
+  }
+  renderLib();
+
+  /* ================= 大纲卡 ================= */
+function renderCards(){
+  const box=$('cards');box.innerHTML='';
+  (DATA.outline||[]).forEach((c,i)=>{
+    const d=document.createElement('div');
+    d.className='card'+(i===PAGE-1?' cur':'');
+    const st=c.status==='approved'?['b-ok','✅通过']:c.status==='rejected'?['b-bad','❌否决']:['b-pend','⏳待定'];
+    d.innerHTML=`<div class="t">P${c.page||i+1} ${esc(c.type||'页')} <span class="badge ${st[0]}">${st[1]}</span></div>
+      <div class="idea">${esc(c.idea||'')}</div>
+      <div class="ops">
+        <button class="mini ok" onclick="stOutline(${i},'approved')">通过</button>
+        <button class="mini" onclick="stOutline(${i},'pending')">待定</button>
+        <button class="mini" onclick="delOutline(${i})">删除</button>
+      </div>`;
+    d.onclick=e=>{if(e.target.tagName!=='BUTTON'){PAGE=c.page||i+1;gotoPage();}};
+    box.appendChild(d);
+  });
+  if(!(DATA.outline||[]).length)box.innerHTML='<div class="p-empty">无大纲（旧文件直接编辑成品页）</div>';
+}
+function stOutline(i,s){DATA.outline[i].status=s;renderCards();}
+function delOutline(i){DATA.outline.splice(i,1);renderCards();}
+function addOutline(){
+  const idea=prompt('这一页的构想（一句话）：');if(!idea)return;
+  DATA.outline.push({page:(DATA.outline.length||0)+1,type:'scene',idea,status:'pending'});
+  renderCards();
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+/* ================= 精细编辑：点选元素 + 属性面板 ================= */
+// 预览 iframe 内部渲染由 viewer 完成；这里通过 postMessage 接收元素点击
+window.addEventListener('message',e=>{
+  const d=e.data||{};
+  if(d.src!=='viewer')return;
+  if(d.cmd==='move'){
+    // viewer 拖拽结束：把最终坐标写回 JSON
+    if(d.slide===SEL?.slide && d.el===SEL?.el){
+      const el=DATA.slides[d.slide].elements[d.el];
+      if(el){el.x=d.x;el.y=d.y;renderProps();saveAll();}
+    }
+  }
+  if(d.cmd==='pick'){
+    // viewer 上报：当前页 scene 元素被点击 {cmd:'pick', slide, el}
+    SEL={slide:d.slide, el:d.el};
+    if(d.slide+1!==PAGE){gotoPage(d.slide+1);}
+    else{renderProps();
+      try{$('preview').contentWindow.postMessage({type:'pres-highlight',el:d.el},'*');}catch(e){}}
+  }
+});
+
+function renderProps(){
+  const box=$('props');
+  const s=DATA.slides[PAGE-1];
+  if(!SEL||!s||s.type!=='scene'||!s.elements||!s.elements[SEL.el]){
+    box.innerHTML='<div class="p-empty">未选中元素<br>中栏打开一个「自由画布 scene」页后，<br>点击其中的元素即可编辑属性</div>';
+    $('selInfo').textContent='点击预览中的元素可精细编辑（仅 scene 页）';
+    return;
+  }
+  const el=s.elements[SEL.el];
+  $('selInfo').textContent=`已选中: ${el.type}#${SEL.el}（P${PAGE}）`;
+  const num=(k,lab,step)=>`<div class="p-row"><label>${lab}</label><input type="number" step="${step||1}" value="${el[k]??0}" onchange="setProp('${k}',this.value,'num')"></div>`;
+  const txt=(k,lab)=>`<div class="p-row"><label>${lab}</label><input type="text" value="${esc(el[k]??'')}" onchange="setProp('${k}',this.value)"></div>`;
+  const col=(k,lab)=>`<div class="p-row"><label>${lab}</label><input type="color" value="${toHex(el[k])}" onchange="setProp('${k}',this.value)"></div>`;
+  const anims=['','fade','up','down','left','right','zoom','pop','spin'];
+  const loops=['','float','pulse','spin','blink'];
+  const selOpt=(arr,v)=>arr.map(a=>`<option value="${a}" ${a===(v||'')?'selected':''}>${a||'无'}</option>`).join('');
+  box.innerHTML=`
+    <div class="p-h">元素 ${el.type} #${SEL.el} · 第 ${PAGE} 页</div>
+    <div class="p-h">位置 / 尺寸</div>
+    ${num('x','X')}${num('y','Y')}${num('w','宽')}${num('h','高')}
+    ${num('rotate','旋转°')}${num('scale','缩放','0.05')}${num('opacity','透明度','0.05')}
+    <div class="p-h">外观</div>
+    ${el.type==='text'?num('size','字号')+num('bold','粗细')+col('color','颜色')+txt('text','内容'):''}
+    ${el.type==='shape'?col('color','颜色')+num('radius','圆角'):''}
+    ${el.type==='image'?txt('src','图片地址'):''}
+    <div class="p-h">入场动画 / 循环</div>
+    <div class="p-row"><label>enter</label><select onchange="setProp('enter',this.value)">${selOpt(anims,el.enter)}</select></div>
+    <div class="p-row"><label>delay</label><input type="number" step="0.1" value="${el.delay??0}" onchange="setProp('delay',this.value,'num')"></div>
+    <div class="p-row"><label>loop</label><select onchange="setProp('loop',this.value)">${selOpt(loops,el.loop)}</select></div>
+    <div class="p-h">操作</div>
+    <div class="p-row"><button class="mini" onclick="moveEl(1)">上移一层</button><button class="mini" onclick="moveEl(-1)">下移一层</button><button class="mini" style="border-color:var(--bad);color:var(--bad)" onclick="delEl()">删除</button></div>
+  `;
+}
+function toHex(c){
+  if(!c)return '#000000';
+  if(/^#[0-9a-f]{6}$/i.test(c))return c;
+  const m=String(c).match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if(m)return '#'+[1,2,3].map(i=>(+m[i]).toString(16).padStart(2,'0')).join('');
+  return '#000000';
+}
+function setProp(k,v,mode){
+  if(!SEL)return;
+  const el=DATA.slides[SEL.slide].elements[SEL.el];
+  if(mode==='num')v=parseFloat(v)||0;
+  if(v===''&&(k==='enter'||k==='loop'))delete el[k];
+  else el[k]=v;
+  renderPreview(); // 整页刷新预览
+  if(typeof saveAll==='function')saveAll(); // 精细编辑：改完即存（自动备份）
+}
+function moveEl(d){
+  const els=DATA.slides[SEL.slide].elements;
+  const j=SEL.el+d;
+  if(j<0||j>=els.length)return;
+  [els[SEL.el],els[j]]=[els[j],els[SEL.el]];
+  SEL.el=j;renderPreview();saveAll();
+}
+function delEl(){
+  if(!confirm('删除该元素？'))return;
+  DATA.slides[SEL.slide].elements.splice(SEL.el,1);
+  SEL=null;renderPreview();saveAll();
+}
+
+/* ================= 对话协商 ================= */
+function sendChat(){
+  const inp=$('chatInput'),t=inp.value.trim();if(!t)return;
+  inp.value='';
+  log('u',t);
+  // 本地直改优先：常见口令直接改参数（秒级反馈）；其余提示交给主对话模型
+  const el=SEL?DATA.slides[SEL.slide].elements[SEL.el]:null;
+  const low=t.toLowerCase();
+  if(el){
+    const dirMap={上:'up',下:'down',左:'left',右:'right',淡入:'fade',弹出:'pop',缩放:'zoom',旋转:'spin'};
+    let hit=false;
+    for(const k in dirMap)if(t.includes(k)&&t.includes('入场')){el.enter=dirMap[k];hit=true;}
+    const dm=t.match(/延迟\s*([\d.]+)|慢\s*([\d.]+)秒/);
+    if(dm){el.delay=parseFloat(dm[1]||dm[2]);hit=true;}
+    if(hit){log('a','已改参数：enter='+(el.enter||'无')+' delay='+(el.delay||0)+'，预览已刷新。要改其他细节直接说，或保存后让主对话模型精修。');renderPreview();return;}
+  }
+  log('a','收到。复杂修改请在主对话里说（模型会改 .pres.json 后我这边刷新即可）；这里保存按钮会把当前所有改动写回文件。');
+}
+function log(w,t){const d=document.createElement('div');d.className='msg '+w;d.textContent=t;$('chatlog').appendChild(d);$('chatlog').scrollTop=1e9;}
+
+/* ================= 保存 ================= */
+async function saveAll(){
+  if(!DATA||!CUR)return;
+  clearTimeout(saveAll._t);
+  saveAll._t=setTimeout(async()=>{
+  const r=await fetch('/api/demo/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({file:CUR,data:DATA})}).then(r=>r.json()).catch(e=>({ok:false,err:String(e)}));
+  if(r.ok){log('a','✅ 已保存 '+CUR+'（'+r.slides+' 页），旧文件已自动备份。');$('fileInfo').textContent=r.slides+' 页';}
+  else alert('保存失败: '+(r.err||''));
+  },300);
+}
+
+loadList();
+</script>
+</body>
+</html>

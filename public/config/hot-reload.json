@@ -1,0 +1,48 @@
+{
+  "$comment": "热更新客户端配置 - 复制此文件到项目根 config/ 目录并按需修改",
+  "$doc": "所有字段均为可选，删除字段将使用内置默认值",
+
+  "reconnect": {
+    "$comment": "SSE 断线重连策略：指数退避 + 随机抖动，防止多窗口同时重连打爆后端",
+    "enabled": true,
+    "initialDelayMs": 1000,
+    "maxDelayMs": 30000,
+    "backoffFactor": 2,
+    "maxAttempts": 12,
+    "jitterRatio": 0.2,
+    "$hint": "12次失败后放弃，总耗时约 4 分钟。jitterRatio=0.2 表示 ±20% 随机抖动"
+  },
+
+  "keepalive": {
+    "$comment": "探活间隔：定期检查连接状态，断线时主动重连",
+    "enabled": true,
+    "intervalMs": 30000,
+    "$hint": "30 秒探活足够灵敏，开销可忽略"
+  },
+
+  "skipFiles": [
+    "js/highlight.min.js",
+    "js/mermaid.min.js",
+    "js/marked.min.js",
+    "js/hot-reload.js",
+    "js/hot-reload.enhanced.js",
+    "js/_scan.js"
+  ],
+
+  "ui": {
+    "$comment": "Toast 提示样式 - 颜色支持 rgba/hex",
+    "showToast": true,
+    "toastPosition": "bottom-right",
+    "colors": {
+      "success": "rgba(34, 197, 94, 0.95)",
+      "error": "rgba(239, 68, 68, 0.95)",
+      "info": "rgba(59, 130, 246, 0.95)"
+    }
+  },
+
+  "debug": {
+    "enabled": false,
+    "logToConsole": true,
+    "$hint": "debug.enabled=false 时静默运行，true 时输出详细日志"
+  }
+}

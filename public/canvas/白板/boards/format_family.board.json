@@ -1,0 +1,23 @@
+{
+  "meta": { "title": "朱峰智能体格式家族总览", "author": "朱峰智能体", "created": "2026-09-07" },
+  "nodes": [
+    { "id": "core", "x": 400, "y": 40, "w": 220, "h": 60, "text": "朱峰格式家族\n（大模型原生存档）", "shape": "round", "color": "#ffd166" },
+    { "id": "doc", "x": 60, "y": 200, "w": 170, "h": 56, "text": "文档 doc.json\n对标 Word" },
+    { "id": "slide", "x": 270, "y": 200, "w": 170, "h": 56, "text": "演示 slide.json\n对标 PPT" },
+    { "id": "sheet", "x": 480, "y": 200, "w": 170, "h": 56, "text": "表格 sheet.json\n对标 Excel" },
+    { "id": "mind", "x": 690, "y": 200, "w": 170, "h": 56, "text": "思维导图 mind.json\n对标 XMind" },
+    { "id": "board", "x": 480, "y": 340, "w": 170, "h": 56, "text": "白板 board.json\n对标 Miro/draw.io", "color": "#7ee787" },
+    { "id": "plan", "x": 60, "y": 340, "w": 170, "h": 56, "text": "图像 diagram\n（下一步）", "shape": "round", "color": "#8b97ab", "dash": false },
+    { "id": "pdf", "x": 270, "y": 340, "w": 170, "h": 56, "text": "打印导出 PDF\n打印样式已就位", "shape": "round" },
+    { "id": "hub", "x": 480, "y": 470, "w": 170, "h": 56, "text": "总入口 hub.html\n（待建）", "shape": "round", "color": "#ff9d66" }
+  ],
+  "edges": [
+    { "from": "core", "to": "doc" },
+    { "from": "core", "to": "slide" },
+    { "from": "core", "to": "sheet" },
+    { "from": "core", "to": "mind" },
+    { "from": "core", "to": "board", "label": "本次新增" },
+    { "from": "doc", "to": "pdf", "label": "🖨" },
+    { "from": "board", "to": "hub", "dash": true }
+  ]
+}

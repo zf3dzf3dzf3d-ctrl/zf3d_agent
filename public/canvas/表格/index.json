@@ -1,0 +1,22 @@
+[
+  {
+    "title": "朱峰社区智能体 · 功能清单",
+    "file": "feature_list.sheet.json"
+  },
+  {
+    "title": "模型三件套格式对照表",
+    "file": "format_compare.sheet.json"
+  },
+  {
+    "title": "示例表格 · 销售月报",
+    "file": "sales_demo.sheet.json"
+  },
+  {
+    "file": "工资表.sheet.json",
+    "title": "工资表"
+  },
+  {
+    "file": "数据表.sheet.json",
+    "title": "数据表"
+  }
+]

@@ -1,0 +1,20 @@
+node_modules/ 
+python/ 
+.git/ 
+*.pyc 
+__pycache__/
+server/data/browser_profile/
+server/browser_plugin/data/profiles/ 
+*.bak.* 
+ 
+# ==== [��ȫ] ��˽����Կ��������⣨2026-09-09�� 
+private/ 
+server/heartbeat_key.json 
+server/_sec_*.py 
+*.py.bak.*
+
+# 运行数据与临时脚本
+server/data/
+system/temp/
+backups/  
+system/trash/

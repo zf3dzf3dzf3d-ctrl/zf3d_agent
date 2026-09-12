@@ -1,0 +1,132 @@
+{
+  "skeleton": {
+    "name": "auto_rig",
+    "format": "zf-1.0"
+  },
+  "bones": [
+    {
+      "name": "root",
+      "parent": null
+    },
+    {
+      "name": "hips",
+      "parent": "root"
+    },
+    {
+      "name": "spine",
+      "parent": "hips"
+    },
+    {
+      "name": "head",
+      "parent": "spine"
+    },
+    {
+      "name": "arm_l",
+      "parent": "spine"
+    },
+    {
+      "name": "arm_r",
+      "parent": "spine"
+    },
+    {
+      "name": "leg_l",
+      "parent": "hips"
+    },
+    {
+      "name": "leg_r",
+      "parent": "hips"
+    }
+  ],
+  "slots": [
+    {
+      "name": "leg_l",
+      "bone": "leg_l",
+      "attachment": "leg_l.png",
+      "pivot": [
+        180,
+        441
+      ],
+      "box": [
+        105,
+        412,
+        256,
+        702
+      ]
+    },
+    {
+      "name": "leg_r",
+      "bone": "leg_r",
+      "attachment": "leg_r.png",
+      "pivot": [
+        332,
+        441
+      ],
+      "box": [
+        256,
+        412,
+        408,
+        702
+      ]
+    },
+    {
+      "name": "arm_l",
+      "bone": "arm_l",
+      "attachment": "arm_l.png",
+      "pivot": [
+        180,
+        241
+      ],
+      "box": [
+        105,
+        219,
+        256,
+        444
+      ]
+    },
+    {
+      "name": "arm_r",
+      "bone": "arm_r",
+      "attachment": "arm_r.png",
+      "pivot": [
+        332,
+        241
+      ],
+      "box": [
+        256,
+        219,
+        408,
+        444
+      ]
+    },
+    {
+      "name": "torso",
+      "bone": "torso",
+      "attachment": "torso.png",
+      "pivot": [
+        256,
+        221
+      ],
+      "box": [
+        105,
+        200,
+        408,
+        412
+      ]
+    },
+    {
+      "name": "head",
+      "bone": "head",
+      "attachment": "head.png",
+      "pivot": [
+        256,
+        73
+      ],
+      "box": [
+        105,
+        59,
+        408,
+        200
+      ]
+    }
+  ]
+}

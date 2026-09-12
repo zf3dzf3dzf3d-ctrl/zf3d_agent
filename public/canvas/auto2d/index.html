@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>Auto2D 角色待机动画演示</title>
+<style>
+  body { margin:0; background:#12141c; color:#cdd3e0; font-family:system-ui; display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:16px; margin:14px; }
+  canvas { background:linear-gradient(#1b2030,#141824); border:1px solid #2a3350; border-radius:8px; }
+  p { font-size:13px; color:#7a86a3; }
+</style>
+</head>
+<body>
+<h1>全自动流程演示：生成图 → 抠背景 → 骨骼待机动画（呼吸/漂浮/眨眼光斑）</h1>
+<canvas id="cv" width="768" height="768"></canvas>
+<p>图片与骨骼数据均为自动生成：char_raw.png → char_cut.png + rig.json</p>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const img = new Image();
+img.src = 'char_cut.png';
+let rig = null;
+fetch('rig.json').then(r => r.json()).then(j => rig = j);
+
+let t = 0;
+function draw() {
+  requestAnimationFrame(draw);
+  if (!img.complete || !img.naturalWidth) return;
+  t += 1 / 60;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const s = img.width, d = cv.width;
+  ctx.save();
+  // 整体呼吸：轻微上下漂浮 + 水平缩放模拟呼吸起伏
+  const bob = Math.sin(t * 1.6) * 5;
+  const breathe = 1 + Math.sin(t * 2.2) * 0.008;
+  ctx.translate(d / 2, d / 2 + bob);
+  ctx.scale(breathe, 1 / breathe * 0.999);
+  ctx.drawImage(img, -s / 2, -s / 2);
+  ctx.restore();
+  // 待机光斑（模拟眨眼/能量点）
+  if (rig) {
+    const ax = rig.anchors.head;
+    const gx = ax[0] * s + (d - s) / 2, gy = ax[1] * s + (d - s) / 2 + bob;
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 30 + Math.sin(t * 3) * 8);
+    g.addColorStop(0, 'rgba(120,180,255,0.25)');
+    g.addColorStop(1, 'rgba(120,180,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(gx - 60, gy - 60, 120, 120);
+  }
+  // 地面影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(d / 2, d * 0.95 - bob * 0.4, 110 - bob * 2, 16, 0, 0, 7);
+  ctx.fill();
+}
+draw();
+</script>
+</body>
+</html>

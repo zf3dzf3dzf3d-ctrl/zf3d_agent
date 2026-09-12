@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对话串行管理器 · ChatGate 面板</title>
+<style>
+  :root{
+    --bg:#0f1218; --card:#171c26; --card2:#1d2330; --line:#2a3245;
+    --tx:#dde3ee; --tx2:#8b93a7; --ok:#3ecf8e; --warn:#e8b34b; --err:#ef5b6b;
+    --acc:#5b8cff; --queue:#7f9cf5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--tx);font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;padding:18px}
+  h1{font-size:18px;margin-bottom:4px}
+  .sub{color:var(--tx2);font-size:12px;margin-bottom:14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;flex:1;min-width:210px}
+  .card b{font-size:22px;display:block}
+  .card .lb{color:var(--tx2);font-size:12px}
+  .banner{display:none;background:#4a2230;border:1px solid #7c3a4d;color:#ffb3c0;border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:13px}
+  .banner.show{display:block}
+  .btn{background:var(--card2);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:5px 14px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--acc)}
+  .btn.warn{border-color:#6b5424;color:var(--warn)}
+  .btn.danger{border-color:#6b2f38;color:var(--err)}
+  .btn.ok{border-color:#2b5c47;color:var(--ok)}
+  .btn:disabled{opacity:.5;cursor:default}
+  input[type=number]{background:var(--bg);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:5px 8px;width:80px;font-size:13px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  section h2{font-size:14px;margin-bottom:10px;color:var(--tx)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--tx2);font-weight:500;text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid #212939;white-space:nowrap;vertical-align:top}
+  td.wrap{white-space:normal;word-break:break-all}
+  .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px}
+  .tag.running{background:#1d3a2e;color:var(--ok)}
+  .tag.queued{background:#242c47;color:var(--queue)}
+  .tag.gapped{background:#3a3224;color:var(--warn)}
+  .tag.holding{background:#3a2d47;color:#c79bf5}
+  .tag.done{background:#1d3a2e;color:var(--ok)}
+  .tag.failed{background:#4a2230;color:var(--err)}
+  .tag.rejected{background:#4a3a1d;color:var(--warn)}
+  .tag.allowed{background:#1d3a2e;color:var(--ok)}
+  .tag.denied{background:#4a2230;color:var(--err)}
+  .muted{color:var(--tx2)}
+  .empty{color:var(--tx2);text-align:center;padding:16px 0}
+  #err{color:var(--err);font-size:12px;min-height:18px;margin-bottom:6px}
+</style>
+</head>
+<body>
+  <h1>对话串行管理器（ChatGate v4）</h1>
+  <div class="sub">所有大模型请求的唯一闸门 · 多车道并行、车道内严格串行 · 按大模型分组互不阻塞 · AIMD 自适应松紧 · 报废车让道（网络异常对话应急休整不堵车道） · 数据每秒自动刷新</div>
+
+  <div id="banner" class="banner">⛔ 闸门已全局暂停：所有新请求将被拒绝（客户端可稍后重试）</div>
+  <div id="err"></div>
+
+  <div class="row">
+    <div class="card">
+      <span class="lb">运行状态</span>
+      <b id="stEnabled">—</b>
+      <button id="btnToggle" class="btn warn" style="margin-top:6px">暂停闸门</button>
+    </div>
+    <div class="card">
+      <span class="lb">放行间隔（秒，同车道相邻请求最小隔离）</span>
+      <b id="stGap">—</b>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+        <input type="number" id="gapInput" min="0" max="600" step="0.5" value="2">
+        <button id="btnGap" class="btn">设置间隔</button>
+      </div>
+    </div>
+    <div class="card">
+      <span class="lb">车道数（1~16，热生效）</span>
+      <b id="stLanes">—</b>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+        <input type="number" id="lanesInput" min="1" max="16" step="1" value="3">
+        <button id="btnLanes" class="btn">设置车道</button>
+      </div>
+    </div>
+    <div class="card">
+      <span class="lb">自适应模式（AIMD 松紧 + 车道数自动调节）</span>
+      <b id="stAuto">—</b>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button id="btnAuto" class="btn">开启</button>
+        <span class="lb">车道范围</span>
+        <input type="number" id="minLanes" min="1" max="16" step="1" style="width:56px" title="下限">
+        ~
+        <input type="number" id="maxLanes" min="1" max="16" step="1" style="width:56px" title="上限">
+        <button id="btnAutoSave" class="btn">保存</button>
+      </div>
+    </div>
+    <div class="card"><span class="lb">正在与大模型通信</span><b id="stRunning">0</b><span class="lb">多车道并行：每条车道同时至多 1 个</span></div>
+    <div class="card"><span class="lb">排队 / 间隔等待</span><b id="stQueue">0</b><span class="lb">同对话保序，不拥堵死亡</span></div>
+  </div>
+
+  <section>
+    <h2>模型分组（按接口域名瓜分车道，互不阻塞） <span class="muted" style="font-weight:400;font-size:12px">同一对话在组内保序；10 分钟无请求的模型退出瓜分</span></h2>
+    <div id="groupBox"><div class="empty">当前仅一家模型活跃（或分组未开启）：全部车道共用</div></div>
+  </section>
+
+  <section>
+    <h2>车道总览</h2>
+    <table>
+      <thead><tr><th>车道</th><th>状态</th><th>有效间隔</th><th>自适应</th><th>距下次放行</th></tr></thead>
+      <tbody id="laneBody"><tr><td colspan="5" class="empty">暂无数据</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>当前活动请求</h2>
+    <div id="activeBox"><div class="empty">暂无活动请求</div></div>
+  </section>
+
+  <section>
+    <h2>每对话统计与管控 <span class="muted" style="font-weight:400;font-size:12px">（禁止后该对话的请求将直接 403 拒绝）</span></h2>
+    <table>
+      <thead><tr><th>对话 ID</th><th>状态</th><th>总请求</th><th>成功</th><th>失败</th><th>被拒</th><th>最近活动</th><th>操作</th></tr></thead>
+      <tbody id="boxBody"><tr><td colspan="8" class="empty">暂无数据</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>最近请求历史（最新在前，最多 50 条）
+      <button id="btnClear" class="btn danger" style="float:right">清空历史</button>
+    </h2>
+    <table>
+      <thead><tr><th>#</th><th>对话</th><th>入口</th><th>模型</th><th>状态</th><th>排队</th><th>运行</th><th>时间</th><th>备注</th></tr></thead>
+      <tbody id="hisBody"><tr><td colspan="9" class="empty">暂无数据</td></tr></tbody>
+    </table>
+  </section>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let lastData = null;
+
+  function fmtT(ts){ if(!ts) return '-'; const d=new Date(ts*1000);
+    const p=n=>String(n).padStart(2,'0');
+    return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+  function fmtS(s){ return (s==null?'-':(+s).toFixed(1)+'s'); }
+  function esc(s){ return String(s??'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+
+  const STATE_CN = {queued:'排队中', gapped:'间隔等待', running:'通信中', holding:'🚧应急休整让道', done:'完成', failed:'失败', rejected:'已拒绝'};
+
+  let _lastDataHash = '';
+  function _hashData(d){
+    try{ return JSON.stringify([d.enabled, d.gap, d.lanes, d.auto, d.queue_len, d.running,
+      d.provider_groups, d.probe, d.lanes_detail, d.active, d.boxes, d.history]); }
+    catch(e){ return String(Date.now()); }
+  }
+
+  async function refresh(){
+    try{
+      const r = await fetch('/api/gate/status', {cache:'no-store'});
+      lastData = await r.json();
+      $('err').textContent = '';
+      const h = _hashData(lastData);
+      if(h !== _lastDataHash){        // 数据有变化才重建 DOM，避免每秒全量 innerHTML 重排
+        _lastDataHash = h;
+        render(lastData);
+      }
+    }catch(e){ $('err').textContent = '状态获取失败：' + e.message; }
+  }
+
+  function render(d){
+    if(!d || !d.ok) return;
+    $('banner').classList.toggle('show', !d.enabled);
+    $('stEnabled').textContent = d.enabled ? '放行中' : '已暂停';
+    $('stEnabled').style.color = d.enabled ? 'var(--ok)' : 'var(--err)';
+    const bt = $('btnToggle');
+    bt.textContent = d.enabled ? '暂停闸门' : '恢复放行';
+    bt.className = 'btn ' + (d.enabled ? 'warn' : 'ok');
+    $('stGap').textContent = d.gap + 's';
+    $('gapInput').value = d.gap;
+    $('stLanes').textContent = d.lanes + (d.auto && d.auto.enabled ? '（自动）' : '');
+    $('lanesInput').value = d.lanes;
+    $('stRunning').textContent = d.running;
+    $('stQueue').textContent = d.queue_len;
+
+    // v4 自适应卡片
+    const au = d.auto || {};
+    $('stAuto').textContent = au.enabled ? (au.provider_group ? '分组+自适应开启' : '自适应开启（未分组）')
+                                        : '已关闭（纯手动）';
+    $('stAuto').style.color = au.enabled ? 'var(--ok)' : 'var(--tx2)';
+    const ba = $('btnAuto');
+    ba.textContent = au.enabled ? '关闭自适应' : '开启自适应';
+    ba.className = 'btn ' + (au.enabled ? 'warn' : 'ok');
+    if(document.activeElement !== $('minLanes')) $('minLanes').value = au.min_lanes ?? 2;
+    if(document.activeElement !== $('maxLanes')) $('maxLanes').value = au.max_lanes ?? 6;
+
+    // v4 模型分组（含 v4.3 并发容量探测结果）
+    if(d.provider_groups && d.provider_groups.length){
+      var probes = d.probe || {};
+      $('groupBox').innerHTML = '<table><thead><tr><th>模型（接口域名）</th><th>独占车道</th><th>最大并发</th><th>最近请求</th></tr></thead><tbody>' +
+        d.provider_groups.map(g=>{
+          var pr = probes[g.provider] || {};
+          var cap = pr.status === 'probing' ? '<span class="tag gapped">🔍探测中</span>'
+            : ('≤' + (pr.max_parallel || g.max_parallel || '?') + (pr.tested_at ? '' : '（默认，未测）'));
+          return '<tr><td><b>'+esc(g.provider)+'</b></td><td class="muted">'+g.lanes.map(l=>'L'+l).join('、')+'</td><td>'+cap+'</td><td class="muted">'+(g.ago!=null?Math.round(g.ago)+'s 前':'-')+'</td></tr>';
+        }).join('') + '</tbody></table>';
+    }else{
+      $('groupBox').innerHTML = '<div class="empty">当前仅一家模型活跃（或分组未开启）：全部车道共用</div>';
+    }
+
+    // 车道总览（v4 含自适应收紧倍数）
+    if(d.lanes_detail && d.lanes_detail.length){
+      $('laneBody').innerHTML = d.lanes_detail.map(l=>{
+        const retired = l.retired;
+        const health = retired ? '<span class="tag rejected">退役中</span>'
+          : (l.health === '收紧' ? '<span class="tag gapped">收紧 ×'+l.gap_mult+'</span>'
+                                 : '<span class="tag done">正常</span>');
+        return '<tr><td><b>L'+l.lane+'</b></td><td>'+health+'</td>' +
+          '<td class="muted">'+(retired?'-':l.eff_gap+'s（基准 '+d.gap+'s）')+'</td>' +
+          '<td class="muted">'+(retired?'-':(l.gap_mult>1.005?'间隔×'+l.gap_mult:'×1.0'))+'</td>' +
+          '<td class="muted">'+(retired?'-':fmtS(l.gap_left))+'</td></tr>';
+      }).join('');
+    }else{
+      $('laneBody').innerHTML = '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+    }
+
+    // 活动请求
+    if(!d.active.length){
+      $('activeBox').innerHTML = '<div class="empty">暂无活动请求</div>';
+    }else{
+      $('activeBox').innerHTML = '<table><thead><tr><th>#</th><th>对话</th><th>车道</th><th>模型组</th><th>入口</th><th>模型</th><th>状态</th><th>已等/已跑</th><th>队列位</th></tr></thead><tbody>' +
+        d.active.map((a,i)=>{
+          let dur = a.state==='queued' ? ('等 '+fmtS(a.wait_now))
+                  : a.state==='running' ? ('跑 '+fmtS(a.run_now))
+                  : a.state==='gapped' ? ('放行剩 '+fmtS(a.gap_left))
+                  : a.state==='holding' ? ('让道休整剩 '+fmtS(a.hold_left)) : '-';
+          return '<tr><td class="muted">'+a.ticket+'</td><td>'+esc(a.box||'未知对话')+'</td><td class="muted">L'+(a.lane??'-')+'</td><td class="muted">'+esc(a.provider||'-')+'</td><td class="muted">'+esc(a.entry)+'</td><td>'+esc(a.model||'-')+'</td><td><span class="tag '+a.state+'">'+(STATE_CN[a.state]||a.state)+'</span></td><td>'+dur+'</td><td class="muted">'+(a.queue_pos??'-')+'</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+
+    // 每对话统计
+    if(!d.boxes.length){
+      $('boxBody').innerHTML = '<tr><td colspan="8" class="empty">暂无数据</td></tr>';
+    }else{
+      $('boxBody').innerHTML = d.boxes.map(b=>
+        '<tr><td><b>'+esc(b.box)+'</b>'+(b.note?' <span class="muted">('+esc(b.note)+')</span>':'')+'</td>' +
+        '<td><span class="tag '+(b.allowed?'allowed':'denied')+'">'+(b.allowed?'允许':'禁止')+'</span></td>' +
+        '<td>'+b.total+'</td><td>'+b.ok+'</td><td'+(b.fail?' style="color:var(--err)"':'')+'>'+b.fail+'</td><td'+(b.rejected?' style="color:var(--warn)"':'')+'>'+b.rejected+'</td>' +
+        '<td class="muted">'+fmtT(b.last)+'</td>' +
+        '<td>'+(b.allowed
+          ? '<button class="btn danger" onclick="ctl(\'deny_box\',{box:\''+esc(b.box)+'\'})">禁止</button>'
+          : '<button class="btn ok" onclick="ctl(\'allow_box\',{box:\''+esc(b.box)+'\'})">允许</button>')+'</td></tr>'
+      ).join('');
+    }
+
+    // 历史
+    if(!d.history.length){
+      $('hisBody').innerHTML = '<tr><td colspan="9" class="empty">暂无数据</td></tr>';
+    }else{
+      $('hisBody').innerHTML = d.history.map(h=>{
+        const detail = h.error ? (' title="'+esc(h.error)+'" style="color:var(--err)"')
+          : (h.state==='rejected' ? ' style="color:var(--warn)"' : '');
+        return '<tr><td class="muted">'+h.ticket+'</td><td>'+esc(h.box||'未知对话')+'</td><td class="muted">'+esc(h.entry)+'</td><td>'+esc(h.model||'-')+'</td>' +
+          '<td><span class="tag '+h.state+'"'+(h.error?' title="'+esc(h.error)+'"':'')+'>'+(STATE_CN[h.state]||h.state)+'</span></td>' +
+          '<td>'+fmtS(h.wait_s)+'</td><td'+detail+'>'+fmtS(h.run_s)+'</td><td class="muted">'+fmtT(h.ended)+'</td>' +
+          '<td class="wrap muted">'+esc(h.error||'')+'</td></tr>';
+      }).join('');
+    }
+  }
+
+  async function ctl(action, extra){
+    try{
+      const r = await fetch('/api/gate/control', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Object.assign({action}, extra||{}))
+      });
+      const j = await r.json();
+      $('err').textContent = j.ok ? '' : (j.msg || j.error || '操作失败');
+      await refresh();
+    }catch(e){ $('err').textContent = '控制失败：' + e.message; }
+  }
+
+  $('btnToggle').onclick = () => ctl(lastData && lastData.enabled ? 'disable' : 'enable');
+  $('btnGap').onclick = () => ctl('set_gap', {gap: parseFloat($('gapInput').value)||2});
+  $('btnLanes').onclick = () => ctl('set_lanes', {lanes: parseInt($('lanesInput').value)||3});
+  $('btnAuto').onclick = () => ctl('set_auto', {auto: {enabled: !(lastData && lastData.auto && lastData.auto.enabled)}});
+  $('btnAutoSave').onclick = () => ctl('set_auto', {auto: {
+    enabled: lastData && lastData.auto ? !!lastData.auto.enabled : true,
+    min_lanes: parseInt($('minLanes').value)||2,
+    max_lanes: parseInt($('maxLanes').value)||6
+  }});
+  $('btnClear').onclick = () => ctl('clear_history');
+
+  refresh();
+  setInterval(refresh, 2000);
+</script>
+</body>
+</html>

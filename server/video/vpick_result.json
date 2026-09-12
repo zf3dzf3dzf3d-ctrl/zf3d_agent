@@ -1,0 +1,32 @@
+{
+  "fixed": {
+    "ok": true,
+    "out": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.1.2\\server\\video\\vpick_test_visionpick.mp4",
+    "fps": 0.5,
+    "frames_scored": 4,
+    "picked": [
+      {
+        "start": 0.5,
+        "end": 7.5,
+        "score": 0.1
+      }
+    ],
+    "notes": []
+  },
+  "auto": {
+    "ok": true,
+    "out": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.1.2\\server\\video\\vpick_test_visionpick.mp4",
+    "fps": 0.2,
+    "frames_scored": 2,
+    "picked": [
+      {
+        "start": 2.0,
+        "end": 8.0,
+        "score": 0.1
+      }
+    ],
+    "notes": [
+      "AI auto: fps=0.2, focus=电视彩条测试卡/检验图，带数字时钟，画面大部为黑场；无剧情与精彩镜头，仅时钟数字变化，低帧率抽样即可"
+    ]
+  }
+}

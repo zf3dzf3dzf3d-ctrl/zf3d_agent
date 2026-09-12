@@ -1,0 +1,28 @@
+{
+  "meta": { "title": "大模型三件套格式协议速查", "author": "朱峰社区智能体", "created": "2026-09-06" },
+  "blocks": [
+    { "type": "p", "text": "本社区所有「PPT / 表格 / 文档」都不用二进制格式，全部是模型直接输出的 JSON + HTML 引擎渲染。本文是三种格式的速查卡。" },
+    { "type": "h2", "text": "一、核心思想" },
+    { "type": "quote", "text": "模型写内容，JSON 存结构，HTML 管渲染 —— 人类零排版，浏览器点开即看。" },
+    { "type": "h2", "text": "二、三种格式对照" },
+    { "type": "table", "columns": ["类型", "引擎", "内容文件", "存放目录"],
+      "rows": [
+        ["演示 PPT", "演示/viewer.html", "*.pres.json", "演示/slides/"],
+        ["表格 Excel", "表格/viewer.html", "*.sheet.json", "表格/sheets/"],
+        ["文档 Word", "文档/viewer.html", "*.doc.json", "文档/docs/"]
+      ]},
+    { "type": "h2", "text": "三、通用规则" },
+    { "type": "ul", "items": [
+      "引擎 viewer.html 永远不改；模型只新建/修改内容 JSON。",
+      "新建文件时必须同步在对应目录的 index.json 追加一条 {title, file}。",
+      "内容里不要塞 HTML 标签，查看器会转义显示。",
+      "文件名用英文或拼音最稳，中文标题放在 meta.title 里。"
+    ]},
+    { "type": "h2", "text": "四、文档 blocks 速查" },
+    { "type": "code", "text": "{ \"type\": \"p|h2|h3|quote|ul|ol|table|img|code|hr\", \"text\": \"...\" }\n表格块: { \"type\": \"table\", \"columns\": [\"A\",\"B\"], \"rows\": [[\"a\",\"b\"]] }\nh2 自动进左侧目录，quote 渲染为引用块。" },
+    { "type": "h2", "text": "五、表格 sheets 速查" },
+    { "type": "code", "text": "{ \"meta\": {\"title\": \"...\"}, \"sheets\": [\n  { \"name\": \"Sheet1\", \"columns\": [\"列A\"], \"rows\": [[\"a1\"]] }\n] }\n数字自动右对齐；点列头排序；右上角搜索过滤。" },
+    { "type": "hr" },
+    { "type": "p", "text": "更多细节见各目录内的 PROTOCOL.md。" }
+  ]
+}

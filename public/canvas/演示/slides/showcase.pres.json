@@ -1,0 +1,64 @@
+{
+  "meta": { "title": "新版页型效果演示", "author": "智能体", "created": "2026-09-06" },
+  "slides": [
+    { "type": "cover", "title": "新版页型效果演示", "subtitle": "大数字 · 图表 · 时间轴 · 引用 · 分栏 · 表格", "accent": "#4f6ef7" },
+
+    { "type": "stats", "title": "核心数据一览", "accent": "#4f6ef7", "stats": [
+      { "value": "1200<small>万+</small>", "label": "累计服务用户" },
+      { "value": "99.9<small>%</small>", "label": "服务可用性" },
+      { "value": "86<small>s</small>", "label": "平均响应速度" },
+      { "value": "50<small>+</small>", "label": "内置智能工具" }
+    ], "footer": "页型：stats 大数字页" },
+
+    { "type": "chart", "title": "年度活跃用户增长", "accent": "#2dd4bf",
+      "chart": { "kind": "bar", "data": [
+        { "value": 320, "label": "2021" },
+        { "value": 560, "label": "2022" },
+        { "value": 810, "label": "2023" },
+        { "value": 1240, "label": "2024", "color": "#9f7bff" },
+        { "value": 1680, "label": "2025", "color": "#f59e0b" }
+      ] }, "footer": "页型：chart/bar 柱状图（生长动画）" },
+
+    { "type": "chart", "title": "月度任务完成量趋势", "accent": "#f472b6",
+      "chart": { "kind": "line", "data": [
+        { "value": 120, "label": "1月" },
+        { "value": 210, "label": "2月" },
+        { "value": 180, "label": "3月" },
+        { "value": 320, "label": "4月" },
+        { "value": 460, "label": "5月" },
+        { "value": 620, "label": "6月" }
+      ] }, "footer": "页型：chart/line 折线图（描线动画）" },
+
+    { "type": "chart", "title": "任务类型分布", "accent": "#9f7bff",
+      "chart": { "kind": "donut", "data": [
+        { "value": 42, "label": "代码生成" },
+        { "value": 26, "label": "文档写作" },
+        { "value": 18, "label": "数据分析" },
+        { "value": 14, "label": "设计辅助", "color": "#f59e0b" }
+      ] }, "footer": "页型：chart/donut 环形占比图" },
+
+    { "type": "timeline", "title": "产品发展历程", "accent": "#f59e0b",
+      "timeline": [
+        { "time": "2023", "title": "立项启动", "desc": "确定大模型驱动的社区智能体方向" },
+        { "time": "2024", "title": "内测打磨", "desc": "千人内测，跑通核心工作流" },
+        { "time": "2025", "title": "公开发布", "desc": "5.0 上线，开放画布与工具生态" },
+        { "time": "2026", "title": "全面进化", "desc": "5.1.2 无限版，多智能体协同" }
+      ], "footer": "页型：timeline 时间轴" },
+
+    { "type": "quote", "accent": "#2dd4bf",
+      "quote": "未来的演示，不是做出来的，是模型写出来的。",
+      "author": "朱峰社区", "footer": "页型：quote 金句页" },
+
+    { "type": "table", "title": "页型能力对照", "accent": "#4f6ef7",
+      "table": { "head": ["页型", "适用场景", "动画"],
+        "rows": [
+          ["stats", "KPI、成果汇报", "数字弹出"],
+          ["chart", "数据、趋势、占比", "生长/描线"],
+          ["timeline", "历程、路线图", "逐节点浮现"],
+          ["split", "图文介绍页", "图片缩放入场"],
+          ["table", "对比、清单", "逐行浮现"]
+        ] }, "footer": "页型：table 表格页" },
+
+    { "type": "cover", "title": "混合组合才是王道", "subtitle": "一页数据 → 一页金句 → 一页表格，节奏感就是发布会感", "accent": "#9f7bff" }
+  ]
+}

@@ -1,0 +1,23 @@
+28: // 【装水动画】波浪/气泡需要持续重绘，水位活动期每秒续约一次，闲置自动停
+461: var _sl = _slOf(b);
+462: if (_sloshDrive !== 0) _sl.v += Math.max(-3000, Math.min(3000, _sloshDrive)) * 0.0016;
+463: _sl.v += -_sl.off * 0.028 - _sl.v * 0.018;   // 慢摆欠阻尼：来回荡几拍再停   // 弹簧回复 + 阻尼
+464: _sl.off += _sl.v;
+465: if (Math.abs(_sl.off) > 0.0004 || Math.abs(_sl.v) > 0.0004) _slEnergy = true;
+467: // 仍有晃动能量 → 延长水面重绘循环，动画持续到自然静止
+478: var _sl = _slOf(b);
+487: _sl.v += Math.max(-3000, Math.min(3000, _bv)) * 0.0012;
+567: ctx.fillRect(p1.x, p1.y, bw, bh);
+606: ctx.fillRect(p1.x, p1.y, bw, bh);
+612: // 【装水动画】方块内液体填充：水位 = 步数/预估总步数（默认30，超出自动扩展为30的倍数）
+623: ctx.beginPath(); ctx.rect(p1.x, p1.y, bw, bh); ctx.clip();
+624: // 水体（半透明蓝）+ 顶部波浪
+630: var _sl = _slState.off;
+631: var _slTilt = _sl * bw * 0.35;   // 两端高度差
+634: var _slY = -_slTilt * (0.5 - _wx / bw) + Math.sin(_wx * 0.55 + _wavT + _sl * 6) * 1.1 * _slGain;
+641: // 波浪峰高光线
+646: var _yy = _wy - _slTilt * (0.5 - _wx2 / bw) + Math.sin(_wx2 * 0.55 + _wavT + _sl * 6) * 1.1 * _slGain;
+650: // +1 时上升小气泡（700ms 内）
+672: // 保证波浪有帧在动：水位在(0,1)区间时持续拉起重绘循环（1秒后自动停）
+717: ctx.fillRect(_bx, _by, _bw, _bh);
+854: ctx.fillRect(vp1.x, vp1.y, vpW, vpH);

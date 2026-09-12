@@ -1,0 +1,86 @@
+{
+  "_说明": "Token 统计面板默认价格表，单位：元/百万 tokens。键名：'provider|model' 或仅 'model'（provider 留空时用模型名匹配）。in=输入(缓存未命中) out=输出 cache=缓存命中输入。用户在面板里手填的价格存于 localStorage，会覆盖这里的默认值。",
+  "_更新时间": "2026-09",
+  "_来源": "bigmodel.cn 官方定价页 + DeepSeek 官方模型与价格页 + 火山方舟官方定价",
+  "glm-5.3-flash": {
+    "name": "GLM-5.3-Flash",
+    "in": 0.8,
+    "out": 2.8,
+    "cache": 0.23
+  },
+  "glm-5.3": {
+    "name": "GLM-5.3",
+    "in": 8,
+    "out": 28,
+    "cache": 2
+  },
+  "glm-5.2": {
+    "name": "GLM-5.2",
+    "in": 8,
+    "out": 28,
+    "cache": 2
+  },
+  "glm-4.7-flash": {
+    "name": "GLM-4.7-Flash",
+    "in": 0,
+    "out": 0,
+    "cache": 0
+  },
+  "glm-4.5-air": {
+    "name": "GLM-4.5-Air",
+    "in": 0.8,
+    "out": 6,
+    "cache": 0.16
+  },
+  "deepseek-flash": {
+    "name": "DeepSeek-V4.1-Flash(官方)",
+    "in": 2,
+    "out": 8,
+    "cache": 1,
+    "_备注": "高峰时段价；空闲时段(工作日18:00-次日9:00及周末)减半：in 1 / cache 0.5 / out 4。上下文1M，输出最大384K"
+  },
+  "deepseek-v4-pro": {
+    "name": "DeepSeek-V4-Pro(已路由到V4.1-Flash)",
+    "in": 2,
+    "out": 8,
+    "cache": 1,
+    "_备注": "2026-09-14 12:00 后请求全部路由到 V4.1 Flash 并按其价格计费"
+  },
+  "deepseek-chat": {
+    "name": "DeepSeek-V4.1-Flash(旧名兼容)",
+    "in": 2,
+    "out": 8,
+    "cache": 1
+  },
+  "deepseek-v4-flash": {
+    "name": "DeepSeek-V4-Flash(旧名,已下线)",
+    "in": 2,
+    "out": 8,
+    "cache": 1
+  },
+  "deepseek-v4-flash-vision-exp": {
+    "name": "DeepSeek-V4-Flash-Vision-Exp(旧名)",
+    "in": 2,
+    "out": 8,
+    "cache": 1
+  },
+  "ark|deepseek-flash": {
+    "name": "DeepSeek-V4.1-Flash(火山方舟)",
+    "in": 2,
+    "out": 8,
+    "cache": 1,
+    "_备注": "按DeepSeek官方高峰价估算，方舟侧以控制台实际计费为准；空闲时段减半"
+  },
+  "ark|glm-5.3-flash": {
+    "name": "GLM-5.3-Flash(火山方舟)",
+    "in": 0.8,
+    "out": 2.8,
+    "cache": 0.23
+  },
+  "ark|glm-5.3": {
+    "name": "GLM-5.3(火山方舟)",
+    "in": 8,
+    "out": 28,
+    "cache": 2
+  }
+}

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>白板查看器 · 大模型 Whiteboard</title>
+<style>
+  :root{ --bg:#0d1119; --panel:#161b26; --line:#2a3446; --txt:#dde5f2; --sub:#8b97ab; --acc:#4da3ff; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif; height:100vh; overflow:hidden; position:relative;}
+  #board{position:absolute; inset:0; cursor:grab; touch-action:none;}
+  #board.panning{cursor:grabbing;}
+  #grid{position:absolute; inset:0; background-image:radial-gradient(circle,#222b3d 1px,transparent 1px); background-size:24px 24px;}
+  #world{position:absolute; left:0; top:0; transform-origin:0 0;}
+  .node{position:absolute; background:rgba(22,27,38,.94); border:2px solid var(--acc); border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:center; text-align:center; white-space:pre-wrap; font-size:14px; cursor:move; user-select:none; box-shadow:0 4px 14px rgba(0,0,0,.4); z-index:2;}
+  .node:active{box-shadow:0 0 0 2px var(--acc), 0 4px 14px rgba(0,0,0,.5);}
+  .node.sel{outline:2px dashed #ffd166;}
+  svg{position:absolute; left:0; top:0; overflow:visible; z-index:1; pointer-events:none;}
+  svg text{fill:var(--txt); font-size:12px; paint-order:stroke; stroke:#0d1119; stroke-width:3px;}
+  svg text.bg{stroke:none; fill:#0d1119; opacity:.85;}
+  #toolbar{position:fixed; top:12px; right:14px; display:flex; gap:8px; z-index:9;}
+  #toolbar button{width:36px; height:36px; border-radius:50%; background:var(--panel); border:1px solid var(--line); color:var(--txt); font-size:15px; cursor:pointer;}
+  #toolbar button:hover{border-color:var(--acc);}
+  #sidebar{position:fixed; top:58px; right:14px; width:250px; max-height:60vh; overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:none; z-index:9;}
+  #sidebar.open{display:block;}
+  #sidebar a{display:block; color:var(--sub); padding:6px 8px; border-radius:6px; cursor:pointer; font-size:13px;}
+  #sidebar a:hover{background:#1e2739; color:var(--txt);}
+  #hint{position:fixed; left:14px; bottom:12px; color:var(--sub); font-size:12px; z-index:5;}
+  #title{position:fixed; left:16px; top:14px; z-index:5; font-size:16px; font-weight:600;}
+  #editOverlay{display:none; position:fixed; inset:0; background:rgba(5,8,14,.88); z-index:99; padding:40px;}
+  #editBox{max-width:900px; margin:0 auto; height:100%; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  #editHead{display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); background:#121724;}
+  #editArea{flex:1; background:#0b0f18; color:#c9f0d0; border:none; outline:none; resize:none; padding:18px; font:13px/1.6 Consolas,monospace;}
+  .btn2{background:var(--acc); color:#06121f; border:none; border-radius:6px; padding:7px 18px; cursor:pointer; font-weight:600;}
+  .btn3{background:#1e2739; color:var(--txt); border:1px solid var(--line); border-radius:6px; padding:7px 14px; cursor:pointer;}
+  @media print{
+    body{background:#fff;}
+    #toolbar,#sidebar,#hint,#grid{display:none !important;}
+    .node{background:#fff; color:#000; box-shadow:none; cursor:default;}
+    svg text{fill:#000; stroke:none;}
+    #title{color:#000;}
+  }
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<div id="title"></div>
+<div id="board"><svg id="edges"></svg><div id="world"></div></div>
+<div id="toolbar">
+  <button id="fab" title="文件列表">📂</button>
+  <button id="addBtn" title="新建节点">➕</button>
+  <button id="editBtn" title="编辑 JSON">✏️</button>
+  <button id="printBtn" title="打印 / 导出 PDF">🖨</button>
+</div>
+<div id="sidebar"><h3 style="color:var(--sub);font-size:13px;margin-bottom:8px;">白板文件</h3><div id="filelist"></div></div>
+<div id="hint">空白拖拽=平移　滚轮=缩放　拖节点=移动　➕=新建节点</div>
+<div id="editOverlay"><div id="editBox">
+  <div id="editHead"><b>✏️ 编辑白板 JSON</b><span id="editFileName" style="color:var(--sub);font-size:13px;"></span><span style="flex:1"></span>
+  <button class="btn2" id="editSave">💾 保存</button><button class="btn3" id="editClose">✕</button></div>
+  <textarea id="editArea" spellcheck="false"></textarea>
+</div></div>
+<script>
+const qs=new URLSearchParams(location.search);
+let DATA=null, view={x:40,y:40,s:1}, currentFile='';
+const world=document.getElementById('world'), board=document.getElementById('board'), svg=document.getElementById('edges');
+
+async function boot(){
+  const file=qs.get('file');
+  try{
+    if(file){
+      const j=await (await fetch('/api/boards/get?file='+encodeURIComponent(file))).json();
+      if(j.ok){ DATA=j.data; currentFile=file; }
+    }else{
+      const j=await (await fetch('/api/boards/list')).json();
+      if(j.ok&&j.items.length){
+        currentFile=j.items[0].file;
+        DATA=(await (await fetch('/api/boards/get?file='+encodeURIComponent(currentFile))).json()).data;
+        loadFileList(j.items);
+      }
+    }
+  }catch(e){}
+  if(!DATA) DATA={meta:{title:'空白白板'},nodes:[],edges:[]};
+  document.getElementById('title').textContent='🖍 '+(DATA.meta&&DATA.meta.title||'白板');
+  document.title=(DATA.meta&&DATA.meta.title||'白板')+' · 大模型 Whiteboard';
+  render();
+}
+
+function loadFileList(items){
+  const box=document.getElementById('filelist'); box.innerHTML='';
+  items.forEach(it=>{
+    const a=document.createElement('a');
+    a.textContent='🖍 '+(it.title||it.file);
+    a.onclick=()=>location.search='?file='+encodeURIComponent(it.file);
+    box.appendChild(a);
+  });
+}
+
+function applyView(){ world.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.s+')'; }
+
+function render(){
+  world.innerHTML=''; svg.innerHTML='';
+  const NS='http://www.w3.org/2000/svg';
+  const byId={};
+  (DATA.nodes||[]).forEach(n=>{
+    byId[n.id]=n;
+    const el=document.createElement('div'); el.className='node'; el._n=n;
+    el.style.left=(n.x||0)+'px'; el.style.top=(n.y||0)+'px';
+    el.style.width=(n.w||180)+'px'; el.style.height=(n.h||64)+'px';
+    if(n.color) el.style.borderColor=n.color;
+    if(n.shape==='round') el.style.borderRadius='18px';
+    if(n.shape==='ellipse'){ el.style.borderRadius='50%'; }
+    el.textContent=n.text||'';
+    world.appendChild(el);
+    dragNode(el,n);
+  });
+  (DATA.edges||[]).forEach(e=>{
+    const a=byId[e.from], b=byId[e.to]; if(!a||!b) return;
+    const x1=(a.x||0)+(a.w||180)/2, y1=(a.y||0)+(a.h||64)/2;
+    const x2=(b.x||0)+(b.w||180)/2, y2=(b.y||0)+(b.h||64)/2;
+    const g=document.createElementNS(NS,'g');
+    const line=document.createElementNS(NS,'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke', e.dash?'#8b97ab':'#4da3ff');
+    line.setAttribute('stroke-width','2');
+    if(e.dash) line.setAttribute('stroke-dasharray','6 4');
+    g.appendChild(line);
+    // 箭头
+    const ang=Math.atan2(y2-y1,x2-x1), ah=10;
+    const arr=document.createElementNS(NS,'polygon');
+    const ax=x2-ah*Math.cos(ang), ay=y2-ah*Math.sin(ang);
+    const px=-Math.sin(ang)*4, py=Math.cos(ang)*4;
+    arr.setAttribute('points', x2+','+y2+' '+(ax+px)+','+(ay+py)+' '+(ax-px)+','+(ay-py));
+    arr.setAttribute('fill', e.dash?'#8b97ab':'#4da3ff');
+    g.appendChild(arr);
+    if(e.label){
+      const t=document.createElementNS(NS,'text');
+      const bg=document.createElementNS(NS,'text'); bg.setAttribute('class','bg');
+      t.setAttribute('x',bg.setAttribute('x',(x1+x2)/2));
+      t.setAttribute('y',bg.setAttribute('y',(y1+y2)/2-6));
+      t.textContent=e.label; bg.textContent=e.label;
+      g.appendChild(bg); g.appendChild(t);
+    }
+    svg.appendChild(g);
+  });
+  applyView();
+}
+
+function dragNode(el,n){
+  el.addEventListener('pointerdown',ev=>{
+    ev.stopPropagation(); ev.preventDefault();
+    el.setPointerCapture(ev.pointerId);
+    const sx=ev.clientX, sy=ev.clientY, ox=n.x||0, oy=n.y||0;
+    const mv=e2=>{ n.x=ox+(e2.clientX-sx)/view.s; n.y=oy+(e2.clientY-sy)/view.s; render(); };
+    const up=()=>{ el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); save(); };
+    el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up);
+  });
+}
+
+let panning=false;
+board.addEventListener('pointerdown',ev=>{
+  if(ev.target.closest('.node')) return;
+  panning=true; board.classList.add('panning'); board.setPointerCapture(ev.pointerId);
+  const sx=ev.clientX-view.x, sy=ev.clientY-view.y;
+  const mv=e2=>{ view.x=e2.clientX-sx; view.y=e2.clientY-sy; applyView(); };
+  const up=()=>{ panning=false; board.classList.remove('panning'); board.removeEventListener('pointermove',mv); board.removeEventListener('pointerup',up); };
+  board.addEventListener('pointermove',mv); board.addEventListener('pointerup',up);
+});
+board.addEventListener('wheel',ev=>{
+  ev.preventDefault();
+  const f=ev.deltaY<0?1.12:0.89, ns=Math.min(3,Math.max(0.2,view.s*f));
+  view.x=ev.clientX-(ev.clientX-view.x)*ns/view.s;
+  view.y=ev.clientY-(ev.clientY-view.y)*ns/view.s;
+  view.s=ns; applyView();
+},{passive:false});
+
+document.getElementById('addBtn').onclick=()=>{
+  const cx=(window.innerWidth/2-view.x)/view.s-90, cy=(window.innerHeight/2-view.y)/view.s-32;
+  const id='n'+(Date.now()%100000);
+  (DATA.nodes=DATA.nodes||[]).push({id, x:Math.round(cx), y:Math.round(cy), text:'新节点', shape:'round'});
+  render(); save();
+};
+document.getElementById('fab').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+document.getElementById('printBtn').onclick=()=>window.print();
+document.getElementById('editBtn').onclick=()=>{
+  document.getElementById('editOverlay').style.display='block';
+  document.getElementById('editFileName').textContent=currentFile;
+  document.getElementById('editArea').value=JSON.stringify(DATA,null,2);
+};
+document.getElementById('editClose').onclick=()=>document.getElementById('editOverlay').style.display='none';
+document.getElementById('editSave').onclick=async()=>{
+  const btn=document.getElementById('editSave'); btn.disabled=true; btn.textContent='保存中…';
+  try{
+    const obj=JSON.parse(document.getElementById('editArea').value);
+    const r=await fetch('/api/boards/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:currentFile,data:obj})});
+    const j=await r.json();
+    if(j.ok){ DATA=obj; document.getElementById('editOverlay').style.display='none'; document.getElementById('title').textContent='🖍 '+(obj.meta&&obj.meta.title||'白板'); render(); btn.textContent='✅ 已保存'; }
+    else alert('保存失败：'+(j.err||'未知错误'));
+  }catch(e){ alert('保存失败：'+e.message); }
+  setTimeout(()=>{ btn.textContent='💾 保存'; btn.disabled=false; },1200);
+};
+
+async function save(){
+  try{ await fetch('/api/boards/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file:currentFile,data:DATA})}); }catch(e){}
+}
+
+boot();
+</script>
+</body>
+</html>

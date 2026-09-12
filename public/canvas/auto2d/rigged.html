@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>Auto2D 分层骨骼动画演示</title>
+<style>
+  body { margin:0; background:#12141c; color:#cdd3e0; font-family:system-ui; display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:16px; margin:14px; }
+  canvas { background:linear-gradient(#1b2030,#141824); border:1px solid #2a3350; border-radius:8px; }
+  p { font-size:13px; color:#7a86a3; }
+</style>
+</head>
+<body>
+<h1>分层骨骼待机动画：6 部件（头/躯干/双臂/双腿）绕关节独立摆动</h1>
+<canvas id="cv" width="768" height="768"></canvas>
+<p>char_cut.png → split_parts.py → parts/*.png + parts.json</p>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let parts = null;
+let imgs = {};
+
+fetch('parts/parts.json').then(r => r.json()).then(j => {
+  parts = j.parts.sort((a, b) => a.z - b.z);
+  let left = parts.length;
+  parts.forEach(p => {
+    const im = new Image();
+    im.onload = () => { if (--left === 0) draw(); };
+    im.src = 'parts/' + p.file;
+    imgs[p.name] = im;
+  });
+});
+
+let t = 0;
+function draw() {
+  requestAnimationFrame(draw);
+  t += 1 / 60;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (!parts) return;
+
+  // 全局漂浮 + 呼吸
+  const bob = Math.sin(t * 1.6) * 5;
+  const breathe = 1 + Math.sin(t * 2.2) * 0.006;
+
+  // 各部件摆动角度（弧度，绕 root 锚点）
+  const sway = {
+    head:  Math.sin(t * 1.6 + 0.4) * 0.02,
+    torso: Math.sin(t * 2.2) * 0.006,
+    armL:  Math.sin(t * 1.6) * 0.05,
+    armR: -Math.sin(t * 1.6) * 0.05,
+    legL:  Math.sin(t * 1.2) * 0.015,
+    legR: -Math.sin(t * 1.2) * 0.015,
+  };
+
+  // 地面影
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(cv.width / 2, cv.height * 0.96 - bob * 0.4, 120 - bob * 2, 18, 0, 0, 7);
+  ctx.fill();
+
+  parts.forEach(p => {
+    const im = imgs[p.name];
+    if (!im || !im.complete) return;
+    // bbox 原点 = 部件在全图中的位置（缩放 breathe 以髋部为轴）
+    const ax = p.bbox[0], ay = p.bbox[1];
+    const hipX = 0.5 * cv.width, hipY = 0.58 * cv.height + bob;
+    const rot = sway[p.name] || 0;
+    ctx.save();
+    ctx.translate(hipX, hipY);
+    ctx.scale(breathe, 2 - breathe);
+    // 部件自摆动：绕部件 root
+    const rx = (p.root[0] * 768 - p.bbox[0]);
+    const ry = (p.root[1] * 768 - p.bbox[1]);
+    ctx.translate(rx, ry);
+    ctx.rotate(rot);
+    ctx.translate(-rx, -ry);
+    ctx.drawImage(im, ax - 0, ay - 0);
+    ctx.restore();
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh"><head>
+    <script src="/js/storage-guard.js?v=1"></script><meta charset="utf-8"><title>瓦片地图演示</title>
+<style>body{margin:0;background:#111;color:#ccc;font-family:monospace}canvas{display:block}</style></head>
+<body><canvas id="cv" width="960" height="600"></canvas>
+<div style="position:fixed;top:8px;left:10px;font-size:12px">方向键移动方块（碰撞层阻挡）· T 重生成地图</div>
+<script src="tilemap.js"></script>
+<script>
+const W = 60, H = 40, TS = 32;
+function genMap() {
+  const ground = new Array(W*H).fill(0), solid = new Array(W*H).fill(0);
+  for (let y = H-3; y < H; y++) for (let x = 0; x < W; x++) { ground[y*W+x] = 1; solid[y*W+x] = 1; }
+  for (let i = 0; i < 40; i++) {  // 随机柱子和平台
+    const x = 2 + (Math.random()*(W-4))|0, h = 2 + (Math.random()*5)|0;
+    for (let y = H-3-h; y < H-3; y++) { ground[y*W+x] = 2 + (Math.random()*3|0); solid[y*W+x] = 1; }
+  }
+  return { w: W, h: H, tileSize: TS, layers: [
+    { name: "ground", solid: false, data: ground },
+    { name: "collision", solid: true, data: solid }
+  ]};
+}
+let map = new TileMap(genMap());
+const player = { x: 100, y: 500, w: 24, h: 28, vx: 0, vy: 0, ground: false };
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
+window.addEventListener("keypress", e => { if (e.key === "t" || e.key === "T") map = new TileMap(genMap()); });
+
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+function step(dt) {
+  player.vx = (keys.ArrowLeft ? -180 : 0) + (keys.ArrowRight ? 180 : 0);
+  player.vy += 1400 * dt;
+  // 限制单帧位移不超过瓦片尺寸，防止高速穿墙（tunneling）
+  const maxV = TS - 2;
+  player.vx = Math.max(-maxV/0.033, Math.min(maxV/0.033, player.vx));
+  player.vy = Math.max(-maxV/0.033, Math.min(maxV/0.033, player.vy));
+  // X 轴移动 + 碰撞
+  let nx = player.x + player.vx * dt;
+  if (!map.hitRect(nx, player.y, player.w, player.h)) player.x = nx;
+  // Y 轴
+  let ny = player.y + player.vy * dt;
+  if (map.hitRect(player.x, ny, player.w, player.h)) {
+    if (player.vy > 0) { player.y = Math.floor((ny + player.h) / TS) * TS - player.h - 0.01; player.ground = true; }
+    else player.y = Math.floor(ny / TS) * TS + TS + 0.01;
+    player.vy = 0;
+  } else { player.y = ny; player.ground = false; }
+  if (player.ground && keys.ArrowUp) player.vy = -520;
+  player.x = Math.max(0, Math.min(W*TS - player.w, player.x));
+  player.y = Math.min(H*TS, player.y); // 兜底：不许掉出地图
+}
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.03, (now - last)/1000); last = now;
+  step(dt);
+  const camX = Math.max(0, Math.min(W*TS - cv.width, player.x - cv.width/2));
+  const camY = Math.max(0, Math.min(H*TS - cv.height, player.y - cv.height/2));
+  ctx.fillStyle = "#131722"; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.save(); ctx.translate(-camX, -camY);
+  map.draw(ctx, camX, camY, cv.width, cv.height);
+  ctx.fillStyle = "#fd4"; ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>

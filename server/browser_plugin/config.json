@@ -1,0 +1,10 @@
+{
+  "_说明": "内置浏览器插件配置。headless=无头模式；max_tabs=标签上限；data_dir=null 时用插件目录下 data/",
+  "headless": true,
+  "viewport": {"width": 1280, "height": 800},
+  "max_tabs": 30,
+  "data_dir": null,
+  "goto_timeout": 45000,
+  "networkidle_wait": 8000,
+  "anti_automation": true
+}

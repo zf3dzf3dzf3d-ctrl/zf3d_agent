@@ -1,0 +1,42 @@
+[
+  {
+    "title": "朱峰社区智能体 · 快速上手指南",
+    "file": "quick_start.doc.json"
+  },
+  {
+    "title": "大模型三件套格式协议速查",
+    "file": "format_protocol.doc.json"
+  },
+  {
+    "title": "画布节点使用手册",
+    "file": "canvas_nodes.doc.json"
+  },
+  {
+    "title": "朱峰社区智能体 · 使用说明",
+    "file": "guide_demo.doc.json"
+  },
+  {
+    "file": "说明手册.doc.json",
+    "title": "说明手册"
+  },
+  {
+    "file": "产品介绍.doc.json",
+    "title": "产品介绍页面"
+  },
+  {
+    "file": "测试文档.doc.json",
+    "title": "测试文档"
+  },
+  {
+    "file": "convert_guide.doc.json",
+    "title": "格式转换中心使用手册"
+  },
+  {
+    "file": "归类测试_实测.doc.json",
+    "title": "归类测试_实测"
+  },
+  {
+    "file": "zz_conv_test.doc.json",
+    "title": "zz_conv_test"
+  }
+]

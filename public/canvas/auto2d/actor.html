@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>Auto2D 可操作角色：走/跑/跳/攻击/死亡</title>
+<style>
+  body { margin:0; background:#12141c; color:#cdd3e0; font-family:system-ui; display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:16px; margin:14px; }
+  canvas { background:linear-gradient(#1b2030,#141824); border:1px solid #2a3350; border-radius:8px; }
+  #hud { font-size:13px; color:#8fd0ff; margin:8px; }
+  p { font-size:13px; color:#7a86a3; }
+  kbd { background:#2a3350; padding:1px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+<h1>可操作角色：状态机 + 分层骨骼动画</h1>
+<canvas id="cv" width="900" height="560"></canvas>
+<div id="hud">状态: idle</div>
+<p>操作：<kbd>A</kbd>/<kbd>D</kbd> 走 · <kbd>Shift</kbd>+AD 跑 · <kbd>空格</kbd> 跳 · <kbd>J</kbd> 攻击 · <kbd>K</kbd> 死亡 · 死亡后按 <kbd>R</kbd> 复活</p>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const HUD = document.getElementById('hud');
+let parts = null, imgs = {};
+
+fetch('parts/parts.json').then(r => r.json()).then(j => {
+  parts = j.parts.sort((a, b) => a.z - b.z);
+  let left = parts.length;
+  parts.forEach(p => {
+    const im = new Image();
+    im.onload = () => { if (--left === 0) loop(); };
+    im.src = 'parts/' + p.file;
+    imgs[p.name] = im;
+  });
+});
+
+/* ---------- 角色状态机 ---------- */
+const actor = {
+  x: 450, y: 0,          // y 为脚底离地高度
+  vx: 0, vy: 0,
+  face: 1,               // 1 右 -1 左
+  state: 'idle',         // idle walk run jump attack dead
+  t: 0,                  // 当前状态时间
+  atkDone: false,
+  dead: false,
+};
+const GROUND = 480;      // 地面 y
+const SCALE = 0.45;      // 768 原图缩放
+const SPEED_WALK = 3, SPEED_RUN = 7, JUMP_V = -14, GRAV = 0.7;
+
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') e.preventDefault();
+  if (actor.dead) { if (e.code === 'KeyR') respawn(); return; }
+  if (e.code === 'Space' && actor.state !== 'jump') doJump();
+  if (e.code === 'KeyJ' && actor.state !== 'attack') doAttack();
+  if (e.code === 'KeyK') doDie();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+
+function setState(s) { if (actor.state !== s) { actor.state = s; actor.t = 0; actor.atkDone = false; } }
+function doJump() { actor.vy = JUMP_V; setState('jump'); }
+function doAttack() { setState('attack'); }
+function doDie() { setState('dead'); actor.dead = true; actor.vx = 0; }
+function respawn() {
+  actor.dead = false; actor.x = 450; actor.y = 0; actor.vy = 0;
+  setState('idle');
+}
+
+function update(dt) {
+  actor.t += dt;
+  const moveL = keys.KeyA, moveR = keys.KeyD;
+  const run = keys.ShiftLeft || keys.ShiftRight;
+
+  if (!actor.dead && actor.state !== 'attack') {
+    let sp = 0;
+    if (moveL) { sp = run ? -SPEED_RUN : -SPEED_WALK; actor.face = -1; }
+    if (moveR) { sp = run ? SPEED_RUN : SPEED_WALK; actor.face = 1; }
+    actor.vx = sp;
+  } else if (actor.dead) {
+    actor.vx = 0;
+  }
+
+  // 重力
+  if (actor.y > 0 || actor.vy < 0) {
+    actor.vy += GRAV;
+    actor.y -= actor.vy;   // y 向上为正
+    if (actor.y <= 0) { actor.y = 0; actor.vy = 0; }
+  }
+
+  actor.x = Math.max(60, Math.min(cv.width - 60, actor.x + actor.vx));
+
+  // 状态判定
+  if (actor.dead) { setState('dead'); }
+  else if (actor.state === 'attack' && actor.t > 0.45) setState('idle');
+  else if (actor.y > 0) setState('jump');
+  else if (actor.vx !== 0) setState(run ? 'run' : 'walk');
+  else setState('idle');
+
+  HUD.textContent = '状态: ' + actor.state + '   坐标: ' + Math.round(actor.x);
+}
+
+/* ---------- 姿态：返回各部件角度(弧度)与整体偏移 ---------- */
+function pose(state, t, moveT) {
+  // 默认待机
+  const p = {
+    head: Math.sin(t * 1.6 + 0.4) * 0.02,
+    torso: Math.sin(t * 2.2) * 0.006,
+    armL: Math.sin(t * 1.6) * 0.05,
+    armR: -Math.sin(t * 1.6) * 0.05,
+    legL: Math.sin(t * 1.2) * 0.015,
+    legR: -Math.sin(t * 1.2) * 0.015,
+    bob: Math.sin(t * 1.6) * 5,
+    lean: 0,
+  };
+  if (state === 'walk' || state === 'run') {
+    const f = state === 'run' ? 11 : 6.5;         // 步频
+    const amp = state === 'run' ? 0.55 : 0.35;    // 摆幅
+    const s = Math.sin(moveT * f), c = Math.cos(moveT * f);
+    p.legL = s * amp; p.legR = -s * amp;
+    p.armL = -s * amp * 0.8; p.armR = s * amp * 0.8;
+    p.bob = Math.abs(c) * (state === 'run' ? 8 : 4);
+    p.lean = state === 'run' ? 0.08 : 0.03;
+    p.torso = p.lean * 0.4; p.head = -p.lean * 0.3;
+  }
+  if (state === 'jump') {
+    const up = actor.vy < 0;                       // 上升腿收、下降腿伸
+    p.legL = up ? 0.5 : 0.15; p.legR = up ? -0.3 : -0.1;
+    p.armL = up ? -1.2 : -0.5; p.armR = up ? -1.2 : -0.5;
+    p.torso = 0.05; p.head = -0.05;
+    p.bob = 0;
+  }
+  if (state === 'attack') {
+    const k = Math.min(t / 0.45, 1);
+    const swing = Math.sin(k * Math.PI);           // 挥臂曲线
+    p.armR = -2.2 * swing + 0.4;
+    p.armL = 0.6 * swing - 0.2;
+    p.torso = 0.25 * swing; p.head = -0.1 * swing;
+    p.legL = 0.2; p.legR = -0.25;
+    p.bob = 2 * swing; p.lean = 0.15 * swing;
+  }
+  if (state === 'dead') {
+    const k = Math.min(t / 0.8, 1);                // 后倒
+    const fall = k * k;
+    p.torso = -1.3 * fall; p.head = -0.5 * fall;
+    p.armL = 0.9 * fall; p.armR = 1.1 * fall;
+    p.legL = 0.6 * fall; p.legR = 0.4 * fall;
+    p.bob = 60 * fall;                             // 向下沉
+    p.lean = -0.5 * fall;
+  }
+  return p;
+}
+
+let last = 0, moveT = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((ts - last) / 1000 || 0.016, 0.05); last = ts;
+  update(dt);
+  if (actor.vx !== 0) moveT += dt * (actor.state === 'run' ? 1.6 : 1);
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+
+  // 地面
+  ctx.fillStyle = '#2a3350';
+  ctx.fillRect(0, GROUND, cv.width, cv.height - GROUND);
+  ctx.strokeStyle = '#3d4a70';
+  for (let x = 0; x < cv.width; x += 60) { ctx.beginPath(); ctx.moveTo(x, GROUND); ctx.lineTo(x, cv.height); ctx.stroke(); }
+
+  const p = pose(actor.state, ts / 1000, moveT);
+
+  // 影子
+  const airH = actor.y;
+  ctx.fillStyle = 'rgba(0,0,0,' + (0.4 - airH * 0.002) + ')';
+  ctx.beginPath();
+  ctx.ellipse(actor.x, GROUND + 8, 70 * SCALE * 2.2 - airH * 0.15, 12, 0, 0, 7);
+  ctx.fill();
+
+  // 角色
+  const baseX = actor.x, baseY = GROUND - airH - p.bob;
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  ctx.scale(actor.face * SCALE, SCALE);   // 翻面 + 缩放
+  ctx.translate(0, -768 + 40);            // 部件坐标原点在图顶，对齐脚底
+
+  parts.forEach(pt => {
+    const im = imgs[pt.name];
+    if (!im || !im.complete) return;
+    const rot = p[pt.name] || 0;
+    const rx = pt.root[0] * 768 - pt.bbox[0];
+    const ry = pt.root[1] * 768 - pt.bbox[1];
+    ctx.save();
+    // lean：躯干/头/臂随整体前倾（绕髋）
+    if (p.lean) {
+      const hipX = 0.5 * 768, hipY = 0.58 * 768;
+      ctx.translate(hipX, hipY); ctx.rotate(p.lean); ctx.translate(-hipX, -hipY);
+    }
+    ctx.translate(rx, ry); ctx.rotate(rot); ctx.translate(-rx, -ry);
+    ctx.drawImage(im, pt.bbox[0], pt.bbox[1]);
+    ctx.restore();
+  });
+  ctx.restore();
+
+  // 攻击挥砍特效
+  if (actor.state === 'attack') {
+    const k = Math.min(actor.t / 0.45, 1);
+    ctx.strokeStyle = 'rgba(140,200,255,' + (1 - k) + ')';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(baseX + actor.face * 70, baseY - 200 * SCALE, 60, -1.2 + k * 2, 0.2 + k * 2);
+    ctx.stroke();
+  }
+}
+</script>
+</body>
+</html>

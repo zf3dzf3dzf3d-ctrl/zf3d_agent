@@ -1,0 +1,44 @@
+{
+  "meta": { "title": "HTML 演示格式介绍", "author": "朱峰社区智能体", "created": "2026-09-05" },
+  "slides": [
+    { "type": "cover", "title": "HTML 演示格式", "subtitle": "不用 PPT 二进制，一个网页就是放映厅", "accent": "#4f6ef7" },
+    { "title": "为什么不用 PPT", "bullets": [
+      "二进制格式，大模型难以直接生成和修改",
+      "需要装 Office 或插件才能打开",
+      "HTML 双击即看，浏览器人人都有",
+      "纯文本数据，版本控制、diff、AI 修改全部友好"
+    ], "accent": "#4f6ef7" },
+    { "title": "三层结构", "bullets": [
+      "引擎：viewer.html，只负责渲染、翻页、缩放，永不改动",
+      "内容：slides/ 下的 .pres.json，大模型生成和修改的唯一对象",
+      "清单：index.json，文件树桥接，新建演示时同步更新"
+    ], "accent": "#4f6ef7" },
+    { "title": "工作流", "bullets": [
+      "新建：用户说需求 → 模型生成 pres 文件 → 更新 index.json → 右上角 📂 点开即看",
+      "修改：模型读原文件、只改目标页 → 保存后刷新即生效",
+      "协议约束在 PROTOCOL.md，保证任何模型改都不破坏视觉"
+    ], "accent": "#4f6ef7" },
+    {
+      "type": "scene", "title": "自由画布：旋转·缩放·透明度·动画", "bg": "#12142a",
+      "elements": [
+        { "type": "shape", "x": 40, "y": 140, "w": 220, "h": 140, "color": "#4f6ef7", "radius": 16, "shadow": "0 10px 30px rgba(79,110,247,.4)", "enter": "pop", "delay": 0.2, "loop": "float" },
+        { "type": "text", "x": 40, "y": 190, "w": 220, "align": "center", "size": 20, "bold": 700, "color": "#fff", "text": "形状\n(位置+阴影)", "enter": "fade", "delay": 0.35 },
+        { "type": "shape", "x": 320, "y": 160, "w": 140, "h": 140, "color": "#ff6b6b", "radius": 70, "rotate": 0, "enter": "zoom", "delay": 0.6, "loop": "pulse" },
+        { "type": "text", "x": 300, "y": 320, "w": 180, "align": "center", "size": 16, "color": "#ff9d9d", "text": "循环: pulse", "enter": "fade", "delay": 0.8 },
+        { "type": "text", "x": 480, "y": 130, "w": 330, "size": 34, "bold": 700, "color": "#e8eaf0", "text": "旋转 rotate:-12°", "rotate": -12, "enter": "spin", "delay": 0.9 },
+        { "type": "text", "x": 480, "y": 210, "w": 330, "size": 34, "bold": 700, "color": "#e8eaf0", "text": "缩放 scale:1.3", "scale": 1.3, "enter": "up", "delay": 1.1 },
+        { "type": "text", "x": 480, "y": 280, "w": 330, "size": 34, "bold": 700, "color": "#e8eaf0", "opacity": 0.35, "text": "透明度 opacity:0.35", "enter": "fade", "delay": 1.3 },
+        { "type": "text", "x": 480, "y": 350, "w": 330, "size": 34, "bold": 700, "color": "#ffd166", "text": "入场: spin 旋转进场", "enter": "spin", "delay": 1.5, "loop": "blink" },
+        { "type": "image", "x": 880, "y": 140, "w": 320, "h": 220, "radius": 12, "src": "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='220'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2336d399'/%3E%3Cstop offset='1' stop-color='%231f6feb'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='220' rx='14' fill='url(%23g)'/%3E%3Ccircle cx='80' cy='70' r='34' fill='%23ffd166'/%3E%3Cpath d='M0 190 Q80 120 160 170 T320 150 V220 H0 Z' fill='rgba(255,255,255,.25)'/%3E%3Ctext x='160' y='205' text-anchor='middle' fill='%23fff' font-size='18' font-family='sans-serif'%3E内嵌 SVG 图片%3C/text%3E%3C/svg%3E", "enter": "right", "delay": 1.7, "loop": "float" },
+        { "type": "text", "x": 880, "y": 380, "w": 320, "align": "center", "size": 16, "color": "#9be8c5", "text": "图片元素 · 支持任意 url/data-uri", "enter": "fade", "delay": 1.9 },
+        { "type": "shape", "x": 40, "y": 430, "w": 1160, "h": 90, "color": "rgba(79,110,247,.12)", "border": "2px dashed #4f6ef7", "radius": 14, "enter": "up", "delay": 2.1 },
+        { "type": "text", "x": 70, "y": 455, "w": 1100, "size": 22, "color": "#cdd6ff", "text": "每个元素独立定义 x/y/w/h、rotate、scale、opacity、入场动画、循环动画、延迟 —— 全部由大模型用 JSON 一句话生成", "enter": "fade", "delay": 2.3 }
+      ]
+    },
+    { "title": "扩展方向", "bullets": [
+      "更多页型：图表、图片、代码、两栏对比",
+      "动画与转场（CSS 即可，无需引擎改动）",
+      "导出 PDF：浏览器打印即所得"
+    ], "accent": "#4f6ef7", "footer": "按 → 或空格翻页" }
+  ]
+}

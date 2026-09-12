@@ -1,0 +1,13 @@
+{
+  "id": "hermes_style",
+  "name": "Hermes",
+  "description": "技能渐进披露（skill_list→skill_view→ref）+ skill_save 自学习闭环 (local_loop mode)",
+  "version": "0.2.0",
+  "enabled": true,
+  "engine_mode": "local_loop",
+  "tools": {
+    "source": "self",
+    "dir": "tools/",
+    "list": ["skill_list", "skill_view", "skill_save", "h_read", "h_write", "h_glob", "h_grep"]
+  }
+}

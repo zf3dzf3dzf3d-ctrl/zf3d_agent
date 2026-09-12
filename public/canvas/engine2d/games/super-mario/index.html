@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>超级玛丽 · engine2d</title>
+<style>
+  html,body{margin:0;height:100%;background:#5c94fc;color:#fff;font-family:Consolas,monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  canvas{background:#5c94fc;border:1px solid #234;border-radius:6px;image-rendering:pixelated}
+  #hud{font-size:13px;color:#ffe}
+</style>
+</head>
+<body>
+<canvas id="cv" width="720" height="480"></canvas>
+<div id="hud">← → / A D 移动 · 空格/W/↑ 跳跃 · 踩敌人 · 吃金币 · 旗杆通关</div>
+<script src="/engine2d/input.js"></script>
+<script src="/engine2d/audio.js"></script>
+<script src="/engine2d/core.js"></script>
+<script src="/engine2d/games/common.js"></script>
+<script src="/engine2d/games/super-mario/game.js"></script>
+</body>
+</html>

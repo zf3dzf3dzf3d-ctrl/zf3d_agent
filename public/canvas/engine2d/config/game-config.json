@@ -1,0 +1,8 @@
+// config/game-config.json — 数值配置表（改这里即可调数值，游戏内 2 秒热更生效）
+{
+  "player": { "hp": 100, "speed": 160, "radius": 14 },
+  "enemy":  { "speed": 60, "damage": 10, "radius": 12, "spawnInterval": 1.2 },
+  "bullet": { "speed": 320, "radius": 4 },
+  "camera": { "deadzoneW": 40, "deadzoneH": 40, "shakeOnHit": 12 },
+  "ui":     { "scorePerKill": 10 }
+}

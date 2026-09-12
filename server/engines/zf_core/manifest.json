@@ -1,0 +1,7 @@
+{
+  "id": "zf_core",
+  "name": "朱峰底层",
+  "description": "朱峰社区智能体默认底层引擎：OpenAI 兼容代理直连，支持流式/工具调用/思考模式",
+  "version": "1.0.0",
+  "enabled": true
+}

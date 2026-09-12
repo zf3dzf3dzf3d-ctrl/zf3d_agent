@@ -1,0 +1,115 @@
+{
+  "categories": [
+    {
+      "kind": "ppt",
+      "label": "📽 演示稿 PPT",
+      "viewer": "viewer.html",
+      "items": [
+        {
+          "title": "HTML 演示格式介绍",
+          "file": "slides/demo.pres.json"
+        },
+        {
+          "title": "朱峰社区智能体",
+          "file": "slides/test_md_import.pres.json"
+        },
+        {
+          "title": "朱峰社区智能体 无限 5.1.2 介绍",
+          "file": "slides/zhufeng_intro.pres.json"
+        },
+        {
+          "title": "朱峰社区智能体 · 产品介绍",
+          "file": "slides/zf_agent_intro.pres.json"
+        },
+        {
+          "title": "新版页型效果演示",
+          "file": "slides/showcase.pres.json"
+        },
+        {
+          "title": "图表能力演示",
+          "file": "slides/charts_demo.pres.json"
+        }
+      ]
+    },
+    {
+      "kind": "doc",
+      "label": "📄 文档 Word",
+      "viewer": "doc.html",
+      "items": [
+        {
+          "title": "大模型文档格式说明",
+          "file": "sample.doc.json"
+        }
+      ]
+    },
+    {
+      "kind": "sheet",
+      "label": "📊 表格 Excel",
+      "viewer": "sheet.html",
+      "items": [
+        {
+          "title": "2026年产品销售统计",
+          "file": "sample.sheet.json"
+        }
+      ]
+    },
+    {
+      "kind": "pdf",
+      "label": "📕 文档 PDF",
+      "viewer": "pdf.html",
+      "items": [
+        {
+          "title": "大模型 PDF 格式说明",
+          "file": "sample.pdf.json"
+        }
+      ]
+    }
+  ],
+  "flat": [
+    {
+      "title": "HTML 演示格式介绍",
+      "file": "slides/demo.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "朱峰社区智能体",
+      "file": "slides/test_md_import.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "朱峰社区智能体 无限 5.1.2 介绍",
+      "file": "slides/zhufeng_intro.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "朱峰社区智能体 · 产品介绍",
+      "file": "slides/zf_agent_intro.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "新版页型效果演示",
+      "file": "slides/showcase.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "图表能力演示",
+      "file": "slides/charts_demo.pres.json",
+      "kind": "ppt"
+    },
+    {
+      "title": "大模型文档格式说明",
+      "file": "sample.doc.json",
+      "kind": "doc"
+    },
+    {
+      "title": "2026年产品销售统计",
+      "file": "sample.sheet.json",
+      "kind": "sheet"
+    },
+    {
+      "title": "大模型 PDF 格式说明",
+      "file": "sample.pdf.json",
+      "kind": "pdf"
+    }
+  ]
+}

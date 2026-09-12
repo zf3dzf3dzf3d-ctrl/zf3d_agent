@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "title": "朱峰社区智能体",
+    "author": "md导入",
+    "created": "2026-09-06"
+  },
+  "slides": [
+    {
+      "type": "cover",
+      "title": "朱峰社区智能体",
+      "subtitle": "大模型驱动的无限画布助手"
+    },
+    {
+      "title": "三个核心能力",
+      "bullets": [
+        "演示格式完全由大模型生成",
+        "不依赖 PowerPoint，HTML 直接放映",
+        "支持 pptx 与 md 双向导入"
+      ]
+    },
+    {
+      "title": "技术架构",
+      "text": "viewer.html 引擎 + pres.json 数据 + 工具脚本\n一个浏览器就够了"
+    }
+  ]
+}
