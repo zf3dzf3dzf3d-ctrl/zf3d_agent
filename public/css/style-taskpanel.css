@@ -85,7 +85,7 @@
 /* 面板主体 */
 .task-panel {
     --task-panel-width: 650px;
-    position: fixed; top: 0; right: 0; width: var(--task-panel-width); height: 100vh;
+    position: fixed; top: 34px; right: 0; width: var(--task-panel-width); height: calc(100vh - 34px); /* top 下移避开右上角最小化/最大化/关闭按钮 */
     background: var(--bg-panel, #1a1a2e); border-left: 1px solid var(--border, #333);
     z-index: 9001; display: flex; flex-direction: column;
     transform: translateX(100%); transition: transform 0.3s ease;
@@ -1041,6 +1041,44 @@
 [data-theme="light"] .tp-fab-group #taskPanelBtn {
     background: rgba(20, 24, 32, 0.9) !important;
     box-shadow: none !important;
+}
+
+/* ===== 白色风格：底栏按钮（左下角 + 右下角一排）浅色适配 ===== */
+[data-theme="light"] .tp-fab-group .zf-dock-btn {
+    background: rgba(226, 232, 240, 0.92) !important;
+    color: #2a3542 !important;
+    box-shadow: inset 0 0 0 1px rgba(120, 134, 156, 0.35) !important;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn:hover {
+    background: rgba(52, 152, 219, 0.22) !important;
+    color: #1a64a8 !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.5) !important;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn.zf-dock-active,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.tp-tab.zf-dock-active {
+    background: rgba(52, 152, 219, 0.16) !important;
+    color: #1a64a8 !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.55) !important;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn.dog-guard-btn--on,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.dog-guard-btn--on:hover {
+    background: #3498db !important;
+    color: #fff !important;
+}
+[data-theme="light"] .tp-fab-group #chatStatusBtn,
+[data-theme="light"] .tp-fab-group #taskPanelBtn,
+[data-theme="light"] .tp-fab-group #chatStatusBtn.cs-btn--busy {
+    background: rgba(226, 232, 240, 0.92) !important;
+    color: #2a3542 !important;
+    box-shadow: inset 0 0 0 1px rgba(120, 134, 156, 0.35) !important;
+}
+[data-theme="light"] .tp-fab-group #chatStatusBtn:hover,
+[data-theme="light"] .tp-fab-group #taskPanelBtn:hover {
+    background: rgba(52, 152, 219, 0.85) !important;
+    color: #fff !important;
+}
+[data-theme="light"] .tp-fab-group .cs-btn-count {
+    color: #5a6a7d !important;
 }
 
 /* ===== 对话管理 UI 重构（2026-09-15） ===== */
