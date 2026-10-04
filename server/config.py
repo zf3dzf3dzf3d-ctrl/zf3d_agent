@@ -52,9 +52,15 @@ QUIET_CONSOLE = True
 
 
 def _load_version():
-    """唯一来源 private/version.json，缺失/非法直接报错退出。"""
+    """唯一来源 private/version.json。缺失时自动生成默认值（首装场景），解析失败才报错。"""
     if not os.path.exists(VERSION_JSON_PATH):
-        raise SystemExit('[配置错误] 版本配置文件缺失: %s' % VERSION_JSON_PATH)
+        try:
+            os.makedirs(os.path.dirname(VERSION_JSON_PATH), exist_ok=True)
+            with open(VERSION_JSON_PATH, 'w', encoding='utf-8') as f:
+                json.dump({'version': '5.5.0'}, f, ensure_ascii=False, indent=4)
+            print('[配置] 已自动生成默认版本配置: %s' % VERSION_JSON_PATH, flush=True)
+        except Exception as e:
+            raise SystemExit('[配置错误] 无法创建版本配置文件 %s: %s' % (VERSION_JSON_PATH, e))
     try:
         with open(VERSION_JSON_PATH, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
@@ -66,9 +72,25 @@ def _load_version():
 
 
 def _load_port():
-    """唯一来源 private/port.json，缺失/非法直接报错退出。"""
+    """唯一来源 private/port.json。缺失时自动生成默认值（首装场景），解析失败才报错。"""
     if not os.path.exists(PORT_JSON_PATH):
-        raise SystemExit('[配置错误] 端口配置文件缺失: %s' % PORT_JSON_PATH)
+        _default = {
+            "host": "127.0.0.1",
+            "_comment": "【端口段约定】5.5.x 用 8505-8509 段，与 5.4.x（8550-8554）互不冲突",
+            "api_port": 8505,
+            "ws_port": 8506,
+            "tts_stream": {"enabled": True, "port": 8507},
+            "remote_ws_port": 8508,
+            "auth_token": "",
+            "ai_proxy_port": 8509,
+        }
+        try:
+            os.makedirs(os.path.dirname(PORT_JSON_PATH), exist_ok=True)
+            with open(PORT_JSON_PATH, 'w', encoding='utf-8') as f:
+                json.dump(_default, f, ensure_ascii=False, indent=4)
+            print('[配置] 已自动生成默认端口配置: %s' % PORT_JSON_PATH, flush=True)
+        except Exception as e:
+            raise SystemExit('[配置错误] 无法创建端口配置文件 %s: %s' % (PORT_JSON_PATH, e))
     try:
         with open(PORT_JSON_PATH, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
