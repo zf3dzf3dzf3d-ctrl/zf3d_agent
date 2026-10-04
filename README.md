@@ -11,11 +11,11 @@ v5.5.0 · Windows / Linux / macOS · Local Python service + Browser UI
 <!-- TODO: 图片区（截图）后续补充 -->
 
 ## 1. Introduction (English)
-## What is it
+### What is it
 
 Open any number of independent AI windows on an infinite canvas. Each window has its own persona, model, engine and tools — working together on everything from chat and coding to 3D / video production.
 
-## Highlights
+### Highlights
 
 - 🖼️ **Infinite Canvas** — AI windows, browser, 3D engine, video and PPT are all nodes on one endlessly pannable/zoomable canvas; click arrows to hand tasks between nodes
 - 🪟 **Independent Windows** — each window has its own model, persona, UI, engine, toolset and git branch
@@ -26,7 +26,7 @@ Open any number of independent AI windows on an infinite canvas. Each window has
 - 🎯 **Long Tasks & Memory** — persistent plans carried across conversations; semantic memory keeps project context
 - 🧰 **Full Toolbox** — built-in browser, 3D engine & generation, PPT generation, image workbench, TTS, screen capture & recording
 
-## Feature Map
+### Feature Map
 
 | Area | Capabilities |
 |---|---|
@@ -38,7 +38,7 @@ Open any number of independent AI windows on an infinite canvas. Each window has
 | Extensions | Skills system, extension market, MCP, declarative UI, custom modes |
 | Management | Multi-channel models, token stats, rate limits, backup/restore, online upgrade, trash, sharing, i18n |
 
-## Who is it for
+### Who is it for
 
 - Power users running many AI tasks in parallel
 - Creators making games / 3D / art content with AI
@@ -49,7 +49,7 @@ Open any number of independent AI windows on an infinite canvas. Each window has
 ---
 
 ## 2. Version History (English)
-## Version History (summary)
+### Version History (summary)
 
 | Version | Time | Milestones |
 |---|---|---|
@@ -67,13 +67,61 @@ Open any number of independent AI windows on an infinite canvas. Each window has
 ---
 
 ## 3. Help / Quick Start (English)
-## Quick Start
 
-1. Run `.启动朱峰智能体无限.bat` in the root directory (run `.安装依赖.bat` on first use; Linux/macOS: see the `Linux和Mac启动器` folder)
-2. Open `Settings → Model Config` and fill in your API Key (or register a ZhuFeng account to use it keyless)
-3. Create a window on the canvas, pick a persona, and start your first conversation
+### Quick Start (5 minutes)
 
-Default panel address: `http://127.0.0.1:8555` (v5.5.0)
+1. Double-click `.启动朱峰智能体无限.bat` in the project root (first time: run `.安装依赖.bat` first; Linux/macOS see the `Linux和Mac启动器` folder)
+2. The panel opens automatically at `http://127.0.0.1:8555` (port may vary by version)
+3. Go to **Settings → Model Config** and fill in your API Key — or just log in with a ZhuFeng account (no key needed, free tokens on signup)
+4. Create a window on the canvas, pick a model and persona, start chatting
+
+### Core: Infinite Canvas & Multi-Window
+
+- The whole panel is an infinitely pannable/zoomable canvas; every AI chat window is a node
+- Node types: AI window, browser, 3D engine, video, presentation (PPT) nodes
+- Drag **arrow links** between nodes to hand over tasks (e.g. Planner window → Coder window)
+- **Role drag-and-drop**: drop a role card onto the canvas to spawn a window of that role
+- Every window is fully independent: its own model, persona/UI, toolset (minimal/coding/hacker/writing/DCC…), git branch and team membership
+- **Window pool + track network**: tasks flow across a pool of windows like traffic; supports resume after restart
+- **Navigate / Tidy-up**: one click to auto-arrange the canvas or locate any window; window lock prevents accidentally closing busy windows
+
+### AI Toolbox
+
+All tools are invoked autonomously by the AI — you just give natural-language instructions. Planner + QA multi-round dialogue greatly raises success rates.
+
+- **Files & code**: read/write files, directory tree, global search, exact replace, move; git snapshots saved before and after every conversation; backups before modify, trash before delete
+- **3D & art**: text/image-to-3D via tripo/meshy/rodin/hunyuan with preview in the built-in 3D workbench; ultra-light AI-driven zf3d engine node
+- **Image / video / voice**: text-to-image, text-to-video, video editing, streaming TTS, voice input
+- **Built-in browser & automation**: AI opens pages, clicks, fills forms, screenshots, reads content, runs JS; login state persists across restarts; browser can be pinned to the canvas
+- **Screen & desktop**: screenshots with area selector, screen recording with transcoding, keyboard/mouse control
+- **Others**: web search / network diagnostics, email, viewer & generation for spreadsheets/PDF/Word/PPT
+
+### Advanced: Multi-role Collaboration & Kite System
+
+- **Multi-role pipeline (one click)**: Planner breaks down the task → Builders execute → QA reviews, with one-click redo and visible rounds
+- **Builder teams & Git racing**: launch N builder teams, each in a physically isolated git worktree + branch; they race in parallel, winner's branch gets merged back to main
+- **Kite monitoring system**: watches every conversation and track; FPS guard, network guard, index guard etc. auto-detect stalls and self-heal
+- **Long tasks & memory**: ultra-long tasks become persistent MD plans executed across conversations in batches; task checklist shows live progress; multiple layers of long-term memory
+- **Mode system**: hot-swappable conversation engines; a mode = persona + tool whitelist + opener, one click to re-personalize a window
+
+### Extensions & Settings
+
+- **Skills & marketplace**: code review, docs sync, PPT intro and more, one-click install; MCP server integration; declarative UI extensions
+- **Settings center**: multi-channel model config (ZhuFeng model works with just a login), token usage statistics, themes and 11 languages (Simplified/Traditional Chinese, English, German, Russian, Japanese, Korean, Arabic…)
+
+### FAQ
+
+- **How to start?** Double-click the launcher bat — no installation needed.
+- **API Key errors?** Check the key in Settings → Model Config, or register a ZhuFeng account for free tokens.
+- **No TTS sound?** Turn on the sound button at the top of the UI.
+- **3D generation failed?** Configure the provider's API key (tripo/meshy/rodin/hunyuan) in Settings.
+- **Online upgrade failed?** Run as administrator with all windows closed; or restore from backup.
+- **A window is stuck?** Close and reopen that window; other windows keep running.
+- **Full reset?** Back up `data/` and `private/`, then delete them and restart. Irreversible — back up first!
+- **Canvas is a mess?** Use the canvas "Tidy-up" button or the navigation panel.
+- **Migrate to another PC?** Copy the whole project folder (keep `data/` & `private/`), run the dependency installer, launch.
+- **How to use the multi-role pipeline?** One-click create roles, group windows into a team, and connect them with arrows to define the flow.
+- **Token usage?** Settings → Token Usage Statistics.
 
 ---
 
