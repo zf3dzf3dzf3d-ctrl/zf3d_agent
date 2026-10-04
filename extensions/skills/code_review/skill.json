@@ -1,0 +1,22 @@
+{
+  "spec": 1,
+  "id": "code_review",
+  "name": "代码审查",
+  "description": "以审查者视角检查代码质量、安全与可维护性",
+  "version": "1.0.0",
+  "enabled": true,
+  "prompt": "prompt.md",
+  "tools": [],
+  "triggers": ["代码审查", "review", "帮我看看这段代码"],
+  "autoInject": false,
+  "ui": {
+    "title": "代码审查提交面板",
+    "type": "form",
+    "fields": [
+      {"name": "code", "type": "textarea", "label": "要审查的代码", "placeholder": "粘贴代码…"},
+      {"name": "lang", "type": "select", "label": "语言", "options": ["Python", "JavaScript", "C#", "其他"]},
+      {"name": "focus", "type": "checkbox", "label": "关注点", "options": ["安全性", "性能", "可读性"]}
+    ],
+    "actions": [{"label": "开始审查", "tool": "chat", "arguments": {"_skill": "code_review"}}]
+  }
+}

@@ -1,0 +1,60 @@
+/* ============================================================
+   v17：顶栏/底栏常显模式（取消自动隐藏）
+   两栏仍为 fixed 定位，但默认就显示，不再滑出屏幕。
+   原 edge-hot 热区/显隐脚本保留但不再生效。
+   ============================================================ */
+
+/* 清掉两条上可能存在的伪元素装饰 */
+.topbar::before,
+.topbar::after,
+.statusbar::before,
+.statusbar::after {
+    content: none !important;
+    background: none !important;
+}
+
+/* 全局完全透明（所有主题） */
+.topbar[style], .statusbar[style], .tp-fab-group[style], [class*=dock][style] { background: transparent !important; background-color: transparent !important; backdrop-filter: none !important; box-shadow: none !important; }
+/* 指示灯(.tk-dot)不在透明范围内：否则风筝/守卫/急速的小灯永远不亮 */
+.statusbar *:not(.tk-dot), .tp-fab-group, [class*=dock] { background-image: none !important; }
+
+.topbar,
+.statusbar,
+[data-theme="light"] .topbar,
+[data-theme="light"] .statusbar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .statusbar {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 内联样式兜底：清掉 JS 写入的 background */
+.topbar[style], .statusbar[style], .tp-fab-group[style] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+ 
+/* ====== 顶栏/底栏改浮层化：脱离文档流，画布全屏通透 ====== */
+.topbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    pointer-events: none; /* 整条不拦截点击，空白处穿透到画布 */
+}
+.statusbar {
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    z-index: 900;
+    pointer-events: none;
+}
+/* 顶/底栏内的可交互子元素单独恢复可点击 */
+.topbar > *, .topbar button, .topbar a, .topbar input,
+.statusbar > *, .statusbar button, .statusbar a, .statusbar input {
+    pointer-events: auto;
+}
+/* 画布延伸到全屏高度（顶/底栏已浮层化，不再占据文档流） */
+.canvas-area { 
+    height: 100vh !important; 
+} 

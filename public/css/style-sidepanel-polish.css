@@ -1,0 +1,233 @@
+/* ============================================================
+   侧边面板 & 右下角入口栏 视觉优化补丁（覆盖式，最后加载生效）
+   优化点：现代圆角 / 玻璃拟态 / 统一间距 / 内容区滚动优化
+   ============================================================ */
+
+/* ---------- 1. 右下角入口栏（tp-fab-group / zf-dock-btn） ---------- */
+.tp-fab-group {
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 18px;
+    background: rgba(18, 20, 30, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: calc(100vw - 40px);
+}
+
+.tp-fab-group .zf-dock-btn {
+    padding: 7px 13px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: rgba(235, 238, 245, 0.82);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid transparent;
+    transition: background 0.18s ease, color 0.18s ease,
+                border-color 0.18s ease, transform 0.18s ease;
+    user-select: none;
+}
+.tp-fab-group .zf-dock-btn:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: #fff;
+    transform: translateY(-1px);
+}
+/* 激活态 Tab：高亮胶囊 */
+.tp-fab-group .zf-dock-btn.active,
+.tp-fab-group .zf-dock-btn.is-active,
+.tp-fab-group .zf-dock-btn[aria-selected="true"] {
+    background: var(--blue, #4a7dff);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(74, 125, 255, 0.4);
+}
+
+/* 对话计数徽章现代化 */
+.cs-btn-count {
+    font-size: 10.5px;
+    padding: 0 5px;
+    min-width: 17px;
+    height: 17px;
+    line-height: 17px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #cfd6e4 !important;
+}
+
+/* ---------- 2. 右侧面板本体 ---------- */
+.task-panel {
+    border-radius: 16px 0 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-right: none;
+    box-shadow: -12px 0 48px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+/* ---------- 3. 面板顶部 Tab 条（tp-mini-tabs） ---------- */
+.tp-tabs--mini {
+    padding: 10px 10px 8px;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+.tp-mini-tabs {
+    gap: 4px;
+    display: flex;
+    flex-wrap: wrap;
+}
+.tp-mini-tab {
+    padding: 5px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(220, 225, 235, 0.6);
+    background: transparent;
+    border: none;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+.tp-mini-tab:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+}
+.tp-mini-tab.active,
+.tp-mini-tab.is-active {
+    background: var(--blue, #4a7dff);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(74, 125, 255, 0.35);
+}
+.task-panel-close {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+.task-panel-close:hover { background: rgba(255, 80, 80, 0.25); }
+
+/* ---------- 4. 面板内容区：滚动 & 间距 ---------- */
+.task-panel-body {
+    padding: 12px 14px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.task-panel-body::-webkit-scrollbar { width: 6px; }
+.task-panel-body::-webkit-scrollbar-track { background: transparent; }
+.task-panel-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+.task-panel-body::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ---------- 5. 通用卡片/分组条目（目标、记忆、长任务条目） ---------- */
+.task-panel-body .goal-card,
+.task-panel-body .lp-plan-card,
+.task-panel-body .lp-step-row,
+.task-panel-body .lp-detail,
+.task-panel-body .tl-task-item,
+.task-panel-body .tp-task-item,
+.task-panel-body .tl-item,
+.task-panel-body .rlp-row {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    margin-bottom: 8px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.task-panel-body .goal-card:hover,
+.task-panel-body .lp-plan-card:hover,
+.task-panel-body .lp-step-row:hover,
+.task-panel-body .tl-task-item,
+.task-panel-body .tp-task-item:hover,
+.task-panel-body .tl-item:hover,
+.task-panel-body .rlp-row:hover {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- 6. 记忆分类 chip / 过滤条 ---------- */
+.mem-cat-chip,
+[class*="chip"] {
+    border-radius: 999px !important;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* ---------- 7. 遮罩 ---------- */
+.task-panel-overlay {
+    background: rgba(0, 0, 0, 0.45) !important; /* backdrop-filter 已移除：GPU 大户 */
+}
+
+/* ---------- 8. 浅色主题适配 ---------- */
+[data-theme="light"] .tp-fab-group {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn {
+    color: #3a4254;
+    background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #111;
+}
+[data-theme="light"] .tp-mini-tab { color: #5a6375; }
+[data-theme="light"] .tp-mini-tab:hover { background: rgba(0, 0, 0, 0.06); color: #111; }
+[data-theme="light"] .task-panel {
+    border-color: rgba(0, 0, 0, 0.08);
+    box-shadow: -12px 0 48px rgba(30, 40, 60, 0.18);
+}
+[data-theme="light"] .task-panel-body {
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+[data-theme="light"] .task-panel-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.18);
+}
+[data-theme="light"] .task-panel-body .goal-card,
+[data-theme="light"] .task-panel-body .lp-plan-card,
+[data-theme="light"] .task-panel-body .lp-step-row,
+[data-theme="light"] .task-panel-body .tl-task-item,
+[data-theme="light"] .task-panel-body .tp-task-item {
+    background: #f7f8fb;
+    border-color: #e5e9f0;
+}
+[data-theme="light"] .task-panel-body .goal-card:hover,
+[data-theme="light"] .task-panel-body .lp-plan-card:hover,
+[data-theme="light"] .task-panel-body .lp-step-row:hover,
+[data-theme="light"] .task-panel-body .tl-task-item:hover,
+[data-theme="light"] .task-panel-body .tp-task-item:hover {
+    background: #eef1f7;
+    border-color: #d5dbe5;
+}
+
+/* ---------- 9. 小屏适配 ---------- */
+@media (max-width: 640px) {
+    .tp-fab-group { right: 10px; bottom: 10px; }
+    .tp-fab-group .zf-dock-btn { padding: 6px 10px; font-size: 11.5px; }
+    .task-panel { width: 100vw !important; border-radius: 0; }
+}
+
+/* ---------- 10. 右下角入口栏容器透明化：只显示按钮，不显示底部圆角底框 ---------- */
+.tp-fab-group {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-radius: 0 !important;
+}
+[data-theme="light"] .tp-fab-group {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}

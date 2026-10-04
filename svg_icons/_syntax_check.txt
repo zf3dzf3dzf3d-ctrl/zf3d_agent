@@ -1,0 +1,1 @@
+RESULT: PARSE_FAIL:Unexpected token 'var'

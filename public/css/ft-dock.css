@@ -1,0 +1,18 @@
+﻿
+/* ===== 文件面板最小化 dock（类 macOS）===== */
+.ft-dock {
+    position: fixed; left: 10px; bottom: 8px; z-index: 99998;
+    display: flex; align-items: center; gap: 6px;
+    opacity: 0; transform: translateY(30px) scale(.6); pointer-events: none;
+    transition: opacity .35s ease, transform .45s cubic-bezier(.34,1.4,.44,1);
+}
+.ft-dock.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.ft-dock-tag {
+    padding: 5px 12px; border-radius: 10px;
+    background: rgba(30,32,38,.92); border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 6px 18px rgba(0,0,0,.45);
+    color: #e8e8ea; font-size: 12px; font-weight: 600; letter-spacing: .5px;
+    cursor: pointer; user-select: none;
+    transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+.ft-dock-tag:hover { transform: translateY(-3px) scale(1.08); background: rgba(58,62,74,.95); border-color: var(--accent, #5a8cff); }

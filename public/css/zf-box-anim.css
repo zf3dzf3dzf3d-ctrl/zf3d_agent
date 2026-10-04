@@ -1,0 +1,6 @@
+
+/* ===== 对话框开/关动画 ===== */
+.zf-box-open { animation: zfBoxIn 0.28s cubic-bezier(0.34, 1.4, 0.5, 1) both; transform-origin: center top; will-change: transform, opacity; }
+@keyframes zfBoxIn { from { opacity: 0; transform: scale(0.85) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.zf-box-close { animation: zfBoxOut 0.2s ease-in both; transform-origin: center top; pointer-events: none; will-change: transform, opacity; }
+@keyframes zfBoxOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.88) translateY(6px); } }

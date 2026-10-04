@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh"><head>
+    <script src="/js/storage-guard.js?v=1"></script><meta charset="utf-8"><title>粒子系统演示</title>
+<style>body{margin:0;background:#111;color:#ccc;font-family:monospace}canvas{display:block}</style></head>
+<body><canvas id="cv" width="960" height="600"></canvas>
+<div style="position:fixed;top:8px;left:10px;font-size:12px">移动鼠标改变火焰位置 · 点击 = 爆裂</div>
+<button onclick="location.href='index.html'" style="position:fixed;right:10px;top:10px;z-index:60;cursor:pointer;
+  background:rgba(20,28,44,.85);border:1px solid rgba(255,110,70,.55);color:#ffb9a0;
+  padding:5px 14px;border-radius:8px;font-family:monospace;font-size:12px;letter-spacing:2px"
+  title="返回引擎主菜单">✕ 退出</button>
+<script src="particles.js"></script>
+<script>
+const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const fire = new ParticleEmitter(Object.assign({x:480, y:400}, ParticlePresets.fire));
+const smoke = new ParticleEmitter(Object.assign({x:480, y:380}, ParticlePresets.smoke));
+let bursts = [];
+cv.addEventListener("mousemove", e => { const r = cv.getBoundingClientRect(); fire.x = smoke.x = e.clientX - r.left; fire.y = smoke.y = e.clientY - r.top + 40; });
+cv.addEventListener("click", e => { const r = cv.getBoundingClientRect(); bursts.push(new ParticleEmitter(Object.assign({x:e.clientX-r.left, y:e.clientY-r.top}, ParticlePresets.burst))); });
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  ctx.fillStyle = "rgba(10,10,14,.35)"; ctx.fillRect(0,0,cv.width,cv.height);
+  smoke.update(dt); smoke.draw(ctx);
+  fire.update(dt); fire.draw(ctx);
+  bursts = bursts.filter(b => (b.update(dt), b.aliveCount > 0 || b.burst > 0));
+  bursts.forEach(b => b.draw(ctx));
+  document.title = `粒子: ${fire.aliveCount + smoke.aliveCount}`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>

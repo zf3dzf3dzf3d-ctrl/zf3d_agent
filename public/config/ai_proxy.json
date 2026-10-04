@@ -1,0 +1,4 @@
+{
+  "_comment": "朱峰AI代理(ai_proxy.py)服务端口。【多版本共存·端口段约定】朱峰智能体按版本号分端口段：5.4.x 用 8550-8554，5.5.x 用 8505-8509，5.6.x 用 8510-8514，以此类推（每 0.1 一个小版本段预留 5 个端口，不与常用端口冲突）。同一大版本下的小版本可复用同一段。使用方：server/routes/mixin_zf3d.py、server/zf3d_commands.py、ai_proxy.py、server/server.py（ai_proxy_port 字段于 private/port.json，与本文件保持一致）。5.5.0 代理端口为 8509（段内最后一个）。",
+  "port": 8509
+}

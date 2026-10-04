@@ -1,0 +1,168 @@
+/* ===== 底部状态栏按钮风格统一（整理/风筝/守卫/急速 → 与右侧 tp-fab-group dock 一致） =====
+   右侧基准：暗底胶囊 rgba(20,24,32,.85)、圆角6px、12px 文字、hover 蓝底、激活描边高亮 */
+
+/* 1. 基础外观：覆盖 .dog-guard-btn 的「透明背景+0.5透明度+放大」旧风格 */
+.statusbar #organizeDockBtn,
+.statusbar #kiteToggleBtn,
+.statusbar #dogGuardBtn,
+.statusbar #butlerDockBtn,
+.statusbar #turboDockBtn,
+.statusbar #brainDockBtn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(20, 24, 32, 0.85) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: #cfd8e3 !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    padding: 6px 9px !important;
+    margin: 0 !important;
+    cursor: pointer;
+    font-family: inherit !important;
+    box-shadow: none !important;
+    white-space: nowrap !important;
+    flex-shrink: 0;
+    opacity: 1 !important;
+    transition: background .15s, color .15s !important;
+    filter: none !important;
+    user-select: none;
+}
+.statusbar #organizeDockBtn:hover,
+.statusbar #kiteToggleBtn:hover,
+.statusbar #dogGuardBtn:hover,
+.statusbar #butlerDockBtn:hover,
+.statusbar #turboDockBtn:hover,
+.statusbar #brainDockBtn:hover {
+    background: rgba(52, 152, 219, 0.35) !important;
+    color: var(--text, #eee) !important;
+    transform: none !important;
+    opacity: 1 !important;
+}
+
+/* 2. 文字标签：与右侧同色（去强调色，统一灰白，激活时再高亮） */
+.statusbar .zf-dock-btn .tk-label {
+    color: #cfd8e3 !important;
+    font-size: 12px !important;
+    margin-right: 5px;
+}
+
+/* 3. 指示灯：对齐右侧 cs-btn-count 的弱化风格
+   状态点语义规范：绿(#2ecc71)=开启/运行 · 灰(#6b7280)=关闭 · 橙/红(#ff5544)=警告告警（如 brain-dot--alert） */
+.statusbar .zf-dock-btn .tk-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border: none !important;
+    background: #6b7280 !important;
+    opacity: .9;
+}
+.statusbar .zf-dock-btn .tk-dot.on,
+.statusbar .turbo-on .zf-dock-btn .tk-dot,
+.statusbar #turboDockBtn.turbo-on .tk-dot {
+    background: #2ecc71 !important;
+    box-shadow: 0 0 6px rgba(46, 204, 113, .8) !important;
+}
+
+/* 4. 开启态：蓝底白字，与右侧 zf-dock-active / dog-guard-btn--on 一致 */
+.statusbar #kiteToggleBtn.dog-guard-btn--on,
+.statusbar #dogGuardBtn.dog-guard-btn--on,
+.statusbar #turboDockBtn.turbo-on,
+.statusbar #organizeDockBtn.dog-guard-btn--on,
+.statusbar #organizeDockBtn.organize-on {
+    background: var(--bg2, #252535) !important;
+    color: var(--text, #eee) !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.6) !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+.statusbar #kiteToggleBtn.dog-guard-btn--on .tk-label,
+.statusbar #dogGuardBtn.dog-guard-btn--on .tk-label,
+.statusbar #turboDockBtn.turbo-on .tk-label,
+.statusbar #organizeDockBtn.dog-guard-btn--on .tk-label,
+.statusbar #organizeDockBtn.organize-on .tk-label {
+    color: var(--text, #eee) !important;
+}
+
+/* 7. 主脑按钮收编：压过 style-brain.css 的 #brainDockBtn.brain-fab 旧样式（padding 6px12px / 13px 字号 / 8px 圆角 / var(--bg-hover) 底） */
+.statusbar #brainDockBtn.brain-fab {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 6px 9px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    border: none !important;
+    background: rgba(20, 24, 32, 0.85) !important;
+    color: #cfd8e3 !important;
+}
+.statusbar #brainDockBtn.brain-fab:hover {
+    background: rgba(52, 152, 219, 0.35) !important;
+    color: var(--text, #eee) !important;
+}
+/* 主脑运行/警告点：尺寸对齐统一 tk-dot，颜色走语义规范 */
+.statusbar #brainDockBtn .brain-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border: none !important;
+    opacity: .9;
+}
+.statusbar #brainDockBtn .tk-label {
+    color: #cfd8e3 !important;
+    font-size: 12px !important;
+    margin-right: 0 !important;
+}
+
+/* 8. 右侧 dock 对齐：压过 style-sidepanel-polish.css 的玻璃拟态漂移（底色/圆角/字重/hover 与左侧基准不一致），统一回暗底胶囊规范 */
+.tp-fab-group .zf-dock-btn {
+    padding: 6px 9px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    letter-spacing: normal !important;
+    color: #cfd8e3 !important;
+    background: rgba(20, 24, 32, 0.85) !important;
+    border: none !important;
+    transform: none !important;
+}
+.tp-fab-group .zf-dock-btn:hover {
+    background: rgba(52, 152, 219, 0.35) !important;
+    color: var(--text, #eee) !important;
+    transform: none !important;
+}
+.tp-fab-group .zf-dock-btn.zf-dock-active,
+.tp-fab-group .zf-dock-btn.dog-guard-btn--on {
+    background: var(--bg2, #252535) !important;
+    color: var(--text, #eee) !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.6) !important;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn {
+    background: rgba(20, 24, 32, 0.85) !important;
+    color: #cfd8e3 !important;
+}
+
+/* 5. 状态栏容器微调：按钮间距与右侧组一致 */
+.statusbar { gap: 6px !important; }
+.statusbar .status-model-trigger {
+    background: rgba(20, 24, 32, 0.85);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12px;
+    line-height: 1;
+}
+.statusbar .status-model-trigger:hover {
+    background: rgba(52, 152, 219, 0.35);
+}
+
+/* 6. 亮色主题适配（与 style-taskpanel.css 亮色组一致） */
+[data-theme="light"] .statusbar #organizeDockBtn,
+[data-theme="light"] .statusbar #kiteToggleBtn,
+[data-theme="light"] .statusbar #dogGuardBtn,
+[data-theme="light"] .statusbar #butlerDockBtn,
+[data-theme="light"] .statusbar #turboDockBtn,
+[data-theme="light"] .statusbar #brainDockBtn,
+[data-theme="light"] .statusbar .status-model-trigger {
+    background: rgba(20, 24, 32, 0.85);
+    color: #cfd8e3;
+}

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>鐢诲竷鐜╁伓 - VRM 褰㈣薄 Demo</title>
+<style>
+  html,body{margin:0;height:100%;background:transparent;overflow:hidden;font-family:sans-serif}
+  body{background:linear-gradient(135deg,#1a1a2e,#16213e)}
+  #stage{position:fixed;inset:0}
+  #tip{position:fixed;left:12px;top:12px;color:#9ef;font-size:13px;background:rgba(0,0,0,.5);padding:8px 12px;border-radius:8px;pointer-events:none;line-height:1.7;z-index:5}
+  #mouth{position:fixed;right:12px;top:12px;color:#fff;font-size:13px;background:rgba(0,0,0,.5);padding:8px 12px;border-radius:8px;z-index:5}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="tip">鐢诲竷鐜╁伓 Demo 路 宸﹂敭鎷栧姩鏃嬭浆 / 鍙抽敭鎷栧姩骞崇Щ / 婊氳疆缂╂斁 / 鍙屽嚮澶嶄綅<br>鐐瑰嚮鐢婚潰=鍋囧０娉㈠彛鍨嬫紨绀?路 鎺у埗鍙拌皟 playTalk('闊抽url') = 鐪熷疄TTS鍙ｅ瀷鍚屾<br>鍔ㄤ綔: 鎸?1~6 = 鎸ユ墜/鐐瑰ご/寮€蹇?瀹崇緸/鐢熸皵/鐫¤ 路 鎴?playAction("wave")</div>
+<div id="mouth">鍙ｅ瀷: 0.00</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.3.2/lib/three-vrm.module.js",
+    "@pixiv/three-vrm-animation": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm-animation@3.3.2/lib/three-vrm-animation.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMAnimationLoaderPlugin, VRMAnimation } from '@pixiv/three-vrm-animation';
+
+// ===== VRMA 鍔ㄧ敾搴擄紙鐪熷疄楠ㄩ鍔ㄧ敾锛?====
+// 鐢ㄦ硶锛歱layVRMA('鍔ㄧ敾鏂囦欢url') 鍔犺浇 .vrma 骞跺惊鐜挱鏀撅紱stopVRMA() 鍋滄
+// 鏈湴鍔ㄧ敾鏂囦欢鏀?public/animations/ 鐩綍锛屽 playVRMA('/animations/wave.vrma')
+const vrmAnimLoader = new GLTFLoader();
+vrmAnimLoader.register(new VRMAnimationLoaderPlugin());
+let vrmAnimMixer = null, vrmAnimAction = null;
+
+window.playVRMA = async url => {
+  if(!vrm){ console.warn('VRM 鏈姞杞?); return; }
+  try{
+    const gltf = await vrmAnimLoader.loadAsync(url);
+    const anim = gltf.userData.vrmAnimations ? gltf.userData.vrmAnimations[0] : null;
+    if(!anim){ console.warn('璇ユ枃浠舵病鏈?VRMA 鍔ㄧ敾鏁版嵁'); return; }
+    if(!vrmAnimMixer) vrmAnimMixer = new THREE.AnimationMixer(vrm.scene);
+    vrmAnimMixer.stopAllAction();
+    vrmAnimAction = vrmAnimMixer.clipAction(anim);
+    vrmAnimAction.reset().play();
+    console.log('VRMA 鎾斁涓?', url);
+  }catch(e){ console.error('VRMA 鍔犺浇澶辫触', e); }
+};
+window.stopVRMA = () => { if(vrmAnimAction){ vrmAnimAction.stop(); vrmAnimAction = null; } };
+
+// ===== 1. 娓叉煋鍣細alpha 鍏ㄩ€忔槑鑳屾櫙锛堟寮忕増鐩存帴鍙犲湪鐢诲竷涓婏級=====
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.getElementById('stage').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, innerWidth/innerHeight, 0.1, 100);
+
+// 鐏厜锛堝崐鐞冨厜 + 涓诲厜锛岄伩鍏嶆煇浜涙ā鍨嬪叏榛戯級
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444466, 1.2));
+const dl = new THREE.DirectionalLight(0xffffff, 1.8);
+dl.position.set(1, 2, 2);
+scene.add(dl);
+
+// ===== 2. 鍔犺浇 VRM 妯″瀷 =====
+// 瀹樻柟绀轰緥妯″瀷锛堝湪绾匡級銆傛寮忕増鎹㈡垚 public/assets/avatars/xxx.vrm 鏈湴鏂囦欢
+const MODEL_URL = 'https://pixiv.github.io/three-vrm/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm';
+
+const loader = new GLTFLoader();
+loader.register(p => new VRMLoaderPlugin(p));
+
+let vrm = null;
+const modelRoot = new THREE.Group();   // 缁熶竴鎸傚湪 group 涓婏紝鏂逛究鏁翠綋鎽嗕綅
+scene.add(modelRoot);
+const mouthEl = document.getElementById('mouth');
+
+loader.load(MODEL_URL, gltf => {
+  vrm = gltf.userData.vrm;
+  VRMUtils.removeUnnecessaryVertices(gltf.scene);
+  VRMUtils.combineSkeletons(gltf.scene);
+  VRMUtils.rotateVRM0(vrm);            // VRM0 妯″瀷鑷姩杞悜姝ｅ闀滃ご
+  modelRoot.add(gltf.scene);
+  fitCamera();                          // 鍔犺浇瀹岃嚜鍔ㄥ叏韬彇鏅?
+  console.log('VRM 鍔犺浇鎴愬姛:', vrm);
+}, p => { const pc = Math.min(100, Math.round(p.loaded/p.total*100)); if(pc >= (loader._pc||0)+10){ loader._pc = pc; console.log('鍔犺浇涓?..', pc+'%'); } },
+   e => console.error('鍔犺浇澶辫触', e));
+
+// 鈽?鍏抽敭淇锛氬寘鍥寸洅鑷€傚簲鍙栨櫙锛屼繚璇佷换浣曟ā鍨嬪叏韬叆闀?
+function fitCamera(){
+  if(!vrm) return;
+  const box = new THREE.Box3().setFromObject(vrm.scene);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const height = Math.max(size.y, 0.5);
+  const dist = (height/2) / Math.tan(THREE.MathUtils.degToRad(camera.fov/2)) + height*0.35;
+  camState.dist = dist;
+  camState.target.copy(center);
+  console.log('鍙栨櫙: 楂樺害', height.toFixed(2), '璺濈', dist.toFixed(2));
+}
+
+// ===== 3. 鐩告満杞ㄩ亾鎺у埗锛氬乏閿棆杞?鍚刊浠? / 鍙抽敭鎴栦腑閿钩绉?/ 婊氳疆缂╂斁 / 鍙屽嚮澶嶄綅 =====
+const camState = { drag:0, px:0, py:0, rotY:0, pitch:0.15, dist:4, target:new THREE.Vector3(0,1,0) };
+const dom = renderer.domElement;
+dom.addEventListener('contextmenu', e=>e.preventDefault());
+dom.addEventListener('pointerdown', e=>{
+  camState.drag = (e.button===0) ? 1 : 2;   // 1=鏃嬭浆 2=骞崇Щ
+  camState.px=e.clientX; camState.py=e.clientY;
+  dom.setPointerCapture(e.pointerId);
+});
+dom.addEventListener('pointerup', ()=> camState.drag=0);
+dom.addEventListener('pointermove', e=>{
+  if(!camState.drag) return;
+  const dx=e.clientX-camState.px, dy=e.clientY-camState.py;
+  camState.px=e.clientX; camState.py=e.clientY;
+  if(camState.drag===1){
+    camState.rotY -= dx*0.01;
+    camState.pitch = Math.min(1.4, Math.max(-1.4, camState.pitch + dy*0.008));
+  }else{
+    // 骞崇Щ锛氭部鐩告満鍙虫柟鍚戝拰涓婃柟鍚戠Щ鍔ㄦ敞瑙嗙偣
+    const right = new THREE.Vector3(Math.cos(camState.rotY),0,-Math.sin(camState.rotY));
+    camState.target.addScaledVector(right, -dx*0.002*camState.dist);
+    camState.target.y += dy*0.002*camState.dist;
+  }
+});
+dom.addEventListener('wheel', e=>{ camState.dist = Math.min(20, Math.max(0.5, camState.dist*(1+e.deltaY*0.001))); }, {passive:true});
+dom.addEventListener('dblclick', ()=>{ camState.rotY=0; camState.pitch=0.15; fitCamera(); });
+
+// ===== 4. 鍔ㄤ綔绯荤粺锛堢▼搴忓寲椹卞姩楠ㄩ锛?====
+// 鐢ㄦ硶锛歱layAction('wave') 鈥?浠ュ悗 AI 鍥炲甯?[鍔ㄤ綔:wave] 鏍囩鐩存帴璋冭繖涓?
+const humanoid = () => vrm?.humanoid;
+// 缂撳姩鍑芥暟锛氬厛鎱㈠悗蹇啀鎱紝鍔ㄤ綔鏇磋嚜鐒?
+const easeIO = k => k<0.5 ? 2*k*k : 1-Math.pow(-2*k+2,2)/2;
+const easeOut = k => 1-Math.pow(1-k,3);
+// 璁板綍鍔ㄤ綔娑夊強鐨勯楠奸泦鍚堬紝鐢ㄤ簬骞虫粦娣峰悎涓庡浣?
+const ACT = {
+  wave:  { dur:2.0, bones:['rightUpperArm','rightLowerArm','spine'], fn:(k)=>{
+    const e = easeIO(Math.min(1,k*3));          // 鍓?1/3 鎶墜
+    const s = Math.sin(Math.min(1,Math.max(0,(k-0.25)/0.65))*Math.PI); // 涓鎸ユ墜鍖呯粶
+    const hu = humanoid();
+    hu.getNormalizedBoneNode('rightUpperArm').rotation.z = -2.1*e;
+    hu.getNormalizedBoneNode('rightUpperArm').rotation.x = -0.15*e;
+    hu.getNormalizedBoneNode('rightLowerArm').rotation.z = (-0.5 - s*0.7)*e;
+    hu.getNormalizedBoneNode('spine').rotation.z = 0.08*e;
+  }},
+  nod:   { dur:1.2, bones:['neck','head'], fn:(k)=>{
+    const e = easeIO(k);
+    humanoid().getNormalizedBoneNode('neck').rotation.x = 0.32*Math.sin(e*Math.PI*2);
+    humanoid().getNormalizedBoneNode('head').rotation.x = 0.15*Math.sin(e*Math.PI*2);
+  }},
+  happy: { dur:1.8, bones:['leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','spine'], fn:(k)=>{
+    const e = Math.sin(easeIO(k)*Math.PI);
+    const hu = humanoid();
+    vrm.expressionManager?.setValue('happy', e);
+    hu.getNormalizedBoneNode('leftUpperArm').rotation.z = 1.1*e;
+    hu.getNormalizedBoneNode('rightUpperArm').rotation.z = -1.1*e;
+    hu.getNormalizedBoneNode('leftLowerArm').rotation.z = 0.5*e;
+    hu.getNormalizedBoneNode('rightLowerArm').rotation.z = -0.5*e;
+    hu.getNormalizedBoneNode('spine').rotation.x = -0.06*e;
+  }},
+  shy:   { dur:1.8, bones:['head','neck','leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm'], fn:(k)=>{
+    const e = easeIO(k), s = Math.sin(e*Math.PI);
+    vrm.expressionManager?.setValue('happy', s*0.6);
+    const hu = humanoid();
+    hu.getNormalizedBoneNode('head').rotation.x = 0.28*s;
+    hu.getNormalizedBoneNode('neck').rotation.z = 0.12*s;
+    hu.getNormalizedBoneNode('leftUpperArm').rotation.x = -0.5*s;
+    hu.getNormalizedBoneNode('rightUpperArm').rotation.x = -0.5*s;
+    hu.getNormalizedBoneNode('leftLowerArm').rotation.y = 0.6*s;
+    hu.getNormalizedBoneNode('rightLowerArm').rotation.y = -0.6*s;
+  }},
+  angry: { dur:1.6, bones:['head','neck','brow'], fn:(k)=>{
+    const s = Math.sin(easeIO(k)*Math.PI);
+    vrm.expressionManager?.setValue('angry', s);
+    humanoid().getNormalizedBoneNode('head').rotation.z = 0.15*Math.sin(easeIO(k)*Math.PI*2);
+    humanoid().getNormalizedBoneNode('neck').rotation.x = -0.08*s;
+  }},
+  sleep: { dur:3.0, bones:['head','neck','leftUpperArm','rightUpperArm'], fn:(k)=>{
+    const e = easeIO(Math.min(1,k*1.5));
+    vrm.expressionManager?.setValue('sleepy', e);
+    const hu = humanoid();
+    hu.getNormalizedBoneNode('head').rotation.x = 0.45*e;
+    hu.getNormalizedBoneNode('neck').rotation.x = 0.15*e;
+    hu.getNormalizedBoneNode('leftUpperArm').rotation.z = 0.15*e;
+    hu.getNormalizedBoneNode('rightUpperArm').rotation.z = -0.15*e;
+  }},
+};
+// 鍔ㄤ綔寮€濮嬪墠蹇収楠ㄩ濮挎€侊紝鐢ㄤ簬骞虫粦娣峰悎锛堟秷闄ょ灛璺筹級
+let actFrom = null;
+const snapBones = names => {
+  const m = {};
+  names.forEach(b=>{ const n = humanoid()?.getNormalizedBoneNode(b); if(n) m[b] = n.rotation.clone(); });
+  return m;
+};
+let act = null, actT = 0, retFrom = null, retT = 0, blinkNext = 0;
+const actTip = document.getElementById('tip');
+window.playAction = name => {
+  if(!vrm || !ACT[name]) return;
+  actFrom = snapBones(ACT[name].bones);
+  act = name; actT = 0;
+  console.log('鍔ㄤ綔:', name);
+};
+addEventListener('keydown', e=>{
+  const m = {Digit1:'wave',Digit2:'nod',Digit3:'happy',Digit4:'shy',Digit5:'angry',Digit6:'sleep'};
+  if(m[e.code]) playAction(m[e.code]);
+  if(e.code==='Digit7') window.dance();
+});
+
+// ===== 璺宠垶妯″紡锛氬惊鐜▼搴忓寲鑸炶箞锛宒ance() 寮€濮?/ dance(false) 鍋滄 =====
+let danceOn = false;
+window.dance = on => {
+  danceOn = (on === undefined) ? !danceOn : !!on;
+  if(danceOn){ act = null; actFrom = null; }
+  else { retFrom = snapBones(DANCE_BONES); retT = 0; vrm?.expressionManager?.setValue('happy', 0); }
+  console.log(danceOn ? '馃拑 璺宠垶寮€濮? : '璺宠垶鍋滄');
+  actTip.innerHTML = actTip.dataset.base + (danceOn ? '<br><b style="color:#f9c">馃拑 璺宠垶涓?.. 鎸?7 鎴?dance(false) 鍋滄</b>' : '');
+};
+const DANCE_BONES = ['hips','spine','chest','leftUpperArm','rightUpperArm','leftLowerArm','rightLowerArm','leftUpperLeg','rightUpperLeg','head'];
+function danceTick(t){
+  if(!danceOn) return;
+  const hu = humanoid(), s = Math.sin(t*5), c = Math.cos(t*5), s2 = Math.sin(t*10);
+  hu.getNormalizedBoneNode('hips')?.rotation.set(s*0.12, c*0.25, s*0.1);
+  hu.getNormalizedBoneNode('spine')?.rotation.set(s*0.06, -c*0.12, 0);
+  hu.getNormalizedBoneNode('chest')?.rotation.set(0, s*0.08, 0);
+  hu.getNormalizedBoneNode('head')?.rotation.set(s2*0.04, s*0.2, -s*0.1);
+  // 鎵嬭噦浜ゆ浛鎸ヨ垶
+  hu.getNormalizedBoneNode('leftUpperArm').rotation.set(-0.3+s*0.5, 0, 1.6+s*0.6);
+  hu.getNormalizedBoneNode('rightUpperArm').rotation.set(-0.3-s*0.5, 0, -1.6+s*0.6);
+  hu.getNormalizedBoneNode('leftLowerArm').rotation.set(0, -0.8+s*0.5, 0.5);
+  hu.getNormalizedBoneNode('rightLowerArm').rotation.set(0, 0.8+s*0.5, -0.5);
+  // 韪忔
+  hu.getNormalizedBoneNode('leftUpperLeg')?.rotation.set(s2*0.15, 0, 0.05);
+  hu.getNormalizedBoneNode('rightUpperLeg')?.rotation.set(-s2*0.15, 0, -0.05);
+  vrm.expressionManager?.setValue('happy', 0.8);
+}
+
+actTip.dataset.base = actTip.innerHTML;
+actTip.innerHTML += '<br>璺宠垶: 鎸?7 = 寮€濮?鍋滄 路 鎴?dance()';
+actTip.innerHTML += '<br>鍔ㄤ綔: 鎸?1~6 = 鎸ユ墜/鐐瑰ご/寮€蹇?瀹崇緸/鐢熸皵/鐫¤ 路 鎴?playAction("wave")<br>璇磋瘽: speak("浣犲ソ") = TTS鍑哄０+鍙ｅ瀷 路 VRMA: playVRMA("/animations/xxx.vrma")<br><button id="btn-speak" style="cursor:pointer">馃攰 璇磋瘽</button> <button id="btn-stop" style="cursor:pointer">鉀?闂槾</button>';
+
+// ===== 5. 鍙ｅ瀷鍚屾锛堣交閲忕増锛歐eb Audio 瀹炴椂闊抽噺鍒嗘瀽椹卞姩锛?====
+// 鐢ㄦ硶锛歱layTalk('http://.../tts.wav')  杈规挱鏀鹃煶棰戣竟鍔ㄥ槾锛涢煶閲忊啋aa琛ㄦ儏
+// 鏃犻煶棰戞椂鐐瑰嚮鐢婚潰浠嶅彲鐢ㄥ亣澹版尝婕旂ず
+let talking = false, audioCtx = null, analyser = null, freqData = null;
+let mouthTarget = 0, mouthCur = 0;
+
+// 闊抽绾р啋鍙ｅ瀷寮€鍚堬紙甯﹂殢鏈烘姈鍔ㄦ洿鑷劧锛?
+function mouthFromVolume(vol){
+  if(vol < 0.02) return 0;
+  const jitter = 0.85 + Math.random()*0.3;
+  return Math.min(1, vol * 2.2 * jitter);
+}
+
+window.playTalk = url => {
+  if(!url){ console.warn('playTalk: 闇€瑕侀煶棰?url'); return; }
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+  }
+  // 娴忚鍣ㄨ嚜鍔ㄦ挱鏀鹃檺鍒讹細鏃犵敤鎴锋墜鍔挎椂浼氳鏆傚仠锛屽厛灏濊瘯瑙ｉ攣
+  audioCtx.resume().catch(()=>{});
+  let audio = window._talkAudio;
+  if(!audio || audio.src !== new URL(url, location.href).href){
+    if(audio){ try{ audio.pause(); }catch(e){} }
+    audio = new Audio(url);
+    window._talkAudio = audio;
+    audio.crossOrigin = 'anonymous';
+    const src = audioCtx.createMediaElementSource(audio);
+    src.connect(analyser); analyser.connect(audioCtx.destination);
+    audio.onended = () => { talking = false; try{ src.disconnect(); }catch(e){} };
+    window._talkSrc = src;
+  }
+  talking = true;
+  audio.play().then(()=>{
+    console.log('TTS 鎾斁涓?', url);
+  }).catch(e => {
+    // 鑷姩鎾斁琚嫤鎴細鎻愮ず鐢ㄦ埛鐐逛竴涓嬮〉闈㈠嵆鍙В閿侊紝瑙ｉ攣鍚庤嚜鍔ㄩ噸鎾?
+    console.warn('鑷姩鎾斁琚祻瑙堝櫒鎷︽埅锛岀偣鍑婚〉闈换鎰忓鍚庨噸璇?', e.name);
+    pendingUrl = url;
+    mouthEl.textContent = '馃攪 娴忚鍣ㄦ嫤鎴簡澹伴煶 鈫?鐐瑰嚮椤甸潰浠绘剰澶勫紑鍚?;
+  });
+};
+window.stopTalk = () => {
+  talking = false;
+  mouthCur = 0;
+  vrm?.expressionManager?.setValue('aa', 0);
+  const a = window._talkAudio;
+  if(a){ try{ a.pause(); a.currentTime = 0; }catch(e){} }
+  try{ speechSynthesis.cancel(); }catch(e){}
+  window._talkAudio = null;
+};
+let pendingUrl = null;
+// 浠绘剰棣栨鐐瑰嚮/鎸夐敭 = 瑙ｉ攣闊抽锛岃嫢鏈夊緟鎾殑 TTS 绔嬪嵆琛ユ挱
+const unlockAudio = () => {
+  if(audioCtx) audioCtx.resume().catch(()=>{});
+  if(pendingUrl){ const u = pendingUrl; pendingUrl = null; playTalk(u); }
+};
+addEventListener('pointerdown', unlockAudio, { once:false });
+addEventListener('keydown', unlockAudio, { once:false });
+
+// 椤甸潰鎸夐挳瑙﹀彂锛堝繀椤绘湁鐢ㄦ埛鎵嬪娍锛屾祻瑙堝櫒鎵嶅厑璁稿嚭澹帮級
+document.getElementById('btn-speak')?.addEventListener('click', () => speak());
+document.getElementById('btn-stop')?.addEventListener('click', () => { stopTalk(); });
+
+// 鐐瑰嚮婕旂ず锛堟棤 TTS 鏃朵篃鑳界湅鍙ｅ瀷鍔級
+renderer.domElement.addEventListener('click', () => talking = !talking);
+
+// ===== TTS 璇磋瘽锛氳皟鍚庣 /api/avatar/tts 鍚堟垚璇煶 鈫?playTalk 鍑哄０+鍙ｅ瀷 =====
+window.speak = async text => {
+  try{
+    const r = await fetch('/api/avatar/tts', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: text || '浣犲ソ锛屾垜鏄敾甯冪帺鍋讹紝寰堥珮鍏磋鍒颁綘锛? })
+    });
+    const j = await r.json();
+    if(j.ok && j.url){
+      // 鍏煎鏂版棫鍚庣锛?public/audio/xxx 浼?404锛岀粺涓€鍘绘帀鍓嶇紑璧伴潤鎬佹湇鍔?
+      const u = j.url.replace(/^\/public\//, '/');
+      console.log('TTS 寮曟搸:', j.engine);
+      playTalk(u);
+    } else { throw new Error(j.err || 'TTS鎺ュ彛澶辫触'); }
+  }catch(e){
+    console.warn('鍚庣TTS澶辫触锛屾敼鐢ㄦ祻瑙堝櫒璇煶鍏滃簳:', e.message);
+    browserSpeak(text || '浣犲ソ锛屾垜鏄敾甯冪帺鍋讹紝寰堥珮鍏磋鍒颁綘锛?);
+  }
+};
+
+// 娴忚鍣ㄨ嚜甯?TTS 鍏滃簳锛坰peak 澶辫触鏃朵篃鑳藉嚭澹帮紝璧板亣鍙ｅ瀷鍔ㄧ敾锛?
+window.browserSpeak = text => {
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.onstart = () => talking = true;
+    u.onend = () => talking = false;
+    speechSynthesis.speak(u);
+    console.log('娴忚鍣ㄨ闊虫挱鏀句腑:', text);
+  }catch(e){ console.error('娴忚鍣ㄨ闊充笉鍙敤', e); }
+};
+
+const clock = new THREE.Clock();
+function loop(){
+  requestAnimationFrame(loop);
+  const delta = clock.getDelta();
+  const t = clock.elapsedTime;
+  if (vrm){
+    // 鍛煎惛娴姩
+    modelRoot.position.y = Math.sin(t*1.5)*0.015;
+    // 鍙ｅ瀷锛氬疄鏃堕煶棰戦煶閲忛┍鍔紝骞虫粦杩囨浮閬垮厤鎶栧姩绐佸厐
+    let v = 0;
+    if(talking && analyser){
+      analyser.getByteFrequencyData(freqData);
+      let sum = 0;
+      for(let i=0;i<freqData.length;i++) sum += freqData[i]*freqData[i];
+      const vol = Math.sqrt(sum/freqData.length)/255;   // 0~1 鍧囨柟鏍归煶閲?
+      v = mouthFromVolume(vol);
+    }else if(talking){
+      v = (Math.sin(t*14)*0.5+0.5)*0.85;                // 鏃犻煶棰戞椂鐨勫亣澹版尝婕旂ず
+    }
+    mouthCur += (v - mouthCur)*0.35;                    // lerp 骞虫粦
+    vrm.expressionManager?.setValue('aa', mouthCur);
+    mouthEl.textContent = '鍙ｅ瀷: ' + mouthCur.toFixed(2) + (talking?' (璇磋瘽涓?':' (鐐瑰嚮婕旂ず / playTalk(url))');
+    // 杞诲井鎽囨憜锛堟ā鍨嬭嚜韬浐瀹氾紝瑙嗗彛鏃嬭浆鍏ㄧ敱鐩告満璐熻矗锛?
+    // 绌洪棽寰憞锛堣烦鑸炴椂璺宠繃锛岄伩鍏嶆墦鏋讹級
+    if(!danceOn) modelRoot.rotation.y = Math.sin(t*0.5)*0.03;
+    // 鍔ㄤ綔绯荤粺锛氶楠煎揩鐓ф贩鍚?+ 缂撳姩 + 缁撴潫鍚庡钩婊戝綊浣嶏紙0.3s 杩囨浮锛屼笉鐬烦锛?
+    if(act){
+      actT += delta;
+      const a = ACT[act], k = Math.min(1, actT/a.dur);
+      try{ a.fn(k); }catch(e){}
+      // 娣峰悎锛氬墠 0.2 浠庡揩鐓у钩婊戣繃娓″埌鍔ㄤ綔濮挎€侊紝娑堥櫎绐佽烦
+      if(actFrom && actT < 0.2){
+        const w = easeOut(actT/0.2);
+        a.bones.forEach(b=>{
+          const n = humanoid().getNormalizedBoneNode(b), f = actFrom[b];
+          if(n && f){ n.rotation.x += (f.x-n.rotation.x)*(1-w); n.rotation.y += (f.y-n.rotation.y)*(1-w); n.rotation.z += (f.z-n.rotation.z)*(1-w); }
+        });
+      }
+      if(k>=1){
+        act = null;
+        // 璁板綍褰掍綅璧峰濮挎€侊紝鐢?0.3s lerp 鍥為浂
+        retT = 0;
+        retFrom = snapBones(['rightUpperArm','rightLowerArm','leftUpperArm','leftLowerArm','neck','head','spine']);
+      }
+    }
+    // 褰掍綅杩囨浮
+    if(retFrom){
+      retT += delta;
+      const w = Math.min(1, retT/0.3), e2 = easeOut(w);
+      Object.entries(retFrom).forEach(([b])=>{
+        const n = humanoid()?.getNormalizedBoneNode(b);
+        if(n){ n.rotation.x *= e2; n.rotation.y *= e2; n.rotation.z *= e2; }
+      });
+      ['happy','angry','sleepy'].forEach(em=>vrm.expressionManager?.setValue(em, vrm.expressionManager?.getValue(em)*e2 ?? 0));
+      if(w>=1){ retFrom = null; ['happy','angry','sleepy'].forEach(em=>vrm.expressionManager?.setValue(em,0)); }
+    }
+    // 寰呮満寰姩浣滐細杞诲井閲嶅績鎽嗗姩 + 鐪ㄧ溂锛岄伩鍏嶅憜绔?
+    humanoid().getNormalizedBoneNode('spine')?.rotation.set(0,0,Math.sin(t*0.7)*0.02, 'XYZ');
+    if(!blinkNext) blinkNext = t + 2 + Math.random()*4;
+    if(t > blinkNext){
+      const bp = (t - blinkNext)/0.22;                       // 0.22s 鐪ㄧ溂鍛ㄦ湡
+      vrm.expressionManager?.setValue('blink', bp<1 ? Math.sin(bp*Math.PI) : 0);
+      if(bp>=1) blinkNext = t + 2 + Math.random()*4;
+    }
+    vrm.update(delta);
+    if(danceOn) danceTick(t);
+    if(vrmAnimMixer) vrmAnimMixer.update(delta);
+  }
+  const cs = camState;
+  camera.position.set(
+    cs.target.x + Math.sin(cs.rotY)*Math.cos(cs.pitch)*cs.dist,
+    cs.target.y + Math.sin(cs.pitch)*cs.dist,
+    cs.target.z + Math.cos(cs.rotY)*Math.cos(cs.pitch)*cs.dist
+  );
+  camera.lookAt(cs.target);
+  renderer.render(scene, camera);
+}
+loop();
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
+

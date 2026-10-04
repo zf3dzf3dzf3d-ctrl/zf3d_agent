@@ -1,0 +1,29 @@
+{
+  "questions": [
+    {
+      "id": "q001",
+      "question": "Python 中如何安全地读取 UTF-8 文件？",
+      "answer": "open(path, encoding='utf-8')"
+    },
+    {
+      "id": "q002",
+      "question": "Windows 下 DPAPI 加密用途是什么？",
+      "answer": "保护本机用户数据/密钥"
+    },
+    {
+      "id": "q003",
+      "question": "HTTP 401 表示什么？",
+      "answer": "未授权"
+    },
+    {
+      "id": "q004",
+      "question": "git 中撤销最近一次未推送提交的命令？",
+      "answer": "git reset --soft HEAD~1"
+    },
+    {
+      "id": "q005",
+      "question": "SQL 注入最基本的防御手段？",
+      "answer": "参数化查询"
+    }
+  ]
+}

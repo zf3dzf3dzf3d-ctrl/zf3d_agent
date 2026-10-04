@@ -1,0 +1,240 @@
+/* ========== style-dog-guard.css - 🐕 小狗守卫 ========== */
+
+.dog-guard {
+    position: absolute;
+    z-index: 9000;
+    width: 60px;
+    height: 60px;
+    pointer-events: none; /* 由 body 层接收事件，留出气泡穿透 */
+    transition: none;
+    will-change: left, top;
+}
+.dog-guard-body {
+    position: relative;
+    font-size: 36px;
+    line-height: 44px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: auto; /* 可点击/拖拽 */
+    cursor: pointer;
+    user-select: none;
+    touch-action: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.dog-guard-face { position: relative; z-index: 2; font-size: 27px; line-height: 33px; transform: scale(0.9); transform-origin: bottom center; opacity: 0.8; }
+ /* 脸调小 0.75，再放大 1.2 倍 → 0.9；默认透明度 0.8 */ /* 脸调小 0.75，再放大 1.2 倍 → 0.9 */
+
+/* 单爪：原头侧定位已删除（与下方身前定位重复，导致 top+bottom 同时生效、爪子拉伸盖住脸） */
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(10deg); }
+.dg-paw-wave {
+    animation: dg-paw-wave 0.3s ease-in-out 5 !important;
+}
+    0%   { transform: rotate(0) translateY(0); }
+    50%  { transform: rotate(-50deg) translateY(-6px); }
+    100% { transform: rotate(15deg) translateY(0); }
+/* 待机：平时微微摇晃（很轻的呼吸式摆动） */
+.dog-guard-body {
+    animation: dg-idle 1.6s ease-in-out infinite; /* 平时动画比原来快 2 倍 */
+}
+    0%   { transform: rotate(0deg) translateY(0); }
+    25%  { transform: rotate(-1.5deg) translateY(-1px); }
+    50%  { transform: rotate(0deg) translateY(0); }
+    75%  { transform: rotate(1.5deg) translateY(-1px); }
+    100% { transform: rotate(0deg) translateY(0); }
+/* 爪子：固定在狗身体正下方（用 top:100% 定位，避免 bottom 对内联元素失效） */
+.dog-guard-paw {
+    position: absolute;
+    top: calc(100% - 2px); /* 紧贴狗身体下缘 */
+    left: 50%;
+    margin-left: -13px;
+    font-size: 18px; /* 比原来 14px 大 1.3 倍 */
+    color: #f2e394; /* 爪子微微黄色 */
+    z-index: 3;
+    opacity: 0.95;
+    transform-origin: top center;
+    animation: dg-paw 1.6s ease-in-out infinite;
+}
+    0%, 100% { transform: translateX(-8px) rotate(0deg); }
+    25%      { transform: translateX(0) rotate(-12deg); }
+    50%      { transform: translateX(8px) rotate(0deg); }
+    75%      { transform: translateX(0) rotate(12deg); }
+.dog-guard--running .dog-guard-paw { animation-duration: 0.4s; }
+.dog-guard--inspecting .dog-guard-paw { animation-duration: 0.8s; }
+/* 叫唤：身体兴奋抖动 */
+.dog-guard--barking .dog-guard-body {
+    animation: dg-bark 0.3s ease-in-out 6;
+}
+    0%   { transform: translateY(0) scale(1); }
+    30%  { transform: translateY(-14px) scale(1.18) rotate(-8deg); }
+    60%  { transform: translateY(-4px) scale(1.06) rotate(6deg); }
+    100% { transform: translateY(0) scale(1); }
+/* 拖拽中 */
+.dog-guard--dragging .dog-guard-body { cursor: grabbing; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.4)); }
+.dog-guard-tail {
+    font-size: 20px;
+    margin-left: -6px;
+    transform-origin: bottom center;
+    animation: dg-wag 0.5s ease-in-out infinite alternate;
+}
+    from { transform: rotate(-25deg); }
+    to   { transform: rotate(25deg); }
+/* 跑动状态：整体小幅度上下颠簸 */
+.dog-guard--running .dog-guard-body {
+    animation: dg-bounce 0.25s ease-in-out infinite alternate;
+}
+    from { transform: translateY(0); }
+    to   { transform: translateY(-8px) rotate(-4deg); }
+/* 巡查状态：停在对话框前，左右看 */
+.dog-guard--inspecting .dog-guard-body {
+    animation: dg-look 0.8s ease-in-out infinite alternate;
+}
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(8deg) translateX(3px); }
+/* 开心：跳两下 */
+.dog-guard--happy .dog-guard-body {
+    animation: dg-jump 0.4s ease-in-out 3;
+}
+    0%   { transform: translateY(0); }
+    50%  { transform: translateY(-14px) rotate(6deg); }
+    100% { transform: translateY(0); }
+/* 语音气泡：跟随黑天/白天主题变量，尺寸适中 */
+.dog-guard-bubble:empty { display: none !important; } /* 空气泡不渲染成空盒子 */
+.dog-hp-bar[style*="display: none"], .dog-hp-bar { contain: content; }
+.dog-guard-bubble {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 6px;
+    width: max-content;
+    max-width: 240px;
+    min-height: 20px;
+    background: var(--bg-card, #fff);
+    color: var(--text, #333);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 7px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #e0c9a0);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    border-bottom-left-radius: 3px; /* 可爱的小尖角感 */
+    white-space: normal;
+    word-break: break-word;
+    text-align: left;
+    pointer-events: none;
+    z-index: 10;
+}
+.dog-guard-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border: 5px solid transparent;
+    border-top-color: var(--border, #e0c9a0);
+}
+/* 叫唤气泡：更醒目 */
+.dog-guard-bubble--bark {
+    font-weight: bold;
+    font-size: 14px;
+    animation: dg-bubble-pop 0.25s ease-out;
+}
+    from { transform: translateX(-50%) scale(0.5); opacity: 0; }
+    to   { transform: translateX(-50%) scale(1); opacity: 1; }
+/* 右下角开关按钮：无背景、无边框，只留图标 */
+.dog-guard-face, .dog-guard-paw { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla','EmojiOne Color',sans-serif; }
+/* 爪子：纯 CSS 画爪印，彻底不依赖 emoji 字体（杜绝豆腐块） */
+.dog-guard-paw {
+    font-size: 0 !important; /* 隐藏原文案 🐾：即使系统无该字形也不渲染豆腐块 */
+    color: transparent;
+}
+.dog-guard-paw::before {
+    content: '';
+    display: block;
+    width: 13px; height: 10px;
+    margin-top: 8px; /* 给上方三个脚趾留空间 */
+    border-radius: 50% 50% 45% 45%;
+    background: #e8b86d;
+    box-shadow: -6px -5px 0 -1px #e8b86d, 0 -7px 0 -1px #e8b86d, 6px -5px 0 -1px #e8b86d;
+    animation: inherit;
+}
+.dog-guard-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 4px !important;
+    cursor: pointer;
+    font-size: 20px;
+    opacity: 0.5;
+    transition: opacity 0.2s, transform 0.2s;
+    user-select: none;
+}
+.dog-guard-btn:hover { opacity: 0.9; transform: scale(1.15); }
+.dog-guard-btn--on {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(255,180,60,0.8));
+}
+/* ===== 开关状态角标 ===== */
+.dog-guard-btn { position: relative; }
+.dog-guard-state-badge {
+    position: absolute;
+    top: -4px;
+    right: -6px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    border-radius: 7px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #fff;
+    text-align: center;
+    padding: 0 3px;
+    pointer-events: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.35);
+}
+.dog-guard-state-badge--on { background: #27ae60; }
+.dog-guard-state-badge--off { background: #95a5a6; }
+[data-theme="light"] .dog-guard-bubble {
+    background: #fffdf5;
+    color: #5a4632;
+    border-color: #f0dcae;
+}
+[data-theme="dark"] .dog-guard-bubble,
+html:not([data-theme="light"]) .dog-guard-bubble {
+    background: #262638;
+    color: #f0e6d2;
+    border-color: #3d3d52;
+}
+/* ===== ❤️ 小狗血条 ===== */
+.dog-hp-bar {
+  position: absolute;
+  bottom: -14px; left: 50%;
+  transform: translateX(-50%);
+  width: 86px; height: 9px;
+  background: rgba(0,0,0,.65);
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 5;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.dog-hp-bar i { position: absolute; top: 0; left: 0; height: 100%; border-radius: 6px; }
+/* 黄色残影条：慢速跟随，形成"渐渐变少"的游戏效果 */
+.dog-hp-ghost {
+  background: #ffd54a;
+  width: 100%;
+  transition: width 1.4s cubic-bezier(.22,.61,.36,1);
+}
+/* 主血条：快速收缩，红→绿渐变 */
+.dog-hp-fill {
+  background: linear-gradient(90deg, #ff5252, #ff8a5c 55%, #6fdc6f);
+  width: 100%;
+  transition: width .26s ease-out;
+}
+.dog-hp-fill.dog-hp-full { background: linear-gradient(90deg, #6fdc6f, #a5f27c); }
+ 0% { filter: brightness(2.2); }
+ 100% { filter: brightness(1); }
+.dog-hp-bar.dog-hp-hit { animation: dogHpHit .3s ease-out; }

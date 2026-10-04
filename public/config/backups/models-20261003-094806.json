@@ -1,0 +1,165 @@
+{
+  "models": [
+    {
+      "name": "智谱glm·官方",
+      "id": "zf-glm-flash",
+      "modelId": "glm-5.3-flash",
+      "modelIdOptions": [
+        "glm-5.3-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-5.3-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "isDefault": true,
+      "visible": true
+    },
+    {
+      "name": "小米mimo·官方",
+      "id": "mimo-language-user",
+      "modelId": "mimo-v2.6-flash",
+      "modelIdOptions": [
+        "mimo-v2.6-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "mimo-v2.6-flash": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "visible": true
+    },
+    {
+      "name": "智谱glm识图·官方",
+      "id": "zf-glm-vision",
+      "modelId": "glm-5.3-flash",
+      "modelIdOptions": [
+        "glm-5.3-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-5.3-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "types_vision",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "visionInput": true,
+      "visible": true
+    },
+    {
+      "name": "小米mimo识图·官方",
+      "id": "mimo-vision-user",
+      "modelId": "mimo-v2.6-flash",
+      "modelIdOptions": [
+        "mimo-v2.6-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "mimo-v2.6-flash": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "types_vision",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "visionInput": true,
+      "visible": true
+    },
+    {
+      "name": "小米mimo音频·官方",
+      "id": "mimo-audio-user",
+      "modelId": "mimo-v2.6-flash",
+      "modelIdOptions": [
+        "mimo-v2.6-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "mimo-v2.6-flash": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=mimo-v2.6-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "speech",
+      "abilities": [
+        "chat",
+        "audio"
+      ],
+      "keyRef": "server",
+      "noKeyRequired": false,
+      "visible": true
+    }
+  ]
+}

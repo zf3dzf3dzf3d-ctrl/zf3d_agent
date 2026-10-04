@@ -1,0 +1,241 @@
+﻿/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+        /* ========== ??????? ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; }
+
+        :root {
+            --bg: #1a1a2e;
+            --bg-card: #1e1e2e;
+            --bg-hover: #252535;
+            --border: #333344;
+            --text: #ffffff;
+            --text2: #b8b8cc;
+            --blue: #0984e3;
+            --blue-rgb: 9, 132, 227;
+            --green: #28a745;
+            --radius: 6px;
+            /* 形态差异变量（由风格 extra 覆盖，默认不影响原观感） */
+            --radius-lg: 12px;
+            --radius-sm: 4px;
+            --border-width: 1px;
+            --shadow: 0 2px 8px rgba(0,0,0,0.2);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.3);
+            --text-glow: none;
+            --border-glow: none;
+            --letter-spacing: normal;
+        }
+
+        /* ===== 风格形态差异消费层：extra 变量生效于此 ===== */
+        body { letter-spacing: var(--letter-spacing); }
+        /* 卡片/面板统一圆角与阴影（渐进增强：有 --radius 变量的组件自动跟随） */
+        .chatbox, .chatbox-inner, .canvas-node, .panel, .modal, .theme-panel,
+        .bg-fx-btn, .zf-style-card, .topbar button, .chatbox-inputrow textarea,
+        .upload-card, .kite-panel, .card {
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+        /* 全局边框粗细与发光 */
+        .chatbox, .canvas-node, .panel, .modal, .theme-panel, .upload-card {
+            border-width: var(--border-width);
+            box-shadow: var(--border-glow), var(--shadow);
+        }
+        /* 标题字体与文字发光 */
+        .theme-panel-title, .bg-section-title, h1, h2, h3, .chat-name, .node-title {
+            font-family: var(--font-title, inherit);
+            text-shadow: var(--text-glow);
+        }
+        .chat-message, .msg-text, .message-content { text-shadow: var(--text-glow); }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+            -webkit-font-smoothing: auto;
+            -moz-osx-font-smoothing: auto;
+            text-rendering: optimizeLegibility; /* v2：geometricPrecision 会让小字号中文笔画亚像素发虚，改回可读性优先 */
+            text-shadow: none;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== ????????? ========== */
+        .topbar {
+            height: 42px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            background: transparent;
+            border-bottom: none;
+            -webkit-app-region: no-drag; /* 顶栏不再整体拖拽，避免劫持无限画布平移；仅 logo+标题可拖动窗口 */
+            user-select: none;
+            z-index: 100;
+        }
+
+        .topbar-title {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 17px;
+            white-space: nowrap; /* 窗口缩小时标题保持单行，不换行不竖排 */
+            flex-shrink: 0;
+            font-weight: 600;
+            /* 扫光标题：渐变 + logoGradient 动画（跟随主题色 --primary） */
+            color: transparent;
+            -webkit-text-fill-color: transparent;
+            background: linear-gradient(90deg, var(--blue, #055bbe) 0%, var(--blue, #1c80e0) 20%, var(--blue-soft, #31a2fe) 40%, var(--text, #ffffff) 55%, var(--blue-soft, #31a2fe) 75%, var(--blue, #055bbe) 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: logoGradient 6s ease infinite;
+        }
+
+        /* light mode: title sweep gradient (no white flash) */
+        [data-theme="light"] .topbar-title {
+            background: linear-gradient(90deg, var(--blue, #055bbe) 0%, var(--blue, #1c80e0) 25%, var(--blue-soft, #31a2fe) 50%, var(--blue, #1c80e0) 75%, var(--blue, #055bbe) 100%);
+            background-size: 300% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        /* 画布镂空等性能模式：保留扫光 */
+        body.perf-hollow .topbar-title {
+            background: linear-gradient(90deg, var(--blue, #055bbe) 0%, var(--blue, #1c80e0) 20%, var(--blue-soft, #31a2fe) 40%, var(--text, #ffffff) 55%, var(--blue-soft, #31a2fe) 75%, var(--blue, #055bbe) 100%) !important;
+            background-size: 300% 100% !important;
+            -webkit-background-clip: text !important;
+            background-clip: text !important;
+            color: transparent !important;
+            -webkit-text-fill-color: transparent !important;
+            animation: logoGradient 6s ease infinite !important;
+        }
+
+        .topbar-logo {
+            width: 28px;
+            height: 28px;
+            display: inline-block;
+            flex-shrink: 0;
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 20%, #31a2fe 40%, #ffffff 60%, #31a2fe 80%, #055bbe 100%);
+            background-size: 300% 100%;
+            -webkit-mask: var(--logo-url, url(../../assets/logo-transparent.png)) center / contain no-repeat;
+            mask: var(--logo-url, url(../../assets/logo-transparent.png)) center / contain no-repeat;
+            animation: logoGradient 6s ease infinite;
+            margin-left: 4px;
+        }
+
+        /* light mode: logo gradient matches title */
+        [data-theme="light"] .topbar-logo {
+            background: linear-gradient(90deg, #055bbe 0%, #1c80e0 25%, #31a2fe 50%, #1c80e0 75%, #055bbe 100%);
+            background-size: 300% 100%;
+        }
+
+        @keyframes logoGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            -webkit-app-region: no-drag;
+        }
+
+        .topbar-icon {
+            background: none;
+            border: none;
+            color: var(--text2);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.15s;
+        }
+        .topbar-icon:hover { background: var(--bg-hover); color: var(--text); }
+
+        /* 【修复】注入到 .topbar-title 内的按钮（canvasMenuBtn / batchRunBtn）
+           会继承 .topbar-title 的 -webkit-text-fill-color: transparent，
+           导致部分主题下图标"隐形"。显式恢复文字填充色。 */
+        .topbar-title .topbar-icon,
+        .topbar-title button {
+            -webkit-text-fill-color: currentColor;
+            color: var(--text2);
+        }
+        .topbar-title .topbar-icon:hover,
+        .topbar-title button:hover {
+            color: var(--text);
+        }
+        .topbar-icon.active { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(var(--blue-rgb), 0.4); }
+
+        .topbar-sep {
+            display: none; /* 方案A：去竖线，靠间距分组（保留类定义便于回退） */
+        }
+
+/* ========== 【样式段落注释：原中文注释因历史编码损坏已清除】 ========== */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg);
+            cursor: grab;
+            touch-action: none; /* ??????? pinch ???? */
+        }
+
+        /* ?????????????????????????????? transform ???/?????GPU ????? */
+        .canvas-content {
+            position: absolute;
+            inset: 0;
+            transform-origin: 0 0;
+            will-change: auto;
+            transform: translate(0, 0) scale(1);
+        }
+
+        /* ???????? */
+        .canvas-grid {
+            position: absolute;
+            inset: -2000px;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            cursor: grab;
+            /* transform: translateZ(0) removed for clarity */
+        }
+        .canvas-content.dragging .canvas-grid { cursor: grabbing; }
+        .canvas-content.dragging { cursor: grabbing; }
+        .canvas-area.dragging { cursor: grabbing; }
+
+        /* ?????????? */
+        .canvas-coord {
+            position: absolute;
+            right: 12px;
+            bottom: 20px;
+            font-size: 11px;
+            color: var(--text2);
+            opacity: 0.7;
+            user-select: none;
+            font-family: monospace;
+        }
+
+        /* ?????? */
+        .canvas-hint {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text2);
+            opacity: 0.65;
+            font-size: 14px;
+            user-select: none;
+            pointer-events: none;
+            line-height: 2;
+        }
+        .canvas-hint b { color: var(--blue); opacity: 0.9; }
+

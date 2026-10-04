@@ -1,0 +1,167 @@
+{
+  "updated": "2026-10-04",
+  "models": [
+    {
+      "id": "zf-glm-flash",
+      "name": "智谱glm",
+      "apiUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 0,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "isDefault": true,
+      "default": true
+    },
+    {
+      "id": "mimo-language-user",
+      "name": "小米mimo",
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "medium",
+              "label": "medium"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 4,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.1
+      },
+      "default": false
+    },
+    {
+      "id": "zf-glm-vision",
+      "name": "智谱glm识图",
+      "apiUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "vision",
+      "enabled": true,
+      "sort": 1,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "isDefault": true,
+      "default": true
+    },
+    {
+      "id": "mimo-vision-user",
+      "name": "小米mimo识图",
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "medium",
+              "label": "medium"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            }
+          ]
+        }
+      ],
+      "category": "vision",
+      "enabled": true,
+      "sort": 5,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.1
+      },
+      "default": false
+    },
+    {
+      "id": "mimo-audio-user",
+      "name": "小米mimo音频",
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "medium",
+              "label": "medium"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            }
+          ]
+        }
+      ],
+      "category": "audio",
+      "enabled": true,
+      "sort": 2,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.1
+      },
+      "default": false
+    }
+  ]
+}

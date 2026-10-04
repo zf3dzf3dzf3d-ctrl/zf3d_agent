@@ -1,0 +1,17 @@
+{
+  "_comment": "朱峰 AI 代理计费配置。费率单位：元。models 支持 fnmatch 通配。",
+  "enabled": true,
+  "rmb_per_1k_tokens": 0.0016,
+  "min_balance": 0,
+  "free_usernames": [],
+  "models": {
+    "zf-*": { "type": "token", "multiplier": 1 },
+    "*": { "type": "token", "multiplier": 1 }
+  },
+  "security": {
+    "_comment": "2026-09-21 加固项。rate_limit_per_min 按已验证会员 ID 限流，0=不限；allow_legacy_uid=true 才接受客户端自报裸 ID（不推荐）；token_bindings 为 {sha256(令牌): 会员ID}，用于无法种 Cookie 的场景。",
+    "rate_limit_per_min": 60,
+    "allow_legacy_uid": false,
+    "token_bindings": {}
+  }
+}

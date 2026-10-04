@@ -1,0 +1,16 @@
+multidict-6.9.1.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+multidict-6.9.1.dist-info/METADATA,sha256=KmPqBOrz-_HhS1CN2J6ywqvGvJjH1kaPaGiGSztP7iU,5442
+multidict-6.9.1.dist-info/RECORD,,
+multidict-6.9.1.dist-info/WHEEL,sha256=Va1ecE4aQlcxybZkcSvh2FeN1_DlC8IaJNJJsCJYEj0,101
+multidict-6.9.1.dist-info/licenses/LICENSE,sha256=Lkvl_GxMcqRm_LZl1ybgSaaJGYH-U2xPBLY2Z0lGHSM,11313
+multidict-6.9.1.dist-info/top_level.txt,sha256=-euDElkk5_qkmfIJ7WiqCab02ZlSFZWynejKg59qZQQ,10
+multidict/__init__.py,sha256=bA7J4ryFhr7STmHNEDtBpJu_xwca7DsBso4BEIi-ZII,1228
+multidict/__pycache__/__init__.cpython-311.pyc,,
+multidict/__pycache__/_abc.cpython-311.pyc,,
+multidict/__pycache__/_compat.cpython-311.pyc,,
+multidict/__pycache__/_multidict_py.cpython-311.pyc,,
+multidict/_abc.py,sha256=8WIYnLlasCk2sIsn9WyFLyORvDUKgcnmmgXzkVhxisw,3271
+multidict/_compat.py,sha256=TcRjCStk2iIY1_DwDNj8kNpJRQ9rtLj92Xvk1z2G_ak,422
+multidict/_multidict.cp311-win_amd64.pyd,sha256=t4B3a-eO-lx8d_d1Rs_utzt5LBVIVFGSQ0JANSYArPo,91136
+multidict/_multidict_py.py,sha256=Ap1yfM96qpk7rIaJ-sAmwLhHiA8OimQ9arLcjv1gPRo,51399
+multidict/py.typed,sha256=e9bmbH3UFxsabQrnNFPG9qxIXztwbcM6IKDYnvZwprY,15

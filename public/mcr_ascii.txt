@@ -1,0 +1,21 @@
+KW 0x1f441 >>> '-btn" type="button" data-mc-key-toggle title="\u663e\u793a/\u9690\u85cf" aria-label="\u663e\u793a\u6216\u9690\u85cf API Key">\U0001f441</button></div></label>\',\n      \'      <label>\u6a21\u578b / Resource-Id <span class="mc-r'
+
+KW 0x1f441 >>> '="mc-type-eye" data-mc-eye="\' + item.id + \'" title="\u9690\u85cf\u8be5\u5206\u7c7b\uff08\u5bf9\u8bdd\u6846/\u53f3\u952e\u83dc\u5355\u540c\u6b65\u9690\u85cf\uff0c\u53ef\u4ece\u4e0b\u65b9\u6062\u590d\uff09">\U0001f441</span>\'; return \'<button class="mc-type-tab" type="button" data-mc-type="\' + it'
+
+KW 0x1f441 >>> 'n-btn" data-mc-eye-restore="\' + item.id + \'" title="\u6062\u590d\u663e\u793a\u8be5\u5206\u7c7b">\' + item.label + \' \U0001f441</button>\';\n        }).join(\'\');\n      } else {\n        hiddenBar.style.display '
+
+KW 0x1f441 >>> 'n" type="button" data-act="key-toggle" title="\u663e\u793a/\u9690\u85cf" aria-label="\u663e\u793a\u6216\u9690\u85cf API Key">\U0001f441</button></div></label>\' +\n      \'<label>\u6a21\u578b / Resource-Id \' + modelField + \'</la'
+
+KW 0x1f441 >>> '" type="button" data-mc-new-key-toggle title="\u663e\u793a/\u9690\u85cf" aria-label="\u663e\u793a\u6216\u9690\u85cf API Key">\U0001f441</button></div></label>\' +\n      \'<label>\u6a21\u578b / Resource-Id <span class="mc-req">*'
+
+KW 0x5df2 >>> "', root) : null;\n      if (totalEl) totalEl.textContent = total;\n    });\n    // \u5df2\u9690\u85cf\u5206\u7c7b\u6062\u590d\u6761\uff1a\u88ab\u773c\u775b\u5173\u6389\u7684\u5206\u7c7b\u5728\u8fd9\u91cc\u6392\u961f\uff0c\u70b9\u51fb\u5373\u53ef\u6062\u590d\uff08\u5426\u5219\u5173\u6389\u540e\u65e0\u5904\u627e\u56de\uff09\n    var hiddenBar = root ? $('[data-mc-typ"
+
+KW 0x5df2 >>> 'display = \'\';\n        hiddenBar.innerHTML = \'<span class="mc-type-hidden-label">\u5df2\u9690\u85cf\uff1a</span>\' + hiddenItems.map(function (item) {\n          return \'<button type="bu'
+
+KW 0x5df2 >>> '\u547d\u540d\u6a21\u578b\') + (model.visible === false ? \' <span style="color:#999;font-size:12px;">[\u5df2\u9690\u85cf\xb7\u4ec5\u9762\u677f\u53ef\u89c1]</span>\' : \'\') + (locked ? \' <span style="color:#e6a23c;font-size:12px;">'
+
+KW 0x2191 >>> '-tools"><button class="mc-icon-btn" type="button" data-act="move-up" title="\u4e0a\u79fb">\u2191</button><button class="mc-icon-btn" type="button" data-act="move-down" title="\u4e0b'
+
+KW 0x2193 >>> 'utton><button class="mc-icon-btn" type="button" data-act="move-down" title="\u4e0b\u79fb">\u2193</button><button class="mc-icon-btn" type="button" data-act="visible" title="\' +'
+
+KW 0x29c9 >>> '</button><button class="mc-icon-btn" type="button" data-act="copy" title="\u590d\u5236\u914d\u7f6e">\u29c9</button><button class="mc-icon-btn mc-icon-danger" type="button" data-act="del"'

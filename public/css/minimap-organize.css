@@ -1,0 +1,275 @@
+/* ========== 小地图整理模式（organize mode） ========== */
+/* 放大面板：框选/拖拽/分组，主画布零改动 */
+
+.minimap-organize-overlay {
+    position: fixed;
+    inset: 0;
+    /* 高于底部 dock(99998)/角色面板(99999~100000)/图像查看(100010) 等，防止整理面板打开时点穿到底下对话框按钮 */
+    z-index: 100050;
+    background: rgba(8, 10, 20, 0.72);
+    /* 不用 backdrop-filter：全屏实时模糊是 GPU 大户，会导致显卡风扇狂转 */
+    display: none;
+}
+.minimap-organize-overlay.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mo-panel {
+    position: relative;
+    width: min(72vw, 1100px);
+    height: min(64vh, 700px);
+    background: var(--bg-card, rgba(16, 18, 32, 0.96));
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    border-radius: 12px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    overflow: hidden;
+    animation: moPop .18s ease;
+}
+@keyframes moPop {
+    from { transform: scale(0.55); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.mo-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 12px;
+    background: var(--bg2, rgba(0,0,0,0.3));
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    user-select: none;
+    flex-wrap: nowrap;
+    overflow: hidden;
+}
+/* 面板可缩放：工具栏随面板宽度自适应收缩，始终单排不换行 */
+.mo-panel { container-type: inline-size; }
+.mo-btn, .mo-close-x { white-space: nowrap; flex-shrink: 0; }
+.mo-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+@container (max-width: 980px) {
+    .mo-toolbar { gap: 5px; padding: 0 8px; height: 36px; }
+    .mo-body { inset: 36px 0 26px 0; }
+    .mo-title { font-size: 12px; }
+    .mo-btn, .mo-close-x { height: 23px; padding: 0 7px; font-size: 11px; }
+}
+@container (max-width: 760px) {
+    .mo-toolbar { gap: 4px; padding: 0 6px; height: 33px; }
+    .mo-body { inset: 33px 0 26px 0; }
+    .mo-btn, .mo-close-x { height: 21px; padding: 0 5px; font-size: 10.5px; }
+    .mo-sep { margin: 0 0; }
+}
+@container (max-width: 560px) {
+    .mo-toolbar { gap: 3px; padding: 0 4px; height: 30px; }
+    .mo-body { inset: 30px 0 26px 0; }
+    .mo-title { font-size: 11px; max-width: 52px; }
+    .mo-btn, .mo-close-x { height: 19px; padding: 0 4px; font-size: 10px; border-radius: 4px; }
+    .mo-close-x { width: 19px; font-size: 13px; }
+}
+.mo-title { font-size: 13px; color: var(--text, #cfd8ff); font-weight: 600; }
+.mo-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.14); flex-shrink: 0; margin: 0 2px; }
+.mo-arr { font-weight: 600; }
+/* 提示文字移到面板最底部，避免挤占工具栏把左上角按钮挤到一起 */
+.mo-hintbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 26px; padding: 0 12px;
+    display: flex; align-items: center;
+    background: var(--bg2, rgba(0,0,0,0.3));
+    border-top: 1px solid rgba(255,255,255,0.07);
+    overflow: hidden; white-space: nowrap;
+    user-select: none;
+    z-index: 2;
+}
+.mo-hint { font-size: 11px; color: var(--text-sub2, rgba(255,255,255,0.35)); overflow: hidden; text-overflow: ellipsis; }
+.mo-btn {
+    height: 26px; padding: 0 10px;
+    font-size: 12px; color: var(--text2, #dbe4ff);
+    background: var(--bg-hover, rgba(255,255,255,0.08));
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    border-radius: 6px; cursor: pointer;
+}
+.mo-btn:hover { background: rgba(255,255,255,0.16); }
+.mo-btn:disabled { opacity: 0.35; cursor: default; }
+.mo-close-x {
+    margin-left: auto;
+    width: 26px; height: 26px;
+    border: none; border-radius: 6px;
+    background: var(--bg-hover, rgba(255,255,255,0.08));
+    color: #fff; font-size: 16px; line-height: 1;
+    cursor: pointer; flex-shrink: 0;
+}
+.mo-close-x:hover { background: rgba(255,80,80,0.5); }
+
+.mo-body { position: absolute; inset: 40px 0 26px 0; }
+.mo-canvas { width: 100%; height: 100%; display: block; cursor: default; }
+/* 抓取态光标（JS 按状态切换 grab / grabbing / crosshair） */
+.mo-canvas.mo-hover { cursor: grab; }
+.mo-canvas.mo-grabbing { cursor: grabbing; }
+.mo-canvas.mo-marquee { cursor: crosshair; }
+
+/* 分组命名弹窗 */
+.mo-name-pop {
+    position: fixed; z-index: 100060;
+    display: none;
+    background: var(--bg2, rgba(24,26,44,0.98));
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+.mo-name-pop.active { display: flex; gap: 6px; }
+.mo-name-pop input {
+    width: 150px; height: 26px;
+    background: var(--bg2, rgba(0,0,0,0.35));
+    border: 1px solid var(--border, rgba(255,255,255,0.15));
+    border-radius: 5px; color: #fff;
+    font-size: 12px; padding: 0 8px; outline: none;
+}
+
+/* ===== 浅色主题跟随（data-theme="light"）：与对话框同一套色板，白色分割线 ===== */
+[data-theme="light"] .minimap-organize-overlay { background: rgba(226, 232, 240, 0.72); }
+[data-theme="light"] .mo-panel { box-shadow: 0 18px 60px rgba(33, 102, 209, 0.18); }
+[data-theme="light"] .mo-toolbar { background: var(--bg2, #f4f6fa); border-bottom-color: rgba(60, 100, 160, 0.18); }
+[data-theme="light"] .mo-sep { background: rgba(60, 100, 160, 0.25); }
+[data-theme="light"] .mo-hintbar { background: var(--bg2, #f4f6fa); border-top-color: rgba(60, 100, 160, 0.18); }
+[data-theme="light"] .mo-btn { color: var(--text2, #4a5361); background: #ffffff; border-color: var(--border, #cdd5e0); }
+[data-theme="light"] .mo-btn:hover { background: rgba(33, 102, 209, 0.10); }
+[data-theme="light"] .mo-close-x { color: var(--text, #1f2430); background: rgba(60, 100, 160, 0.10); }
+[data-theme="light"] .mo-close-x:hover { background: rgba(255, 80, 80, 0.18); color: #d63030; }
+[data-theme="light"] .mo-name-pop { background: #ffffff; box-shadow: 0 8px 28px rgba(33, 102, 209, 0.18); }
+[data-theme="light"] .mo-name-pop input { background: #ffffff; color: #1f2430; }
+
+/* ========== 【极速模式】强制去除所有模糊/半透明风格，最大化性能 ========== */
+/* 主题 extraCss 里的 `.zf-style-glow [class*="panel"]` 会匹配到 mo-panel，注入 backdrop-filter: blur(8~24px)，
+   全屏实时模糊是 CPU/显卡飙升的元凶，这里全部强制关闭 */
+.minimap-organize-overlay,
+.minimap-organize-overlay *,
+.mo-panel, .mo-panel *,
+.mo-name-pop, .mo-name-pop * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+    animation: none !important;
+    will-change: auto !important;
+}
+/* 背景遮罩：仅半透明，不模糊 */
+.minimap-organize-overlay {
+    background: rgba(8, 10, 20, 0.72) !important;
+}
+[data-theme="light"] .minimap-organize-overlay {
+    background: rgba(226, 232, 240, 0.72) !important;
+}
+/* 面板本体：不透明纯色底，去掉大投影（大 blur 半径阴影每帧合成也是开销） */
+.mo-panel {
+    background: #141826 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+}
+[data-theme="light"] .mo-panel {
+    background: #ffffff !important;
+}
+.mo-toolbar, .mo-hintbar {
+    background: rgba(0,0,0,0.35) !important;
+    box-shadow: none !important;
+}
+[data-theme="light"] .mo-toolbar, [data-theme="light"] .mo-hintbar {
+    background: #f4f6fa !important;
+}
+.mo-btn, .mo-close-x, .mo-name-pop {
+    box-shadow: none !important;
+}
+.mo-name-pop {
+    background: #1d2234 !important;
+}
+[data-theme="light"] .mo-name-pop {
+    background: #ffffff !important;
+}
+/* 打开动画改为一帧直出（不再做 scale 弹出，省一次全屏合成） */
+.mo-panel { animation: none !important; }
+
+/* ========== 【小方块化 v1】方块模式面板 ========== */
+.mo-panel.mo-small {
+    /* 不可加 !important：JS 缩放/记忆尺寸写内联样式，author !important 会压死内联导致角柄失效 */
+    width: auto;
+    min-width: 420px;
+    max-width: none;
+    height: auto;
+    min-height: 280px;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+}
+.mo-panel.mo-small .mo-body { position: relative; inset: auto; flex: 1; min-height: 0; }
+.mo-panel.mo-small .mo-canvas { width: 100%; height: 100%; }
+
+/* ========== 【浮动窗口化 v1】面板改为可拖拽/可缩放浮窗 ========== */
+/* 遮罩不再 flex 居中，面板自身 fixed 定位（JS 接管 left/top/width/height） */
+.minimap-organize-overlay.active { display: block; }
+.minimap-organize-overlay .mo-panel.mo-small {
+    position: fixed !important;
+    left: calc(50% - 360px);   /* 默认居中（720×480），打开后被记忆位置覆盖 */
+    top: calc(50% - 240px);
+    width: 720px;   /* 不可加 !important：JS 缩放写内联样式，!important 会压死内联导致角柄失效 */
+    height: 480px;
+    min-width: 420px;
+    max-width: none;
+    min-height: 280px;
+    max-height: none;
+}
+.mo-toolbar { cursor: move; touch-action: none; }
+.mo-toolbar .mo-btn, .mo-toolbar .mo-close-x { cursor: pointer; }
+/* 右下角缩放柄 */
+.mo-resize-handle {
+    position: absolute; right: 0; bottom: 0;
+    width: 18px; height: 18px;
+    cursor: nwse-resize; z-index: 3;
+    touch-action: none; user-select: none;
+}
+.mo-resize-handle::after {
+    content: ''; position: absolute; right: 4px; bottom: 4px;
+    width: 8px; height: 8px;
+    border-right: 2px solid rgba(255,255,255,0.35);
+    border-bottom: 2px solid rgba(255,255,255,0.35);
+}
+[data-theme="light"] .mo-resize-handle::after {
+    border-right-color: rgba(0,0,0,0.3);
+    border-bottom-color: rgba(0,0,0,0.3);
+}
+
+/* 方块模式右键菜单 */
+.mo-ctx-menu {
+    position: fixed; z-index: 100070;
+    background: #1d2234;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+    min-width: 140px;
+}
+.mo-ctx-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #dbe4ff;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.mo-ctx-item:hover { background: rgba(255,255,255,0.12); }
+.mo-ctx-item.disabled { opacity: 0.4; cursor: default; }
+[data-theme="light"] .mo-ctx-menu { background: #ffffff; border-color: rgba(0,0,0,0.15); }
+[data-theme="light"] .mo-ctx-item { color: #333; }
+[data-theme="light"] .mo-ctx-item:hover { background: rgba(0,0,0,0.08); }
+ 
+/* 【v4·外框缩放】面板边缘 8px 透明热区，拖拽缩放整体大小 */ 
+.mo-rz { position: absolute; z-index: 30; background: transparent; touch-action: none; } 
+.mo-rz[data-dir="n"] { left: 8px; right: 8px; top: -4px; height: 8px; cursor: ns-resize; } 
+.mo-rz[data-dir="s"] { left: 8px; right: 8px; bottom: -4px; height: 8px; cursor: ns-resize; } 
+.mo-rz[data-dir="e"] { top: 8px; bottom: 8px; right: -4px; width: 8px; cursor: ew-resize; } 
+.mo-rz[data-dir="w"] { top: 8px; bottom: 8px; left: -4px; width: 8px; cursor: ew-resize; }
+.mo-rz.mo-rz-se { left: auto; top: auto; right: -4px; bottom: -4px; width: 18px; height: 18px; cursor: nwse-resize; }
+.mo-rz.mo-rz-se::after { content: ''; position: absolute; right: 4px; bottom: 4px; width: 8px; height: 8px; border-right: 2px solid rgba(128,128,128,.6); border-bottom: 2px solid rgba(128,128,128,.6); border-radius: 1px; } 
+.mo-panel { overflow: visible; } 
+.mo-panel, .mo-panel * { transition: none !important; }

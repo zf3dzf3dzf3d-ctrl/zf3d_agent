@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>🚀 宣传片审片台</title>
+<style>
+:root {
+  --bg: #0a0c12;
+  --panel: #12151f;
+  --card: #151926;
+  --line: #232a3d;
+  --txt: #e8ecf4;
+  --dim: #8a93a8;
+  --acc: #7c6cff;
+  --acc2: #3ec8ff;
+  --ok: #2ecc8f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(900px 400px at 85% -10%, rgba(124,108,255,.14), transparent 60%),
+    radial-gradient(700px 380px at -10% 20%, rgba(62,200,255,.08), transparent 60%),
+    var(--bg);
+  color: var(--txt);
+  padding: 16px 18px 30px;
+  min-height: 100vh;
+}
+h1 {
+  font-size: 15px; font-weight: 600; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+}
+h1::before {
+  content: ""; width: 4px; height: 16px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--acc2), var(--acc));
+}
+.toolbar {
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)), var(--panel);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 10px;
+  box-shadow: 0 4px 18px rgba(0,0,0,.35);
+}
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+button.act {
+  padding: 4px 12px; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 12px; background: linear-gradient(135deg, #6a5cff, #8f6cff);
+  box-shadow: 0 2px 10px rgba(108,92,255,.35); transition: filter .15s;
+}
+button.act:hover { filter: brightness(1.15); }
+button.sub {
+  padding: 3px 10px; background: #1b2030; color: var(--txt);
+  border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 12px;
+  transition: border-color .15s, background .15s;
+}
+button.sub:hover { border-color: var(--acc); background: #20263a; }
+select {
+  background: #1b2030; color: var(--txt); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 8px; font-size: 12px;
+}
+select:focus { outline: none; border-color: var(--acc); }
+.tip { font-size: 11px; color: var(--dim); line-height: 1.6; }
+.statusbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 8px; font-size: 12px;
+  background: linear-gradient(90deg, rgba(62,200,255,.07), rgba(124,108,255,.07)), var(--panel);
+  border: 1px solid var(--line); margin-bottom: 10px;
+}
+.badge {
+  display: inline-block; padding: 1px 8px; border-radius: 20px;
+  background: #1e2536; border: 1px solid var(--line);
+  color: var(--dim); font-size: 11px; margin: 2px 4px 2px 0;
+}
+.badge.done {
+  background: rgba(46,204,143,.12); border-color: rgba(46,204,143,.45);
+  color: var(--ok);
+}
+.shotcard {
+  position: relative; display: flex; gap: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)), var(--card);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 10px;
+  transition: border-color .15s, transform .15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+.shotcard:hover { border-color: #39415c; transform: translateY(-1px); }
+.shotcard .no {
+  flex: 0 0 52px; text-align: center; align-self: flex-start;
+  padding: 5px 0; border-radius: 8px; font-size: 12px; font-weight: 700;
+  color: #cfd6ff; background: rgba(124,108,255,.12);
+  border: 1px solid rgba(124,108,255,.35);
+}
+.shotcard .body { flex: 1; min-width: 0; }
+.shotcard h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.shotcard .dialog {
+  font-size: 13px; line-height: 1.7; padding: 6px 10px; margin: 4px 0;
+  background: rgba(255,255,255,.03); border-left: 2px solid var(--acc);
+  border-radius: 0 6px 6px 0; color: #dfe4f2;
+}
+.video-wrap video { width: 100%; max-height: 260px; border-radius: 8px; background: #000; margin-top: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+audio { width: 100%; margin-top: 6px; }
+.essential { margin-bottom: 10px; }
+.essential .label { font-size: 12px; color: var(--acc2); margin-right: 6px; }
+.essential .badge { cursor: default; }
+hr.sep { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+/* 滚动条与深色主题对齐 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #20263a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #2d3550; }
+* { scrollbar-color: #20263a var(--bg); scrollbar-width: thin; }
+</style>
+</head>
+<body>
+<h1>宣传片审片台</h1>
+<div class="toolbar">
+  <div class="row">
+    <b style="font-size:12px;color:var(--dim)">片源</b>
+    <select id="filmSel" onchange="loadReview()"></select>
+    <button class="act" onclick="loadReview()">🔄 刷新</button>
+    <span class="tip">数据约定：/promo2/storyboard.json（文案分镜）、/promo2/audio/sceneN.mp3（配音）、/promo2/shots/sceneN.mp4（逐镜画面）、/promo2/final/*.mp4（成片）</span>
+  </div>
+</div>
+<div id="rStatus" class="statusbar">未加载</div>
+<div id="rEssential" class="row essential"></div>
+<div id="rScenes"></div>
+
+<script>
+function $(id){ return document.getElementById(id); }
+function esc(t){ var d=document.createElement('div'); d.textContent=t==null?'':t; return d.innerHTML; }
+
+/* 片源列表：在数组里加一项即可切换其他片子（base 为该片的静态目录） */
+var FILMS = [
+  { id: 'promo2', name: '宣传片 v2（朱峰社区）', base: '/promo2' }
+  // 示例：{ id: 'promo3', name: '宣传片 v3（新片）', base: '/promo3' }
+];
+
+/* 【会话独立】URL 带 ?conv=对话ID 时，优先使用该对话专属的数据目录 /promo_<conv>，
+   各对话框工作台的视频数据互不共用；目录不存在时回退共享目录 */
+var CONV = '';
+(function parseConv(){
+  try {
+    var m = location.search.match(/[?&]conv=([^&]+)/);
+    if (m) CONV = decodeURIComponent(m[1]);
+  } catch(e){}
+})();
+if (CONV) {
+  FILMS.unshift({ id: 'conv_' + CONV, name: '本对话项目（' + CONV.slice(0, 18) + '）', base: '/promo_' + CONV });
+}
+
+(function initFilmSel(){
+  var sel = $('filmSel');
+  FILMS.forEach(function(f, i){
+    var o = document.createElement('option');
+    o.value = i; o.textContent = f.name;
+    sel.appendChild(o);
+  });
+})();
+
+function curFilm(){ return FILMS[$('filmSel').value || 0]; }
+
+function loadReview() {
+  var f = curFilm(), st = $('rStatus');
+  st.textContent = '加载 ' + f.base + '/storyboard.json …';
+  // 先取素材清单（已生成的 shots/final/audio）：未生成的不挂 src，避免整页刷 404
+  fetch(f.base + '/manifest.json?v=' + Date.now()).then(function(r){
+    return r.ok ? r.json() : null;
+  }).catch(function(){ return null; }).then(function(man){
+    return fetch(f.base + '/storyboard.json?v=' + Date.now()).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(sb){ return { sb: sb, man: man }; });
+  }).then(function(x){
+    var sb = x.sb, man = x.man;
+    renderReview(sb, f.base, man);
+    st.innerHTML = '<span style="color:var(--ok)">●</span> 已加载《' + esc(sb.meta && sb.meta.title || f.name) + '》共 ' + sb.scenes.length + ' 镜'
+      + ' · 完整版约 ' + (sb.total_est_s_full || '?') + 's'
+      + ' · 精华版约 ' + (sb.total_est_s_essential || '?') + 's';
+  }).catch(function(e){ st.innerHTML = '<span style="color:#ff6b6b">●</span> 加载失败：' + esc(e.message) + '（' + f.base + '/storyboard.json 未部署到 public？）'; });
+}
+
+function renderReview(sb, base, man) {
+  // man = 服务端素材清单；null 表示清单不可用（老服务端），退回点击时懒加载
+  var known = !!man;
+  var shotHas = function(aid){ return !known || (man.shots || []).indexOf(aid + '.mp4') >= 0; };
+  var finFile = (known && (man.final || []).length) ? man.final[0] : '';
+  var finOk = !known || !!finFile;
+  var wrap = $('rScenes');
+  wrap.innerHTML = '';
+  var ess = (sb.essential_cut && sb.essential_cut.scenes) || [];
+  $('rEssential').innerHTML = '<span class="label">🎬 精华版镜头</span>' + ess.map(function(n){ return '<span class="badge">第' + n + '镜</span>'; }).join('');
+  sb.scenes.forEach(function(sc){
+    var aid = 'scene' + sc.no, hasV = ess.indexOf(sc.no) >= 0;
+    var shotOk = shotHas(aid);
+    var card = document.createElement('div');
+    card.className = 'shotcard';
+    card.innerHTML =
+      '<div class="no">第' + sc.no + '镜</div>' +
+      '<div class="body">' +
+        '<h3>' + esc(sc.act || '') +
+          (hasV ? ' <span class="badge done">精华版</span>' : '') +
+          ' <span class="badge">' + esc(sc.voice || '') + ' · 约' + esc(sc.est_s || '?') + 's</span>' +
+        '</h3>' +
+        '<div class="dialog">' + esc(sc.text || '') + '</div>' +
+        '<div class="tip">画面：' + esc(sc.visual || '') + '</div>' +
+        '<div class="row" style="margin-top:6px;margin-bottom:0">' +
+          '<button class="sub" onclick="rPlayAudio(\'' + aid + '\')">🔊 试听配音</button>' +
+          '<button class="sub" onclick="window.open((curFilm().base) + \'/player.html?shot=' + (sc.no != null ? sc.no : '') + '\', \'_blank\')">🎨 生成画面（动效播放器）</button>' +
+          (shotOk ? '<button class="sub" onclick="rPlayShot(\'' + aid + '\')">🎞 播放本镜画面</button>'
+                  : '<button class="sub" disabled style="opacity:.45;cursor:not-allowed">⏳ 画面未生成</button>') +
+        '</div>' +
+        '<div class="video-wrap">' +
+          '<audio id="au_' + aid + '" src="' + base + '/audio/' + aid + '.mp3" preload="none" controls style="display:none"></audio>' +
+          '<video id="v_' + aid + '" ' + (shotOk ? 'src="' + base + '/shots/' + aid + '.mp4"' : (known ? '' : 'data-src="' + base + '/shots/' + aid + '.mp4"')) + ' controls style="display:none"></video>' +
+        '</div>' +
+      '</div>';
+    wrap.appendChild(card);
+  });
+  var pl = document.createElement('div');
+  pl.className = 'shotcard';
+  pl.innerHTML =
+    '<div class="no" style="background:rgba(62,200,255,.12);border-color:rgba(62,200,255,.4);color:#bfe9ff">🎬</div>' +
+    '<div class="body">' +
+      '<h3>🎬 动效播放器（完整连播） <span class="tip">下方进度条旁有分镜头胶囊按钮，点击即可跳到任意镜头；也可在新窗口打开</span></h3>' +
+      '<div class="row" style="margin-bottom:6px">' +
+        '<button class="sub" onclick="window.open((curFilm().base) + \'/player.html\', \'_blank\')">↗ 新窗口打开播放器</button>' +
+      '</div>' +
+      '<div class="video-wrap"><iframe id="pl_frame" src="' + base + '/player.html" style="width:100%;height:560px;border:none;border-radius:8px;background:#000"></iframe></div>' +
+    '</div>';
+  wrap.insertBefore(pl, wrap.firstChild);
+  var fin = document.createElement('div');
+  fin.className = 'shotcard';
+  fin.innerHTML =
+    '<div class="no" style="background:rgba(155,120,255,.12);border-color:rgba(155,120,255,.4);color:#c9b8ff">🎧</div>' +
+    '<div class="body">' +
+      '<h3>🎧 声音版本（先听声音，过了再上画面）</h3>' +
+      '<div class="row" style="margin-bottom:0">' +
+        '<button class="sub" onclick="rPlayAudioTrack(\'full\')">▶ 完整版配音（约152s）</button>' +
+        '<button class="sub" onclick="rPlayAudioTrack(\'essential\')">▶ 精华版配音（约88s）</button>' +
+      '</div>' +
+      '<div class="video-wrap">' +
+        '<audio id="au_full" src="' + base + '/audio/v2_full.mp3" preload="none" controls style="display:none"></audio>' +
+        '<audio id="au_essential" src="' + base + '/audio/v2_essential.mp3" preload="none" controls style="display:none"></audio>' +
+      '</div>' +
+    '</div>';
+  wrap.appendChild(fin);
+
+  var fin2 = document.createElement('div');
+  fin2.className = 'shotcard';
+  fin2.innerHTML =
+    '<div class="no" style="background:rgba(46,204,143,.1);border-color:rgba(46,204,143,.4);color:#a9ecd2">🏁</div>' +
+    '<div class="body">' +
+      '<h3>成片 <span class="tip">（第4关产出后自动出现）</span></h3>' +
+      '<div class="row" style="margin-bottom:0">' + (finOk
+        ? '<button class="sub" onclick="rPlayFinal()">播放 16:9 完整版</button>'
+        : '<button class="sub" disabled style="opacity:.45;cursor:not-allowed">⏳ 成片未生成</button>') + '</div>' +
+      (finOk ? '<div class="video-wrap"><video id="v_final" ' + (known ? 'src="' + base + '/final/' + finFile + '"' : 'data-src="' + base + '/final/promo2_final_16x9.mp4"') + ' controls style="display:none;max-height:320px"></video></div>' : '') +
+    '</div>';
+  wrap.appendChild(fin);
+}
+
+function rToggle(id, tag) {
+  var el = $(id);
+  if (!el) { alert('文件尚未生成'); return; }
+  var show = el.style.display === 'none';
+  if (show && tag === 'video' && !el.getAttribute('src')) {
+    // 懒加载兜底：清单不可用时点击才挂 src
+    var ds = el.getAttribute('data-src');
+    if (!ds) { alert('本镜素材尚未生成'); return; }
+    el.setAttribute('src', ds);
+    el.onerror = function () { alert('文件尚未生成：' + ds); };
+  }
+  el.style.display = show ? 'block' : 'none';
+  if (show && tag === 'audio') {
+    var pr = el.play();
+    if (pr && pr.catch) pr.catch(function(){}); // 播放被拒绝时不再抛 Uncaught (in promise)
+  }
+}
+function rPlayAudio(id){ rToggle('au_' + id, 'audio'); }
+function rPlayShot(id){ rToggle('v_' + id, 'video'); }
+function rPlayFinal(){ rToggle('v_final', 'video'); }
+function rPlayAudioTrack(k){ rToggle('au_' + k, 'audio'); }
+
+loadReview();
+
+/* 【会话独立兜底】本对话目录（/promo_<conv>）不存在时自动切回共享片源 */
+(function convFallback(){
+  if (!CONV) return;
+  fetch(FILMS[0].base + '/storyboard.json', { method: 'HEAD' }).then(function(r){
+    if (!r.ok) switchToShared();
+  }).catch(switchToShared);
+  function switchToShared(){
+    var sel = $('filmSel');
+    if (sel && sel.options.length > 1) { sel.value = '1'; loadReview(); }
+  }
+})();
+</script>
+</body>
+</html>

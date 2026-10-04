@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "title": "test_import",
+    "author": "pptx 导入",
+    "created": "2026-09-06"
+  },
+  "slides": [
+    {
+      "type": "cover",
+      "title": "旧版 PPT 导入测试",
+      "subtitle": "由 pptxgenjs 生成，用于验证导入"
+    },
+    {
+      "title": "核心要点",
+      "bullets": [
+        "第一条：文本和图片可以被提取",
+        "第二条：版式转换为列表页",
+        "第三条：复杂动画自动丢弃"
+      ]
+    },
+    {
+      "title": "第 3 页",
+      "bullets": [
+        "结束页",
+        "谢谢观看"
+      ]
+    }
+  ]
+}

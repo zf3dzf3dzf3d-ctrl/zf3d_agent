@@ -1,0 +1,298 @@
+/* ============================================================
+ * app-workbench-drawer.css - 工作台抽屉（挂在对话面板左侧）
+ * 抽屉式开合，未来可切换 PPT/视频/游戏等工作台类型
+ * ============================================================ */
+.wb-drawer {
+    /* v3：抽屉挂在对话框左缘，从左向外抽出（X 轴滑入滑出）；
+       高度铺满整个对话框，原对话内容不被覆盖、不位移。 */
+    position: absolute;
+    left: auto;
+    right: 100%;
+    top: auto;
+    bottom: 0;
+    height: var(--wb-drawer-h, 100%);
+    max-height: 96vh;
+    width: var(--wb-drawer-w, min(520px, 92%));
+    overflow: hidden;
+    background: rgba(12, 17, 28, 0.98);
+    border: 1px solid rgba(120, 160, 210, 0.30);
+    border-radius: 14px;
+    margin: 0;
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+    opacity: 0;
+    transform: translateX(-8%);
+    transform-origin: right center;
+    transition: transform 0.28s cubic-bezier(.22,.9,.36,1), opacity 0.22s ease;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.wb-drawer.open {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+.wb-drawer.wb-dragging { transition: none; user-select: none; }
+
+/* 调宽把手：贴抽屉外侧缘（抽屉在左=左缘，flip 到右=右缘），从外侧拖拽调宽 */
+.wb-drawer-resize {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: auto;
+    /* v2：把手挪到内容区外侧，不再盖住右侧滚动条；平时隐藏，悬停显现 */
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 60;
+    touch-action: none;
+    background: transparent;
+    transition: background .15s ease;
+}
+.wb-drawer-resize:hover { background: rgba(74,153,136,0.35); }
+.wb-drawer.wb-dragging { transition: none; }
+.wb-drawer.wb-dragging .wb-drawer-resize { background: rgba(74,153,136,0.55); }
+
+/* （已移除调高把手：抽屉高度固定跟随对话框） */
+body.task-panel-closed .wb-drawer {
+    /* v3：抽屉挂在对话框左缘，从左向外抽出（X 轴滑入滑出）；
+       高度铺满整个对话框，原对话内容不被覆盖、不位移。 */
+    position: absolute;
+    left: auto;
+    right: 100%;
+    top: auto;
+    bottom: 0;
+    height: var(--wb-drawer-h, 100%);
+    max-height: 96vh;
+    width: var(--wb-drawer-w, min(520px, 92%));
+    overflow: hidden;
+    background: rgba(12, 17, 28, 0.98);
+    border: 1px solid rgba(120, 160, 210, 0.30);
+    border-radius: 14px;
+    margin: 0;
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.45);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    z-index: 30;
+    opacity: 0;
+    transform: translateX(-8%);
+    transform-origin: right center;
+    transition: transform 0.28s cubic-bezier(.22,.9,.36,1), opacity 0.22s ease;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.wb-tab {
+    border: none; background: transparent; color: var(--text2, #9ab);
+    padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    white-space: nowrap;          /* 文字永不折行，始终单行 */
+    flex: 0 1 auto; min-width: 0; /* 宽度不够时按钮等比压缩 */
+    overflow: hidden; text-overflow: ellipsis;  /* 压无可压时省略号 */
+}
+/* 抽屉自身宽度较窄时：缩小页签内边距与字号，尽量保住完整文字（容器查询，跟随用户拖拽宽度） */
+.wb-drawer { container-type: inline-size; }
+@container (max-width: 380px) {
+    .wb-tab { padding: 4px 5px; font-size: 11px; letter-spacing: -0.2px; }
+}
+@container (max-width: 320px) {
+    .wb-tab { padding: 4px 3px; font-size: 10px; }
+}
+.wb-tab:hover { background: var(--bg-hover, rgba(255,255,255,0.08)); }
+.wb-tab.active { background: rgba(74, 153, 136, 0.28); color: var(--text, #eee); }
+/* 关闭按钮：DOM 留在标签栏内，但定位显式锚定到 .wb-drawer 本身（给 tabs 加 position 也不会漂移） */
+.wb-drawer > .wb-drawer-tabs .wb-close {
+    position: absolute;
+    inset: 6px 10px auto auto;
+    margin-left: 0;
+    z-index: 70;
+    border: 1px solid rgba(120,160,210,0.30);
+    background: rgba(12,17,28,0.92);
+    color: var(--text2, #9ab); cursor: pointer; font-size: 14px;
+    padding: 4px 12px; border-radius: 8px;
+}
+.wb-drawer > .wb-drawer-tabs .wb-close:hover { color: var(--text, #eee); background: rgba(74,153,136,0.35); }
+
+/* 标签栏：右侧留空（46px），避免被悬浮在抽屉右上角的关闭按钮遮挡 */
+.wb-drawer-tabs {
+    display: flex; align-items: center; gap: 4px;
+    padding: 8px 46px 8px 8px;
+    border-bottom: 1px solid rgba(120,160,210,0.18);
+}
+
+/* 左右切换按钮：靠右，紧邻关闭按钮左侧居右 */
+.wb-drawer-tabs .wb-flip {
+    order: 99; margin-left: auto; margin-right: 2px; border: none; background: transparent;
+    color: var(--text2, #9ab); cursor: pointer; font-size: 14px; padding: 2px 6px;
+}
+.wb-drawer-tabs .wb-flip:hover { color: var(--text, #eee); background: var(--bg-hover, rgba(255,255,255,0.08)); border-radius: 6px; }
+
+/* 抽屉挂到对话框右缘模式（从右向外抽出） */
+.wb-drawer-host .wb-drawer.wb-side-right {
+    left: 100%;
+    right: auto;
+    transform: translateX(8%);
+    transform-origin: left center;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.45);
+}
+.wb-drawer-host .wb-drawer.wb-side-right.open { transform: translateX(0); }
+.wb-drawer-host .wb-drawer.wb-side-right .wb-drawer-resize { left: auto; right: -4px; }
+[data-theme="light"] .wb-drawer.wb-side-right { box-shadow: 4px 0 24px rgba(0,0,0,0.12); }
+
+.wb-drawer-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.wb-workbench { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+.wb-workbench.active { display: flex; }
+
+/* ---------- 图片工作台 ---------- */
+.wb-img-toolbar {
+    display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px;
+    border-bottom: 1px solid rgba(120,160,210,0.14); flex-shrink: 0;
+}
+.wb-img-toolbar button {
+    border: 1px solid rgba(120,160,210,0.2); background: transparent;
+    color: var(--text2, #9ab); border-radius: 6px; padding: 3px 9px;
+    cursor: pointer; font-size: 12px;
+}
+.wb-img-toolbar button:hover { background: var(--bg-hover, rgba(255,255,255,0.08)); }
+.wb-img-toolbar button.active { background: rgba(74,158,255,0.25); color: var(--text, #eee); border-color: rgba(74,158,255,0.5); }
+.wb-img-toolbar button:disabled { opacity: 0.35; cursor: default; }
+.wb-img-toolbar .wb-sel-info { font-size: 11px; color: var(--text2, #89a); align-self: center; margin-left: 4px; }
+
+.wb-img-stage-wrap { flex: 1; overflow: hidden; position: relative; background: repeating-conic-gradient(#141a26 0% 25%, #0e131e 0% 50%) 50% / 20px 20px; cursor: grab; }
+.wb-img-stage-wrap.wb-selecting { cursor: crosshair; }
+.wb-img-stage-wrap.wb-panning { cursor: grabbing; }
+.wb-mini-map { position: absolute; right: 10px; bottom: 10px; width: 180px; height: 120px; border: 1px solid rgba(120,160,220,0.35); border-radius: 6px; box-shadow: 0 2px 12px rgba(0,0,0,0.45); cursor: pointer; z-index: 5; display: none; }
+.wb-img-stage { position: absolute; transform-origin: 0 0; }
+.wb-img-stage canvas { position: absolute; left: 0; top: 0; }
+.wb-img-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text2, #8a9bb5); font-size: 12px; text-align: center; pointer-events: none; line-height: 1.8;
+}
+
+.wb-img-statusbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 3px 10px; font-size: 11px; color: var(--text2, #89a);
+    border-top: 1px solid rgba(120,160,210,0.12); flex-shrink: 0;
+    white-space: nowrap; overflow: hidden;
+}
+.wb-img-statusbar * { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wb-img-statusbar .wb-zoom { min-width: 46px; text-align: center; }
+
+/* 图层/历史 下部面板 */
+.wb-img-bottom { flex-shrink: 0; border-top: 1px solid rgba(120,160,210,0.14); display: flex; flex-direction: column; max-height: 240px; }
+.wb-img-bottom-tabs { display: flex; gap: 2px; padding: 4px 8px 0; }
+.wb-img-bottom-tabs button {
+    border: none; background: transparent; color: var(--text2, #9ab);
+    font-size: 11px; padding: 3px 10px; border-radius: 5px 5px 0 0; cursor: pointer;
+    white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.wb-img-bottom-tabs button span { white-space: nowrap; }
+.wb-img-bottom-tabs button.active { background: rgba(255,255,255,0.06); color: var(--text, #eee); }
+.wb-img-bottom-body { overflow-y: auto; padding: 6px 8px; max-height: 200px; }
+
+.wb-layer-row {
+    display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 5px;
+    cursor: pointer; font-size: 12px; color: var(--text2, #9ab);
+}
+.wb-layer-row:hover { background: rgba(255,255,255,0.05); }
+.wb-layer-row.active { background: rgba(74,158,255,0.18); color: var(--text, #eee); }
+.wb-layer-row .wb-eye, .wb-layer-row .wb-lock { border: none; background: transparent; cursor: pointer; font-size: 12px; padding: 0 2px; color: inherit; }
+.wb-layer-row .wb-layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-layer-row .wb-layer-badge { font-size: 10px; padding: 0 4px; border-radius: 4px; background: rgba(140,110,255,0.3); }
+.wb-layer-row input[type=range] { width: 70px; height: 12px; }
+
+.wb-hist-row { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 5px; font-size: 12px; color: var(--text2, #9ab); cursor: pointer; }
+.wb-hist-row:hover { background: rgba(255,255,255,0.05); }
+.wb-hist-row.current { background: rgba(74,153,136,0.25); color: var(--text, #eee); }
+.wb-hist-row.future { opacity: 0.4; }
+
+/* 底部发送条 */
+.wb-send-bar { display: flex; gap: 6px; padding: 6px 8px; border-top: 1px solid rgba(120,160,210,0.14); flex-shrink: 0; }
+.wb-send-bar textarea {
+    flex: 1; resize: none; height: 34px; min-height: 34px; max-height: 90px;
+    border: 1px solid rgba(120,160,210,0.25); border-radius: 7px;
+    background: var(--bg, #141a26); color: var(--text, #ddd);
+    padding: 7px 9px; font-size: 12px; outline: none; font-family: inherit;
+}
+.wb-send-bar button {
+    border: none; border-radius: 7px; background: #2f7d64; color: #fff;
+    padding: 0 14px; cursor: pointer; font-size: 12px; flex-shrink: 0;
+}
+.wb-send-bar button:disabled { opacity: 0.4; cursor: default; }
+
+/* 开关按钮（底部工具栏） */
+.zf-dock-btn.wb-toggle-btn { color: #7fc7ad; }
+.zf-dock-btn.wb-toggle-btn.on { background: rgba(74,153,136,0.35); }
+
+[data-theme="light"] .wb-drawer { background: rgba(250, 252, 255, 0.97); box-shadow: -4px 0 24px rgba(0,0,0,0.12); }
+[data-theme="light"] .wb-img-stage-wrap { background: repeating-conic-gradient(#e8edf5 0% 25%, #dde4ef 0% 50%) 50% / 20px 20px; }
+
+.zf-dock-btn.wb-toggle-btn { background: transparent !important; border: none !important; box-shadow: none !important; color: inherit; opacity: .85; cursor: pointer; }
+.zf-dock-btn.wb-toggle-btn:hover { opacity: 1; }
+.hd-btn.wb-toggle-btn svg { display: block; flex: none; }
+
+/* ===== v3：挂在对话节点的定位上下文 ===== */
+.wb-drawer-host {
+    /* .chatbox 是画布上 absolute 可拖拽节点，不能改 relative，否则跳到中间 */
+}
+/* 抽屉打开时禁止横向溢出造成页面滚动 */
+.wb-drawer-host.wb-drawer-open {
+    overflow: visible; /* 抽屉在左外侧，必须可见 */
+}
+
+/* ---------- 浏览器工作台（统一主题配色） ---------- */
+.wb-br-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wb-br-bar {
+    flex: 0 0 auto; display: flex; gap: 6px; align-items: center;
+    padding: 6px 8px; border-bottom: 1px solid rgba(120,160,210,0.14);
+    background: rgba(20, 30, 46, 0.5);
+}
+.wb-br-btn {
+    border: 1px solid rgba(120,160,210,0.22); border-radius: 6px;
+    background: rgba(30, 44, 66, 0.6); color: var(--text2, #9ab);
+    padding: 4px 9px; font-size: 12px; cursor: pointer; white-space: nowrap;
+    transition: background .15s ease, color .15s ease;
+}
+.wb-br-btn:hover {
+    background: rgba(74,153,136,0.28); color: var(--text, #eee);
+    border-color: rgba(74,153,136,0.45);
+}
+.wb-br-lock { font-size: 12px; opacity: .8; }
+.wb-br-url {
+    flex: 1; min-width: 60px; padding: 5px 11px; border-radius: 13px;
+    border: 1px solid rgba(120,160,210,0.25);
+    background: var(--bg, #141a26); color: var(--text, #dfe9ff);
+    font-size: 12px; outline: none;
+}
+.wb-br-url:focus { border-color: rgba(74,153,136,0.6); box-shadow: 0 0 0 2px rgba(74,153,136,0.15); }
+.wb-br-arch {
+    display: none; flex: 0 0 auto; max-height: 45%; overflow: auto;
+    background: rgba(18, 26, 40, 0.6); border-bottom: 1px solid rgba(120,160,210,0.14);
+    padding: 8px 10px; font-size: 12px; color: var(--text2, #9fb2c9);
+}
+.wb-br-view-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: rgba(10, 14, 22, 0.85); }
+.wb-br-view { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; cursor: default; }
+.wb-br-view:focus { outline: 1px solid #4af; outline-offset: -1px; }
+.wb-br-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px; text-align: center;
+    color: var(--text2, #5f7494); font-size: 13px;
+}
+.wb-br-status {
+    flex: 0 0 auto; height: 22px; display: flex; align-items: center; gap: 10px;
+    padding: 0 10px; border-top: 1px solid rgba(120,160,210,0.14);
+    background: rgba(20, 30, 46, 0.5); color: var(--text2, #6b7686); font-size: 11px;
+}
+.wb-br-stl { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wb-br-copyerr { display: none; margin-left: auto; font-size: 11px; padding: 2px 8px; cursor: pointer; border: 1px solid #d97706; border-radius: 4px; background: #fffbeb; color: #b45309; }
+
+[data-theme="light"] .wb-br-bar,
+[data-theme="light"] .wb-br-status { background: rgba(235, 241, 249, 0.8); }
+[data-theme="light"] .wb-br-btn { background: #fff; color: #445; border-color: rgba(0,40,80,0.15); }
+[data-theme="light"] .wb-br-btn:hover { background: rgba(74,153,136,0.18); color: #123; }
+[data-theme="light"] .wb-br-view-wrap { background: #eceff5; }

@@ -1,0 +1,202 @@
+[
+ {
+  "name": "智谱glm·官方",
+  "id": "zf-0",
+  "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-0",
+  "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-0",
+  "provider": "zhufeng",
+  "enabled": true
+ },
+ {
+  "name": "小米mimo·官方",
+  "id": "zf-1",
+  "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-1",
+  "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-1",
+  "provider": "zhufeng",
+  "enabled": true
+ },
+ {
+  "name": "智谱glm识图·官方",
+  "id": "zf-2",
+  "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-2",
+  "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-2",
+  "provider": "zhufeng",
+  "enabled": true
+ },
+ {
+  "name": "小米mimo识图·官方",
+  "id": "zf-3",
+  "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-3",
+  "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-3",
+  "provider": "zhufeng",
+  "enabled": true
+ },
+ {
+  "name": "小米mimo音频·官方",
+  "id": "zf-4",
+  "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-4",
+  "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=zf-4",
+  "provider": "zhufeng",
+  "enabled": true
+ },
+ {
+  "name": "CodingPlan智谱",
+  "provider": "ark",
+  "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "enabled": true,
+  "id": "智谱CodingPlan新接"
+ },
+ {
+  "name": "DeepSeek",
+  "provider": "ark",
+  "baseUrl": "https://api.deepseek.com/chat/completions",
+  "endpoint": "https://api.deepseek.com/chat/completions",
+  "enabled": true,
+  "id": "DeepSeek 官方"
+ },
+ {
+  "name": "GPT-6 Astra",
+  "provider": "ark",
+  "baseUrl": "https://api.openai.com/v1/chat/completions",
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "enabled": true,
+  "id": "gpt-6-astra"
+ },
+ {
+  "name": "Tripo 3D 生成",
+  "provider": "tripo",
+  "baseUrl": "https://openapi.tripo3d.com/v3/generation/text-to-model",
+  "endpoint": "https://openapi.tripo3d.com/v3/generation/text-to-model",
+  "enabled": true,
+  "id": "Tripo 3D 生成"
+ },
+ {
+  "name": "Hunyuan3D 生成",
+  "provider": "hunyuan",
+  "baseUrl": "https://hunyuan.tencentcloudapi.com",
+  "endpoint": "https://hunyuan.tencentcloudapi.com",
+  "enabled": true,
+  "id": "Hunyuan3D 生成"
+ },
+ {
+  "name": "Meshy 3D 生成",
+  "provider": "meshy",
+  "baseUrl": "https://api.meshy.ai/openapi/v2/text-to-3d",
+  "endpoint": "https://api.meshy.ai/openapi/v2/text-to-3d",
+  "enabled": true,
+  "id": "Meshy 3D 生成"
+ },
+ {
+  "name": "Miaomio",
+  "provider": "ark",
+  "baseUrl": "https://miaomio.net/v1/chat/completions",
+  "endpoint": "https://miaomio.net/v1/chat/completions",
+  "enabled": true,
+  "id": "Miaomio"
+ },
+ {
+  "name": "智谱 GLM",
+  "provider": "ark",
+  "baseUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  "endpoint": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+  "enabled": true,
+  "id": "智谱 GLM"
+ },
+ {
+  "name": "OpenRouter",
+  "provider": "openai",
+  "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+  "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+  "enabled": true,
+  "id": "OpenRouter"
+ },
+ {
+  "name": "Rodin 3D 生成",
+  "provider": "rodin",
+  "baseUrl": "https://api.hyper3d.com/api/v2/rodin",
+  "endpoint": "https://api.hyper3d.com/api/v2/rodin",
+  "enabled": true,
+  "id": "Rodin 3D 生成"
+ },
+ {
+  "name": "火山方舟视频",
+  "provider": "ark",
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/contents/generations/tasks",
+  "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/contents/generations/tasks",
+  "enabled": true,
+  "id": "ark-video-seedance-2"
+ },
+ {
+  "name": "智谱视频",
+  "provider": "zhipu",
+  "baseUrl": "https://open.bigmodel.cn/api/paas/v4/videos/generations",
+  "endpoint": "https://open.bigmodel.cn/api/paas/v4/videos/generations",
+  "enabled": true,
+  "id": "zhipu-video-cogvideox-3"
+ },
+ {
+  "name": "智谱识图",
+  "provider": "ark",
+  "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "endpoint": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+  "enabled": true,
+  "id": "glm-5.3-flash-vision"
+ },
+ {
+  "name": "火山方舟",
+  "provider": "ark",
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+  "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+  "enabled": true,
+  "id": "火山方舟"
+ },
+ {
+  "name": "火山方舟向量化",
+  "provider": "ark",
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
+  "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3",
+  "enabled": true,
+  "id": "ark-embedding-vision"
+ },
+ {
+  "name": "火山方舟语音",
+  "provider": "ark",
+  "baseUrl": "https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional",
+  "endpoint": "https://openspeech.bytedance.com/api/v3/plan/tts/unidirectional",
+  "enabled": true,
+  "id": "ark-speech-tts"
+ },
+ {
+  "name": "硅基流动",
+  "provider": "ark",
+  "baseUrl": "https://api.siliconflow.cn/v1/chat/completions",
+  "endpoint": "https://api.siliconflow.cn/v1/chat/completions",
+  "enabled": true,
+  "id": "siliconflow-qwen2.5-7b"
+ },
+ {
+  "name": "本地mimo",
+  "provider": "ark",
+  "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+  "endpoint": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+  "enabled": true,
+  "id": "mimo-local"
+ },
+ {
+  "name": "本地mimo识图",
+  "provider": "ark",
+  "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+  "endpoint": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+  "enabled": true,
+  "id": "本地mimo识图"
+ },
+ {
+  "name": "火山方舟视觉",
+  "provider": "ark",
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/images/generations",
+  "endpoint": "https://ark.cn-beijing.volces.com/api/plan/v3/images/generations",
+  "enabled": true,
+  "id": "ark-vision-seedream"
+ }
+]

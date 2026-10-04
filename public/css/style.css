@@ -1,0 +1,15 @@
+﻿/* ========== ????????????????? - ???????? ========== */
+/* ??????? ?? ??????? ?? ???????? */
+
+/* 主体样式已拆分至 css/splits/ 目录，见 index.html 引入列表 */
+
+/* ===== 背景方案卡片 ===== */
+/* ===== v31: 背景方案改为色块平铺（纯色块，无文字，悬停显示名称） ===== */
+.bg-scheme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 8px; }
+.bg-scheme-card { cursor: pointer; width: 100%; aspect-ratio: 1 / 1; min-height: 34px; border-radius: 9px; padding: 0; border: 2px solid rgba(255,255,255,.15); transition: all .18s; position: relative; overflow: hidden; }
+.bg-scheme-card:hover { transform: translateY(-2px) scale(1.06); border-color: rgba(255,255,255,.55); box-shadow: 0 3px 10px rgba(0,0,0,.35); z-index: 2; }
+.bg-scheme-card.active { border-color: #4f9cff; box-shadow: 0 0 0 2px rgba(79,156,255,.35), 0 0 10px rgba(79,156,255,.55); }
+.bg-scheme-card.active::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+/* 色块本体铺满卡片 */
+.bg-scheme-card .bg-scheme-sw { position: absolute; inset: 0; border-radius: 7px; margin: 0; }
+.bg-scheme-card span { display: none; }

@@ -1,0 +1,11 @@
+const fs = require('fs');
+const dir = 'F:/朱峰社区智能体无限_新版本/朱峰社区智能体无限_5.2.5/public/js';
+const s = fs.readFileSync(dir + '/i18n.js', 'utf8');
+console.log('i18n.js SETTINGS_PATCH ref:', s.includes('SETTINGS_PATCH'));
+console.log('i18n.js MULTI merge:', s.includes('__I18N_MULTI'));
+const t = fs.readFileSync(dir + '/i18n-data-settings.js', 'utf8');
+console.log('--- settings tail 600 ---');
+console.log(t.slice(-600));
+const m = fs.readFileSync(dir + '/i18n-data-multi.js', 'utf8');
+console.log('--- multi tail 500 ---');
+console.log(m.slice(-500));

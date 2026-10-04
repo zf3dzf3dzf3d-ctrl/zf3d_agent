@@ -1,0 +1,1348 @@
+/* ===== 风筝龙 v4：链式飘带 + 一句话背景提示 =====
+   - 龙头+一条线，各节=一个对话
+   - 龙头与概览面板为前景交互层：根层 z-index:2（须高于画布 canvas-3d 的 z1，否则被画布盖住收不到点击）
+   - 悬停/工具调用只弹出一句话文字提示（无左侧 AI 栏、无徽章），全局同时只显示最近一句 */
+
+.kite-dragon { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+
+/* 风筝线：一条线从龙头垂下 */
+.kite-svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .32; }
+.kite-svg path { fill: none; stroke: rgba(203, 213, 225, .65); stroke-width: 1.5; }
+.kite-svg circle { fill: rgba(203, 213, 225, .55); }
+
+/* 龙头样式见下方注释 */
+/* 龙头：去掉圆圈（边框/背景清零），只留 emoji 头 + 两侧菱形；emoji 用 grid 居中于锚点 */
+.kite-head { position: absolute; left: 0; top: 0; width: 31px; height: 31px; margin: -15.5px 0 0 -15.5px; padding: 0; border: 0; background: none; display: grid; place-items: center; font-size: 29px; line-height: 1; cursor: grab; pointer-events: auto; user-select: none; touch-action: none; opacity: .9; }
+.kite-head.dragging { cursor: grabbing; filter: drop-shadow(0 4px 8px rgba(0,0,0,.35)); }
+/* 小菱形装饰：10px，贴在熊猫头两侧 */
+.kite-head:before,
+.kite-head:after { content: '◆'; position: absolute; color: #f2c77a; font-size: 10px; text-shadow: 0 0 4px rgba(242,199,122,.5); opacity: .85; pointer-events: none; }
+.kite-head:before { left: -5px;  top: 50%; transform: translateY(calc(-50% + 2px)) rotate(-15deg); }
+.kite-head:after  { right: -5px; top: 50%; transform: translateY(calc(-50% + 2px)) rotate(15deg); }
+.kite-face { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif; user-select: none; pointer-events: none; margin-left: -5px; /* 补偿 Segoe UI Emoji 字形左侧留白，让熊猫头视觉居中 */ }
+.kite-head-overview { position: absolute; left: 0; top: 0; transform: translate(-50%, calc(-100% - 24px)); display: none; width: max-content; min-width: 170px; max-width: min(260px, 80vw); padding: 7px; border: 1px solid rgba(159,213,255,.55); border-radius: 6px; background: #101621; box-shadow: 0 5px 16px rgba(0,0,0,.28); color: #dfeeff; font-size: 11px; line-height: 1.35; pointer-events: auto; z-index: 30; }
+.kite-head-overview.open { display: block; }
+.kite-head-overview.below { transform: translate(-50%, 24px); }
+.kho-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #9fd5ff; font-weight: 700; padding: 1px 4px 5px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 3px; }
+.kho-close { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #c8d8e8; font-size: 18px; line-height: 18px; cursor: pointer; }
+.kho-close:hover { background: rgba(255,255,255,.14); color: #fff; }
+.kho-row { display: flex; width: 100%; justify-content: space-between; gap: 14px; padding: 4px; border: 0; border-radius: 3px; background: transparent; color: #e8eaf1; text-align: left; cursor: pointer; font: inherit; }
+.kho-row:hover { background: rgba(159,213,255,.18); color: #fff; }
+.kho-row b { color: #ffd27a; font-weight: 700; white-space: nowrap; }
+/* 龙头概览：异常状态标签（长期停滞/已失败/响应缓慢），正常时不显示 */
+.kho-status { font-style: normal; font-size: 11px; padding: 1px 6px; margin-left: 6px; border-radius: 8px; background: rgba(255,90,90,.22); color: #ff8a8a; border: 1px solid rgba(255,90,90,.4); }
+.kho-row:hover .kho-status { color: #ffb3b3; }
+/* 整体速度统计（所有对话汇总） */
+/* 整体速度数值与标题同行，样式与下面局部行一致 */
+.kho-global-buckets { display: flex; flex-wrap: wrap; gap: 4px; }
+.kho-bucket { font-size: 11px; padding: 2px 7px; border-radius: 9px; background: rgba(159,213,255,.16); color: #dceaff; white-space: nowrap; }
+.kho-global-row span { color: #e8eaf1; font-weight: 400; }
+.kho-global-row b { color: #ffd27a; font-weight: 700; white-space: nowrap; }
+
+
+
+/* 版面防撑高：对话多时（如 19 个）概览面板整体限高滚动，行区独立滚 */
+.kite-head-overview { max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---- 风筝面板改版：顶部横排 + 小车车道块 + 子节点两列竖排 ---- */
+.kho-row--hidden { display: none; }
+.kho-topline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 4px 6px; border-bottom: 1px solid rgba(159,213,255,.18); margin-bottom: 3px; }
+.kho-topline-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.kho-topline-item i { font-style: normal; color: #9fb3c8; }
+.kho-topline-item b { color: #ffd27a; font-weight: 700; }
+
+.kho-rows-grid { display: grid; grid-template-columns: 1fr; gap: 1px 6px; }
+.kho-rows-grid .kho-row { padding: 3px 4px; }
+/* 上下左右：上=顶行，左=对话明细，右=车道竖排 */
+/* (合并至上方 .kho-body 单一定义) */
+.kho-rows-grid { flex: 1 1 100%; min-width: 0; }
+.kite-head-overview::-webkit-scrollbar { width: 6px; }
+.kite-head-overview::-webkit-scrollbar-thumb { background: rgba(159,213,255,.25); border-radius: 3px; }
+
+/* 龙身节：JS 绝对定位，链式跟随 */
+.kite-seg { position: absolute; left: 0; top: 0; width: 30px; height: 24px; margin: -12px 0 0 -15px; pointer-events: auto; cursor: pointer; }
+.kite-blob { position: absolute; inset: 0; border-radius: 48% 52% 45% 55%; background: linear-gradient(135deg, #7fbcb2, #6d9ec0); border: 1.5px solid rgba(255,255,255,.32); box-shadow: 0 3px 7px rgba(0,0,0,.12); transition: transform .15s, opacity .15s, background .55s ease, box-shadow .55s ease, border-color .55s ease; opacity: .78; display: grid; place-items: center; }
+.kite-seg.alt .kite-blob { background: linear-gradient(135deg, #d9a273, #c07d8f); }
+.kite-seg:hover .kite-blob { transform: scale(1.15); opacity: .95; }
+.kite-speed-tip { position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); display: block; max-width: 180px; padding: 4px 8px; border: 1px solid rgba(159,213,255,.55); border-radius: 5px; background: rgba(20,27,39,.96); color: #bfe4ff; font-size: 11px; line-height: 1.25; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 20; transition: opacity .15s ease, visibility .15s ease; }
+.kite-speed-tip:after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; background: rgba(20,27,39,.96); border-right: 1px solid rgba(159,213,255,.55); border-bottom: 1px solid rgba(159,213,255,.55); transform: translateX(-50%) rotate(45deg); }
+.kite-seg:hover .kite-speed-tip { opacity: 1; visibility: visible; }
+
+/* ===== 任务状态色（成功/失败/进行中），CSS 过渡更顺滑 ===== */
+.kite-seg.task-success .kite-blob {
+  background: linear-gradient(135deg, #ffd86b, #ff9a3d);
+  border-color: rgba(255, 222, 130, .85);
+  box-shadow: 0 0 10px rgba(255, 196, 70, .55), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .95;
+}
+.kite-seg.task-fail .kite-blob {
+  background: linear-gradient(135deg, #ff6b6b, #c7385a);
+  border-color: rgba(255, 130, 130, .8);
+  box-shadow: 0 0 8px rgba(220, 60, 80, .45), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .92;
+}
+.kite-seg.task-pending .kite-blob {
+  background: linear-gradient(135deg, #6db1ff, #5b8cf2);
+  border-color: rgba(140, 180, 255, .8);
+  animation: kitePulse 1.4s ease-in-out infinite;
+}
+@keyframes kitePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(110, 170, 255, .3), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1); }
+  50%      { box-shadow: 0 0 14px rgba(110, 170, 255, .85), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1.08); }
+}
+
+/* ===== 慢速检测警报：长期无响应的对话节点 → 红色病态闪烁 ===== */
+.kite-seg.stall .kite-blob {
+  background: linear-gradient(135deg, #ff4d4d, #b3121f) !important;
+  border-color: rgba(255, 120, 120, .85) !important;
+  animation: kiteStallBlink 1s ease-in-out infinite !important;
+}
+@keyframes kiteStallBlink {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 60, 60, .35); filter: brightness(.75); }
+  50%      { box-shadow: 0 0 18px 6px rgba(255, 45, 45, .9); filter: brightness(1.3); }
+}
+.kite-seg.stall .kb-letter { color: #fff; font-weight: 700; }
+
+/* 圆点中心的模型字母：居中，无左侧大字 */
+.kb-letter { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); line-height: 1; letter-spacing: 0; user-select: none; pointer-events: none; }
+
+/* ---- 一句话提示气泡：纯背景层，单行文字，不遮挡、不可点击 ---- */
+.kite-card {
+  position: absolute; left: 0; top: 0;
+  max-width: 220px;
+  transform: translate(-50%, calc(-100% - 26px));  /* 显示在节上方 */
+  transform-origin: 50% 100%;
+  background: rgba(30, 34, 45, .78);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.22);
+  padding: 5px 10px;
+  font-size: 12px; line-height: 1.5;
+  color: #e8eaf1;
+  opacity: 0; visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease, transform .18s ease;
+  z-index: 1;
+  pointer-events: none;   /* 背景：不拦截任何点击 */
+}
+.kite-card.show { opacity: 1; visibility: visible; transform: translate(-50%, calc(-100% - 26px)) translateY(4px); }
+
+/* 卡通小尾巴 */
+.kite-card .kc-tail {
+  position: absolute; left: 50%; bottom: -7px; margin-left: -7px;
+  width: 0; height: 0;
+  border: 7px solid transparent; border-top-width: 7px;
+  border-top-color: rgba(30, 34, 45, .78);
+  border-bottom: 0;
+}
+
+/* 单行文字：超长省略（每次只一句话） */
+.kite-card .kc-rate {
+  display: block;
+  min-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: #9fd5ff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.kite-card .kc-txt {
+  display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; color: #dfe4ee;
+}
+
+@keyframes kiteToolPop { 0% { opacity: 0; transform: translate(-50%,5px); } 14%,72% { opacity: 1; transform: translate(-50%,0); } 100% { opacity: 0; transform: translate(-50%,-6px); } }
+
+@media (max-width: 600px) {
+  .kite-head { width: 25px; height: 25px; margin: -12.5px 0 0 -12.5px; font-size: 24px; }
+  .kite-seg { width: 25px; height: 20px; margin: -10px 0 0 -13px; }
+  .kite-card { max-width: 170px; }
+}
+
+/* ========== Kite 无限画布 ========== */
+#kite-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    background: transparent;
+}
+#kite-canvas > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+#kite-canvas .kite-node {
+    position: absolute;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+#kite-canvas .kite-node img,
+#kite-canvas .kite-node video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    -webkit-user-drag: none;
+}
+#kite-canvas .kite-resize {
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff;
+    border: 1px solid #0984e3;
+    border-radius: 50%;
+    pointer-events: auto;
+    z-index: 2;
+}
+#kite-canvas .kite-resize.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+#kite-canvas .kite-resize.bl { left: -6px;  bottom: -6px; cursor: nesw-resize; }
+#kite-canvas .kite-resize.tr { right: -6px; top: -6px;    cursor: nesw-resize; }
+#kite-canvas .kite-resize.tl { left: -6px;  top: -6px;    cursor: nwse-resize; }
+#kite-canvas .kite-resize.t  { left: 50%; top: -6px;      transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.b  { left: 50%; bottom: -6px;   transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.l  { left: -6px;  top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-resize.r  { right: -6px; top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-node .kite-close {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: auto; height: auto;
+    line-height: 1;
+    text-align: center;
+    background: none;
+    color: var(--text2);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    z-index: 3;
+    transition: background 0.15s, color 0.15s;
+}
+#kite-canvas .kite-node .kite-close:hover {
+    background: var(--border);
+    color: var(--text);
+}
+#kite-canvas .kite-node .kite-title {
+    position: absolute;
+    left: 8px; top: 6px;
+    max-width: calc(100% - 60px);
+    padding: 2px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    background: transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#kite-canvas .kite-link {
+    fill: none;
+    stroke: rgba(91, 122, 156, 0.64);
+    stroke-width: 3;
+    filter: none;
+}
+
+/* ===== 浅色主题适配（与对话框风格统一） ===== */
+[data-theme="light"] #kite-canvas .kite-node {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12), 0 2px 8px rgba(33,102,209,.08) !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close {
+    color: #5a6b85 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close:hover {
+    background: rgba(60,100,160,.12) !important;
+    color: #333 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-title {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #kite-canvas .kite-resize {
+    border-color: #2166d1;
+}
+
+/* ===== 🚦 红绿灯可视化（与闸门 chat_gate 联动）=====
+   分层原则：球背景色 = 任务结果层（成功金/失败红/进行蓝，原有逻辑）；
+   球描边 + 状态点 = 交通层（绿=闸门放行通信中 / 橙=红灯排队 /
+   紫=报废车应急休整让道）。两层共存互不打架。
+   状态点显示在模型字母【后面】（blob flex 横排，视觉成组）。
+   数据源：/api/gate/active（app-kite.js 每 2 秒轮询） */
+.kite-blob { display: flex; align-items: center; justify-content: center; gap: 1.5px; }
+.kb-light {
+  position: static; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.55); display: none; pointer-events: none;
+}
+.kb-light-num {
+  position: absolute; right: -10px; top: -15px; min-width: 14px; padding: 0 4px; border-radius: 8px;
+  background: rgba(20,27,39,.95); border: 1px solid rgba(159,213,255,.5); color: #dfeeff;
+  font-size: 9px; font-weight: 600; line-height: 13px; text-align: center;
+  display: none; pointer-events: none; z-index: 3; white-space: nowrap; font-style: normal;
+}
+@keyframes kbLightBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.35); } }
+
+/* 🟢 绿灯：闸门放行、正在与大模型通信（字母后面的呼吸绿点） */
+.kite-seg.gate-run .kb-light {
+  display: block; background: #3ecf8e; box-shadow: 0 0 6px 1.5px rgba(62,207,142,.8);
+  animation: kbLightBreath 1.6s ease-in-out infinite;
+}
+/* 🟠 红灯：闸门排队/间隔等待（徽章=车道内排位） */
+.kite-seg.gate-queue .kb-light {
+  display: block; background: #e8b34b; box-shadow: 0 0 6px 1.5px rgba(232,179,75,.75);
+}
+/* 🟣 紫灯：报废车应急休整让道（徽章=休整倒数秒） */
+.kite-seg.gate-hold .kb-light {
+  display: block; background: #c79bf5; box-shadow: 0 0 6px 1.5px rgba(199,155,245,.8);
+}
+.kite-seg.gate-queue .kb-light-num, .kite-seg.gate-hold .kb-light-num { display: block; }
+
+/* 交通层描边（不影响任务层背景色） */
+.kite-seg.gate-run .kite-blob   { border-color: rgba(62,207,142,.9) !important; }
+.kite-seg.gate-queue .kite-blob { border-color: rgba(232,179,75,.9) !important; }
+.kite-seg.gate-hold .kite-blob  {
+  border-color: rgba(199,155,245,.95) !important;
+  box-shadow: 0 0 10px rgba(199,155,245,.45), 0 3px 7px rgba(0,0,0,.12) !important;
+}
+
+/* ===== 概览 v5 分区布局：上=整体区，左=对话明细，右=赛道竖排 ===== */
+.kite-head-overview { max-width: min(860px, 96vw); width: min(860px, 96vw); }
+.kho-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 2px 4px 5px; border-bottom: 1px solid rgba(159,213,255,.18); margin-bottom: 3px; color: #9fb3c8; }
+.kho-top b { color: #ffd27a; font-weight: 700; white-space: nowrap; }
+.kho-top span { white-space: nowrap; }
+/* 右侧赛道列（v12 赛车场） */
+.kho-lanes { flex: 1 1 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 6px 2px 3px; border-top: 1px solid rgba(159,213,255,.18); }
+.kho-lanes__title { color: #9fd5ff; font-size: 10px; font-weight: 700; padding-bottom: 2px; white-space: nowrap; }
+/* ===== 赛车场：每条赛道=一条横向夜赛赛道（俯视），车向右开，快车在前 ===== */
+.kho-circuit { display: flex; flex-direction: column; gap: 5px; }
+.kho-track { display: flex; align-items: center; gap: 5px; --car: #9fb3c8; }
+.kho-track__no {
+    flex: none; width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: #0b1220;
+    background: linear-gradient(180deg, #ffe9a8, #d9a52e);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 0 6px rgba(255,222,120,.35);
+    font-family: var(--font-mono, Consolas, monospace);
+}
+.kho-track__road {
+    flex: 1 1 auto; position: relative; height: 22px; border-radius: 5px; overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.06) 0 2px, transparent 2px),
+        linear-gradient(0deg, rgba(0,0,0,.5), rgba(0,0,0,.15)),
+        linear-gradient(90deg, #232a33, #2c3540 55%, #232a33);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.4);
+}
+/* 红白路缘石：赛道上下两侧 */
+.kho-track__curb { position: absolute; left: 0; right: 0; height: 3px; font-style: normal; z-index: 1;
+    background: repeating-linear-gradient(90deg, #d84b4b 0 7px, #f2f2f2 7px 14px); opacity: .85; }
+.kho-track__curb--t { top: 0; } .kho-track__curb--b { bottom: 0; }
+/* 中央虚线：独立元素，滚动时长由 JS 按车道速率设定 */
+.kho-track__road-dash {
+    position: absolute; left: 0; right: -40px; top: 50%; height: 2px; margin-top: -1px; z-index: 1; font-style: normal;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 12px, transparent 12px 26px);
+    animation: khoRoad .9s linear infinite;
+}
+.kho-track--q .kho-track__road-dash, .kho-track--tight .kho-track__road-dash { animation-duration: 2.8s; opacity: .55; }
+.kho-track--idle .kho-track__road-dash { animation: none; opacity: .3; }
+@keyframes khoRoad { from { transform: translateX(0); } to { transform: translateX(26px); } }
+/* 状态光晕 */
+.kho-track--run .kho-track__road { box-shadow: inset 0 0 0 1px rgba(62,207,142,.55), inset 0 0 12px rgba(62,207,142,.18); }
+.kho-track--q .kho-track__road { box-shadow: inset 0 0 0 1px rgba(232,179,75,.55), inset 0 0 12px rgba(232,179,75,.18); }
+.kho-track--tight .kho-track__road { box-shadow: inset 0 0 0 1px rgba(199,155,245,.55), inset 0 0 12px rgba(199,155,245,.18); }
+.kho-track--idle .kho-track__road { opacity: .75; }
+/* ===== F1 小车：横向向右开；--car=队伍色 ===== */
+.kho-car {
+    position: absolute; top: 50%; width: 16px; height: 9px; margin-top: -5px; z-index: 2;
+    color: var(--car, #9fb3c8);
+    transition: left 1.2s ease;
+}
+.kho-car::before {
+    content: ''; position: absolute; inset: 2px 0 1px 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--car) 70%, #fff) 0 30%, var(--car) 30%);
+    border-radius: 5px 7px 3px 3px / 4px 8px 2px 2px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.kho-car::after {
+    content: ''; position: absolute; left: 5px; top: 0; width: 5px; height: 3px;
+    background: rgba(230,245,255,.9); border-radius: 3px 3px 0 0;
+    box-shadow: -4px 6px 0 -1px #16181c, 13px 6px 0 -1px #16181c;
+}
+/* 尾焰 */
+.kho-car i { position: absolute; left: -5px; top: 3px; width: 4px; height: 3px; border-radius: 50%;
+    background: linear-gradient(90deg, rgba(120,200,255,.9), rgba(60,140,255,.4));
+    filter: blur(.4px); animation: khoExhaust .45s linear infinite; }
+@keyframes khoExhaust { from { transform: translateX(0) scale(1); opacity: .9; } to { transform: translateX(-7px) scale(.4); opacity: 0; } }
+.kho-track--q .kho-car, .kho-track--tight .kho-car, .kho-track--idle .kho-car { animation-play-state: paused; }
+.kho-track--q .kho-car i, .kho-track--tight .kho-car i { animation: none; opacity: 0; }
+/* 跑圈车：起点→终点循环，时长=圈速由 JS 按速度设定 */
+.kho-car--lap { left: 0; animation: khoCarLap var(--lap, 3s) linear infinite; transition: none; }
+@keyframes khoCarLap {
+    0%   { left: 0;   opacity: 0; }
+    6%   { opacity: .95; }
+    88%  { opacity: .95; }
+    100% { left: calc(100% - 18px); opacity: 0; }
+}
+/* 排队车：半透明停在起点后方等待 */
+/* 排队车：半透明停在后方等待（css 里注释为「排队车」） */
+.kho-car--queued { opacity: .35; animation: none; }
+.kho-car--queued i { animation: none; opacity: 0; }
+/* 进度车：不绕圈，按工具数定位（left 由 JS 内联设定），冲到 🏁 后任务成功清零回起点 */
+.kho-car--prog { animation: none !important; transition: left 1.2s ease; }
+.kho-car--prog i { animation: none; opacity: 1; }
+/* 终点旗 */
+.kho-track__flag { position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+    font-size: 9px; font-style: normal; z-index: 1; opacity: .9; filter: grayscale(.2); }
+.kho-car--empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 9px; font-weight: 400; color: #5a6b7d; letter-spacing: 2px; }
+.kho-track__queue { position: absolute; right: 3px; top: 1px; z-index: 3; font-style: normal; font-size: 9px; color: #ffd866; text-shadow: 0 0 4px rgba(0,0,0,.8); }
+.kho-track__spd { flex: none; min-width: 26px; text-align: center; font-size: 9px; font-weight: 700; color: #9fe0b8;
+    background: rgba(10,16,24,.8); border: 1px solid rgba(159,213,255,.25); border-radius: 3px; padding: 1px 2px;
+    font-family: var(--font-mono, Consolas, monospace); }
+.kho-track--tight .kho-track__spd { color: #e08b8b; }
+.kho-track--idle .kho-track__spd { color: #5a6b7d; }
+
+
+
+/* ===== v10 澶撮儴鏁翠綋閫熷害锛堝揩=缁?鎱?绾級+ 浠婃棩鎬婚儴缃?+ 琛屽唴绾㈢豢鐏?===== */
+.kho-top > span:first-child b { font-size:13px; transition: color .5s; }
+.kho-top > span:first-child b.kho-fast { color:#3ecf8e; text-shadow:0 0 6px rgba(62,207,142,.45); }
+.kho-top > span:first-child b.kho-slow { color:#e8543f; text-shadow:0 0 6px rgba(232,84,63,.5); }
+.kho-odo { display:inline-flex; align-items:baseline; gap:2px; margin-left:auto; color:#cfd6e4; font-size:12px; }
+.kho-odo b { color:#ffd866; font-size:14px; font-family:Consolas,monospace; text-shadow:0 0 6px rgba(255,216,102,.35); }
+.kho-cpu { display:inline-flex; align-items:baseline; gap:2px; margin-left:auto; color:#cfd6e4; font-size:12px; }
+.kho-cpu b { color:#7fd6a4; font-size:14px; font-family:Consolas,monospace; text-shadow:0 0 6px rgba(127,214,164,.35); }
+.kho-row__light { font-style:normal; margin-left:6px; font-size:11px; flex:none; }/* ===== v11 traffic lights + meters ===== */
+.kho-track__light{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:6px;vertical-align:middle;box-shadow:0 0 4px currentColor;flex:none}
+.kho-light--green{background:#3ecf8e;color:#3ecf8e}
+.kho-light--yellow{background:#e8b34b;color:#e8b34b;animation:khoBlink 1s steps(2) infinite}
+.kho-light--red{background:#e05252;color:#e05252;animation:khoBlink .8s steps(2) infinite}
+.kho-light--gray{background:#666;color:#666}
+@keyframes khoBlink{50%{opacity:.25}}
+.kho-body{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+/* (合并至上方 .kho-lanes 单一定义) */
+.kho-meters{flex:1 1 100%;width:100%;border-top:1px solid rgba(255,255,255,.12);padding:6px 2px;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.kho-meters__title{font-size:12px;opacity:.7;letter-spacing:2px}
+.kho-meter{display:flex;flex-direction:column;line-height:1.3}
+.kho-meter__lab{font-size:10px;opacity:.55}
+.kho-meter b{font-size:17px;font-family:var(--font-mono,monospace)}
+.kho-meter b i{font-style:normal;font-size:10px;opacity:.6;margin-left:2px}
+.kho-meter b.kho-fast,.kho-meter b.fast{color:#3ecf8e;text-shadow:0 0 6px rgba(62,207,142,.6)}
+.kho-meter b.kho-slow,.kho-meter b.slow{color:#e05252;text-shadow:0 0 6px rgba(224,82,82,.6)}
+.kho-meter b.kho-meter--gold{color:#f5c76a;text-shadow:0 0 6px rgba(245,199,106,.5)}
+.kho-legend{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:auto;font-size:10px;opacity:.85}
+.kho-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
+
+/* ===== 🚀 跟踪导弹特效（工具调用时从龙头发射，追踪小狗命中） ===== */
+.kite-hit { animation: kite-hit-shake .5s ease; }
+@keyframes kite-hit-shake {
+    0%,100% { filter: none; }
+    25% { filter: brightness(2.2) drop-shadow(0 0 10px rgba(255,160,60,.95)); transform: translateX(2px) !important; }
+    55% { filter: brightness(1.6) drop-shadow(0 0 6px rgba(255,160,60,.6)); transform: translateX(-2px) !important; } }
+
+/* 爆炸扩散速度（用于收敛动画：箭头头统计更新） */
+
+/* 爆弹（跟踪导弹）开关行（风筝头统计面板内） */
+
+/* ===== v13 干净版：赛道简化 + 明细卡片化（覆盖上面的旧样式） ===== */
+/* 赛道：去掉红白路缘石，改为细圆角浅色光条 */
+.kho-track__curb { display: none !important; }
+.kho-track { gap: 6px; }
+.kho-track__road {
+    height: 12px; border-radius: 6px;
+    background: rgba(255,255,255,.055);
+    box-shadow: inset 0 0 0 1px rgba(159,213,255,.14), 0 1px 2px rgba(0,0,0,.25);
+}
+.kho-track--run .kho-track__road  { box-shadow: inset 0 0 0 1px rgba(62,207,142,.4), inset 0 0 8px rgba(62,207,142,.12); }
+.kho-track--q .kho-track__road    { box-shadow: inset 0 0 0 1px rgba(232,179,75,.4); }
+.kho-track--tight .kho-track__road{ box-shadow: inset 0 0 0 1px rgba(199,155,245,.4); }
+.kho-track--idle .kho-track__road { opacity: .55; }
+/* 中央虚线调淡调细 */
+.kho-track__road-dash {
+    height: 1px; margin-top: 0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 10px, transparent 10px 22px);
+}
+/* 小车简化为发光圆点（去掉车身/座舱/尾焰细节） */
+.kho-car {
+    width: 8px; height: 8px; margin-top: -4px; border-radius: 50%;
+    background: var(--car);
+    box-shadow: 0 0 6px 2px color-mix(in srgb, var(--car) 65%, transparent);
+    animation: none; transition: left 1.2s ease;
+}
+.kho-car::before, .kho-car::after, .kho-car i { display: none; }
+.kho-car--empty { letter-spacing: 1px; opacity: .7; }
+/* 车道号徽章和速度徽章轻量化 */
+.kho-track__no { width: 15px; height: 15px; font-size: 9px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.kho-track__spd { font-size: 9px; border-radius: 4px; background: rgba(10,16,24,.6); }
+.kho-track__light { width: 8px; height: 8px; margin-left: 4px; }
+/* 闸门统计条：收进一个圆角胶囊，不再散排 */
+.kho-gate {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 11px; padding: 3px 9px; margin-bottom: 5px;
+    background: rgba(255,255,255,.045); border: 1px solid rgba(159,213,255,.12);
+    border-radius: 8px;
+}
+/* 对话明细：卡片式行 */
+.kho-rows-grid { gap: 3px; }
+.kho-row {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(159,213,255,.1);
+    border-radius: 7px; padding: 5px 9px; gap: 10px;
+    transition: background .15s, border-color .15s;
+}
+.kho-row:hover { background: rgba(159,213,255,.13); border-color: rgba(159,213,255,.32); }
+.kho-row b { font-size: 12px; }
+/* 类表格对齐：序号/名称/速度/状态/灯 各占固定列，速度列右对齐等宽，行与行横向对齐 */
+.kho-rows-grid .kho-row {
+    display: grid;
+    grid-template-columns: 16px minmax(56px, 1fr) 74px auto 16px;
+    align-items: center;
+    column-gap: 8px;
+    justify-content: start;
+}
+.kho-rows-grid .kho-row b { text-align: right; }
+.kho-rows-grid .kho-row__no { text-align: center; }
+.kho-rows-grid .kho-row__light { margin-left: 0; justify-self: end; }
+.kho-top { gap: 14px; padding: 5px 6px 7px; }
+.kho-lanes { gap: 3px; padding: 7px 2px 4px; }
+.kho-circuit { gap: 4px; }
+
+/* ============ v14 风筝面板重构：分区明显 / 头部凸显整体 ============ */
+.kho-head .kho2-head {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(120,160,220,.18);
+  background: linear-gradient(135deg, rgba(80,140,255,.10), rgba(140,90,255,.08));
+}
+.kho2-head__row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.kho2-head__row--chips { margin-top: 8px; align-items: center; gap: 6px; }
+.kho2-name { font-size: 13px; font-weight: 600; color: #9fc3ff; letter-spacing: 1px; }
+.kho2-speed { font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.kho2-speed i { font-style: normal; font-size: 11px; font-weight: 400; margin-left: 4px; opacity: .7; }
+.kho2-speed.kho-speed--fast { color: #3ddc84; }
+.kho2-speed.kho-speed--slow { color: #ff6b6b; }
+.kho2-speed.kho-speed--mid  { color: #ffd166; }
+.kho2-fps { margin-left: 14px; font-size: 16px; font-weight: 700; color: #7ee0a3; font-variant-numeric: tabular-nums; }
+.kho2-fps i { font-style: normal; font-size: 10px; font-weight: 400; margin-left: 3px; opacity: .7; }
+.kho2-mem { margin-left: 10px; font-size: 12px; color: #9fb4d4; font-variant-numeric: tabular-nums; }
+.kho2-cpu { margin-left: 10px; font-size: 12px; font-weight: 600; color: #8fd3ff; font-variant-numeric: tabular-nums; }
+.kho-row__mem { font-style: normal; font-size: 11px; color: #8fa8cc; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.kho2-odo { margin-left: auto; font-size: 14px; font-weight: 600; color: #cdd8ea; }
+.kho2-odo i { font-style: normal; font-size: 10px; opacity: .6; margin-left: 2px; }
+.kho2-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
+  color: #cfd9e8;
+}
+.kho2-chip--g { border-color: rgba(61,220,132,.4); }
+.kho2-chip--y { border-color: rgba(255,209,102,.4); }
+.kho2-chip--p { border-color: rgba(180,130,255,.4); }
+.kho2-main {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,.5fr) minmax(0,.8fr) minmax(0,.55fr); /* 四栏：对话速度 / 连接池赛道 / 模块延迟 / 性能（v15 新增第四列） */
+  gap: 10px; padding: 10px 12px 12px;
+  min-height: 0;
+}
+.kho2-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.kho2-col--chats { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+.kho2-col--lanes { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+.kho2-col--perf { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+/* v15 第四列：性能列（FPS/渲染延迟/内存/CPU，从头部行搬入） */
+.kho2-sys { display: flex; flex-direction: column; gap: 8px; }
+.kho2-sys__row { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.kho2-sec {
+  font-size: 11px; font-weight: 600; color: #8fa8c9; letter-spacing: 2px;
+  margin-bottom: 6px; padding-left: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.kho2-sec::before { content: ""; width: 3px; height: 10px; border-radius: 2px; background: #5b8ff0; }
+.kho2-rows { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; border-spacing: 0; overflow-y: auto; min-height: 0; }
+/* 各对话速度：表格化严格竖排对齐（固定列宽，跨行同列对齐） */
+.kho2-rows .kho-row {
+  display: table-row; justify-content: initial; gap: 0; padding: 0;
+  /* div 行代替 button：button 无法参与 table-row 布局（浏览器会强制 inline-block，导致列错位） */
+  background: none; border: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: inherit; width: 100%; outline: none;
+}
+.kho2-rows .kho-row > * { display: table-cell; vertical-align: middle; padding: 4px 4px; }
+.kho2-rows .kho-row__no   { width: 22px; text-align: center; font-style: normal; color: #8fa8c9; }
+.kho2-rows .kho-row__name {
+  width: auto; max-width: none;          /* 标题完整显示，不截断 */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: left; padding-right: 6px;
+}
+.kho2-rows .kho-row b     { width: 62px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kho2-rows .kho-row__mem  { width: 58px; padding-left: 4px; text-align: center; }
+.kho2-rows .kho-row .kho-status { width: auto; padding-left: 8px; white-space: nowrap; text-align: center; }
+.kho2-rows .kho-row__light { width: auto; text-align: center; font-style: normal; white-space: nowrap; }
+.kho2-empty { font-size: 11px; color: #6b7f9c; padding: 14px 4px; text-align: center; }
+/* 模块延迟列（第三栏）：名称 + 耗时条 + 数值，随 500ms 刷新 */
+.kho2-perf { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+.kho2-perf__row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cfd9e8; padding: 2px 4px; }
+.kho2-perf__name { flex: 1 1 auto; min-width: 64px; white-space: nowrap; overflow: visible; text-overflow: clip; }
+.kho2-perf__bar { flex: 0 0 54px; width: 54px; height: 8px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+.kho2-perf__bar i { display: block; height: 100%; border-radius: 4px; }
+.kho2-perf__val { flex: 0 0 auto; font: 10px Consolas,Menlo,monospace; }
+
+/* v14.1 一键复制按钮 */
+.kho2-copy{ cursor:pointer; font-size:11px; color:#9fb4cc; border:1px solid #2b3a4d; border-radius:6px; padding:1px 7px; user-select:none; }
+.kho2-copy:hover{ color:#fff; border-color:#3ecf8e; background:rgba(62,207,142,.12); }
+
+/* 【对话速度排序】可点击排序列头：激活时高亮 + 箭头指示 */
+.kho2-sec--sortable { cursor: pointer; user-select: none; border-radius: 4px; padding: 1px 4px; transition: background .15s, color .15s; }
+.kho2-sec--sortable:hover { background: rgba(91,143,240,.14); color: #cfe0f5; }
+.kho2-sec--sortable.kho2-sec--on { color: #3ecf8e; background: rgba(62,207,142,.12); }
+.kho2-sec--sortable.kho2-sec--on::before { background: #3ecf8e; }
+
+
+.kho-row--hidden { display: none; }
+.kho-topline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 4px 6px; border-bottom: 1px solid rgba(159,213,255,.18); margin-bottom: 3px; }
+.kho-topline-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.kho-topline-item i { font-style: normal; color: #9fb3c8; }
+.kho-topline-item b { color: #ffd27a; font-weight: 700; }
+
+.kho-rows-grid { display: grid; grid-template-columns: 1fr; gap: 1px 6px; }
+.kho-rows-grid .kho-row { padding: 3px 4px; }
+/* 上下左右：上=顶行，左=对话明细，右=车道竖排 */
+/* (合并至上方 .kho-body 单一定义) */
+.kho-rows-grid { flex: 1 1 100%; min-width: 0; }
+.kite-head-overview::-webkit-scrollbar { width: 6px; }
+.kite-head-overview::-webkit-scrollbar-thumb { background: rgba(159,213,255,.25); border-radius: 3px; }
+
+/* 龙身节：JS 绝对定位，链式跟随 */
+.kite-seg { position: absolute; left: 0; top: 0; width: 30px; height: 24px; margin: -12px 0 0 -15px; pointer-events: auto; cursor: pointer; }
+.kite-blob { position: absolute; inset: 0; border-radius: 48% 52% 45% 55%; background: linear-gradient(135deg, #7fbcb2, #6d9ec0); border: 1.5px solid rgba(255,255,255,.32); box-shadow: 0 3px 7px rgba(0,0,0,.12); transition: transform .15s, opacity .15s, background .55s ease, box-shadow .55s ease, border-color .55s ease; opacity: .78; display: grid; place-items: center; }
+.kite-seg.alt .kite-blob { background: linear-gradient(135deg, #d9a273, #c07d8f); }
+.kite-seg:hover .kite-blob { transform: scale(1.15); opacity: .95; }
+.kite-speed-tip { position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%); display: block; max-width: 180px; padding: 4px 8px; border: 1px solid rgba(159,213,255,.55); border-radius: 5px; background: rgba(20,27,39,.96); color: #bfe4ff; font-size: 11px; line-height: 1.25; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 20; transition: opacity .15s ease, visibility .15s ease; }
+.kite-speed-tip:after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 8px; height: 8px; background: rgba(20,27,39,.96); border-right: 1px solid rgba(159,213,255,.55); border-bottom: 1px solid rgba(159,213,255,.55); transform: translateX(-50%) rotate(45deg); }
+.kite-seg:hover .kite-speed-tip { opacity: 1; visibility: visible; }
+
+/* ===== 任务状态色（成功/失败/进行中），CSS 过渡更顺滑 ===== */
+.kite-seg.task-success .kite-blob {
+  background: linear-gradient(135deg, #ffd86b, #ff9a3d);
+  border-color: rgba(255, 222, 130, .85);
+  box-shadow: 0 0 10px rgba(255, 196, 70, .55), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .95;
+}
+.kite-seg.task-fail .kite-blob {
+  background: linear-gradient(135deg, #ff6b6b, #c7385a);
+  border-color: rgba(255, 130, 130, .8);
+  box-shadow: 0 0 8px rgba(220, 60, 80, .45), 0 3px 7px rgba(0, 0, 0, .12);
+  opacity: .92;
+}
+.kite-seg.task-pending .kite-blob {
+  background: linear-gradient(135deg, #6db1ff, #5b8cf2);
+  border-color: rgba(140, 180, 255, .8);
+  animation: kitePulse 1.4s ease-in-out infinite;
+}
+@keyframes kitePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(110, 170, 255, .3), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1); }
+  50%      { box-shadow: 0 0 14px rgba(110, 170, 255, .85), 0 3px 7px rgba(0, 0, 0, .12); transform: scale(1.08); }
+}
+
+/* ===== 慢速检测警报：长期无响应的对话节点 → 红色病态闪烁 ===== */
+.kite-seg.stall .kite-blob {
+  background: linear-gradient(135deg, #ff4d4d, #b3121f) !important;
+  border-color: rgba(255, 120, 120, .85) !important;
+  animation: kiteStallBlink 1s ease-in-out infinite !important;
+}
+@keyframes kiteStallBlink {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 60, 60, .35); filter: brightness(.75); }
+  50%      { box-shadow: 0 0 18px 6px rgba(255, 45, 45, .9); filter: brightness(1.3); }
+}
+.kite-seg.stall .kb-letter { color: #fff; font-weight: 700; }
+
+/* 圆点中心的模型字母：居中，无左侧大字 */
+.kb-letter { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); line-height: 1; letter-spacing: 0; user-select: none; pointer-events: none; }
+
+/* ---- 一句话提示气泡：纯背景层，单行文字，不遮挡、不可点击 ---- */
+.kite-card {
+  position: absolute; left: 0; top: 0;
+  max-width: 220px;
+  transform: translate(-50%, calc(-100% - 26px));  /* 显示在节上方 */
+  transform-origin: 50% 100%;
+  background: rgba(30, 34, 45, .78);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.22);
+  padding: 5px 10px;
+  font-size: 12px; line-height: 1.5;
+  color: #e8eaf1;
+  opacity: 0; visibility: hidden;
+  transition: opacity .18s ease, visibility .18s ease, transform .18s ease;
+  z-index: 1;
+  pointer-events: none;   /* 背景：不拦截任何点击 */
+}
+.kite-card.show { opacity: 1; visibility: visible; transform: translate(-50%, calc(-100% - 26px)) translateY(4px); }
+
+/* 卡通小尾巴 */
+.kite-card .kc-tail {
+  position: absolute; left: 50%; bottom: -7px; margin-left: -7px;
+  width: 0; height: 0;
+  border: 7px solid transparent; border-top-width: 7px;
+  border-top-color: rgba(30, 34, 45, .78);
+  border-bottom: 0;
+}
+
+/* 单行文字：超长省略（每次只一句话） */
+.kite-card .kc-rate {
+  display: block;
+  min-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  color: #9fd5ff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.kite-card .kc-txt {
+  display: block;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; color: #dfe4ee;
+}
+
+@keyframes kiteToolPop { 0% { opacity: 0; transform: translate(-50%,5px); } 14%,72% { opacity: 1; transform: translate(-50%,0); } 100% { opacity: 0; transform: translate(-50%,-6px); } }
+
+@media (max-width: 600px) {
+  .kite-head { width: 25px; height: 25px; margin: -12.5px 0 0 -12.5px; font-size: 24px; }
+  .kite-seg { width: 25px; height: 20px; margin: -10px 0 0 -13px; }
+  .kite-card { max-width: 170px; }
+}
+
+/* ========== Kite 无限画布 ========== */
+#kite-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    background: transparent;
+}
+#kite-canvas > svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+#kite-canvas .kite-node {
+    position: absolute;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+#kite-canvas .kite-node img,
+#kite-canvas .kite-node video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+    -webkit-user-drag: none;
+}
+#kite-canvas .kite-resize {
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff;
+    border: 1px solid #0984e3;
+    border-radius: 50%;
+    pointer-events: auto;
+    z-index: 2;
+}
+#kite-canvas .kite-resize.br { right: -6px; bottom: -6px; cursor: nwse-resize; }
+#kite-canvas .kite-resize.bl { left: -6px;  bottom: -6px; cursor: nesw-resize; }
+#kite-canvas .kite-resize.tr { right: -6px; top: -6px;    cursor: nesw-resize; }
+#kite-canvas .kite-resize.tl { left: -6px;  top: -6px;    cursor: nwse-resize; }
+#kite-canvas .kite-resize.t  { left: 50%; top: -6px;      transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.b  { left: 50%; bottom: -6px;   transform: translateX(-50%); cursor: ns-resize; }
+#kite-canvas .kite-resize.l  { left: -6px;  top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-resize.r  { right: -6px; top: 50%;     transform: translateY(-50%); cursor: ew-resize; }
+#kite-canvas .kite-node .kite-close {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: auto; height: auto;
+    line-height: 1;
+    text-align: center;
+    background: none;
+    color: var(--text2);
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 5px;
+    z-index: 3;
+    transition: background 0.15s, color 0.15s;
+}
+#kite-canvas .kite-node .kite-close:hover {
+    background: var(--border);
+    color: var(--text);
+}
+#kite-canvas .kite-node .kite-title {
+    position: absolute;
+    left: 8px; top: 6px;
+    max-width: calc(100% - 60px);
+    padding: 2px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    background: transparent;
+    border-radius: 4px;
+    pointer-events: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#kite-canvas .kite-link {
+    fill: none;
+    stroke: rgba(91, 122, 156, 0.64);
+    stroke-width: 3;
+    filter: none;
+}
+
+/* ===== 浅色主题适配（与对话框风格统一） ===== */
+[data-theme="light"] #kite-canvas .kite-node {
+    background: #fff !important;
+    border-color: rgba(60,100,160,.18) !important;
+    box-shadow: 0 8px 32px rgba(33,102,209,.12), 0 2px 8px rgba(33,102,209,.08) !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close {
+    color: #5a6b85 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-close:hover {
+    background: rgba(60,100,160,.12) !important;
+    color: #333 !important;
+}
+[data-theme="light"] #kite-canvas .kite-node .kite-title {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #kite-canvas .kite-resize {
+    border-color: #2166d1;
+}
+
+/* ===== 🚦 红绿灯可视化（与闸门 chat_gate 联动）=====
+   分层原则：球背景色 = 任务结果层（成功金/失败红/进行蓝，原有逻辑）；
+   球描边 + 状态点 = 交通层（绿=闸门放行通信中 / 橙=红灯排队 /
+   紫=报废车应急休整让道）。两层共存互不打架。
+   状态点显示在模型字母【后面】（blob flex 横排，视觉成组）。
+   数据源：/api/gate/active（app-kite.js 每 2 秒轮询） */
+.kite-blob { display: flex; align-items: center; justify-content: center; gap: 1.5px; }
+.kb-light {
+  position: static; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.55); display: none; pointer-events: none;
+}
+.kb-light-num {
+  position: absolute; right: -10px; top: -15px; min-width: 14px; padding: 0 4px; border-radius: 8px;
+  background: rgba(20,27,39,.95); border: 1px solid rgba(159,213,255,.5); color: #dfeeff;
+  font-size: 9px; font-weight: 600; line-height: 13px; text-align: center;
+  display: none; pointer-events: none; z-index: 3; white-space: nowrap; font-style: normal;
+}
+@keyframes kbLightBreath { 0%,100% { transform: scale(1); } 50% { transform: scale(1.35); } }
+
+/* 🟢 绿灯：闸门放行、正在与大模型通信（字母后面的呼吸绿点） */
+.kite-seg.gate-run .kb-light {
+  display: block; background: #3ecf8e; box-shadow: 0 0 6px 1.5px rgba(62,207,142,.8);
+  animation: kbLightBreath 1.6s ease-in-out infinite;
+}
+/* 🟠 红灯：闸门排队/间隔等待（徽章=车道内排位） */
+.kite-seg.gate-queue .kb-light {
+  display: block; background: #e8b34b; box-shadow: 0 0 6px 1.5px rgba(232,179,75,.75);
+}
+/* 🟣 紫灯：报废车应急休整让道（徽章=休整倒数秒） */
+.kite-seg.gate-hold .kb-light {
+  display: block; background: #c79bf5; box-shadow: 0 0 6px 1.5px rgba(199,155,245,.8);
+}
+.kite-seg.gate-queue .kb-light-num, .kite-seg.gate-hold .kb-light-num { display: block; }
+
+/* 交通层描边（不影响任务层背景色） */
+.kite-seg.gate-run .kite-blob   { border-color: rgba(62,207,142,.9) !important; }
+.kite-seg.gate-queue .kite-blob { border-color: rgba(232,179,75,.9) !important; }
+.kite-seg.gate-hold .kite-blob  {
+  border-color: rgba(199,155,245,.95) !important;
+  box-shadow: 0 0 10px rgba(199,155,245,.45), 0 3px 7px rgba(0,0,0,.12) !important;
+}
+
+/* ===== 概览 v5 分区布局：上=整体区，左=对话明细，右=赛道竖排 ===== */
+.kite-head-overview { max-width: min(860px, 96vw); width: min(860px, 96vw); }
+.kho-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 2px 4px 5px; border-bottom: 1px solid rgba(159,213,255,.18); margin-bottom: 3px; color: #9fb3c8; }
+.kho-top b { color: #ffd27a; font-weight: 700; white-space: nowrap; }
+.kho-top span { white-space: nowrap; }
+/* 右侧赛道列（v12 赛车场） */
+.kho-lanes { flex: 1 1 100%; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 6px 2px 3px; border-top: 1px solid rgba(159,213,255,.18); }
+.kho-lanes__title { color: #9fd5ff; font-size: 10px; font-weight: 700; padding-bottom: 2px; white-space: nowrap; }
+/* ===== 赛车场：每条赛道=一条横向夜赛赛道（俯视），车向右开，快车在前 ===== */
+.kho-circuit { display: flex; flex-direction: column; gap: 5px; }
+.kho-track { display: flex; align-items: center; gap: 5px; --car: #9fb3c8; }
+.kho-track__no {
+    flex: none; width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: #0b1220;
+    background: linear-gradient(180deg, #ffe9a8, #d9a52e);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 0 6px rgba(255,222,120,.35);
+    font-family: var(--font-mono, Consolas, monospace);
+}
+.kho-track__road {
+    flex: 1 1 auto; position: relative; height: 22px; border-radius: 5px; overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.06) 0 2px, transparent 2px),
+        linear-gradient(0deg, rgba(0,0,0,.5), rgba(0,0,0,.15)),
+        linear-gradient(90deg, #232a33, #2c3540 55%, #232a33);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.55), 0 1px 3px rgba(0,0,0,.4);
+}
+/* 红白路缘石：赛道上下两侧 */
+.kho-track__curb { position: absolute; left: 0; right: 0; height: 3px; font-style: normal; z-index: 1;
+    background: repeating-linear-gradient(90deg, #d84b4b 0 7px, #f2f2f2 7px 14px); opacity: .85; }
+.kho-track__curb--t { top: 0; } .kho-track__curb--b { bottom: 0; }
+/* 中央虚线：独立元素，滚动时长由 JS 按车道速率设定 */
+.kho-track__road-dash {
+    position: absolute; left: 0; right: -40px; top: 50%; height: 2px; margin-top: -1px; z-index: 1; font-style: normal;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 12px, transparent 12px 26px);
+    animation: khoRoad .9s linear infinite;
+}
+.kho-track--q .kho-track__road-dash, .kho-track--tight .kho-track__road-dash { animation-duration: 2.8s; opacity: .55; }
+.kho-track--idle .kho-track__road-dash { animation: none; opacity: .3; }
+@keyframes khoRoad { from { transform: translateX(0); } to { transform: translateX(26px); } }
+/* 状态光晕 */
+.kho-track--run .kho-track__road { box-shadow: inset 0 0 0 1px rgba(62,207,142,.55), inset 0 0 12px rgba(62,207,142,.18); }
+.kho-track--q .kho-track__road { box-shadow: inset 0 0 0 1px rgba(232,179,75,.55), inset 0 0 12px rgba(232,179,75,.18); }
+.kho-track--tight .kho-track__road { box-shadow: inset 0 0 0 1px rgba(199,155,245,.55), inset 0 0 12px rgba(199,155,245,.18); }
+.kho-track--idle .kho-track__road { opacity: .75; }
+/* ===== F1 小车：横向向右开；--car=队伍色 ===== */
+.kho-car {
+    position: absolute; top: 50%; width: 16px; height: 9px; margin-top: -5px; z-index: 2;
+    color: var(--car, #9fb3c8);
+    transition: left 1.2s ease;
+}
+.kho-car::before {
+    content: ''; position: absolute; inset: 2px 0 1px 0;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--car) 70%, #fff) 0 30%, var(--car) 30%);
+    border-radius: 5px 7px 3px 3px / 4px 8px 2px 2px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.kho-car::after {
+    content: ''; position: absolute; left: 5px; top: 0; width: 5px; height: 3px;
+    background: rgba(230,245,255,.9); border-radius: 3px 3px 0 0;
+    box-shadow: -4px 6px 0 -1px #16181c, 13px 6px 0 -1px #16181c;
+}
+/* 尾焰 */
+.kho-car i { position: absolute; left: -5px; top: 3px; width: 4px; height: 3px; border-radius: 50%;
+    background: linear-gradient(90deg, rgba(120,200,255,.9), rgba(60,140,255,.4));
+    filter: blur(.4px); animation: khoExhaust .45s linear infinite; }
+@keyframes khoExhaust { from { transform: translateX(0) scale(1); opacity: .9; } to { transform: translateX(-7px) scale(.4); opacity: 0; } }
+.kho-track--q .kho-car, .kho-track--tight .kho-car, .kho-track--idle .kho-car { animation-play-state: paused; }
+.kho-track--q .kho-car i, .kho-track--tight .kho-car i { animation: none; opacity: 0; }
+/* 跑圈车：起点→终点循环，时长=圈速由 JS 按速度设定 */
+.kho-car--lap { left: 0; animation: khoCarLap var(--lap, 3s) linear infinite; transition: none; }
+@keyframes khoCarLap {
+    0%   { left: 0;   opacity: 0; }
+    6%   { opacity: .95; }
+    88%  { opacity: .95; }
+    100% { left: calc(100% - 18px); opacity: 0; }
+}
+/* 排队车：半透明停在起点后方等待 */
+/* 排队车：半透明停在后方等待（css 里注释为「排队车」） */
+.kho-car--queued { opacity: .35; animation: none; }
+.kho-car--queued i { animation: none; opacity: 0; }
+/* 进度车：不绕圈，按工具数定位（left 由 JS 内联设定），冲到 🏁 后任务成功清零回起点 */
+.kho-car--prog { animation: none !important; transition: left 1.2s ease; }
+.kho-car--prog i { animation: none; opacity: 1; }
+/* 终点旗 */
+.kho-track__flag { position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+    font-size: 9px; font-style: normal; z-index: 1; opacity: .9; filter: grayscale(.2); }
+.kho-car--empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-size: 9px; font-weight: 400; color: #5a6b7d; letter-spacing: 2px; }
+.kho-track__queue { position: absolute; right: 3px; top: 1px; z-index: 3; font-style: normal; font-size: 9px; color: #ffd866; text-shadow: 0 0 4px rgba(0,0,0,.8); }
+.kho-track__spd { flex: none; min-width: 26px; text-align: center; font-size: 9px; font-weight: 700; color: #9fe0b8;
+    background: rgba(10,16,24,.8); border: 1px solid rgba(159,213,255,.25); border-radius: 3px; padding: 1px 2px;
+    font-family: var(--font-mono, Consolas, monospace); }
+.kho-track--tight .kho-track__spd { color: #e08b8b; }
+.kho-track--idle .kho-track__spd { color: #5a6b7d; }
+
+
+
+/* ===== v10 澶撮儴鏁翠綋閫熷害锛堝揩=缁?鎱?绾級+ 浠婃棩鎬婚儴缃?+ 琛屽唴绾㈢豢鐏?===== */
+.kho-top > span:first-child b { font-size:13px; transition: color .5s; }
+.kho-top > span:first-child b.kho-fast { color:#3ecf8e; text-shadow:0 0 6px rgba(62,207,142,.45); }
+.kho-top > span:first-child b.kho-slow { color:#e8543f; text-shadow:0 0 6px rgba(232,84,63,.5); }
+.kho-odo { display:inline-flex; align-items:baseline; gap:2px; margin-left:auto; color:#cfd6e4; font-size:12px; }
+.kho-odo b { color:#ffd866; font-size:14px; font-family:Consolas,monospace; text-shadow:0 0 6px rgba(255,216,102,.35); }
+.kho-cpu { display:inline-flex; align-items:baseline; gap:2px; margin-left:auto; color:#cfd6e4; font-size:12px; }
+.kho-cpu b { color:#7fd6a4; font-size:14px; font-family:Consolas,monospace; text-shadow:0 0 6px rgba(127,214,164,.35); }
+.kho-row__light { font-style:normal; margin-left:6px; font-size:11px; flex:none; }/* ===== v11 traffic lights + meters ===== */
+.kho-track__light{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:6px;vertical-align:middle;box-shadow:0 0 4px currentColor;flex:none}
+.kho-light--green{background:#3ecf8e;color:#3ecf8e}
+.kho-light--yellow{background:#e8b34b;color:#e8b34b;animation:khoBlink 1s steps(2) infinite}
+.kho-light--red{background:#e05252;color:#e05252;animation:khoBlink .8s steps(2) infinite}
+.kho-light--gray{background:#666;color:#666}
+@keyframes khoBlink{50%{opacity:.25}}
+.kho-body{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+/* (合并至上方 .kho-lanes 单一定义) */
+.kho-meters{flex:1 1 100%;width:100%;border-top:1px solid rgba(255,255,255,.12);padding:6px 2px;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 14px}
+.kho-meters__title{font-size:12px;opacity:.7;letter-spacing:2px}
+.kho-meter{display:flex;flex-direction:column;line-height:1.3}
+.kho-meter__lab{font-size:10px;opacity:.55}
+.kho-meter b{font-size:17px;font-family:var(--font-mono,monospace)}
+.kho-meter b i{font-style:normal;font-size:10px;opacity:.6;margin-left:2px}
+.kho-meter b.kho-fast,.kho-meter b.fast{color:#3ecf8e;text-shadow:0 0 6px rgba(62,207,142,.6)}
+.kho-meter b.kho-slow,.kho-meter b.slow{color:#e05252;text-shadow:0 0 6px rgba(224,82,82,.6)}
+.kho-meter b.kho-meter--gold{color:#f5c76a;text-shadow:0 0 6px rgba(245,199,106,.5)}
+.kho-legend{display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:auto;font-size:10px;opacity:.85}
+.kho-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
+
+/* ===== 🚀 跟踪导弹特效（工具调用时从龙头发射，追踪小狗命中） ===== */
+.kite-hit { animation: kite-hit-shake .5s ease; }
+@keyframes kite-hit-shake {
+    0%,100% { filter: none; }
+    25% { filter: brightness(2.2) drop-shadow(0 0 10px rgba(255,160,60,.95)); transform: translateX(2px) !important; }
+    55% { filter: brightness(1.6) drop-shadow(0 0 6px rgba(255,160,60,.6)); transform: translateX(-2px) !important; } }
+
+/* 爆炸扩散速度（用于收敛动画：箭头头统计更新） */
+
+/* 爆弹（跟踪导弹）开关行（风筝头统计面板内） */
+
+/* ===== v13 干净版：赛道简化 + 明细卡片化（覆盖上面的旧样式） ===== */
+/* 赛道：去掉红白路缘石，改为细圆角浅色光条 */
+.kho-track__curb { display: none !important; }
+.kho-track { gap: 6px; }
+.kho-track__road {
+    height: 12px; border-radius: 6px;
+    background: rgba(255,255,255,.055);
+    box-shadow: inset 0 0 0 1px rgba(159,213,255,.14), 0 1px 2px rgba(0,0,0,.25);
+}
+.kho-track--run .kho-track__road  { box-shadow: inset 0 0 0 1px rgba(62,207,142,.4), inset 0 0 8px rgba(62,207,142,.12); }
+.kho-track--q .kho-track__road    { box-shadow: inset 0 0 0 1px rgba(232,179,75,.4); }
+.kho-track--tight .kho-track__road{ box-shadow: inset 0 0 0 1px rgba(199,155,245,.4); }
+.kho-track--idle .kho-track__road { opacity: .55; }
+/* 中央虚线调淡调细 */
+.kho-track__road-dash {
+    height: 1px; margin-top: 0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 10px, transparent 10px 22px);
+}
+/* 小车简化为发光圆点（去掉车身/座舱/尾焰细节） */
+.kho-car {
+    width: 8px; height: 8px; margin-top: -4px; border-radius: 50%;
+    background: var(--car);
+    box-shadow: 0 0 6px 2px color-mix(in srgb, var(--car) 65%, transparent);
+    animation: none; transition: left 1.2s ease;
+}
+.kho-car::before, .kho-car::after, .kho-car i { display: none; }
+.kho-car--empty { letter-spacing: 1px; opacity: .7; }
+/* 车道号徽章和速度徽章轻量化 */
+.kho-track__no { width: 15px; height: 15px; font-size: 9px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.kho-track__spd { font-size: 9px; border-radius: 4px; background: rgba(10,16,24,.6); }
+.kho-track__light { width: 8px; height: 8px; margin-left: 4px; }
+/* 闸门统计条：收进一个圆角胶囊，不再散排 */
+.kho-gate {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    font-size: 11px; padding: 3px 9px; margin-bottom: 5px;
+    background: rgba(255,255,255,.045); border: 1px solid rgba(159,213,255,.12);
+    border-radius: 8px;
+}
+/* 对话明细：卡片式行 */
+.kho-rows-grid { gap: 3px; }
+.kho-row {
+    background: rgba(255,255,255,.045);
+    border: 1px solid rgba(159,213,255,.1);
+    border-radius: 7px; padding: 5px 9px; gap: 10px;
+    transition: background .15s, border-color .15s;
+}
+.kho-row:hover { background: rgba(159,213,255,.13); border-color: rgba(159,213,255,.32); }
+.kho-row b { font-size: 12px; }
+/* 类表格对齐：序号/名称/速度/状态/灯 各占固定列，速度列右对齐等宽，行与行横向对齐 */
+.kho-rows-grid .kho-row {
+    display: grid;
+    grid-template-columns: 16px minmax(56px, 1fr) 74px auto 16px;
+    align-items: center;
+    column-gap: 8px;
+    justify-content: start;
+}
+.kho-rows-grid .kho-row b { text-align: right; }
+.kho-rows-grid .kho-row__no { text-align: center; }
+.kho-rows-grid .kho-row__light { margin-left: 0; justify-self: end; }
+.kho-top { gap: 14px; padding: 5px 6px 7px; }
+.kho-lanes { gap: 3px; padding: 7px 2px 4px; }
+.kho-circuit { gap: 4px; }
+
+/* ============ v14 风筝面板重构：分区明显 / 头部凸显整体 ============ */
+.kho-head .kho2-head {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--kite-panel-border, rgba(120,160,220,.18));
+  background: linear-gradient(135deg, rgba(80,140,255,.10), rgba(140,90,255,.08));
+}
+
+/* ---- 纯色背景模式：面板内部跟随背景色（由 background.js 注入变量驱动） ---- */
+body[style*="--kite-panel-bg"] .kho-top { color: var(--kite-panel-text, #9fb3c8); }
+body[style*="--kite-panel-bg"] .kho-lanes__title { color: var(--kite-panel-text, #9fd5ff); opacity: .85; }
+body[style*="--kite-panel-bg"] .kho-row { border-color: var(--kite-panel-border, rgba(159,213,255,.12)); background: rgba(128,128,128,.08); color: var(--kite-panel-text, #dfeeff); }
+body[style*="--kite-panel-bg"] .kho-row:hover { background: rgba(128,128,128,.18); border-color: var(--kite-panel-border, rgba(159,213,255,.32)); }
+body[style*="--kite-panel-bg"] .kho2-name { color: var(--kite-panel-text, #9fc3ff); }
+body[style*="--kite-panel-bg"] .kho2-mem,
+body[style*="--kite-panel-bg"] .kho2-odo,
+body[style*="--kite-panel-bg"] .kho2-perf__name,
+body[style*="--kite-panel-bg"] .kho-row__mem { color: var(--kite-panel-text, #9fb4d4); opacity: .85; }
+body[style*="--kite-panel-bg"] .kho2-chip { background: rgba(128,128,128,.12); border-color: var(--kite-panel-border, rgba(255,255,255,.10)); color: var(--kite-panel-text, #cfd9e8); }
+body[style*="--kite-panel-bg"] .kho2-sec { color: var(--kite-panel-text, #8fa8c9); opacity: .8; }
+body[style*="--kite-panel-bg"] .kho2-col--chats,
+body[style*="--kite-panel-bg"] .kho2-col--lanes { border-color: var(--kite-panel-border, rgba(120,160,220,.14)); }
+body[style*="--kite-panel-bg"] .kho2-perf__bar { background: rgba(128,128,128,.18); }
+body[style*="--kite-panel-bg"] .kho-track__spd { background: rgba(0,0,0,.25); color: var(--kite-panel-text, #dfeeff); }
+
+/* ---- 昼夜主题联动：白天模式下面板整体转为亮色 ---- */
+[data-theme="light"] .kite-head-overview {
+  background: rgba(255,255,255,.92) !important;
+  border-color: rgba(60,100,160,.22) !important;
+  color: #1a1a1a !important;
+  box-shadow: 0 8px 32px rgba(33,102,209,.14) !important;
+}
+[data-theme="light"] .kite-head-overview .kho-title { color: #2059a8 !important; border-bottom-color: rgba(60,100,160,.15) !important; }
+[data-theme="light"] .kite-head-overview .kho-top { color: #4a5b75 !important; border-bottom-color: rgba(60,100,160,.15) !important; }
+[data-theme="light"] .kite-head-overview .kho-lanes__title { color: #35619b !important; }
+[data-theme="light"] .kite-head-overview .kho-row { border-color: rgba(60,100,160,.14) !important; background: rgba(60,100,160,.05) !important; color: #1a1a1a !important; }
+[data-theme="light"] .kite-head-overview .kho-row:hover { background: rgba(60,100,160,.12) !important; }
+[data-theme="light"] .kite-head-overview .kho2-name { color: #2059a8 !important; }
+[data-theme="light"] .kite-head-overview .kho2-mem,
+[data-theme="light"] .kite-head-overview .kho2-odo,
+[data-theme="light"] .kite-head-overview .kho2-perf__name,
+[data-theme="light"] .kite-head-overview .kho-row__mem { color: #4a5b75 !important; }
+[data-theme="light"] .kite-head-overview .kho2-chip { background: rgba(60,100,160,.08) !important; border-color: rgba(60,100,160,.16) !important; color: #2a3a55 !important; }
+[data-theme="light"] .kite-head-overview .kho2-sec { color: #6a7a95 !important; }
+[data-theme="light"] .kite-head-overview .kho2-col--chats,
+[data-theme="light"] .kite-head-overview .kho2-col--lanes { border-color: rgba(60,100,160,.14) !important; }
+[data-theme="light"] .kite-head-overview .kho2-perf__bar { background: rgba(60,100,160,.14) !important; }
+[data-theme="light"] .kite-head-overview .kho-track__spd { background: rgba(60,100,160,.10) !important; color: #2a3a55 !important; }
+[data-theme="light"] .kite-head-overview::-webkit-scrollbar-thumb { background: rgba(60,100,160,.25) !important; }
+.kho2-head__row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.kho2-head__row--chips { margin-top: 8px; align-items: center; gap: 6px; }
+.kho2-name { font-size: 13px; font-weight: 600; color: #9fc3ff; letter-spacing: 1px; }
+.kho2-speed { font-size: 30px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.kho2-speed i { font-style: normal; font-size: 11px; font-weight: 400; margin-left: 4px; opacity: .7; }
+.kho2-speed.kho-speed--fast { color: #3ddc84; }
+.kho2-speed.kho-speed--slow { color: #ff6b6b; }
+.kho2-speed.kho-speed--mid  { color: #ffd166; }
+.kho2-fps { margin-left: 14px; font-size: 16px; font-weight: 700; color: #7ee0a3; font-variant-numeric: tabular-nums; }
+.kho2-fps i { font-style: normal; font-size: 10px; font-weight: 400; margin-left: 3px; opacity: .7; }
+.kho2-mem { margin-left: 10px; font-size: 12px; color: #9fb4d4; font-variant-numeric: tabular-nums; }
+.kho2-cpu { margin-left: 10px; font-size: 12px; font-weight: 600; color: #8fd3ff; font-variant-numeric: tabular-nums; }
+.kho-row__mem { font-style: normal; font-size: 11px; color: #8fa8cc; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.kho2-odo { margin-left: auto; font-size: 14px; font-weight: 600; color: #cdd8ea; }
+.kho2-odo i { font-style: normal; font-size: 10px; opacity: .6; margin-left: 2px; }
+.kho2-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
+  color: #cfd9e8;
+}
+.kho2-chip--g { border-color: rgba(61,220,132,.4); }
+.kho2-chip--y { border-color: rgba(255,209,102,.4); }
+.kho2-chip--p { border-color: rgba(180,130,255,.4); }
+/* ============ v16 头部优化：chips 染色 / 复制按钮右移 / 语义标签 / 速度过渡 ============ */
+.kho2-chip--g { color: #3ddc84; background: rgba(61,220,132,.10); }
+.kho2-chip--y { color: #ffd166; background: rgba(255,209,102,.10); }
+.kho2-chip--p { color: #c9a2ff; background: rgba(180,130,255,.10); }
+/* A1: 复制按钮推到主行最右 */
+.kho2-copy { order: 9; margin-left: 10px; opacity: .55; }
+.kho2-copy:hover { opacity: 1; }
+/* A2: 速度/里程语义小标签 */
+.kho2-speed, .kho2-odo { position: relative; }
+.kho2-lab { position: absolute; left: 0; bottom: -11px; font-style: normal; font-size: 9px; font-weight: 400; letter-spacing: 1px; opacity: .45; }
+.kho2-odo .kho2-lab { left: auto; right: 0; }
+.kho2-head { padding-bottom: 16px !important; }
+/* B2: 速度数字颜色柔和过渡（纯 CSS，500ms 重建无状态竞争） */
+.kho2-speed { transition: color .3s ease; }
+/* 主题覆盖同步 */
+body[style*="--kite-panel-bg"] .kho2-chip--g { color: #3ddc84; background: rgba(61,220,132,.12); }
+body[style*="--kite-panel-bg"] .kho2-chip--y { color: #ffd166; background: rgba(255,209,102,.12); }
+body[style*="--kite-panel-bg"] .kho2-chip--p { color: #c9a2ff; background: rgba(180,130,255,.12); }
+body[style*="--kite-panel-bg"] .kho2-lab { color: var(--kite-panel-text, #9fb4d4); }
+[data-theme="light"] .kite-head-overview .kho2-chip--g { color: #1d9e5f !important; background: rgba(29,158,95,.10) !important; }
+[data-theme="light"] .kite-head-overview .kho2-chip--y { color: #b07d00 !important; background: rgba(176,125,0,.10) !important; }
+[data-theme="light"] .kite-head-overview .kho2-chip--p { color: #7a4bcf !important; background: rgba(122,75,207,.10) !important; }
+[data-theme="light"] .kite-head-overview .kho2-lab { color: #4a5b75 !important; }
+.kho2-main {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(0,.5fr) minmax(0,.8fr) minmax(0,.55fr); /* 四栏：对话速度 / 连接池赛道 / 模块延迟 / 性能（v15 新增第四列） */
+  gap: 10px; padding: 10px 12px 12px;
+  min-height: 0;
+}
+.kho2-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.kho2-col--chats { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+.kho2-col--lanes { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+.kho2-col--perf { padding-right: 10px; border-right: 1px solid rgba(120,160,220,.14); }
+/* v15 第四列：性能列（FPS/渲染延迟/内存/CPU，从头部行搬入） */
+.kho2-sys { display: flex; flex-direction: column; gap: 8px; }
+.kho2-sys__row { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.kho2-sec {
+  font-size: 11px; font-weight: 600; color: #8fa8c9; letter-spacing: 2px;
+  margin-bottom: 6px; padding-left: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.kho2-sec::before { content: ""; width: 3px; height: 10px; border-radius: 2px; background: #5b8ff0; }
+.kho2-rows { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; border-spacing: 0; overflow-y: auto; min-height: 0; }
+/* 各对话速度：表格化严格竖排对齐（固定列宽，跨行同列对齐） */
+.kho2-rows .kho-row {
+  display: table-row; justify-content: initial; gap: 0; padding: 0;
+  /* div 行代替 button：button 无法参与 table-row 布局（浏览器会强制 inline-block，导致列错位） */
+  background: none; border: 0; font: inherit; color: inherit;
+  cursor: pointer; text-align: inherit; width: 100%; outline: none;
+}
+.kho2-rows .kho-row > * { display: table-cell; vertical-align: middle; padding: 4px 4px; }
+.kho2-rows .kho-row__no   { width: 22px; text-align: center; font-style: normal; color: #8fa8c9; }
+.kho2-rows .kho-row__name {
+  width: auto; max-width: none;          /* 标题完整显示，不截断 */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: left; padding-right: 6px;
+}
+.kho2-rows .kho-row b     { width: 62px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kho2-rows .kho-row__mem  { width: 58px; padding-left: 4px; text-align: center; }
+.kho2-rows .kho-row .kho-status { width: auto; padding-left: 8px; white-space: nowrap; text-align: center; }
+.kho2-rows .kho-row__light { width: auto; text-align: center; font-style: normal; white-space: nowrap; }
+.kho2-empty { font-size: 11px; color: #6b7f9c; padding: 14px 4px; text-align: center; }
+/* 模块延迟列（第三栏）：名称 + 耗时条 + 数值，随 500ms 刷新 */
+.kho2-perf { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+.kho2-perf__row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cfd9e8; padding: 2px 4px; }
+.kho2-perf__name { flex: 1 1 auto; min-width: 64px; white-space: nowrap; overflow: visible; text-overflow: clip; }
+.kho2-perf__bar { flex: 0 0 54px; width: 54px; height: 8px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+.kho2-perf__bar i { display: block; height: 100%; border-radius: 4px; }
+.kho2-perf__val { flex: 0 0 auto; font: 10px Consolas,Menlo,monospace; }
+
+/* v14.1 一键复制按钮 */
+.kho2-copy{ cursor:pointer; font-size:11px; color:#9fb4cc; border:1px solid #2b3a4d; border-radius:6px; padding:1px 7px; user-select:none; }
+.kho2-copy:hover{ color:#fff; border-color:#3ecf8e; background:rgba(62,207,142,.12); }
+
+
+/* ===== v16: follow-strength driven kite panel (overrides hardcoded light/dark blocks) ===== */
+[data-theme="light"] .kite-head-overview {
+  background: var(--kite-panel-bg-light, rgba(255,255,255,.92)) !important;
+  border-color: var(--kite-panel-border-light, rgba(60,100,160,.22)) !important;
+  color: var(--kite-panel-text-light, #1a1a1a) !important;
+}
+[data-theme="light"] .kite-head-overview .kho-title,
+[data-theme="light"] .kite-head-overview .kho2-name {
+  color: var(--kite-panel-text-light, #2059a8) !important;
+  border-bottom-color: var(--kite-panel-border-light, rgba(60,100,160,.15)) !important;
+}
+[data-theme="light"] .kite-head-overview .kho-top,
+[data-theme="light"] .kite-head-overview .kho-lanes__title,
+[data-theme="light"] .kite-head-overview .kho2-mem,
+[data-theme="light"] .kite-head-overview .kho2-odo,
+[data-theme="light"] .kite-head-overview .kho2-sec,
+[data-theme="light"] .kite-head-overview .kho2-perf__name,
+[data-theme="light"] .kite-head-overview .kho-row__mem {
+  color: var(--kite-panel-text-light, #4a5b75) !important;
+}
+[data-theme="light"] .kite-head-overview .kho-row {
+  background: var(--kite-panel-soft-light, rgba(60,100,160,.05)) !important;
+  border-color: var(--kite-panel-border-light, rgba(60,100,160,.14)) !important;
+  color: var(--kite-panel-text-light, #1a1a1a) !important;
+}
+[data-theme="light"] .kite-head-overview .kho-row:hover {
+  background: var(--kite-panel-soft-light, rgba(60,100,160,.12)) !important;
+}
+[data-theme="light"] .kite-head-overview .kho2-col--chats,
+[data-theme="light"] .kite-head-overview .kho2-col--lanes {
+  border-color: var(--kite-panel-border-light, rgba(60,100,160,.14)) !important;
+}
+body[style*="--kite-panel-bg"] .kite-head-overview {
+  background: var(--kite-panel-bg, #101621) !important;
+  border-color: var(--kite-panel-border, rgba(120,180,255,.15)) !important;
+}
+body[data-mode="gray"] .kite-head-overview {
+  background: var(--kite-panel-bg-gray, #2a2f36) !important;
+  border-color: var(--kite-panel-border-gray, rgba(160,170,185,.2)) !important;
+  color: var(--kite-panel-text-gray, #d5dae2) !important;
+}
+body[data-mode="gray"] .kite-head-overview .kho-title,
+body[data-mode="gray"] .kite-head-overview .kho2-name {
+  color: var(--kite-panel-text-gray, #eef1f5) !important;
+}
+body[data-mode="gray"] .kite-head-overview .kho-top,
+body[data-mode="gray"] .kite-head-overview .kho-lanes__title,
+body[data-mode="gray"] .kite-head-overview .kho2-mem,
+body[data-mode="gray"] .kite-head-overview .kho2-odo,
+body[data-mode="gray"] .kite-head-overview .kho2-sec,
+body[data-mode="gray"] .kite-head-overview .kho-row__mem {
+  color: var(--kite-panel-text-gray, #b9c1cc) !important;
+}
+body[data-mode="gray"] .kite-head-overview .kho-row {
+  background: var(--kite-panel-soft-gray, rgba(255,255,255,.05)) !important;
+  border-color: var(--kite-panel-border-gray, rgba(160,170,185,.15)) !important;
+  color: var(--kite-panel-text-gray, #d5dae2) !important;
+}
+/* v17: 阴天头部渐变与头部行也跟随灰色变量，避免浅字落浅底 */
+body[data-mode="gray"] .kite-head-overview .kho-head .kho2-head,
+body[data-mode="gray"] .kho-head .kho2-head {
+  background: linear-gradient(135deg, var(--kite-panel-soft-gray, rgba(255,255,255,.08)), transparent) !important;
+  border-bottom-color: var(--kite-panel-border-gray, rgba(160,170,185,.2)) !important;
+}
+body[data-mode="gray"] .kite-head-overview .kho2-speed,
+body[data-mode="gray"] .kite-head-overview .kho2-fps,
+body[data-mode="gray"] .kite-head-overview .kho2-cpu,
+body[data-mode="gray"] .kite-head-overview .kho2-perf__row,
+body[data-mode="gray"] .kite-head-overview .kho-row b,
+body[data-mode="gray"] .kite-head-overview .kho-row__name,
+body[data-mode="gray"] .kite-head-overview .kho-row__no,
+body[data-mode="gray"] .kite-head-overview .kho2-chip,
+body[data-mode="gray"] .kite-head-overview .kho-track__spd {
+  color: var(--kite-panel-text-gray, #d5dae2) !important;
+}
+body[data-mode="gray"] .kite-head-overview .kho2-empty { color: var(--kite-panel-text-gray, #b9c1cc) !important; }
+/* v16.1 灰度模式清除 chips 彩色底/边框残留 */
+body[data-mode="gray"] .kite-head-overview .kho2-chip--g,
+body[data-mode="gray"] .kite-head-overview .kho2-chip--y,
+body[data-mode="gray"] .kite-head-overview .kho2-chip--p {
+  background: rgba(128,128,128,.10) !important;
+  border-color: rgba(160,170,185,.25) !important;
+  transition: none !important;
+}
+
+/* ---------- 静止态 CSS 动画接管（2026-09-20 方案A） ----------
+   JS 停止逐帧物理计算后，由合成器线程驱动：
+   translate/rotate 独立属性与内联 transform(translate3d 定位) 叠加生效。
+   sway 与 JS 版同源：sin(t*2.4)*3px，周期 2.618s；每节球相位差由内联 animationDelay 控制 */
+/* 【过渡增强】幅度乘 --idle-k（0→1 渐显 1s）：与 JS 摆幅 ×(1-k) 交叉淡化，切换无跳变 */
+.kite-dragon.kite-idle .kite-seg { animation: kiteSway 2.618s linear infinite; }
+.kite-dragon.kite-idle .kite-head { animation: kiteHeadIdle 60s linear infinite; }
+@keyframes kiteSway {
+  0%    { translate: 0 calc(0px   * var(--idle-k, 0)); rotate: calc(2.1deg  * var(--idle-k, 0)); }
+  12.5% { translate: 0 calc(2.12px* var(--idle-k, 0)); rotate: calc(1.48deg * var(--idle-k, 0)); }
+  25%   { translate: 0 calc(3px   * var(--idle-k, 0)); rotate: calc(0deg    * var(--idle-k, 0)); }
+  37.5% { translate: 0 calc(2.12px* var(--idle-k, 0)); rotate: calc(-1.48deg* var(--idle-k, 0)); }
+  50%   { translate: 0 calc(0px   * var(--idle-k, 0)); rotate: calc(-2.1deg * var(--idle-k, 0)); }
+  62.5% { translate: 0 calc(-2.12px*var(--idle-k, 0)); rotate: calc(-1.48deg* var(--idle-k, 0)); }
+  75%   { translate: 0 calc(-3px  * var(--idle-k, 0)); rotate: calc(0deg    * var(--idle-k, 0)); }
+  87.5% { translate: 0 calc(-2.12px*var(--idle-k, 0)); rotate: calc(1.48deg * var(--idle-k, 0)); }
+  100%  { translate: 0 calc(0px   * var(--idle-k, 0)); rotate: calc(2.1deg  * var(--idle-k, 0)); }
+}
+
+/* 【显示与物理解耦 2026-09-20】静止态下 JS 每帧已 return，无法再同步气泡 left/top。
+   用同一份 sway 关键帧给气泡做"反向定位补偿"，让气泡仍贴在球上方（含 rotate 摆动）。
+   与球的 animationDelay 完全同源（JS kiteIdleEnter 统一写入内联 delay），二者天然同相位。 */
+.kite-dragon.kite-idle .kite-card.show { animation: kiteCardFollow 2.618s linear infinite; }
+@keyframes kiteCardFollow {
+  0%    { margin-top: calc(0px    * var(--idle-k, 0)); }
+  12.5% { margin-top: calc(2.12px * var(--idle-k, 0)); }
+  25%   { margin-top: calc(3px    * var(--idle-k, 0)); }
+  37.5% { margin-top: calc(2.12px * var(--idle-k, 0)); }
+  50%   { margin-top: calc(0px    * var(--idle-k, 0)); }
+  62.5% { margin-top: calc(-2.12px* var(--idle-k, 0)); }
+  75%   { margin-top: calc(-3px   * var(--idle-k, 0)); }
+  87.5% { margin-top: calc(-2.12px* var(--idle-k, 0)); }
+  100%  { margin-top: calc(0px    * var(--idle-k, 0)); }
+}
+/* kiteHeadIdle（龙头巡逻）由 JS 按巡航公式动态注入 <style id="kiteIdleKf">，此处只挂动画 */

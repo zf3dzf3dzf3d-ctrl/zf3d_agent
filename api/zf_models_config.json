@@ -1,0 +1,206 @@
+{
+  "updated": "2026-09-23-mimo-audio",
+  "models": [
+    {
+      "id": "zf-glm-flash",
+      "name": "智谱glm",
+      "sort": 0,
+      "apiUrl": "http://127.0.0.1:8509/v1/chat/completions",
+      "model": "glm-5.3-flash",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "high"
+            },
+            {
+              "value": "max"
+            }
+          ]
+        }
+      ],
+      "keyRef": "user",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "default": true,
+      "enabled": true,
+      "note": "官方主线路",
+      "category": "chat"
+    },
+    {
+      "id": "zf-glm-vision",
+      "name": "智谱glm识图",
+      "sort": 1,
+      "apiUrl": "http://127.0.0.1:8509/v1/chat/completions",
+      "model": "glm-5.3-flash",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "high"
+            },
+            {
+              "value": "max"
+            }
+          ]
+        },
+        {
+          "id": "glm-4.6v-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "high"
+            },
+            {
+              "value": "max"
+            }
+          ]
+        }
+      ],
+      "keyRef": "user",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "default": true,
+      "enabled": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1,
+        "pricePerCall": 0,
+        "pricePerSecond": 0,
+        "unit": "次"
+      },
+      "note": "GLM-4.6V-Flash 官方完全免费，支持图片/视频/文件，128K",
+      "category": "vision"
+    },
+    {
+      "id": "mimo-language-user",
+      "name": "小米mimo",
+      "sort": 4,
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "model": "mimo-v2.6-flash",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "medium"
+            },
+            {
+              "value": "high"
+            }
+          ]
+        }
+      ],
+      "keyRef": "user",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "enabled": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.5,
+        "pricePerCall": 0,
+        "pricePerSecond": 0,
+        "unit": "次"
+      },
+      "note": "直连小米MiMo官方，mimo-v2.6-flash 原生多模态支持识图(image_url)，API Key由用户自行填写",
+      "category": "chat"
+    },
+    {
+      "id": "mimo-vision-user",
+      "name": "小米mimo识图",
+      "sort": 5,
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "model": "mimo-v2.6-flash",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "medium"
+            },
+            {
+              "value": "high"
+            }
+          ]
+        }
+      ],
+      "keyRef": "user",
+      "abilities": [
+        "chat",
+        "vision",
+        "audio"
+      ],
+      "enabled": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.5,
+        "pricePerCall": 0,
+        "pricePerSecond": 0,
+        "unit": "次"
+      },
+      "note": "小米MiMo识图，mimo-v2.6-flash 原生多模态支持识图(image_url)，API Key由用户自行填写",
+      "category": "vision",
+      "default": false
+    },
+    {
+      "id": "mimo-audio-user",
+      "name": "小米mimo音频",
+      "sort": 2,
+      "apiUrl": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+      "model": "mimo-v2.6-flash",
+      "modelIds": [
+        {
+          "id": "mimo-v2.6-flash",
+          "tiers": [
+            {
+              "value": "low"
+            },
+            {
+              "value": "medium"
+            },
+            {
+              "value": "high"
+            }
+          ]
+        }
+      ],
+      "keyRef": "user",
+      "abilities": [
+        "chat",
+        "audio"
+      ],
+      "enabled": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.5,
+        "pricePerCall": 0,
+        "pricePerSecond": 0,
+        "unit": "次"
+      },
+      "note": "小米MiMo音频，mimo-v2.6-flash 多模态支持音频输入，API Key由用户自行填写",
+      "category": "audio"
+    }
+  ]
+}

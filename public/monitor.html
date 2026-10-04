@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>澶氭櫤鑳戒綋鍗忎綔鐩戞帶鍙?/title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#c9d1d9; font-family:"Segoe UI",Consolas,monospace; padding:16px; }
+  h1 { font-size:18px; color:#58a6ff; margin-bottom:4px; }
+  .sub { font-size:12px; color:#8b949e; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:340px 1fr; gap:16px; align-items:start; }
+  .panel { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; }
+  .panel h2 { font-size:14px; color:#79c0ff; margin-bottom:10px; border-bottom:1px solid #30363d; padding-bottom:6px; }
+  .sess { background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:8px 10px; margin-bottom:8px; font-size:12px; }
+  .sess .bx { color:#f0883e; font-weight:bold; }
+  .tag { display:inline-block; background:#1f6feb33; color:#58a6ff; border:1px solid #1f6feb; border-radius:10px; padding:1px 8px; margin:2px 3px 0 0; font-size:11px; }
+  .tag.host { background:#da363333; color:#ff7b72; border-color:#da3633; }
+  .ev { border-left:3px solid #30363d; padding:6px 10px; margin-bottom:6px; font-size:12px; line-height:1.5; }
+  .ev.mention { border-color:#a371f7; }
+  .ev.group { border-color:#f0883e; }
+  .ev.response { border-color:#3fb950; }
+  .ev .t { color:#8b949e; font-size:11px; margin-right:8px; }
+  .ev .who { color:#79c0ff; font-weight:bold; }
+  .ev .msg { color:#c9d1d9; }
+  .stat { font-size:12px; color:#8b949e; margin-bottom:8px; }
+  .stat b { color:#3fb950; }
+  #conn { font-size:11px; }
+  #conn.ok { color:#3fb950; } #conn.err { color:#f85149; }
+</style>
+</head>
+<body>
+<h1>馃洶 澶氭櫤鑳戒綋鍗忎綔鐩戞帶鍙?/h1>
+<div class="sub">瀹炴椂瑙傚療鍚勫璇濓紙box锛変腑 @鎻愬強 / 缇よ亰璺敱 / 瑙掕壊鍝嶅簲 鐨勫崗浣滄儏鍐?路 <span id="conn">杩炴帴涓€?/span></div>
+<div class="grid">
+  <div class="panel">
+    <h2>馃摗 娲昏穬鍗忎綔浼氳瘽</h2>
+    <div class="stat">浼氳瘽鏁帮細<b id="sess-count">0</b> 路 浜嬩欢鎬绘暟锛?b id="ev-count">0</b></div>
+    <div id="sessions"></div>
+  </div>
+  <div class="panel">
+    <h2>馃挰 鍗忎綔浜嬩欢娴侊紙鏈€杩?100 鏉★級</h2>
+    <div id="events"></div>
+  </div>
+</div>
+<script>
+const MODE_LABEL = { mention:'@鎻愬強', group:'缇よ亰', response:'鍝嶅簲', single:'鍗曡鑹? };
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function refresh(){
+  try {
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'fail');
+    document.getElementById('conn').textContent = '鈼?宸茶繛鎺?; document.getElementById('conn').className='ok';
+    document.getElementById('sess-count').textContent = d.sessions.length;
+    document.getElementById('ev-count').textContent = d.total_events;
+    document.getElementById('sessions').innerHTML = d.sessions.map(s=>`
+      <div class="sess">
+        <span class="bx">box:${esc(s.box_id)}</span>
+        <span style="color:#8b949e"> ${esc(s.mode)} 路 ${esc(s.started_at)} 璧?/span>
+        <div>${(s.roles||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}</div>
+      </div>`).join('') || '<div class="stat">鏆傛棤娲昏穬浼氳瘽</div>';
+    document.getElementById('events').innerHTML = d.events.slice().reverse().map(e=>`
+      <div class="ev ${esc(e.mode)}">
+        <span class="t">${esc(e.ts)}</span>
+        <span class="who">[${esc(MODE_LABEL[e.mode]||e.mode)}] box:${esc(e.box_id)}</span>
+        ${(e.roles||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}
+        <div class="msg">${esc(e.text)}</div>
+      </div>`).join('') || '<div class="stat">鏆傛棤浜嬩欢 鈥?鍦ㄥ璇濅腑杈撳叆 @瑙掕壊鍚?鍗冲彲瑙﹀彂</div>';
+  } catch(err) {
+    document.getElementById('conn').textContent = '鈼?杩炴帴澶辫触: '+err.message; document.getElementById('conn').className='err';
+  }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
+

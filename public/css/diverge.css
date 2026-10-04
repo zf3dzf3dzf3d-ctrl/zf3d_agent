@@ -1,0 +1,402 @@
+/* ============================================================
+ * diverge.css - 发散/收敛多视角对话系统样式
+ * ============================================================ */
+
+/* ===== 发散按钮（配置行内，选择大模型之前） ===== */
+.diverge-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 8px;
+    margin: 0 4px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim, #9aa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    flex-shrink: 0;
+}
+.diverge-btn:hover {
+    background: rgba(255, 170, 60, .15);
+    color: #ffaa3c;
+    transform: scale(1.1);
+}
+
+/* ===== 收敛按钮（输入行内右侧） ===== */
+.converge-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    padding: 0 10px;
+    margin: 0 4px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-dim, #9aa);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .2s;
+    flex-shrink: 0;
+    opacity: .55;
+}
+.converge-btn.ready {
+    opacity: 1;
+    border-color: #ffaa3c;
+    color: #ffaa3c;
+    box-shadow: 0 0 8px rgba(255, 170, 60, .3);
+    animation: converge-pulse 1.5s ease-in-out infinite;
+}
+.converge-btn:hover.ready {
+    background: rgba(255, 170, 60, .15);
+}
+@keyframes converge-pulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(255, 170, 60, .2); }
+    50% { box-shadow: 0 0 12px rgba(255, 170, 60, .5); }
+}
+
+/* ===== 发散配置面板 ===== */
+.diverge-panel {
+    position: fixed;
+    z-index: 10000;
+    width: 320px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel, #23232e);
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+    font-size: 13px;
+    color: var(--text, #ddd);
+}
+.dp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border, #3a3a4a);
+    font-weight: 600;
+}
+.dp-close {
+    border: none;
+    background: transparent;
+    color: var(--text-dim, #9aa);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+}
+.dp-close:hover { color: #f66; }
+.dp-body {
+    padding: 12px 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.dp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.dp-row label {
+    color: var(--text-dim, #9aa);
+    white-space: nowrap;
+    font-size: 12px;
+}
+.dp-count {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: var(--bg-input, #1a1a24);
+    color: var(--text, #ddd);
+}
+.dp-preset {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: var(--bg-input, #1a1a24);
+    color: var(--text, #ddd);
+}
+.dp-apply-preset {
+    padding: 4px 10px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dim, #9aa);
+    cursor: pointer;
+    font-size: 12px;
+}
+.dp-apply-preset:hover { color: #ffaa3c; border-color: #ffaa3c; }
+
+.dp-views {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.dp-view-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dp-v-name {
+    width: 80px;
+    padding: 4px 8px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: var(--bg-input, #1a1a24);
+    color: #ffaa3c;
+    font-size: 12px;
+}
+.dp-v-prompt {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 6px;
+    background: var(--bg-input, #1a1a24);
+    color: var(--text, #ddd);
+    font-size: 12px;
+}
+.dp-v-del {
+    border: none;
+    background: transparent;
+    color: var(--text-dim, #9aa);
+    cursor: pointer;
+    font-size: 15px;
+}
+.dp-v-del:hover { color: #f66; }
+.dp-hint {
+    font-size: 11px;
+    color: var(--text-dim, #889);
+    line-height: 1.5;
+}
+.dp-footer {
+    padding: 10px 14px;
+    border-top: 1px solid var(--border, #3a3a4a);
+}
+.dp-go {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffaa3c, #ff7a3c);
+    color: #1a1a24;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: filter .15s;
+}
+.dp-go:hover { filter: brightness(1.15); }
+
+/* ===== 发散连线 ===== */
+.diverge-link {
+    fill: none;
+    stroke: rgba(255, 170, 60, .45);
+    stroke-width: 1.5;
+    stroke-dasharray: 6, 4;
+    animation: diverge-dash 1s linear infinite;
+}
+.diverge-link.sending {
+    stroke: #ffaa3c;
+    stroke-width: 2;
+}
+.diverge-link.done {
+    stroke: rgba(120, 220, 130, .6);
+    stroke-dasharray: none;
+    animation: none;
+}
+.diverge-link.converged {
+    stroke: #a97dff;
+    stroke-width: 2.5;
+    stroke-dasharray: none;
+}
+@keyframes diverge-dash {
+    to { stroke-dashoffset: -10; }
+}
+.diverge-link-label {
+    fill: var(--text-dim, #9aa);
+    font-size: 11px;
+    paint-order: stroke;
+    stroke: rgba(0, 0, 0, .6);
+    stroke-width: 3px;
+}
+
+/* ===== 标题栏发散按钮 ===== */
+.hd-btn.diverge-btn {
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+/* ===== 快选菜单（左键） ===== */
+.diverge-quickmenu {
+    width: 300px;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 10001;
+}
+.dp-quick-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    transition: background 0.15s;
+}
+.dp-quick-item:hover {
+    background: rgba(100,150,255,0.15);
+}
+.dp-quick-item:last-child {
+    border-bottom: none;
+}
+.dp-quick-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #dfe8ff;
+}
+.dp-quick-views {
+    font-size: 11px;
+    color: #8a97b8;
+    margin-top: 2px;
+}
+.dp-quick-config {
+    border-top: 1px solid rgba(255,255,255,0.12);
+    margin-top: 4px;
+    padding-top: 10px;
+}
+.dp-save-preset {
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+/* ===== 收敛完成后的「下一步」询问条 ===== */
+.diverge-nextstep-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 12px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(255,170,60,.08), rgba(120,90,255,.08));
+    border: 1px solid rgba(255, 170, 60, .35);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text, #ddd);
+}
+.diverge-nextstep-bar .dn-label {
+    font-weight: 600;
+    color: #ffaa3c;
+    margin-right: auto;
+}
+.diverge-nextstep-bar button {
+    height: 26px;
+    padding: 0 12px;
+    border: 1px solid var(--border, #3a3a4a);
+    border-radius: 13px;
+    background: transparent;
+    color: var(--text, #ddd);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.diverge-nextstep-bar .dn-continue:hover {
+    border-color: #6aa6ff;
+    color: #6aa6ff;
+    background: rgba(106, 166, 255, .12);
+}
+.diverge-nextstep-bar .dn-longtask:hover {
+    border-color: #b07aff;
+    color: #b07aff;
+    background: rgba(176, 122, 255, .12);
+}
+.diverge-nextstep-bar .dn-close:hover {
+    border-color: #5fd38a;
+    color: #5fd38a;
+    background: rgba(95, 211, 138, .12);
+}
+
+/* ===== 角色确认编辑器（发散前，嵌在当前对话消息流底部） ===== */
+.diverge-plan-btn {
+    margin: 8px 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 170, 60, .4);
+    border-radius: 10px;
+    background: rgba(255, 170, 60, .06);
+    max-width: 100%;
+}
+.dpe-title { font-size: 13px; font-weight: 600; color: #ffaa3c; margin-bottom: 2px; }
+.dpe-sub { font-size: 11px; color: #98a; margin-bottom: 8px; }
+.dpe-rows { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.dpe-row {
+    display: grid;
+    grid-template-columns: 20px 110px 1fr 24px;
+    gap: 6px;
+    align-items: start;
+    padding: 6px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    background: rgba(255,255,255,.03);
+}
+.dpe-check { margin-top: 6px; accent-color: #ffaa3c; cursor: pointer; }
+.dpe-name {
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 6px; color: #eee; font-size: 12px; padding: 5px 6px;
+}
+.dpe-prompt {
+    background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 6px; color: #ccc; font-size: 12px; padding: 4px 6px;
+    resize: vertical; font-family: inherit; line-height: 1.4;
+}
+.dpe-name:focus, .dpe-prompt:focus { outline: none; border-color: #ffaa3c; }
+.dpe-del {
+    background: transparent; border: none; color: #a77; font-size: 13px;
+    cursor: pointer; margin-top: 3px; border-radius: 4px;
+}
+.dpe-del:hover { color: #f88; background: rgba(255,80,80,.12); }
+.dpe-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+.dpe-actions .dpe-add, .dpe-actions .dp-launch {
+    height: 28px; padding: 0 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
+}
+.dpe-add { background: transparent; border: 1px solid rgba(255,255,255,.2); color: #9ab; }
+.dpe-add:hover { border-color: #7ad; color: #7ad; }
+.dp-launch {
+    background: linear-gradient(135deg, #ff9a2c, #ff7a1c);
+    border: none; color: #fff; font-weight: 600;
+}
+.dp-launch:hover { filter: brightness(1.1); }
+
+/* ===== 收敛讨论原文（可折叠卡片，嵌在当前对话消息流） ===== */
+.diverge-transcript {
+    margin: 8px 12px;
+    border: 1px solid rgba(120, 170, 255, .35);
+    border-radius: 10px;
+    background: rgba(120, 170, 255, .06);
+    max-width: 100%;
+    font-size: 12px;
+}
+.diverge-transcript > summary {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #8ab8ff;
+    font-weight: 600;
+    user-select: none;
+}
+.diverge-transcript > summary:hover { background: rgba(120,170,255,.08); border-radius: 10px; }
+.diverge-transcript[open] > summary { border-bottom: 1px solid rgba(120,170,255,.2); }
+.dt-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; max-height: 340px; overflow-y: auto; }
+.dt-item { border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(0,0,0,.2); }
+.dt-item > summary {
+    padding: 6px 10px; cursor: pointer; color: #ccd; user-select: none;
+    font-weight: 500;
+}
+.dt-item > summary:hover { color: #fff; }
+.dt-body { padding: 8px 12px; color: #bcc; line-height: 1.6; max-height: 260px; overflow-y: auto; }
+.dt-body p { margin: 0 0 6px; }
+.dt-body ul, .dt-body ol { margin: 4px 0 6px; padding-left: 18px; }
+.dt-body pre { background: rgba(0,0,0,.4); padding: 8px; border-radius: 6px; overflow-x: auto; }

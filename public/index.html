@@ -1,0 +1,440 @@
+﻿
+<!DOCTYPE html>
+
+<html lang="zh-CN" translate="no">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>朱峰智能体无限 5.5.0</title>
+<script src="js/fps-guard.js?v=6"></script>
+<link rel="stylesheet" href="css/app-workbench-drawer.css?v=17">
+    
+    <link rel="icon" href="assets/favicon.png?v=2">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png?v=2">
+
+        <link rel="stylesheet" href="css/style-base.css?v=456">
+        <link rel="stylesheet" href="css/canvas-arrows.css?v=1">
+        <link rel="stylesheet" href="css/fps-degrade.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-01-base.css?v=4">
+    <link rel="stylesheet" href="css/splits/split-02-layout.css?v=2">
+    <link rel="stylesheet" href="css/splits/split-03-header.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-04-canvas.css?v=4">
+    <link rel="stylesheet" href="css/splits/split-05-panels.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-06-sidebar.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-07-markdown.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-08-upload.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-09-theme.css?v=1">
+    <link rel="stylesheet" href="css/splits/split-10-settings.css?v=2">
+
+    <link rel="stylesheet" href="css/style-chatbox.css?v=507">
+    <link rel="stylesheet" href="css/zf-box-anim.css?v=1">
+    <link rel="stylesheet" href="css/chatbox-skins.css?v=8">
+    <link rel="stylesheet" href="css/flip-nav.css?v=1">
+    <link rel="stylesheet" href="css/diverge.css?v=2">
+    <link rel="stylesheet" href="css/image-node.css?v=2">
+    <link rel="stylesheet" href="css/style-kite.css?v=12">
+    <link rel="stylesheet" href="css/app-imageviewer.css?v=3">
+    <link rel="stylesheet" href="css/style-tools.css?v=452">
+    <link rel="stylesheet" href="css/style-settings-nav.css?v=6">
+    <link rel="stylesheet" href="css/model-config-types.css?v=13">
+    <!-- 顶栏/底栏镂空：背景透明，星空透出；想还原删除此行即可 -->
+
+
+
+    <link rel="stylesheet" href="css/style-markdown.css?v=437">
+
+    <link rel="stylesheet" href="css/style-extras.css?v=465">
+    <link rel="stylesheet" href="css/tool-stats.css?v=1">
+    <link rel="stylesheet" href="css/token-usage.css?v=1">
+    <link rel="stylesheet" href="css/style-dog-guard.css?v=10">
+    <link rel="stylesheet" href="css/settings-toggles.css?v=3">
+    <link rel="stylesheet" href="css/minimap-organize.css?v=12">
+    <link rel="stylesheet" href="css/logpanel.css?v=2">
+
+    <link rel="stylesheet" href="css/style-taskpanel.css?v=24">
+    <link rel="stylesheet" href="css/style-sidepanel-polish.css?v=5">
+<link rel="stylesheet" href="css/statusbar-unify.css?v=2">
+<link rel="stylesheet" href="css/turbo-kite.css?v=8">
+    <link rel="stylesheet" href="/css/style-brain.css?v=1" />
+    <link rel="stylesheet" href="/css/style-dream.css?v=1" />
+    <link rel="stylesheet" href="css/style-health.css?v=2">
+
+    <link rel="stylesheet" href="css/highlight-theme.min.css?v=1">
+
+
+
+
+
+<link rel="stylesheet" href="css/inline-boot.css?v=2">
+</head>
+
+<body>
+
+
+
+    <!-- 开机动画：DOM 外迁至 js/dom-boot.js（同步注入） -->
+    <script src="js/dom-boot.js?v=1"></script>
+    <link rel="stylesheet" href="css/inline-login.css?v=1">
+    <script src="js/inline-00.js?v=1"></script>
+
+    <!-- 登录遮罩：DOM 外迁至 js/dom-login.js（同步注入） -->
+    <script src="js/dom-login.js?v=2"></script>
+
+    <!-- 顶部标志栏：DOM 外迁至 js/dom-topbar.js（同步注入） -->
+    <script src="js/dom-topbar.js?v=6"></script>
+    <script src="js/win-controls.js?v=10"></script>
+
+
+
+    <!-- 主题配色面板：DOM 外迁至 js/dom-theme-panel.js（同步注入） -->
+    <script src="js/dom-theme-panel.js?v=2"></script>
+<link rel="stylesheet" href="css/inline-misc3.css?v=1">
+
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- 中间无限画布(含小地图)：DOM 外迁至 js/dom-canvas.js（同步注入） -->
+    <script src="js/dom-canvas.js?v=2"></script>
+
+
+
+    <!-- 底部状态栏：DOM 外迁至 js/dom-status.js（同步注入） -->
+    <script src="js/dom-status.js?v=4"></script>
+
+
+
+    <!-- 设置弹窗（左侧分类导航 + 右侧内容）：DOM 外迁至 js/dom-settings-panel.js -->
+    <script src="js/dom-settings-panel.js?v=3"></script>
+
+<!-- ====== 复制提示 toast ====== -->
+
+    <!-- 右下角浮动入口栏：DOM 外迁至 js/dom-fab.js（同步注入） -->
+    <script src="js/dom-fab.js?v=4"></script>
+
+    <!-- 右侧面板/文件树/项目面板/copy-toast：DOM 外迁至 js/dom-side-panels.js -->
+    <script src="js/dom-side-panels.js?v=1"></script>
+
+    <!-- 全局 SVG 图标替换器（emoji→SVG，重跑 svg_icons/build_icons_js.py 重新生成；设 window.ZF_ICONS_OFF=true 可禁用） -->
+    <script src="js/icons.js?v=8"></script>
+
+<!-- ====== JavaScript（按加载顺序排列） ====== -->
+
+    <script src="js/tts.js?v=7"></script>
+    <script src="js/tts_stream_client.js?v=1"></script>
+    <script src="js/i18n-data.js?v=8"></script>
+    <script src="js/i18n-data-multi.js?v=10"></script>
+<script src="js/_i18n_patch_v10_brand.js"></script>
+  <script src="js/_i18n_patch_v11_brand_all.js?v=2"></script>
+    <script src="js/i18n-data-extra.js?v=4"></script>
+    <script src="js/i18n.js?v=12"></script>
+    <script src="js/panel-docs-sync.js?v=8"></script>
+    <script src="js/confirm-dialog.js?v=1"></script>
+    <script src="js/lazy-loader.js?v=2"></script>
+    <script src="js/highlight.min.js?v=1"></script>
+
+    <script src="js/inline-01.js?v=1"></script>
+
+    <script src="js/marked.min.js?v=2"></script>
+
+    <script src="js/db.js?v=421"></script>
+    <script src="js/app-activity-gate.js?v=1"></script>
+    <script src="js/mode_panel_loader.js?v=102"></script>
+    <script src="js/engines_ui.js?v=1"></script>
+
+    <script src="js/reasoning-levels.js?v=2"></script>
+
+    <script src="js/models.js?v=17"></script>
+    <script src="js/api-key-quick-dialog.js?v=3"></script>
+    <script src="js/rate-limit-tracker.js?v=1"></script>
+
+    <script src="js/store.js?v=416"></script>
+
+    <!-- 工具定义：注册器 -> 分类 -> 按业务域拆分的定义文件（未来新增工具只需加一个 tools-defs-*.js 调 registerToolDefs） -->
+    <script src="js/tools-defs-registry.js?v=1"></script>
+    <script src="js/tools-defs-longplan.js?v=2"></script>
+    <script src="js/tools-defs-browser.js?v=4"></script>
+    <script src="js/app-longplan-panel.js?v=2"></script>
+    <script src="js/app-goal-panel.js?v=2"></script>
+    <script src="js/app-memory-panel.js?v=4"></script>
+    <script src="js/tools-defs-categories.js?v=104"></script>
+    <script src="js/tools-defs-agentbbs.js?v=1"></script>
+    <script src="js/tools-defs-hack.js?v=2"></script>
+    <script src="js/engine-tools-defs.js?v=1"></script>
+    <script src="js/tools-defs-core.js?v=3"></script>
+    <script src="js/tools-defs-agent.js?v=1"></script>
+    <script src="js/tools-defs-dev.js?v=1"></script>
+    <script src="js/tools-defs-media.js?v=101"></script>
+    <script src="js/tools-defs-writing.js?v=1"></script>
+  <script src="js/tools-defs-dcc.js?v=1"></script>
+    <script src="js/tools-00-category-state.js?v=419"></script>
+    <script src="js/tools-01-write-definitions.js?v=420"></script>
+    <script src="js/tools-02-category-switch.js?v=420"></script>
+    <script src="js/tools-03-system-prompt.js?v=424"></script>
+    <script src="js/tools-04-execute.js?v=522"></script>
+    <script src="js/tools-05-execute-api.js?v=522"></script>
+    <script src="js/tools-06-card-render.js?v=418"></script>
+    <script src="js/tools-99-startup.js?v=418"></script>
+    <script src="js/tools-settings.js?v=3"></script>
+    <!-- extensions 扩展子系统（独立模块，删除两行即下线） -->
+    <script src="js/ext-ui-render.js?v=100"></script>
+    <script src="js/ext-manager.js?v=102"></script>
+    <script src="js/ext-settings-panel.js?v=100"></script>
+    <script src="js/app-plugins.js?v=100"></script>
+    <script src="js/app-plugins-center.js?v=1"></script>
+    <script src="js/app-components.js?v=1"></script>
+    <script src="js/app-sandbox.js?v=1"></script>
+    <script src="js/ext-bridge.js?v=102"></script>
+
+    <script src="js/user-settings.js?v=2"></script>
+    <script src="js/inline-02.js?v=1"></script>
+    <script src="js/theme.js?v=65"></script>
+
+        <script src="js/app.js?v=509"></script>
+    <script src="js/chatbox-header-template.js?v=1"></script>
+    <script src="js/chatbox-role-trace.js?v=2"></script>
+    <script src="js/chatbox-link-stats.js?v=3"></script>
+    <script src="js/chatbox-skin.js?v=4"></script>
+    <script src="js/chatbox-panels-template.js?v=3"></script>
+    <script src="js/chatbox-config-widgets.js?v=1"></script>
+    <script src="js/chatbox-branch-menu.js?v=7"></script>
+    <script src="js/chatbox-git-graph.js?v=2"></script>
+
+    <script src="js/app-sfx.js?v=3"></script>
+    <script src="js/drop-sound.js?v=3"></script>
+    <script src="js/app-canvas.js?v=455"></script>
+
+
+
+
+
+    <link rel="stylesheet" href="css/style-cbq.css?v=463">
+    <link rel="stylesheet" href="css/chatbox-roles.css?v=8">
+<!-- 【鼠标位置追踪】供新建对话框跟随鼠标创建（createChatBox 未传坐标时回退用） -->
+    <script>
+      (function () {
+        window.__zfLastMouse = window.__zfLastMouse || { clientX: null, clientY: null };
+        document.addEventListener('mousemove', function (e) {
+          window.__zfLastMouse.clientX = e.clientX;
+          window.__zfLastMouse.clientY = e.clientY;
+        }, { passive: true });
+        document.addEventListener('click', function (e) {
+          window.__zfLastMouse.clientX = e.clientX;
+          window.__zfLastMouse.clientY = e.clientY;
+        }, { passive: true });
+      })();
+    </script>
+    <script src="js/chatbox-00-toast.js?v=490"></script>
+    <script src="js/voice-input.js?v=4"></script>
+    <script src="js/wake-word.js?v=5"></script>
+    <script src="js/chatbox-01-model-selector.js?v=493"></script>
+    <script src="js/chatbox-02-success-arrow.js?v=478"></script>
+    <script src="js/chatbox-03-chat-interaction.js?v=501"></script>
+    <script src="js/app-chatbox-flip-nav.js?v=5"></script>
+    <script src="js/chatbox-04-message-render.js?v=479"></script>
+    <script src="js/chatbox-05-message-edit.js?v=479"></script>
+    <script src="js/chatbox-06-chat-actions.js?v=509"></script>
+    <script src="js/zf-dom-detach.js?v=1"></script>
+    <script src="js/chatbox-08-drag-export.js?v=1"></script>
+<script src="js/chatbox-09-drag-attach.js?v=1"></script>
+    <script src="js/chatbox-10-mentor.js?v=4"></script>
+    <script src="js/chatbox-roles.js?v=27"></script>
+    <!-- <script src="js/chatbox-race.js?v=32"></script> 【v5.5.0】赛马模式本版本隐藏，只保留协作施工队 -->
+
+    <script src="js/chatbox-crew.js?v=14"></script>
+    <script src="js/app-canvas-role-drop.js?v=2"></script>
+    <!-- 已禁用：<script src="js/chatbox-flash-links.js?v=2"></script> -->
+    <!-- 已禁用：右侧拉线小球 <script src="js/chatbox-07-prompt-port.js?v=2"></script> -->
+    <!-- 项目模块（拆分自 app-chatbox-projects.js，顺序：切换器 -> 文件夹 -> 工具统计 -> 日志面板 -> 会话管理 -> 底部覆盖） -->
+    <script src="js/project-sync.js?v=6"></script>
+    <script src="js/project-switcher.js?v=15"></script>
+    <script src="js/project-folder.js?v=1"></script>
+    <script src="js/project-toolstats.js?v=2"></script>
+    <script src="js/app-logmaster.js?v=6"></script>
+    <script src="js/app-toolmaster.js?v=6"></script>
+    <script src="js/app-synthmaster.js?v=3"></script>
+    <script src="js/app-relaymaster.js?v=3"></script>
+    <script src="js/app-mastercluster.js?v=9"></script>
+    <script src="js/app-filemaster.js?v=1"></script>
+    <script src="js/app-incognito-master.js?v=1"></script>
+    <script src="js/project-logpanel.js?v=2"></script>
+    <script src="js/download-panel.js?v=5"></script>
+    <script src="js/app-workbench-drawer.js?v=175"></script>
+    <link rel="stylesheet" href="css/workbench-viewer.css?v=1">
+    <script src="js/app-workbench-viewer.js?v=2"></script>
+    <script src="js/project-sessions.js?v=509"></script>
+
+    <script src="js/app-imagenode.js?v=5"></script>
+    <script src="js/app-mediadrag.js?v=2"></script>
+    <script src="js/app-medianode-x.js?v=3"></script>
+    <script src="js/app-imageviewer.js?v=6"></script>
+    <script src="js/agent-errors.js?v=2"></script>
+    <script src="js/agent-00-send-status.js?v=455"></script>
+    <script src="js/send-icon-themes.js?v=7"></script>
+    <script src="js/agent-01-project-memory.js?v=542"></script>
+<script src="js/app-batch-run.js?v=8"></script>
+<script src="js/app-auto-resume.js?v=1"></script>
+    <script src="js/agent-02a-imagegen-direct.js?v=460"></script>
+    <script src="js/agent-02b-message-sanitize.js?v=460"></script>
+    <script src="js/agent-02c-strip-fake-tool-tags.js?v=460"></script>
+    <script src="js/agent-02-loop-core.js?v=510"></script>
+    <script src="js/rate-limit-panel.js?v=1"></script>
+    <script src="js/agent-03-tool-results.js?v=451"></script>
+    <script src="js/agent-04-ask-user.js?v=452"></script>
+    <script src="js/app-kite.js?v=49"></script>
+    <script src="js/kite-observer-chat.js?v=2"></script>
+    <script src="js/app-kiteportlink.js?v=1"></script>
+    <script src="js/app-kite-core.js?v=3"></script>
+    <script src="js/app-kite-panels.js?v=6"></script>
+    <script src="js/app-kite-vision.js?v=6"></script>
+    <script src="js/app-kite-nodes.js?v=4"></script>
+    <script src="js/app-kite-links.js?v=1"></script>
+    <script src="js/app-quick-note.js?v=10"></script>
+    <script src="js/app-canvas-arrows.js?v=1"></script>
+    <script src="js/chatbox-verify-arrow.js?v=35"></script>
+    <script src="js/chatbox-thinker-arrow.js?v=25"></script>
+    <script src="js/chatbox-summarizer-arrow.js?v=4"></script>
+<script src="js/chatbox-multi-arrow.js?v=14"></script>
+<script src="js/chatbox-group-follow.js?v=7"></script>
+<script src="js/chatbox-converge-arrow.js?v=19"></script>
+<script src="js/chatbox-relative-restore.js?v=6"></script>
+<script src="js/chatbox-spawn-habit.js?v=530"></script>
+    <script src="js/drop-sound.js?v=3"></script>
+    <!-- 随手标题轻量化(2026-09-29): 连线系统与左侧停靠栏已下线, 文件保留可秒回退 -->
+    <!-- <script src="js/app-quick-note-link.js?v=11"></script>
+    <script src="js/app-quick-note-dock.js?v=2"></script> -->
+    <script src="js/app-extras.js?v=439"></script>
+    <!-- 面板模块（拆分自 app-panels.js，顺序：设置 -> 日志 -> 复制 -> 生图渠道 -> 模型 -> 邮件） -->
+    <script src="js/panel-settings.js?v=2"></script>
+    <script src="js/panel-log-health.js?v=2"></script>
+    <script src="js/panel-copy.js?v=1"></script>
+    <script src="js/panel-image-channels.js?v=1"></script>
+    <script src="js/panel-models.js?v=2"></script>
+    <script src="js/panel-mail.js?v=1"></script>
+    <script src="js/model-config-rewrite.js?v=34"></script>
+    <script src="js/inline-03.js?v=1"></script>
+    <script src="js/inline-04.js?v=1"></script>
+
+    <script src="js/app-minimap-worker-bootstrap.js?v=1"></script>
+    <script src="js/app-minimap.js?v=469"></script>
+    <script src="js/app-minimap-organize.js?v=74"></script>
+
+    <script src="js/app-upload.js?v=482"></script>
+
+    <script src="js/app-chatmgr.js?v=439"></script>
+    <script src="js/app-pipeline.js?v=7"></script>
+    <script src="js/diverge.js?v=11"></script>
+
+    <script src="js/app-quick-create.js?v=20"></script>
+    <script src="js/canvas-node-modal-lock.js?v=6"></script>
+    <script src="js/app-canvas-engine-node.js?v=6"></script>
+    <script src="js/app-canvas-browser-node.js?v=16"></script>
+    <script src="js/app-canvas-presentation-node.js?v=4"></script>
+    <script src="js/app-canvas-more-menu.js?v=4"></script>
+    <script src="js/app-canvas-video-node.js?v=2"></script>
+
+    <script src="js/app-backup.js?v=454"></script>
+    <script src="js/app-undo.js?v=15"></script>
+    <script src="js/app-dog-guard.js?v=15"></script>
+    <script src="js/dog-guard-chat.js?v=4"></script>
+    <script src="js/freeze-forensics.js?v=1"></script>
+    <!-- 左上角重启圆点已移除：重启入口统一收进「文件」菜单（app-undo.js），避免重复入口 -->
+    <!-- <script src="js/app-network-restart.js?v=5"></script> -->
+
+
+    <link rel="stylesheet" href="css/style-project.css?v=3">
+    <link rel="stylesheet" href="css/style-filetree.css?v=11">
+    <link rel="stylesheet" href="css/style-remote.css?v=1">
+    <link rel="stylesheet" href="css/style-starmap.css?v=2">
+    <link rel="stylesheet" href="css/space-meteors.css?v=1">
+    <link rel="stylesheet" href="css/background.css?v=2">
+    <link rel="stylesheet" href="css/background-fx-fix.css?v=1">
+    <script src="js/app-project.js?v=12"></script>
+    <script src="js/app-filetree.js?v=37"></script>
+    <script src="js/app-filetree-boot.js?v=2"></script>
+    <script src="js/remote/app-remote.js?v=2"></script>
+    <script src="js/app-starmap.js?v=2"></script>
+    <script src="js/app-taskpanel.js?v=34"></script>
+    <script src="/js/app-brain.js?v=7" defer></script>
+    <script src="/js/app-butler.js?v=4" defer></script>
+    <!-- app-dream.js 文件不存在，引用已移除 -->
+    <link rel="stylesheet" href="css/style-canvas-clean.css?v=21">
+    <div id="edge-hot-top" title=""></div>
+    <div id="edge-hot-bottom" title=""></div>
+    <script src="js/inline-05.js?v=1"></script>
+   <script src="js/perf-monitor.js?v=1"></script>
+   <script src="js/app-tableviewer.js?v=3"></script>
+    <script src="js/app-health.js?v=13"></script>
+    <script src="js/app-monitor.js?v=433"></script>
+    <script src="js/app-zf3d.js?v=5.5.0"></script>
+    <script src="js/inline-06.js?v=1"></script>
+    <script src="js/app-version.js?v=5.5.0"></script>
+
+    <!-- ====== Toast 堆栈管理器（热更新之前加载） ====== -->
+    <script src="js/toast-stack.js?v=3"></script>
+    <script src="js/space-meteors.js?v=3"></script>
+    <script src="js/background.js?v=13"></script>
+
+    <!-- ====== 热更新客户端（最后加载） ====== -->
+    <script src="js/app-update.js?v=1"></script>
+    <script src="js/hot-reload.js?v=7"></script>
+    <script src="js/canvas/kg-tools-defs.js"></script>
+    <script src="js/app-knowledge-graph.js"></script>
+    <script src="js/kg-code.js"></script>
+    <script src="js/kg-extract.js"></script>
+    <script src="js/kg-data.js"></script>
+    <script src="js/kg-watch.js"></script>
+    <!-- Token 用量统计面板（设置面板卡片 Tab） -->
+    <script src="js/panel-token-usage.js?v=5"></script>
+    <script src="js/panel-token-usage-detail.js?v=2"></script>
+    <!-- 时间线浏览器已隐藏表面入口（仅保留 AI 后端工具 timeline，见 tools-defs-dev.js / tools/coding/backend/timeline.py） -->
+    <script src="js/timeline-view.js?v=3"></script>
+    <script src="js/agent-protocol-ui.js?v=4"></script>
+    <script src="js/agent-protocol-badge.js?v=1"></script>
+    <!-- ====== 设置弹窗左侧菜单拖拽调宽（持久化到 user_settings.json） ====== -->
+    <script src="js/inline-07.js?v=1"></script>
+    <!-- 画布玩偶：无按钮 3D 角色浮层（拖拽移动 / 滚轮缩放 / 位置记忆） -->
+    <script src="js/app-avatar-doll.js?v=1"></script>
+    <script src="js/agent-05-pool-reconcile.js?v=1"></script>
+
+    <!-- ====== ? 极速模式（放最下面，最后加载，最后覆盖） ======
+         开关存 localStorage: zf_turbo = "1"/"0"
+         作用：速度优先，关闭一切非必要画面开销：
+         1. 开机动画 bootScreen 直接跳过
+         2. 风筝龙 RAF 动画循环不启动（app-kite.js 的 tick 循环）
+         3. 右下角小地图水面/水晃动画全部短路（app-minimap.js）
+         4. 全局 CSS animation/transition/backdrop-filter 一刀切
+    -->
+    <link rel="stylesheet" href="css/inline-crispText.css?v=1">
+    <link rel="stylesheet" href="css/inline-turboStyle.css?v=1">
+    <script src="js/inline-08.js?v=1"></script>
+    <script src="/js/chatbox-fit-viewport.js?v=3"></script>
+<script src="/js/chat-tool-toggles.js?v=4"></script>
+<script src="/js/chat-context-config.js?v=1"></script>
+
+    <!-- 页面健康·提速面板：DOM 外迁至 js/dom-boost.js（同步注入） -->
+    <script src="js/dom-boost.js?v=1"></script>
+<script src="js/inline-09.js?v=1"></script>
+<script src="js/zf-coupon-bubble.js?v=4"></script>
+</body>
+
+</html>
+
+
+
+
+
+
+

@@ -1,0 +1,30 @@
+[Tray] 托盘已启动，服务端口 8550，右键图标可操作
+[IndexGuard] 启动校验: ok
+
+  ██████████  ██████████  ██████████  ████████        ██      ████████    ██████████  ██      ██  ██████████
+        ██    ██                  ██  ██      ██    ██  ██    ██          ██          ████    ██      ██
+      ██      ██████████  ██████████  ██      ██  ██████████  ██    ██    ██████████  ██  ██  ██      ██
+    ██        ██                  ██  ██      ██  ██      ██  ██    ██    ██          ██    ████      ██
+  ██████████  ██          ██████████  ████████    ██      ██  ████████    ██████████  ██      ██      ██
+                                              ZF3D Agent  v5.5.0
+
+[Server] 主脑观察线程已启动（20s/轮）
+[ChatGate] 车道 1 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 2 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 3 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 4 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 5 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 6 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 7 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 8 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 9 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 10 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 11 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 车道 12 worker 已启动（车道内串行，车道间并行）
+[ChatGate] 配置已加载 enabled=True gap=2.0s lanes=12 rules=3 auto(组=True|True)
+[ChatGate] 配置已加载 enabled=True gap=2.0s lanes=12 rules=3 auto(组=True|True)
+[Server] 朱峰官方模型同步: 已同步 5 个官方模型
+[browser] 空闲会话已自动关闭: default (空闲>300s)
+[browser] 空闲会话已自动关闭: default (空闲>300s)
+[browser] 空闲会话已自动关闭: default (空闲>300s)
+[browser] 空闲会话已自动关闭: default (空闲>300s)

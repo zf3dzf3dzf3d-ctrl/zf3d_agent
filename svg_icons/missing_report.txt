@@ -1,0 +1,275 @@
+icons.js 已覆盖: 47 个
+未覆盖 emoji: 272 个
+
+←  [U+2190]  <- canvas\engine2d\bench.html, canvas\engine2d\bench_skeleton.html, canvas\engine2d\games\contra\index.html, canvas\engine2d\games\pinball\index.html, canvas\engine2d\games\scenery\index.html, canvas\engine2d\games\space-shooter\index.html, canvas\engine2d\games\super-mario\index.html, canvas\演示\viewer.html, js\agent-02-loop-core.js, js\app-canvas-browser-node.js, js\app-imageviewer.js, js\app-knowledge-graph.js, js\app-minimap-organize.js, js\app-tableviewer.js, js\app-undo.js, js\app-workbench-drawer.js, js\chatbox-roles.js, js\panel-docs-sync.js, js\project-logpanel.js
+↑  [U+2191]  <- canvas\engine2d\games\super-mario\index.html, js\app-quick-create.js, js\model-config-rewrite.js, js\project-folder.js
+→  [U+2192]  <- canvas\engine2d\anim-import.js, canvas\engine2d\bench.html, canvas\engine2d\bench_skeleton.html, canvas\engine2d\core-demo.html, canvas\engine2d\demo-game.html, canvas\engine2d\flowfield.html, canvas\engine2d\games\common.js, canvas\engine2d\games\contra\index.html, canvas\engine2d\games\pinball\index.html, canvas\engine2d\games\ragdoll\game.js, canvas\engine2d\games\scenery\game.js, canvas\engine2d\games\scenery\index.html, canvas\engine2d\games\space-shooter\index.html, canvas\engine2d\games\super-mario\index.html, canvas\engine2d\pathfinding.js, canvas\engine2d\shaders-demo.html, canvas\engine2d\test-core.js, canvas\engine2d\test-tilemap.js, canvas\engine2d\tilemap.js, canvas\演示\tools\convert\convert.js, canvas\演示\viewer.html, index.html, js\agent-00-send-status.js, js\agent-01-project-memory.js, js\agent-02-loop-core.js, js\agent-03-tool-results.js, js\agent-04-ask-user.js, js\agent-05-pool-reconcile.js, js\agent-protocol-badge.js, js\agent-protocol-ui.js, js\app-activity-gate.js, js\app-auto-resume.js, js\app-batch-run.js, js\app-brain.js, js\app-canvas-agent.js, js\app-canvas-arrows.js, js\app-canvas-browser-node.js, js\app-canvas-engine-node.js, js\app-canvas-more-menu.js, js\app-canvas-ops.js, js\app-canvas-presentation-node.js, js\app-canvas-role-drop.js, js\app-canvas-video-node.js, js\app-canvas.js, js\app-chatbox-flip-nav.js, js\app-chatmgr.js, js\app-dog-guard.js, js\app-extras.js, js\app-filemaster.js, js\app-filetree-boot.js, js\app-filetree.js, js\app-flowglam-edit.js, js\app-flowglam-sessions.js, js\app-flowglam.js, js\app-goal-panel.js, js\app-health.js, js\app-imageviewer.js, js\app-kite-nodes.js, js\app-kite-panels.js, js\app-kite.js, js\app-kiteportlink.js, js\app-knowledge-graph.js, js\app-logmaster.js, js\app-longplan-panel.js, js\app-mastercluster.js, js\app-mediadrag.js, js\app-medianode-x.js, js\app-minimap-organize.js, js\app-minimap-worker-bootstrap.js, js\app-minimap.js, js\app-monitor.js, js\app-network-restart.js, js\app-pipeline.js, js\app-project.js, js\app-quick-create.js, js\app-quick-note-dock.js, js\app-quick-note-link.js, js\app-quick-note.js, js\app-relaymaster.js, js\app-starmap.js, js\app-synthmaster.js, js\app-taskpanel.js, js\app-toolmaster.js, js\app-undo.js, js\app-upload.js, js\app-workbench-drawer.js, js\app-zf3d.js, js\background.js, js\canvas-node-modal-lock.js, js\chat-context-config.js, js\chat-tool-toggles.js, js\chatbox-00-toast.js, js\chatbox-01-model-selector.js, js\chatbox-02-success-arrow.js, js\chatbox-03-chat-interaction.js, js\chatbox-04-message-render.js, js\chatbox-05-message-edit.js, js\chatbox-06-chat-actions.js, js\chatbox-08-drag-export.js, js\chatbox-09-drag-attach.js, js\chatbox-branch-menu.js, js\chatbox-converge-arrow.js, js\chatbox-crew.js, js\chatbox-fit-viewport.js, js\chatbox-flash-links.js, js\chatbox-git-graph.js, js\chatbox-group-follow.js, js\chatbox-multi-arrow.js, js\chatbox-race.js, js\chatbox-relative-restore.js, js\chatbox-summarizer-arrow.js, js\chatbox-thinker-arrow.js, js\chatbox-verify-arrow.js, js\curve-manager.js, js\db.js, js\diverge.js, js\dog-guard-chat.js, js\dom-settings-panel.js, js\download-panel.js, js\drop-sound.js, js\engine-tools-defs.js, js\ext-bridge.js, js\ext-manager.js, js\ext-ui-render.js, js\fps-guard.js, js\freeze-forensics.js, js\hot-reload.js, js\i18n-data-extra.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js, js\i18n.js, js\inline-09.js, js\kg-extract.js, js\kite-observer-chat.js, js\minimap-worker.js, js\model-config-rewrite.js, js\models.js, js\panel-models.js, js\perf-monitor.js, js\project-sync.js, js\rate-limit-panel.js, js\remote\app-remote.js, js\settings-rewrite.js, js\store.js, js\theme.js, js\tools-00-category-state.js, js\tools-02-category-switch.js, js\tools-03-system-prompt.js, js\tools-04-execute.js, js\tools-05-execute-api.js, js\tools-06-card-render.js, js\tools-defs-agent.js, js\tools-defs-dev.js, js\tts.js, js\voice-input.js, js\wake-word.js, promo2\scenes_a.js, promo2\scenes_b.js, promo2\scenes_premium_a.js, promo2\scenes_premium_b.js, promo3\scenes_premium_a.js, promo3\scenes_premium_b.js
+↓  [U+2193]  <- js\agent-04-ask-user.js, js\model-config-rewrite.js
+↔  [U+2194]  <- js\agent-01-project-memory.js, js\app-kite-nodes.js, js\app-kite-panels.js, js\app-medianode-x.js, js\app-minimap-organize.js, js\app-minimap.js, js\app-pipeline.js, js\app-quick-note-link.js, js\chatbox-crew.js, js\chatbox-fit-viewport.js, js\chatbox-group-follow.js, js\chatbox-multi-arrow.js, js\chatbox-race.js, js\chatbox-roles.js, js\ext-bridge.js, promo2\scenes_a.js
+↕  [U+2195]  <- js\app-medianode-x.js
+↗  [U+2197]  <- js\app-canvas-browser-node.js, js\app-canvas-engine-node.js, js\app-mediadrag.js, js\app-taskpanel.js, video-studio.html
+↩  [U+21A9]  <- js\app-canvas-ops.js, js\app-undo.js, js\app-workbench-drawer.js, js\chatbox-roles.js, js\i18n-data-zht.js, js\i18n-data.js, js\timeline-view.js
+↪  [U+21AA]  <- js\app-undo.js, js\app-workbench-drawer.js, js\i18n-data.js
+↶  [U+21B6]  <- canvas\engine2d\scene-editor.html
+↷  [U+21B7]  <- canvas\engine2d\scene-editor.html
+↻  [U+21BB]  <- js\app-canvas-agent.js, js\app-canvas-engine-node.js, js\app-imagenode.js, js\app-taskpanel.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\image-node.js
+⇄  [U+21C4]  <- js\app-workbench-drawer.js
+⇒  [U+21D2]  <- js\agent-01-project-memory.js
+⇥  [U+21E5]  <- js\chatbox-branch-menu.js
+☁  [U+2601]  <- js\app-kite-panels.js, js\app-zf3d.js, js\i18n-data-extra.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js, js\theme.js
+☂  [U+2602]  <- js\theme.js
+☄  [U+2604]  <- js\cursor-fancy.js, js\theme.js
+★  [U+2605]  <- gate-panel.html, js\agent-01-project-memory.js, js\app-batch-run.js, js\app-canvas-browser-node.js, js\app-workbench-drawer.js, js\dom-theme-panel.js, js\model-config-rewrite.js, monitor.html
+☆  [U+2606]  <- js\app-canvas-browser-node.js, js\app-workbench-drawer.js, js\i18n-data-zht.js, js\i18n-data.js, js\settings-rewrite.js, js\theme.js
+☐  [U+2610]  <- js\app-goal-panel.js, js\app-taskpanel.js, js\tools-06-card-render.js
+☕  [U+2615]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+♥  [U+2665]  <- canvas\engine2d\games\pinball\game.js
+♻  [U+267B]  <- js\agent-01-project-memory.js, js\app-backup.js, js\app-medianode-x.js, js\chatbox-crew.js, js\chatbox-multi-arrow.js, js\chatbox-thinker-arrow.js, js\chatbox-verify-arrow.js
+♾  [U+267E]  <- js\dom-settings-panel.js
+⚖  [U+2696]  <- js\chatbox-roles.js, js\i18n-data.js, js\settings-rewrite.js
+⚪  [U+26AA]  <- js\chatbox-03-chat-interaction.js
+⚫  [U+26AB]  <- js\ext-manager.js, js\i18n-data.js, js\settings-rewrite.js
+⚽  [U+26BD]  <- js\chatbox-roles.js
+⛅  [U+26C5]  <- js\app-zf3d.js
+⛈  [U+26C8]  <- js\app-zf3d.js
+⛔  [U+26D4]  <- js\agent-02-loop-core.js, js\app-canvas-agent.js, js\chatbox-race.js, js\rate-limit-panel.js
+⛶  [U+26F6]  <- canvas\设计\viewer.html, js\app-imageviewer.js
+✂  [U+2702]  <- js\agent-protocol-ui.js, js\tools-02-category-switch.js
+✉  [U+2709]  <- js\app-taskpanel.js
+✋  [U+270B]  <- js\app-workbench-drawer.js
+✍  [U+270D]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\tools-02-category-switch.js, js\tools-defs-categories.js
+✎  [U+270E]  <- js\app-filetree.js, js\app-imagenode.js, js\app-kite-core.js, js\app-kite-nodes.js, js\app-kite-panels.js, js\app-minimap.js, js\chatbox-converge-arrow.js, js\chatbox-multi-arrow.js, js\chatbox-summarizer-arrow.js, js\chatbox-thinker-arrow.js, js\chatbox-verify-arrow.js
+✔  [U+2714]  <- js\app-filetree.js, js\chatbox-crew.js, js\i18n.js, js\tools-02-category-switch.js
+✕  [U+2715]  <- canvas\engine2d\bench.html, canvas\engine2d\core-demo.html, canvas\engine2d\demo-game.html, canvas\engine2d\index.html, canvas\engine2d\particles-demo.html, canvas\文档\viewer.html, canvas\白板\viewer.html, canvas\表格\viewer.html, js\app-canvas-arrows.js, js\app-canvas-browser-node.js, js\app-canvas-engine-node.js, js\app-canvas-presentation-node.js, js\app-canvas-video-node.js, js\app-canvas.js, js\app-extras.js, js\app-filetree-boot.js, js\app-filetree.js, js\app-imageviewer.js, js\app-kite-core.js, js\app-kite-nodes.js, js\app-kite-panels.js, js\app-kite-vision.js, js\app-knowledge-graph.js, js\app-mastercluster.js, js\app-pipeline.js, js\app-project.js, js\app-quick-note.js, js\app-tableviewer.js, js\app-toolmaster.js, js\app-workbench-drawer.js, js\chat-tool-toggles.js, js\chatbox-branch-menu.js, js\chatbox-crew.js, js\chatbox-git-graph.js, js\chatbox-header-template.js, js\chatbox-panels-template.js, js\chatbox-role-trace.js, js\chatbox-roles.js, js\dom-boost.js, js\ext-manager.js, js\i18n-data-extra.js, js\i18n-data.js, js\image-node.js, js\panel-models.js, js\project-folder.js, js\project-logpanel.js, js\project-switcher.js, js\timeline-view.js
+✖  [U+2716]  <- canvas\engine2d\scene-editor.html, js\i18n.js
+✗  [U+2717]  <- js\app-canvas-agent.js, js\chatbox-link-stats.js, js\i18n-data-zht.js, js\i18n-data.js, js\panel-image-channels.js, js\panel-mail.js, js\panel-models.js, promo2\scenes_premium_b.js, promo3\scenes_premium_b.js
+✦  [U+2726]  <- canvas\engine2d\demo-game.html, js\app-zf3d.js, js\theme.js, promo2\scenes_premium_a.js, promo3\scenes_premium_a.js
+✧  [U+2727]  <- js\theme.js
+✺  [U+273A]  <- js\theme.js
+✿  [U+273F]  <- js\theme.js
+❄  [U+2744]  <- js\app-zf3d.js, js\chatbox-skin.js, js\theme.js
+❅  [U+2745]  <- js\theme.js
+❐  [U+2750]  <- js\app-canvas-engine-node.js
+➕  [U+2795]  <- canvas\演示\workbench.html, canvas\白板\viewer.html, js\app-memory-panel.js, js\app-project.js, js\i18n-data-extra.js, js\i18n-data.js, js\project-logpanel.js
+➡  [U+27A1]  <- js\app-canvas-ops.js
+➤  [U+27A4]  <- js\app-taskpanel.js, js\chatbox-race.js
+⤴  [U+2934]  <- js\chatbox-crew.js
+⬅  [U+2B05]  <- js\app-canvas-ops.js
+⬚  [U+2B1A]  <- js\app-filetree.js, js\app-workbench-drawer.js
+⬛  [U+2B1B]  <- canvas\演示\workbench.html
+⬜  [U+2B1C]  <- js\app-longplan-panel.js, js\chat-tool-toggles.js
+🅰  [U+1F170]  <- canvas\演示\workbench.html
+🆔  [U+1F194]  <- js\remote\app-remote.js
+🆕  [U+1F195]  <- js\app-instant-relay.js, js\app-workbench-drawer.js
+🇦  [U+1F1E6]  <- js\i18n.js
+🇨  [U+1F1E8]  <- js\i18n.js
+🇩  [U+1F1E9]  <- js\i18n.js
+🇪  [U+1F1EA]  <- js\i18n.js
+🇫  [U+1F1EB]  <- js\i18n.js
+🇮  [U+1F1EE]  <- js\i18n.js
+🇯  [U+1F1EF]  <- js\i18n.js
+🇰  [U+1F1F0]  <- js\i18n.js
+🇳  [U+1F1F3]  <- js\i18n.js
+🇵  [U+1F1F5]  <- js\i18n.js
+🇷  [U+1F1F7]  <- js\i18n.js
+🇸  [U+1F1F8]  <- js\i18n.js
+🇺  [U+1F1FA]  <- js\i18n.js
+🌈  [U+1F308]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\tools-02-category-switch.js
+🌊  [U+1F30A]  <- js\chatbox-roles.js
+🌌  [U+1F30C]  <- js\app-starmap.js, js\chatbox-06-chat-actions.js, js\i18n-data-extra.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js
+🌛  [U+1F31B]  <- js\app-workbench-drawer.js
+🌟  [U+1F31F]  <- js\chatbox-roles.js, js\chatbox-skin.js, js\theme.js
+🌤  [U+1F324]  <- js\app-zf3d.js, js\dom-topbar.js
+🌥  [U+1F325]  <- js\app-workbench-drawer.js
+🌦  [U+1F326]  <- js\app-zf3d.js
+🌧  [U+1F327]  <- js\app-zf3d.js
+🌨  [U+1F328]  <- js\app-zf3d.js
+🌫  [U+1F32B]  <- js\app-zf3d.js
+🌱  [U+1F331]  <- js\app-canvas-agent.js, js\tools-02-category-switch.js
+🌲  [U+1F332]  <- js\chatbox-skin.js
+🌳  [U+1F333]  <- js\app-project.js, js\tools-06-card-render.js
+🌸  [U+1F338]  <- js\chatbox-roles.js
+🌿  [U+1F33F]  <- js\chatbox-03-chat-interaction.js, js\chatbox-branch-menu.js, js\chatbox-panels-template.js
+🍄  [U+1F344]  <- canvas\engine2d\index.html
+🍕  [U+1F355]  <- js\chatbox-roles.js
+🍬  [U+1F36C]  <- js\chatbox-skin.js
+🎈  [U+1F388]  <- js\chatbox-skin.js
+🎉  [U+1F389]  <- js\app-pipeline.js, js\app-taskpanel.js, js\project-logpanel.js
+🎓  [U+1F393]  <- js\app-mastercluster.js, js\app-toolmaster.js, js\chatbox-10-mentor.js, js\chatbox-roles.js, js\tools-02-category-switch.js
+🎙  [U+1F399]  <- js\app-filetree.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\wake-word.js
+🎞  [U+1F39E]  <- js\app-filetree.js, video-studio.html
+🎤  [U+1F3A4]  <- js\app-brain.js, js\app-filetree.js
+🎥  [U+1F3A5]  <- js\app-filetree.js
+🎧  [U+1F3A7]  <- js\agent-02-loop-core.js, video-studio.html
+🎩  [U+1F3A9]  <- js\chatbox-roles.js
+🎫  [U+1F3AB]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\zf-coupon-bubble.js
+🎬  [U+1F3AC]  <- canvas\演示\workbench.html, js\agent-02-loop-core.js, js\app-canvas-video-node.js, js\app-filetree.js, js\app-kite-nodes.js, js\app-kite-panels.js, js\app-kite-vision.js, js\app-minimap.js, js\app-upload.js, js\app-workbench-drawer.js, js\dom-settings-panel.js, promo2\player.html, promo3\player.html, video-studio.html
+🎭  [U+1F3AD]  <- js\agent-01-project-memory.js, js\chatbox-00-toast.js, js\chatbox-roles.js, js\tools-02-category-switch.js
+🎯  [U+1F3AF]  <- js\agent-protocol-ui.js, js\app-flowglam.js, js\app-goal-panel.js, js\app-workbench-drawer.js, js\chatbox-roles.js, js\diverge.js, js\ext-manager.js, js\ext-settings-panel.js, js\tools-02-category-switch.js, promo2\player.html, promo3\player.html
+🎱  [U+1F3B1]  <- canvas\engine2d\index.html
+🎵  [U+1F3B5]  <- js\app-filetree.js, js\app-upload.js
+🎸  [U+1F3B8]  <- js\chatbox-roles.js
+🏁  [U+1F3C1]  <- js\agent-01-project-memory.js, js\app-kite.js, js\tools-06-card-render.js, video-studio.html
+🏃  [U+1F3C3]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+🏆  [U+1F3C6]  <- promo2\scenes_premium_b.js, promo3\scenes_premium_b.js
+🏇  [U+1F3C7]  <- promo2\scenes_b.js
+🏔  [U+1F3D4]  <- js\chatbox-roles.js
+🏞  [U+1F3DE]  <- canvas\engine2d\index.html
+🏠  [U+1F3E0]  <- js\project-folder.js
+🏷  [U+1F3F7]  <- js\tools-02-category-switch.js
+🐍  [U+1F40D]  <- canvas\games\snake\index.html, js\app-filetree.js, js\app-upload.js
+🐎  [U+1F40E]  <- promo2\scenes_premium_b.js, promo3\scenes_premium_b.js
+🐔  [U+1F414]  <- js\chatbox-roles.js
+🐕  [U+1F415]  <- js\agent-01-project-memory.js, js\app-dog-guard.js, js\app-longplan-panel.js, js\app-taskpanel.js, js\dog-guard-chat.js, promo2\scenes_premium_b.js, promo3\scenes_premium_b.js
+🐝  [U+1F41D]  <- js\agent-01-project-memory.js, js\app-canvas-agent.js, js\chatbox-crew.js, js\chatbox-race.js
+🐞  [U+1F41E]  <- js\app-canvas-browser-node.js, js\app-workbench-drawer.js, js\dom-settings-panel.js
+🐣  [U+1F423]  <- js\tools-02-category-switch.js
+🐨  [U+1F428]  <- js\chatbox-roles.js
+🐮  [U+1F42E]  <- js\chatbox-roles.js
+🐯  [U+1F42F]  <- js\chatbox-roles.js
+🐰  [U+1F430]  <- js\chatbox-roles.js
+🐱  [U+1F431]  <- js\chatbox-roles.js
+🐳  [U+1F433]  <- js\engine-tools-defs.js
+🐴  [U+1F434]  <- js\chatbox-roles.js
+🐵  [U+1F435]  <- js\chatbox-roles.js
+🐶  [U+1F436]  <- js\app-dog-guard.js, js\chatbox-roles.js, js\dog-guard-chat.js
+🐷  [U+1F437]  <- js\chatbox-roles.js
+🐸  [U+1F438]  <- js\chatbox-roles.js
+🐹  [U+1F439]  <- js\chatbox-roles.js
+🐺  [U+1F43A]  <- js\chatbox-roles.js
+🐻  [U+1F43B]  <- js\chatbox-roles.js
+🐼  [U+1F43C]  <- js\app-kite.js, js\chatbox-roles.js
+🐾  [U+1F43E]  <- js\app-dog-guard.js
+👀  [U+1F440]  <- js\app-health.js
+👉  [U+1F449]  <- js\app-zf3d.js, js\tools-05-execute-api.js
+👏  [U+1F44F]  <- js\tools-02-category-switch.js
+👷  [U+1F477]  <- js\chatbox-race.js, js\diverge.js
+👸  [U+1F478]  <- js\chatbox-roles.js
+👻  [U+1F47B]  <- js\chatbox-roles.js
+👽  [U+1F47D]  <- js\chatbox-roles.js
+💀  [U+1F480]  <- js\app-workbench-drawer.js
+💄  [U+1F484]  <- js\tools-02-category-switch.js
+💎  [U+1F48E]  <- js\chatbox-roles.js, js\tools-02-category-switch.js
+💗  [U+1F497]  <- js\tools-02-category-switch.js
+💙  [U+1F499]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+💚  [U+1F49A]  <- js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data.js, js\panel-log-health.js
+💠  [U+1F4A0]  <- canvas\演示\workbench.html
+💣  [U+1F4A3]  <- js\app-kite.js
+💤  [U+1F4A4]  <- js\dog-guard-chat.js
+💪  [U+1F4AA]  <- js\app-health.js
+💭  [U+1F4AD]  <- js\tools-02-category-switch.js
+💰  [U+1F4B0]  <- js\agent-02-loop-core.js, js\app-zf3d.js
+💳  [U+1F4B3]  <- js\agent-02-loop-core.js, js\app-zf3d.js
+💻  [U+1F4BB]  <- js\chatbox-roles.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\project-folder.js, js\tools-defs-categories.js
+📂  [U+1F4C2]  <- canvas\思维导图\viewer.html, canvas\文档\viewer.html, canvas\演示\viewer.html, canvas\白板\viewer.html, canvas\表格\viewer.html, canvas\设计\viewer.html, js\app-project.js, js\app-quick-create.js, js\app-undo.js, js\app-upload.js, js\app-workbench-drawer.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js, js\project-folder.js, js\project-logpanel.js, js\project-switcher.js, js\tools-06-card-render.js
+📄  [U+1F4C4]  <- canvas\文档\viewer.html, canvas\演示\doc.html, canvas\演示\viewer.html, canvas\表格\viewer.html, js\app-canvas-presentation-node.js, js\app-filetree.js, js\app-undo.js, js\app-upload.js, js\app-workbench-drawer.js, js\app-workbench-viewer.js, js\chatbox-00-toast.js, js\chatbox-04-message-render.js, js\chatbox-05-message-edit.js, js\chatbox-config-widgets.js, js\chatbox-panels-template.js, js\chatbox-skin.js, js\chatbox-thinker-arrow.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\tools-05-execute-api.js, js\tools-06-card-render.js, js\tools-defs-categories.js
+📈  [U+1F4C8]  <- js\tools-02-category-switch.js
+📊  [U+1F4CA]  <- canvas\演示\sheet.html, js\agent-02-loop-core.js, js\app-canvas-presentation-node.js, js\app-logmaster.js, js\app-mastercluster.js, js\app-taskpanel.js, js\app-upload.js, js\chatbox-branch-menu.js, js\chatbox-git-graph.js, js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data.js, js\panel-log-health.js, js\panel-token-usage.js, js\project-logpanel.js, js\project-toolstats.js, js\tools-02-category-switch.js, js\tools-06-card-render.js
+📌  [U+1F4CC]  <- js\app-canvas-agent.js, js\app-canvas-browser-node.js, js\app-canvas-ops.js, js\app-filetree.js, js\app-quick-note.js, js\app-workbench-drawer.js, js\chatbox-05-message-edit.js, js\project-logpanel.js, js\tools-02-category-switch.js, js\tools-05-execute-api.js
+📍  [U+1F4CD]  <- js\app-kite-panels.js, js\app-minimap-organize.js, js\app-minimap.js, js\app-quick-note.js, js\tools-05-execute-api.js
+📎  [U+1F4CE]  <- js\app-filetree.js, js\app-upload.js, js\chatbox-05-message-edit.js, js\chatbox-09-drag-attach.js
+📏  [U+1F4CF]  <- js\tools-06-card-render.js
+📐  [U+1F4D0]  <- canvas\演示\workbench.html, js\tools-02-category-switch.js
+📑  [U+1F4D1]  <- js\app-workbench-drawer.js, js\panel-docs-sync.js
+📒  [U+1F4D2]  <- js\app-dog-guard.js
+📕  [U+1F4D5]  <- canvas\演示\pdf.html, js\app-canvas-presentation-node.js, js\app-upload.js
+📗  [U+1F4D7]  <- js\app-upload.js
+📘  [U+1F4D8]  <- js\app-upload.js
+📚  [U+1F4DA]  <- js\agent-protocol-ui.js, js\app-workbench-drawer.js, js\chatbox-roles.js
+📜  [U+1F4DC]  <- js\app-filetree.js, js\app-longplan-panel.js, js\app-taskpanel.js, js\app-toolmaster.js, js\app-upload.js, js\chatbox-header-template.js, js\chatbox-role-trace.js, js\diverge.js, js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\remote\app-remote.js
+📞  [U+1F4DE]  <- js\remote\app-remote.js
+📟  [U+1F4DF]  <- js\app-canvas-browser-node.js
+📡  [U+1F4E1]  <- js\remote\app-remote.js
+📤  [U+1F4E4]  <- js\app-backup.js, js\app-canvas-ops.js, js\app-taskpanel.js, js\chatbox-crew.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+📥  [U+1F4E5]  <- js\app-backup.js, js\app-instant-relay.js, js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+📦  [U+1F4E6]  <- js\app-backup.js, js\app-extras.js, js\app-filetree.js, js\app-plugins-center.js, js\app-upload.js, js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\tools-05-execute-api.js, js\tools-06-card-render.js, js\tools-settings.js, promo2\scenes_premium_a.js, promo3\scenes_premium_a.js
+📧  [U+1F4E7]  <- js\dom-settings-panel.js, js\i18n-data-extra.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js, js\tools-06-card-render.js
+📨  [U+1F4E8]  <- js\chatbox-race.js
+📮  [U+1F4EE]  <- js\dom-settings-panel.js
+📸  [U+1F4F8]  <- js\app-backup.js, js\app-undo.js
+🔀  [U+1F500]  <- js\app-canvas-browser-node.js, js\chatbox-branch-menu.js, js\diverge.js, js\tools-02-category-switch.js
+🔁  [U+1F501]  <- js\app-canvas-ops.js, js\engine-tools-defs.js, js\tools-05-execute-api.js, js\tools-06-card-render.js, js\tools-defs-core.js
+🔄  [U+1F504]  <- js\agent-02-loop-core.js, js\api-key-quick-dialog.js, js\app-auto-resume.js, js\app-backup.js, js\app-canvas-browser-node.js, js\app-extras.js, js\app-health.js, js\app-instant-relay.js, js\app-medianode-x.js, js\app-undo.js, js\app-zf3d.js, js\dom-boost.js, js\i18n-data-zht.js, js\i18n-data.js, js\inline-09.js, js\timeline-view.js, js\tools-02-category-switch.js, js\tools-06-card-render.js, video-studio.html
+🔇  [U+1F507]  <- js\app-filetree.js, js\tts.js
+🔌  [U+1F50C]  <- js\agent-protocol-ui.js, js\ext-manager.js, js\ext-settings-panel.js, js\tools-06-card-render.js
+🔎  [U+1F50E]  <- js\tools-06-card-render.js
+🔐  [U+1F510]  <- js\ext-settings-panel.js, vault.html
+🔓  [U+1F513]  <- canvas\engine2d\scene-editor.html, js\app-canvas-ops.js, js\app-workbench-drawer.js
+🔘  [U+1F518]  <- canvas\演示\workbench.html
+🔤  [U+1F524]  <- canvas\演示\workbench.html, js\app-memory-panel.js
+🔧  [U+1F527]  <- js\app-kite.js, js\app-taskpanel.js, js\app-toolmaster.js, js\chat-tool-toggles.js, js\chatbox-crew.js, js\chatbox-header-template.js, js\chatbox-panels-template.js, js\chatbox-role-trace.js, js\mode_panel_loader.js, js\model-config-rewrite.js, js\panel-copy.js, js\project-logpanel.js, js\project-toolstats.js, js\tools-02-category-switch.js, js\tools-06-card-render.js
+🔫  [U+1F52B]  <- canvas\engine2d\index.html
+🔬  [U+1F52C]  <- js\chatbox-roles.js, js\tools-02-category-switch.js
+🔮  [U+1F52E]  <- js\app-knowledge-graph.js, js\canvas\kg-tools-defs.js
+🔴  [U+1F534]  <- js\app-filetree.js, js\app-taskpanel.js, js\app-zf3d.js, js\inline-09.js, js\project-logpanel.js
+🔵  [U+1F535]  <- js\app-quick-note-link.js, js\app-taskpanel.js
+🔸  [U+1F538]  <- js\dom-fab.js, js\dom-settings-panel.js, js\dom-side-panels.js, js\i18n-data-multi.js, js\i18n-data-zht.js
+🔽  [U+1F53D]  <- js\project-logpanel.js
+🕓  [U+1F553]  <- js\panel-docs-sync.js
+🕘  [U+1F558]  <- js\app-workbench-drawer.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+🕰  [U+1F570]  <- js\timeline-view.js
+🕶  [U+1F576]  <- js\app-incognito-master.js, js\app-mastercluster.js
+🕸  [U+1F578]  <- js\theme.js
+🖍  [U+1F58D]  <- canvas\白板\viewer.html, js\app-kite-vision.js
+🖐  [U+1F590]  <- js\app-canvas-browser-node.js
+🖨  [U+1F5A8]  <- canvas\思维导图\viewer.html, canvas\文档\viewer.html, canvas\演示\viewer.html, canvas\白板\viewer.html, canvas\表格\viewer.html
+🗂  [U+1F5C2]  <- js\app-batch-run.js, js\app-filetree.js, js\app-tableviewer.js, js\app-undo.js, js\tools-06-card-render.js
+🗄  [U+1F5C4]  <- js\app-tableviewer.js, js\app-upload.js, js\dom-settings-panel.js
+🗜  [U+1F5DC]  <- js\app-backup.js
+🗺  [U+1F5FA]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+🗿  [U+1F5FF]  <- js\app-workbench-drawer.js
+😈  [U+1F608]  <- js\tools-02-category-switch.js
+😎  [U+1F60E]  <- js\app-kite.js
+🙂  [U+1F642]  <- js\app-kite.js
+🙆  [U+1F646]  <- js\app-health.js
+🙈  [U+1F648]  <- js\panel-models.js
+🚦  [U+1F6A6]  <- js\app-kite.js
+🚧  [U+1F6A7]  <- js\agent-01-project-memory.js, js\app-kite-core.js, js\diverge.js
+🚨  [U+1F6A8]  <- js\tools-02-category-switch.js
+🚫  [U+1F6AB]  <- js\panel-models.js, js\theme.js
+🚶  [U+1F6B6]  <- js\tools-02-category-switch.js
+🛒  [U+1F6D2]  <- js\ext-manager.js
+🛠  [U+1F6E0]  <- js\dom-settings-panel.js, js\project-logpanel.js, promo2\scenes_premium_a.js, promo2\scenes_premium_b.js, promo3\scenes_premium_a.js, promo3\scenes_premium_b.js
+🛸  [U+1F6F8]  <- canvas\engine2d\index.html, js\chatbox-roles.js, js\chatbox-skin.js
+🟠  [U+1F7E0]  <- js\app-kite.js, js\chatbox-race.js, js\project-logpanel.js
+🟡  [U+1F7E1]  <- js\app-taskpanel.js, js\app-zf3d.js
+🟢  [U+1F7E2]  <- js\app-backup.js, js\app-kite.js, js\app-taskpanel.js, js\app-zf3d.js, js\chatbox-race.js, js\dog-guard-chat.js, js\ext-manager.js, js\i18n-data-zht.js, js\i18n-data.js, js\settings-rewrite.js
+🟣  [U+1F7E3]  <- js\app-kite.js
+🤓  [U+1F913]  <- js\app-kite.js
+🤝  [U+1F91D]  <- js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+🤠  [U+1F920]  <- js\chatbox-roles.js
+🤴  [U+1F934]  <- js\chatbox-roles.js
+🤸  [U+1F938]  <- js\app-health.js
+🥧  [U+1F967]  <- js\engine-tools-defs.js
+🥷  [U+1F977]  <- js\chatbox-roles.js
+🦀  [U+1F980]  <- js\engine-tools-defs.js
+🦁  [U+1F981]  <- js\chatbox-roles.js
+🦄  [U+1F984]  <- js\chatbox-roles.js
+🦉  [U+1F989]  <- js\chatbox-roles.js
+🦊  [U+1F98A]  <- js\app-kite.js, js\chatbox-roles.js
+🦵  [U+1F9B5]  <- js\app-health.js
+🦸  [U+1F9B8]  <- canvas\engine2d\index.html, js\chatbox-roles.js
+🧊  [U+1F9CA]  <- js\app-filetree.js, js\chatbox-skin.js, js\freeze-forensics.js, js\tools-defs-dcc.js
+🧍  [U+1F9CD]  <- canvas\engine2d\index.html
+🧑  [U+1F9D1]  <- js\app-kite.js, js\chatbox-08-drag-export.js, js\panel-copy.js, js\panel-log-health.js
+🧘  [U+1F9D8]  <- js\panel-log-health.js
+🧙  [U+1F9D9]  <- js\app-mastercluster.js, js\app-toolmaster.js, js\chatbox-roles.js
+🧚  [U+1F9DA]  <- js\chatbox-roles.js
+🧛  [U+1F9DB]  <- js\chatbox-roles.js
+🧜  [U+1F9DC]  <- js\chatbox-roles.js
+🧟  [U+1F9DF]  <- js\chatbox-roles.js
+🧠  [U+1F9E0]  <- js\agent-01-project-memory.js, js\agent-protocol-ui.js, js\app-brain.js, js\app-flowglam.js, js\app-logmaster.js, js\app-mastercluster.js, js\app-memory-panel.js, js\chatbox-01-model-selector.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js, js\project-logpanel.js, js\settings-rewrite.js, promo2\scenes_premium_a.js, promo2\scenes_premium_b.js, promo3\scenes_premium_a.js, promo3\scenes_premium_b.js
+🧩  [U+1F9E9]  <- canvas\演示\workbench.html, js\app-flowglam.js, js\app-mastercluster.js, js\app-synthmaster.js, js\ext-manager.js, js\ext-settings-panel.js, js\ext-ui-render.js, js\i18n-data-extra.js, js\i18n-data.js
+🧪  [U+1F9EA]  <- js\app-canvas-ops.js, js\i18n-data-zht.js, js\i18n-data.js, js\panel-models.js, js\settings-rewrite.js
+🧬  [U+1F9EC]  <- js\app-canvas-agent.js, js\app-mastercluster.js, js\canvas\canvas-tools-defs.js
+🧭  [U+1F9ED]  <- js\agent-01-project-memory.js, js\app-canvas-ops.js, js\app-minimap.js, js\chatbox-roles.js, js\dom-canvas.js, js\i18n-data-extra.js, js\i18n-data-zht.js, js\i18n-data.js
+🧰  [U+1F9F0]  <- js\app-canvas-browser-node.js, js\app-minimap.js
+🧹  [U+1F9F9]  <- js\app-filemaster.js, js\app-mastercluster.js, js\app-plugins-center.js, js\app-workbench-drawer.js, js\chatbox-crew.js, js\chatbox-race.js, js\model-config-rewrite.js
+🧾  [U+1F9FE]  <- js\app-filetree.js, js\tools-02-category-switch.js
+🩺  [U+1FA7A]  <- js\chatbox-roles.js, js\dom-settings-panel.js
+🪁  [U+1FA81]  <- js\app-kite.js, js\kite-observer-chat.js, promo2\scenes_premium_b.js, promo3\scenes_premium_b.js
+🪐  [U+1FA90]  <- js\app-starmap.js, js\theme.js
+🪝  [U+1FA9D]  <- js\tools-02-category-switch.js
+🪰  [U+1FAB0]  <- js\theme.js
+🪶  [U+1FAB6]  <- js\dom-settings-panel.js
+🫧  [U+1FAE7]  <- js\i18n-data-extra.js, js\i18n-data-multi.js, js\i18n-data-zht.js, js\i18n-data.js, js\theme.js

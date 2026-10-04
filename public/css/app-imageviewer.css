@@ -1,0 +1,176 @@
+/* ========== app-imageviewer.css - 浮动「图片或视频查看」面板（重做版） ==========
+   fixed 视口定位（挂 body）：默认视口右上角，不再受画布平移/缩放影响 */
+
+.iv-float-panel {
+    position: fixed; /* 挂 body，视口坐标 —— 不随画布跑 */
+    z-index: 100010;
+    display: none;
+    flex-direction: column;
+    width: 480px;
+    height: 380px;
+    min-width: 280px;
+    min-height: 220px;
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    user-select: none;
+    box-sizing: border-box;
+}
+
+/* --- 标题栏 --- */
+.iv-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 36px;
+    padding: 0 8px;
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    cursor: move;
+}
+.iv-header:active { cursor: grabbing; }
+.iv-title {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.iv-close,
+.iv-float-panel .iv-btn {
+    border: 0;
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+}
+.iv-close:hover,
+.iv-float-panel .iv-btn:hover {
+    color: var(--text);
+    background: var(--border);
+}
+.iv-float-panel .iv-btn:disabled { opacity: 0.4; cursor: default; }
+.iv-float-panel .iv-btn:disabled:hover { background: none; color: var(--text2); }
+
+/* --- 媒体舞台 --- */
+.iv-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.22);
+    cursor: grab;
+}
+.iv-stage.iv-grabbing { cursor: grabbing; }
+
+.iv-img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+    max-width: none;
+    max-height: none;
+    pointer-events: none;
+}
+
+.iv-video {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+    max-width: none;
+    max-height: none;
+    background: #000;
+    border-radius: 4px;
+}
+
+.iv-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    color: var(--text2);
+    font-size: 13px;
+    line-height: 1.8;
+    text-align: center;
+}
+.iv-empty span { font-size: 12px; opacity: 0.85; }
+
+/* --- 底部工具条 --- */
+.iv-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 34px;
+    padding: 0 8px;
+    background: var(--bg-hover);
+    border-top: 1px solid var(--border);
+}
+.iv-scale {
+    min-width: 46px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text2);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- 最大化模式 --- */
+.iv-float-panel.iv-max {
+    z-index: 100020;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.65);
+    resize: none;
+}
+
+.iv-hint {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text2);
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- 右下角调整尺寸手柄 --- */
+.iv-resize-grip {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    z-index: 3;
+    background:
+        linear-gradient(135deg, transparent 50%, var(--border) 50%, var(--border) 55%, transparent 55%, transparent 70%, var(--border) 70%, var(--border) 75%, transparent 75%);
+}
+
+/* ===== 浅色主题 ===== */
+[data-theme="light"] .iv-float-panel {
+    background: #fff !important;
+    border-color: rgba(60, 100, 160, 0.18) !important;
+    box-shadow: 0 8px 32px rgba(33, 102, 209, 0.12) !important;
+}
+[data-theme="light"] .iv-header { background: #f5f9ff !important; border-bottom-color: rgba(60, 100, 160, 0.15) !important; }
+[data-theme="light"] .iv-footer { background: #f5f9ff !important; border-top-color: rgba(60, 100, 160, 0.15) !important; }
+[data-theme="light"] .iv-close,
+[data-theme="light"] .iv-float-panel .iv-btn { color: #5a6b85 !important; }
+[data-theme="light"] .iv-close:hover,
+[data-theme="light"] .iv-float-panel .iv-btn:hover { background: rgba(60, 100, 160, 0.12) !important; color: #333 !important; }
+[data-theme="light"] .iv-scale { color: #5a6b85 !important; }
+[data-theme="light"] .iv-stage { background: #eef3fb !important; }
+[data-theme="light"] .iv-empty { color: #5a6b85 !important; }
+[data-theme="light"] .iv-empty span { color: #8a9bb5 !important; }
+[data-theme="light"] .iv-hint { color: #8a9bb5 !important; }
