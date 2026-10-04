@@ -20,7 +20,7 @@
 /* ========== 设置弹窗专用布局（左侧导航 + 右侧内容） ========== */
 .settings-modal{
     width:90vw;max-width:960px;height:85vh;max-height:780px;
-    display:flex !important;flex-direction:row;padding:0;
+    display:flex !important;flex-direction:row;padding:5px;gap:5px;
     background:var(--bg-primary,#fff);border-radius:12px;overflow:hidden;
     position:relative;
 }
