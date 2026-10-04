@@ -275,7 +275,6 @@ def _set_window_icon(window):
             user32.SendMessageW(ctypes.c_void_p(hwnd), 0x80, None, ctypes.c_void_p(hsmall))
         # 通知任务栏刷新
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)
-        print('[WebView] 已设置窗口图标:', ico)
     except Exception as e:
         print('[WebView] 设置图标失败:', e)
 
@@ -289,6 +288,18 @@ def _boot_window(window):
         _set_window_icon(window)
     except Exception as e:
         print('[WebView] 图标初始化失败:', e)
+    # 图标保活：WebView2 在最小化/还原/多次切换窗口后会重置图标为默认，
+    # 用后台线程周期性重新设置 WM_SETICON，保证任务栏图标始终是我们的标志
+    import threading
+    def _icon_keepalive():
+        import time
+        while True:
+            time.sleep(3)
+            try:
+                _set_window_icon(window)
+            except Exception:
+                pass
+    threading.Thread(target=_icon_keepalive, daemon=True).start()
     # 强制确保窗口可见并置前（防止初始隐藏/被其他窗口盖住导致"打开了却看不到"）
     try:
         import ctypes
