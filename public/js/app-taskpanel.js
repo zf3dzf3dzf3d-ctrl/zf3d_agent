@@ -560,6 +560,12 @@ Object.assign(App, {
         void panel.offsetWidth; // 强制回流，防止合成器跳过重绘
         if (overlay) overlay.classList.add('show');
         this._taskPanelOpen = true;
+        // 修复：面板打开时窗口控制条(最小化/最大化/关闭)左移让位，避免被面板盖住
+        var winCtrl = document.getElementById('zfWinCtrl');
+        if (winCtrl) {
+            var w = getComputedStyle(panel).getPropertyValue('--task-panel-width').trim() || '650px';
+            winCtrl.style.right = w;
+        }
         // 右下角底栏跟随隐藏（下滑动画），把手留出可展开
         // 底栏固定显示，无需同步隐藏
         if (this._taskActiveTab === 'chat') {
@@ -576,6 +582,9 @@ Object.assign(App, {
         panel.classList.remove('open');
         if (overlay) overlay.classList.remove('show');
         this._taskPanelOpen = false;
+        // 修复：面板关闭时窗口控制条复位到右上角
+        var winCtrl = document.getElementById('zfWinCtrl');
+        if (winCtrl) winCtrl.style.right = '0';
         // 底栏跟随恢复（滑回动画）
         // 底栏固定显示，无需同步隐藏
         // 面板关闭后取消底栏按钮高亮，避免对话已关闭仍显示蓝色激活态
