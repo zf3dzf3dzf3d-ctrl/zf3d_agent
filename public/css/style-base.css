@@ -934,7 +934,7 @@ background-image:
         radial-gradient(2.4px 2.4px at 14% 6%, rgba(255,255,255,.6) 0%, transparent 60%),
         radial-gradient(1.4px 1.4px at 76% 50%, rgba(255,255,255,.45) 0%, transparent 60%),
         radial-gradient(1.6px 1.6px at 48% 54%, rgba(255,255,255,.5) 0%, transparent 60%),
-        linear-gradient(180deg, #b3d4f5 0%, #d6e8fb 45%, #e9f2fc 100%) !important;
+        linear-gradient(180deg, #e9f2fc 0%, #d6e8fb 45%, #b3d4f5 100%) !important;
 }
 
 [data-theme="light"] .canvas-area::before {

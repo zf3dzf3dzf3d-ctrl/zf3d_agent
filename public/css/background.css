@@ -140,7 +140,7 @@ body.bg-image-dark .bg-custom-layer::after {
 .bg-fx-sun {
     background:
         radial-gradient(circle at 85% 12%, rgba(255, 240, 180, 0.75) 0%, rgba(255, 220, 130, 0.35) 8%, transparent 22%),
-        linear-gradient(180deg, rgba(120, 190, 255, 0.18) 0%, rgba(180, 225, 255, 0.10) 50%, transparent 100%);
+        linear-gradient(180deg, transparent 0%, rgba(180, 225, 255, 0.10) 50%, rgba(120, 190, 255, 0.18) 100%);
 }
 
 /* ============================================================

@@ -1218,7 +1218,7 @@
 
         .msg.user {
 
-            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.20) 0%, rgba(var(--blue-rgb), 0.12) 100%);
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.12) 0%, rgba(var(--blue-rgb), 0.20) 100%);
 
             border-left: 3px solid var(--border);
 
@@ -1228,7 +1228,7 @@
 
         .msg.ai {
 
-            background: linear-gradient(135deg, rgba(var(--accent-rgb, 126, 87, 194), 0.14) 0%, rgba(var(--accent-rgb, 94, 70, 158), 0.06) 100%);
+            background: linear-gradient(135deg, rgba(var(--accent-rgb, 126, 87, 194), 0.06) 0%, rgba(var(--accent-rgb, 94, 70, 158), 0.14) 100%);
 
             border-left: 3px solid var(--accent, #7a5ac2);
 
@@ -1256,7 +1256,7 @@
 
         .msg.ai-final {
 
-            background: linear-gradient(135deg, rgba(var(--accent-rgb, 46, 160, 67), 0.16) 0%, rgba(var(--accent-rgb, 30, 120, 50), 0.07) 100%);
+            background: linear-gradient(135deg, rgba(var(--accent-rgb, 46, 160, 67), 0.07) 0%, rgba(var(--accent-rgb, 30, 120, 50), 0.16) 100%);
 
             border-left: 3px solid var(--accent, #2ea043);
 
@@ -1340,7 +1340,7 @@
 
             gap: 8px;
 
-            background: linear-gradient(135deg, rgba(126, 87, 194, 0.12) 0%, rgba(94, 70, 158, 0.06) 100%);
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.06) 0%, rgba(94, 70, 158, 0.12) 100%);
 
             border-left: 3px solid #7a5ac2;
 
@@ -2706,7 +2706,7 @@
 
         .msg.user.msg-editing {
 
-            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.30) 0%, rgba(0, 100, 180, 0.18) 100%);
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.18) 0%, rgba(0, 100, 180, 0.30) 100%);
 
             border-left: 3px solid #2196f3;
 
@@ -2902,7 +2902,7 @@
 
 [data-theme="light"] .msg.user.msg-editing {
 
-            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.18) 0%, rgba(0,100,180,0.10) 100%);
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.10) 0%, rgba(0,100,180,0.18) 100%);
 
         }
 

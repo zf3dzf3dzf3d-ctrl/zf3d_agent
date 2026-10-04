@@ -1811,7 +1811,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.user {
 
-            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.12) 0%, rgba(var(--blue-rgb), 0.06) 100%);
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.06) 0%, rgba(var(--blue-rgb), 0.12) 100%);
 
             border-left: 3px solid var(--border);
 
@@ -1821,7 +1821,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.ai {
 
-            background: linear-gradient(135deg, rgba(126,87,194,0.08) 0%, rgba(94,70,158,0.04) 100%);
+            background: linear-gradient(135deg, rgba(126,87,194,0.04) 0%, rgba(94,70,158,0.08) 100%);
 
             border-left: 3px solid #7c3aed;
 
@@ -1831,7 +1831,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.typing {
 
-            background: linear-gradient(135deg, rgba(126,87,194,0.08) 0%, rgba(94,70,158,0.04) 100%);
+            background: linear-gradient(135deg, rgba(126,87,194,0.04) 0%, rgba(94,70,158,0.08) 100%);
 
             border-left: 3px solid #7c3aed;
 
@@ -4877,7 +4877,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.user {
 
-            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.12) 0%, rgba(var(--blue-rgb), 0.06) 100%);
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.06) 0%, rgba(var(--blue-rgb), 0.12) 100%);
 
             border-left: 3px solid var(--border);
 
@@ -4887,7 +4887,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.ai {
 
-            background: linear-gradient(135deg, rgba(126,87,194,0.08) 0%, rgba(94,70,158,0.04) 100%);
+            background: linear-gradient(135deg, rgba(126,87,194,0.04) 0%, rgba(94,70,158,0.08) 100%);
 
             border-left: 3px solid #7c3aed;
 
@@ -4897,7 +4897,7 @@ body.qc-open .minimap {
 
         [data-theme="light"] .msg.typing {
 
-            background: linear-gradient(135deg, rgba(126,87,194,0.08) 0%, rgba(94,70,158,0.04) 100%);
+            background: linear-gradient(135deg, rgba(126,87,194,0.04) 0%, rgba(94,70,158,0.08) 100%);
 
             border-left: 3px solid #7c3aed;
 
