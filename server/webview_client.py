@@ -314,6 +314,7 @@ def _run_window():
         background_color='#181a30',
         frameless=True,          # 去掉系统标题栏
         easy_drag=False,         # 拖动由网页顶栏接管
+        text_select=True,        # 允许页面文字选中（默认 False 会全局注入 user-select:none，导致对话框文字无法框选）
         js_api=ZFWindowApi(),    # 网页可调用 pywebview.api.*
     )
     webview.start(_boot_window, _win, icon=ico if os.path.exists(ico) else None)
