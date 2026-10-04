@@ -298,6 +298,11 @@
 [data-theme="light"] .ft-panel .ft-nav-btn svg,
 [data-theme="light"] .ft-panel .ft-icon svg,
 [data-theme="light"] .ft-panel .ft-icon svg * { stroke: #2b3a4d !important; }
+/* 白色风格：顶部路径栏/输入框改为浅色 */
+[data-theme="light"] .ft-panel .ft-breadcrumb { background: rgba(255,255,255,0.92) !important; border-bottom: 1px solid rgba(60,100,160,0.18); }
+[data-theme="light"] .ft-panel .ft-crumb-input { color: #1f2430 !important; background: transparent; caret-color: #1f2430; }
+[data-theme="light"] .ft-panel input.ft-nav-btn#ftFilterInput { background: #ffffff; color: #1f2430; border: 1px solid rgba(60,100,160,0.25); border-radius: 5px; }
+[data-theme="light"] .ft-panel .ft-crumb { color: #2b3a4d; }
 @keyframes ftRecBlink { 50% { opacity: 0.35; } }
 
 /* ===== 文件面板最小化 dock（类 macOS）===== */
