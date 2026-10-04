@@ -1,0 +1,103 @@
+Metadata-Version: 2.1
+Name: baostock
+Version: 0.9.2
+Summary: A tool for obtaining historical data of China stock market
+Home-page: http://www.baostock.com
+Author: baostock
+Author-email: baostock@163.com
+License: BSD License
+Platform: all
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries
+Requires-Dist: pandas>=0.18.0
+
+
+BaoStock
+===============
+
+* It's easy to use because most of the data returned are pandas DataFrame objects
+* We have our own data server, efficient and stable operation
+* Free china stock market data
+* Friendly to machine learning and data mining
+
+Target Users
+--------------
+
+* China Financial Market Analyst
+* Financial data analysis enthusiasts
+* Quanters who are interested in china stock market
+
+Installation
+--------------
+
+    pip install baostock
+
+Upgrade
+---------------
+
+    pip install baostock --upgrade
+
+Quick Start
+--------------
+
+::
+
+	import baostock as bs
+	import pandas as pd
+
+	#### 登陆系统 ####
+	lg = bs.login()
+	# 显示登陆返回信息
+	print('login respond error_code:'+lg.error_code)
+	print('login respond  error_msg:'+lg.error_msg)
+
+	#### 获取历史K线数据 ####
+	# 详细指标参数，参见“历史行情指标参数”章节
+	rs = bs.query_history_k_data_plus("sh.600000",
+		"date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,peTTM,pbMRQ,psTTM,pcfNcfTTM,isST",
+		start_date='2025-06-01', end_date='2025-12-31',
+		frequency="d", adjustflag="2") #frequency="d"取日k线，adjustflag="3"默认不复权，"2"前复权
+
+	print('query_history_k_data_plus respond error_code:'+rs.error_code)
+	print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)
+
+	#### 打印结果集 ####
+	data_list = []
+	while (rs.error_code == '0') & rs.next():
+		# 获取一条记录，将记录合并在一起
+		data_list.append(rs.get_row_data())
+	result = pd.DataFrame(data_list, columns=rs.fields)
+	#### 结果集输出到csv文件 ####
+	result.to_csv("D:/history_k_data.csv", encoding="gbk", index=False)
+	print(result)
+
+	#### 登出系统 ####
+	bs.logout()
+
+return::
+
+	login success!
+	login respond error_code:0
+	login respond  error_msg:success
+	query_history_k_data_plus respond error_code:0
+	query_history_k_data_plus respond  error_msg:success
+	date       code           open  ...     psTTM  pcfNcfTTM isST
+	0    2025-06-03  sh.600000  11.9476797700  ...  2.148197  -9.209045    0
+	1    2025-06-04  sh.600000  12.1126761600  ...  2.120788  -9.091545    0
+	2    2025-06-05  sh.600000  12.0544421400  ...  2.110509  -9.047483    0
+	3    2025-06-06  sh.600000  11.9670911100  ...  2.110509  -9.047483    0
+	4    2025-06-09  sh.600000  11.9476797700  ...  2.108796  -9.040139    0
+	..          ...        ...            ...  ...       ...        ...  ...
+	141  2025-12-25  sh.600000  11.8000000000  ...  2.263479  -1.849434    0
+	142  2025-12-26  sh.600000  11.7700000000  ...  2.253864  -1.841577    0
+	143  2025-12-29  sh.600000  11.7400000000  ...  2.340403  -1.912286    0
+	144  2025-12-30  sh.600000  12.1700000000  ...  2.382711  -1.946855    0
+	145  2025-12-31  sh.600000  12.3500000000  ...  2.392326  -1.954712    0
+
+
+

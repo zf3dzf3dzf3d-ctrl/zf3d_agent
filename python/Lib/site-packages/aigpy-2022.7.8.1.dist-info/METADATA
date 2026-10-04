@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: aigpy
+Version: 2022.7.8.1
+Summary: Python Common Tool
+Home-page: UNKNOWN
+Author: Yaronzz
+Author-email: yaronhuang@foxmail.com
+License: MIT Licence
+Platform: any
+Requires-Dist: requests
+Requires-Dist: colorama
+Requires-Dist: mutagen
+
+UNKNOWN
+
+

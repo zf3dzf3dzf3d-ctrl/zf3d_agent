@@ -1,8 +1,7 @@
 python311.zip
 .
+DLLs
 Lib
 Lib\site-packages
-C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Lib
-C:\Users\Administrator\AppData\Local\Programs\Python\Python311\DLLs
 
 #import site
