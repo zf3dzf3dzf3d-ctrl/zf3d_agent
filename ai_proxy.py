@@ -20,7 +20,21 @@ try:
 except Exception:
     ZFC = None
 
-DB_PATH = os.environ.get('AI_DB', r'E:\work\web\private\zf3d.db')
+# 三级兜底：1) 环境变量 2) 程序根目录 private\zf3d.db（客户端安装环境）3) 站方服务器路径
+def _resolve_db_path():
+    env = os.environ.get('AI_DB')
+    if env:
+        return env
+    try:
+        root = os.path.dirname(os.path.abspath(__file__))
+        local = os.path.join(root, 'private', 'zf3d.db')
+        os.makedirs(os.path.dirname(local), exist_ok=True)
+        return local
+    except Exception:
+        pass
+    return r'E:\work\web\private\zf3d.db'
+
+DB_PATH = _resolve_db_path()
 # 主站库（充值余额唯一来源：users.token_balance）
 
 # ---------- api_token 加密存储（安全加固：库里不再存明文） ----------
