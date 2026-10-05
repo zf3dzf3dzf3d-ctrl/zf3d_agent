@@ -20,16 +20,33 @@ try:
 except Exception:
     ZFC = None
 
-# 三级兜底：1) 环境变量 2) 程序根目录 private\zf3d.db（客户端安装环境）3) 站方服务器路径
+# 四级兜底：1) 环境变量 2) 程序根目录 private\zf3d.db（可写时） 3) %LOCALAPPDATA%（Program Files 无写权限时） 4) 站方服务器路径
 def _resolve_db_path():
+    def _writable(d):
+        try:
+            os.makedirs(d, exist_ok=True)
+            probe = os.path.join(d, '.db_probe')
+            with open(probe, 'w') as f:
+                f.write('1')
+            os.remove(probe)
+            return True
+        except Exception:
+            return False
+
     env = os.environ.get('AI_DB')
     if env:
         return env
     try:
         root = os.path.dirname(os.path.abspath(__file__))
         local = os.path.join(root, 'private', 'zf3d.db')
-        os.makedirs(os.path.dirname(local), exist_ok=True)
-        return local
+        # 已存在则直接用（老数据优先）；不存在时须目录可写（Program Files 里非管理员不可写）
+        if os.path.isfile(local) or _writable(os.path.dirname(local)):
+            return local
+    except Exception:
+        pass
+    try:
+        lad = os.path.join(os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), '朱峰智能体无限', 'private')
+        return os.path.join(lad, 'zf3d.db')
     except Exception:
         pass
     return r'E:\work\web\private\zf3d.db'
@@ -111,13 +128,25 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_usage_user_time ON ai_usage(user_id, created_at);
 ''')
-    # 老库迁移：ai_accounts 若缺 updated_at 列则补上（CREATE TABLE IF NOT EXISTS 不会给已存在的表加列）
+    # 老库迁移：缺列则补（CREATE TABLE IF NOT EXISTS 不会给已存在的表加列）
+    # 【重要】api_token/token_created_at 必须保留：get_token 接口（794/817/1234 行）依赖这两列
     try:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(ai_accounts)")}
-        if 'updated_at' not in cols:
-            conn.execute("ALTER TABLE ai_accounts ADD COLUMN updated_at TEXT")
+        for _col, _ddl in (('updated_at', 'TEXT'),
+                           ('api_token', 'TEXT'),
+                           ('token_created_at', 'TEXT')):
+            if _col not in cols:
+                conn.execute(f"ALTER TABLE ai_accounts ADD COLUMN {_col} {_ddl}")
+                cols.add(_col)
+        # 老库 user_id 无 UNIQUE 约束 → ON CONFLICT(user_id) 会报错，补唯一索引（先清重复）
+        try:
+            conn.execute('''DELETE FROM ai_accounts WHERE id NOT IN
+                            (SELECT MIN(id) FROM ai_accounts GROUP BY user_id)''')
+            conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_accounts_user ON ai_accounts(user_id)')
+        except Exception as _e:
+            print(f'[ai_proxy] migrate unique(user_id): {_e}')
     except Exception as e:
-        print(f'[ai_proxy] migrate updated_at: {e}')
+        print(f'[ai_proxy] migrate ai_accounts: {e}')
     conn.commit()
 
 def main_db():
