@@ -273,10 +273,33 @@ def _set_window_icon(window):
             user32.SendMessageW(ctypes.c_void_p(hwnd), 0x7F, None, ctypes.c_void_p(hbig))
         if hsmall:
             user32.SendMessageW(ctypes.c_void_p(hwnd), 0x80, None, ctypes.c_void_p(hsmall))
-        # 通知任务栏刷新
+        # 通知任务栏刷新（仅设置图标时用；保活循环禁止调用，
+        # 否则 SHCNE_ASSOCCHANGED 会每 3 秒强制刷新整个桌面导致闪烁）
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)
     except Exception as e:
         print('[WebView] 设置图标失败:', e)
+
+
+def _reapply_window_icon(window):
+    """保活专用：只重发 WM_SETICON，不发 SHChangeNotify（避免桌面周期性刷新闪烁）。"""
+    try:
+        import ctypes
+        hwnd = window.native.Handle.ToInt64() if hasattr(window.native, 'Handle') else None
+        if not hwnd:
+            return
+        ico = os.path.join(_PROJECT_ROOT, 'public', 'logo.ico')
+        if not os.path.exists(ico):
+            return
+        user32 = ctypes.windll.user32
+        IMAGE_ICON, LR_LOADFROMFILE = 1, 0x10
+        hbig = user32.LoadImageW(None, ico, IMAGE_ICON, 32, 32, LR_LOADFROMFILE)
+        hsmall = user32.LoadImageW(None, ico, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+        if hbig:
+            user32.SendMessageW(ctypes.c_void_p(hwnd), 0x7F, None, ctypes.c_void_p(hbig))
+        if hsmall:
+            user32.SendMessageW(ctypes.c_void_p(hwnd), 0x80, None, ctypes.c_void_p(hsmall))
+    except Exception:
+        pass
 
 
 def _boot_window(window):
@@ -290,13 +313,14 @@ def _boot_window(window):
         print('[WebView] 图标初始化失败:', e)
     # 图标保活：WebView2 在最小化/还原/多次切换窗口后会重置图标为默认，
     # 用后台线程周期性重新设置 WM_SETICON，保证任务栏图标始终是我们的标志
+    # （只重发 WM_SETICON，不发 SHChangeNotify，避免每 3 秒刷新桌面）
     import threading
     def _icon_keepalive():
         import time
         while True:
             time.sleep(3)
             try:
-                _set_window_icon(window)
+                _reapply_window_icon(window)
             except Exception:
                 pass
     threading.Thread(target=_icon_keepalive, daemon=True).start()
