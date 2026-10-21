@@ -11,8 +11,8 @@ android {
         applicationId = "com.zhufeng.agent.mobile"
         minSdk = 24
         targetSdk = 34
-        versionCode = 124
-        versionName = "5.5.28-v99"
+        versionCode = 125
+        versionName = "5.7.0-v100"
     }
 
     // 打包卫生：构建时忽略 assets 内所有备份/临时文件（*.bak*、*.orig、*.rej、隐藏文件等），
