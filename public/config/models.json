@@ -1,44 +1,9 @@
 {
   "_meta": {
     "version": 3,
-    "updated_at": "2026-10-20T15:24:56"
+    "updated_at": "2026-10-22T07:13:01"
   },
   "models": [
-    {
-      "name": "智谱glm",
-      "id": "zf-glm-flash",
-      "modelId": "glm-5.3-flash",
-      "modelIdOptions": [
-        "glm-5.3-flash"
-      ],
-      "reasoningEffort": "disable",
-      "reasoningLevels": {
-        "glm-5.3-flash": [
-          "low",
-          "high",
-          "max"
-        ]
-      },
-      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
-      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
-      "provider": "zhufeng",
-      "zfLine": true,
-      "zfManaged": true,
-      "zfPinned": true,
-      "isOfficial": true,
-      "enabled": true,
-      "modelType": "language",
-      "abilities": [
-        "chat"
-      ],
-      "keyRef": "user",
-      "noKeyRequired": true,
-      "billing": {
-        "type": "token",
-        "multiplier": 1
-      },
-      "visible": true
-    },
     {
       "name": "千问",
       "id": "千问_TokenPlan",
@@ -162,7 +127,7 @@
     },
     {
       "name": "MiniMax",
-      "id": "MiniMax",
+      "id": "MiniMax3",
       "modelId": "MiniMax-M3.1-Flash",
       "modelIdOptions": [
         "MiniMax-M3.1-Flash"
@@ -1520,7 +1485,7 @@
       "keyRef": "user",
       "reasoningEffort": "low",
       "createdAt": "2026-10-13T04:49:32.534Z",
-      "updatedAt": "2026-10-18T12:41:34.265Z",
+      "updatedAt": "2026-10-21T23:13:01.953Z",
       "modelIdOptions": [
         "qwen3.6-flash",
         "qwen3.8-flash"

@@ -1,44 +1,9 @@
 {
   "_meta": {
     "version": 3,
-    "updated_at": "2026-10-16T09:50:43"
+    "updated_at": "2026-10-22T07:04:46"
   },
   "models": [
-    {
-      "name": "智谱glm",
-      "id": "zf-glm-flash",
-      "modelId": "glm-5.3-flash",
-      "modelIdOptions": [
-        "glm-5.3-flash"
-      ],
-      "reasoningEffort": "disable",
-      "reasoningLevels": {
-        "glm-5.3-flash": [
-          "low",
-          "high",
-          "max"
-        ]
-      },
-      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
-      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
-      "provider": "zhufeng",
-      "zfLine": true,
-      "zfManaged": true,
-      "zfPinned": true,
-      "isOfficial": true,
-      "enabled": true,
-      "modelType": "language",
-      "abilities": [
-        "chat"
-      ],
-      "keyRef": "user",
-      "noKeyRequired": true,
-      "billing": {
-        "type": "token",
-        "multiplier": 1
-      },
-      "visible": true
-    },
     {
       "name": "千问",
       "id": "千问_TokenPlan",
@@ -49,9 +14,11 @@
       "reasoningEffort": "disable",
       "reasoningLevels": {
         "qwen3.8-flash": [
-          "low",
-          "medium",
-          "high"
+          "最低",
+          "低",
+          "中",
+          "高",
+          "最高"
         ]
       },
       "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=qwen3.8-flash",
@@ -71,41 +38,6 @@
       "billing": {
         "type": "token",
         "multiplier": 2
-      },
-      "visible": true
-    },
-    {
-      "name": "智谱 GLM-4.5-Flash",
-      "id": "GLM-4.5-Flash",
-      "modelId": "glm-4.5-flash",
-      "modelIdOptions": [
-        "glm-4.5-flash"
-      ],
-      "reasoningEffort": "disable",
-      "reasoningLevels": {
-        "glm-4.5-flash": [
-          "low",
-          "high",
-          "max"
-        ]
-      },
-      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
-      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
-      "provider": "zhufeng",
-      "zfLine": true,
-      "zfManaged": true,
-      "zfPinned": true,
-      "isOfficial": true,
-      "enabled": true,
-      "modelType": "language",
-      "abilities": [
-        "chat"
-      ],
-      "keyRef": "user",
-      "noKeyRequired": true,
-      "billing": {
-        "type": "token",
-        "multiplier": 0.1
       },
       "visible": true
     },
@@ -159,6 +91,77 @@
       "visible": true
     },
     {
+      "name": "智谱 GLM-4.5-Flash",
+      "id": "GLM-4.5-Flash",
+      "modelId": "glm-4.5-flash",
+      "modelIdOptions": [
+        "glm-4.5-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-4.5-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 0.1
+      },
+      "visible": true
+    },
+    {
+      "name": "MiniMax",
+      "id": "MiniMax3",
+      "modelId": "MiniMax-M3.1-Flash",
+      "modelIdOptions": [
+        "MiniMax-M3.1-Flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "MiniMax-M3.1-Flash": [
+          "low",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=MiniMax-M3.1-Flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=MiniMax-M3.1-Flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.8
+      },
+      "visible": true
+    },
+    {
       "name": "智谱glm识图",
       "id": "zf-glm-vision",
       "modelId": "glm-5.3-flash",
@@ -192,7 +195,6 @@
         "type": "token",
         "multiplier": 1
       },
-      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -229,6 +231,7 @@
         "type": "token",
         "multiplier": 2
       },
+      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -648,7 +651,7 @@
       "maxTokens": 32768,
       "temperature": 0.7,
       "enabled": true,
-      "isDefault": true,
+      "isDefault": false,
       "preset": false,
       "visible": false,
       "imageGen": false,
@@ -1404,7 +1407,8 @@
         "chat"
       ],
       "keyRef": "user",
-      "description": "智谱开放平台免费文本模型(GLM-4.5-Flash / GLM-4-Flash / GLM-Z1-Flash)，OpenAI 兼容 chat/completions。Key 申请: https://open.bigmodel.cn/"
+      "description": "智谱开放平台免费文本模型(GLM-4.5-Flash / GLM-4-Flash / GLM-Z1-Flash)，OpenAI 兼容 chat/completions。Key 申请: https://open.bigmodel.cn/",
+      "updatedAt": "2026-10-16T15:35:21.256Z"
     },
     {
       "name": "智谱 GLM-4V-Flash",
@@ -1469,7 +1473,7 @@
       "maxTokens": 4096,
       "temperature": 0.7,
       "enabled": true,
-      "isDefault": false,
+      "isDefault": true,
       "preset": false,
       "visible": true,
       "imageGen": false,
@@ -1479,9 +1483,9 @@
       "modelType": "language",
       "id": "qwen_TokenPlan",
       "keyRef": "user",
-      "reasoningEffort": "disable",
+      "reasoningEffort": "low",
       "createdAt": "2026-10-13T04:49:32.534Z",
-      "updatedAt": "2026-10-13T05:19:27.078Z",
+      "updatedAt": "2026-10-18T12:41:34.265Z",
       "modelIdOptions": [
         "qwen3.6-flash",
         "qwen3.8-flash"
@@ -1513,8 +1517,172 @@
       "keyRef": "user",
       "reasoningEffort": "disable",
       "createdAt": "2026-10-14T12:52:27.584Z",
-      "updatedAt": "2026-10-14T12:53:33.113Z",
+      "updatedAt": "2026-10-18T12:52:57.144Z",
       "modelIdOptions": []
+    },
+    {
+      "name": "MiniMax识图",
+      "displayName": "MiniMax识图",
+      "provider": "minimax",
+      "baseUrl": "https://api.minimax.cn/v1/chat/completions",
+      "endpoint": "https://api.minimax.cn/v1/chat/completions",
+      "modelId": "MiniMax-M3.1-Flash",
+      "officialUrl": "https://minimaxzh.com/",
+      "maxTokens": 8192,
+      "temperature": 1,
+      "enabled": true,
+      "isDefault": false,
+      "preset": false,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": true,
+      "visionInputFormats": [
+        "jpeg",
+        "png",
+        "gif",
+        "webp"
+      ],
+      "noKeyRequired": false,
+      "modelType": "types_vision",
+      "id": "minimax-m31-flash-vision",
+      "modelIdOptions": [
+        "MiniMax-M3.1-Flash"
+      ],
+      "abilities": [
+        "chat",
+        "vision",
+        "video"
+      ],
+      "keyRef": "MiniMax M3.1-Flash",
+      "videoInput": true,
+      "contextWindow": 1000000,
+      "description": "MiniMax M3.1-Flash 原生多模态识图（OpenAI兼容）：支持图片理解+视频理解，1M上下文，思考深度effort low/medium/high/xhigh/max（默认max）；价格 输入¥1/百万token 输出¥4/百万token",
+      "reasoningEffort": "disable",
+      "updatedAt": "2026-10-20T11:46:02.000Z"
+    },
+    {
+      "name": "MiniMax M3.1-Flash",
+      "displayName": "MiniMax M3.1-Flash",
+      "provider": "minimax",
+      "baseUrl": "https://api.minimax.cn/v1/chat/completions",
+      "endpoint": "https://api.minimax.cn/v1/chat/completions",
+      "modelId": "MiniMax-M3.1-Flash",
+      "officialUrl": "https://www.minimax.cn/",
+      "maxTokens": 8192,
+      "temperature": 1,
+      "enabled": true,
+      "isDefault": false,
+      "preset": false,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "language",
+      "id": "minimax-m31-flash",
+      "modelIdOptions": [
+        "MiniMax-M3.1-Flash"
+      ],
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "contextWindow": 1000000,
+      "reasoningEffort": "low",
+      "reasoningLevels": {
+        "MiniMax-M3.1-Flash": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "description": "MiniMax M3.1-Flash 对话语言模型（OpenAI兼容，1M上下文，思考深度可调effort low/medium/high/xhigh/max，默认max；价格 输入¥1/百万token 输出¥4/百万token）",
+      "updatedAt": "2026-10-20T07:24:53.791Z"
+    },
+    {
+      "name": "MiniMax生图",
+      "displayName": "MiniMax 生图 (image-01)",
+      "provider": "minimax",
+      "baseUrl": "https://api.minimax.cn/v1/image_generation",
+      "endpoint": "https://api.minimax.cn/v1/image_generation",
+      "modelId": "image-01",
+      "officialUrl": "https://www.minimax.cn/",
+      "maxTokens": 4096,
+      "temperature": 1,
+      "enabled": true,
+      "isDefault": false,
+      "preset": false,
+      "visible": true,
+      "imageGen": true,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "image",
+      "id": "minimax-image-01",
+      "abilities": [
+        "image_gen"
+      ],
+      "keyRef": "MiniMax M3.1-Flash",
+      "modelIdOptions": [
+        "image-01",
+        "image-01-live"
+      ],
+      "aspectRatios": [
+        "1:1",
+        "2:3",
+        "3:2",
+        "3:4",
+        "4:3",
+        "9:16",
+        "16:9",
+        "21:9"
+      ],
+      "description": "MiniMax image-01 文生图/图生图（POST /v1/image_generation）：aspect_ratio 支持 1:1/2:3/3:2/3:4/4:3/9:16/16:9/21:9，或 width/height 512~2048（8的倍数）；response_format url/base64；图生图传 subject_reference（type=character/face/object + image_file）。",
+      "updatedAt": "2026-10-20T11:46:02.000Z",
+      "reasoningEffort": "disable"
+    },
+    {
+      "name": "MiniMax视频",
+      "displayName": "MiniMax 生视频 (Hailuo 2.3)",
+      "provider": "minimax",
+      "baseUrl": "https://api.minimax.cn/v1/video_generation",
+      "endpoint": "https://api.minimax.cn/v1/video_generation",
+      "modelId": "MiniMax-Hailuo-2.3",
+      "officialUrl": "https://www.minimax.cn/",
+      "maxTokens": 4096,
+      "temperature": 1,
+      "enabled": true,
+      "isDefault": false,
+      "preset": false,
+      "visible": true,
+      "imageGen": false,
+      "visionInput": false,
+      "visionInputFormats": [],
+      "noKeyRequired": false,
+      "modelType": "video",
+      "id": "minimax-hailuo-23",
+      "abilities": [
+        "video_gen"
+      ],
+      "keyRef": "MiniMax M3.1-Flash",
+      "modelIdOptions": [
+        "MiniMax-Hailuo-2.3",
+        "MiniMax-Hailuo-02",
+        "T2V-01"
+      ],
+      "resolutions": [
+        "768P",
+        "1080P"
+      ],
+      "durations": [
+        6,
+        10
+      ],
+      "description": "MiniMax-Hailuo-2.3 文生视频（POST /v1/video_generation，异步任务）：prompt 支持 [左移][推进][静态镜头] 等运镜指令，duration 6/10秒，resolution 仅支持 768P/1080P（不支持720P）；查询 GET /v1/query/video_generation?task_id=xxx，成功后 content.video_url 即成片直链。",
+      "updatedAt": "2026-10-20T11:46:02.000Z",
+      "reasoningEffort": "disable"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-20",
+  "updated": "2026-10-21",
   "models": [
     {
       "id": "zf-glm-flash",
@@ -25,7 +25,7 @@
         }
       ],
       "category": "chat",
-      "enabled": true,
+      "enabled": false,
       "sort": 0,
       "billing": {
         "type": "token",
@@ -187,7 +187,7 @@
       "default": false
     },
     {
-      "id": "MiniMax",
+      "id": "MiniMax3",
       "name": "MiniMax",
       "apiUrl": "https://api.minimax.cn/v1/chat/completions",
       "modelIds": [
