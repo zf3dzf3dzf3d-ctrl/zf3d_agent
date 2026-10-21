@@ -13,8 +13,17 @@ __pycache__/
 # 临时/中间文件
 *.tmp
 syntax_check.tmp
-_*.py
 _*.txt
+# 临时脚本：以 _ 开头的 .py 默认忽略（挡掉 _verify/_fix/_diag/_analyze 等），
+# 但用否定规则放行正经源码——包标识 __init__.py、模块入口 __main__.py、
+# 共享模块 _shared.py、网关 _gate_*.py、工具后端 backend/_*.py，
+# 否则这些会被整条 _*.py 误挡，导致他人 clone 后 import 报错、跑不起来。
+_*.py
+!**/__init__.py
+!**/__main__.py
+!**/_shared.py
+!server/_gate_*.py
+!tools/*/backend/_*.py
 
 # 日志（运行时数据，不入库）
 server/logs/
