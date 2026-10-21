@@ -81,8 +81,8 @@ def _proxy_port():
         return zf_billing._proxy_port()
     except Exception:
         try:
-            with open(_PROXY_PORT_FILE, encoding='utf-8') as f:
-                return int(json.load(f).get('port', 8564))
+            from config import get_ai_proxy_port
+            return get_ai_proxy_port()
         except Exception:
             return 8564
 

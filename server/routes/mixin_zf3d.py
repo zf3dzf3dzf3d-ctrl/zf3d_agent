@@ -4,12 +4,11 @@ from routes._shared import *
 from routes.mixin_base import MixinBase
 import logging
 
-# 端口集中配置：读取 public/config/ai_proxy.json（失败回退 8564）
+# 端口集中配置：统一走 config.get_ai_proxy_port()（与代理实际监听同源，杜绝双源分叉）
 def _load_zf_proxy_port():
     try:
-        cfg = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'public', 'config', 'ai_proxy.json')
-        with open(cfg, encoding='utf-8') as f:
-            return int(json.load(f).get('port', 8564))
+        from config import get_ai_proxy_port
+        return get_ai_proxy_port()
     except Exception:
         return 8564
 

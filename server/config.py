@@ -130,6 +130,35 @@ APP_CONFIG_PATH = PORT_JSON_PATH     # 旧代码引用 APP_CONFIG_PATH 时指向
 CONFIG_PATH     = PORT_JSON_PATH
 
 
+# ===== AI 代理网关端口：全系统唯一解析入口 =====
+def get_ai_proxy_port():
+    """AI 代理网关(ai_proxy.py)端口统一解析，与代理侧/服务端 _proxy_port 逐字等价：
+      1) 环境变量 AI_PROXY_PORT
+      2) private/port.json 的 ai_proxy_port 字段（唯一真源）
+      3) 本版本端口段末 8564 兜底（5.6.x=8560-8564）
+
+    所有『需要连本机 AI 网关』的调用方（zf_billing / zf_proxy_billing /
+    mixin_zf3d / zf3d_commands）都必须走本函数，使『连网关的端口』与
+    『网关实际监听的端口』永远同源，杜绝因升级残留 / 手动改端口造成的
+    双源分叉（proxy_unavailable）。public/config/ai_proxy.json 不再作为
+    端口来源（仅保留作展示/兼容，无同步义务）。
+    """
+    try:
+        _p = int(os.environ.get('AI_PROXY_PORT', '0'))
+        if 1 <= _p <= 65535:
+            return _p
+    except Exception:
+        pass
+    try:
+        with open(PORT_JSON_PATH, 'r', encoding='utf-8-sig') as _f:
+            _v = json.load(_f).get('ai_proxy_port')
+        if isinstance(_v, int) and _v > 0:
+            return _v
+    except Exception:
+        pass
+    return 8564
+
+
 def _load_app_config():
     """兼容旧 API：从 version.json + port.json 合并成一个 dict 返回。"""
     return {
