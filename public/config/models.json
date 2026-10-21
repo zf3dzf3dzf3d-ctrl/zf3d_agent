@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": 3,
-    "updated_at": "2026-10-22T07:18:56"
+    "updated_at": "2026-10-22T07:31:47"
   },
   "models": [
     {
@@ -264,7 +264,7 @@
       "useSystemKey": false,
       "id": "智谱CodingPlan新接",
       "createdAt": "2026-09-13T22:30:00.000Z",
-      "updatedAt": "2026-10-16T01:50:17.531Z",
+      "updatedAt": "2026-10-21T23:31:44.862Z",
       "modelIdOptions": [],
       "reasoningLevels": [
         {
@@ -1515,7 +1515,7 @@
       "modelType": "types_vision",
       "id": "本地千问识图",
       "keyRef": "user",
-      "reasoningEffort": "",
+      "reasoningEffort": "disable",
       "createdAt": "2026-10-14T12:52:27.584Z",
       "updatedAt": "2026-10-21T23:18:56.908Z",
       "modelIdOptions": []
