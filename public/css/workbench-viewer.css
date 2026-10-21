@@ -1,0 +1,80 @@
+/* 工作台「文件」多标签查看器 —— VSCode 风格 */
+.wfv-tabbar {
+    display: flex; align-items: stretch; gap: 2px; overflow-x: auto; flex: none;
+    background: #181818; border-bottom: 1px solid #2d2d2d; min-height: 34px; scrollbar-width: thin;
+}
+.wfv-tab {
+    display: flex; align-items: center; gap: 6px; padding: 0 10px; cursor: pointer; flex: none;
+    font-size: 12px; color: #969696; background: #181818; border-right: 1px solid #252526;
+    max-width: 200px; white-space: nowrap; user-select: none;
+}
+.wfv-tab:hover { background: #1f1f1f; color: #ccc; }
+.wfv-tab.active { background: #1e1e1e; color: #e7e7e7; border-top: 1px solid #0e639c; }
+.wfv-tab-name { overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.wfv-dot { color: #e2c08d; font-style: normal; margin-left: 4px; font-size: 10px; }
+.wfv-tab-close { opacity: .5; padding: 0 2px; border-radius: 4px; font-size: 14px; }
+.wfv-tab-close:hover { opacity: 1; background: rgba(255,255,255,.1); }
+.wfv-content { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.wfv-empty {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #5a5a5a; font-size: 13px; text-align: center; line-height: 2;
+}
+.wfv-view { display: flex; flex-direction: column; height: 100%; }
+.wfv-toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 5px 10px; flex: none;
+    background: #252526; border-bottom: 1px solid #2d2d2d;
+}
+.wfv-btn {
+    background: #0e639c; color: #fff; border: none; border-radius: 4px; padding: 4px 12px;
+    font-size: 12px; cursor: pointer;
+}
+.wfv-btn:hover { background: #1177bb; }
+.wfv-status { font-size: 11px; color: #888; flex: 1; }
+.wfv-body { flex: 1; min-height: 0; overflow: auto; }
+/* 代码高亮（VSCode Dark+ 背景） */
+.wfv-code {
+    margin: 0; padding: 14px; background: #1e1e1e; color: #d4d4d4;
+    font: 12px/1.6 Consolas, Monaco, 'Courier New', monospace; tab-size: 4; white-space: pre;
+}
+.wfv-code code { font: inherit; background: transparent; padding: 0; }
+/* 编辑器 */
+.wfv-editor {
+    width: 100%; height: 100%; min-height: 100%; display: block; box-sizing: border-box;
+    background: #1e1e1e; color: #d4d4d4; border: none; outline: none; resize: none;
+    font: 12px/1.6 Consolas, Monaco, 'Courier New', monospace; padding: 14px;
+    white-space: pre; overflow: auto; tab-size: 4; caret-color: #fff;
+}
+/* Markdown 渲染（GitHub 暗色风格简版） */
+.wfv-markdown {
+    padding: 18px 24px; color: #d4d4d4; font-size: 14px; line-height: 1.75;
+    font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    max-width: 920px;
+}
+.wfv-markdown h1, .wfv-markdown h2, .wfv-markdown h3, .wfv-markdown h4 {
+    color: #e7e7e7; border-bottom: 1px solid #333; padding-bottom: 6px; margin: 22px 0 12px; line-height: 1.3;
+}
+.wfv-markdown h1 { font-size: 26px; } .wfv-markdown h2 { font-size: 21px; }
+.wfv-markdown h3 { font-size: 17px; border-bottom: none; } .wfv-markdown h4 { font-size: 15px; border-bottom: none; }
+.wfv-markdown p { margin: 10px 0; }
+.wfv-markdown a { color: #4daafc; text-decoration: none; }
+.wfv-markdown a:hover { text-decoration: underline; }
+.wfv-markdown code {
+    background: #2d2d2d; color: #e8b56a; border-radius: 4px; padding: 2px 6px;
+    font: 12.5px Consolas, Monaco, monospace;
+}
+.wfv-markdown pre {
+    background: #161616; border: 1px solid #2d2d2d; border-radius: 8px; padding: 12px 14px;
+    overflow-x: auto; margin: 12px 0;
+}
+.wfv-markdown pre code { background: transparent; color: #d4d4d4; padding: 0; }
+.wfv-markdown blockquote {
+    border-left: 3px solid #0e639c; margin: 12px 0; padding: 4px 14px; color: #9a9a9a; background: rgba(14,99,156,.08);
+}
+.wfv-markdown ul, .wfv-markdown ol { padding-left: 26px; margin: 10px 0; }
+.wfv-markdown li { margin: 4px 0; }
+.wfv-markdown table { border-collapse: collapse; margin: 12px 0; width: auto; }
+.wfv-markdown th, .wfv-markdown td { border: 1px solid #3a3a3a; padding: 6px 12px; font-size: 13px; }
+.wfv-markdown th { background: #252526; color: #e7e7e7; }
+.wfv-markdown tr:nth-child(2n) td { background: rgba(255,255,255,.02); }
+.wfv-markdown img { max-width: 100%; border-radius: 6px; }
+.wfv-markdown hr { border: none; border-top: 1px solid #333; margin: 18px 0; }

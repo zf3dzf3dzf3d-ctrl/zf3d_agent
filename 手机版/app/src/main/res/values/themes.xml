@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.ZFMobile" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#101418</item>
+        <item name="android:statusBarColor">#101418</item>
+        <item name="android:navigationBarColor">#101418</item>
+    </style>
+</resources>

@@ -1,0 +1,271 @@
+{
+  "models": [
+    {
+      "name": "智谱glm",
+      "id": "zf-glm-flash",
+      "modelId": "glm-5.3-flash",
+      "modelIdOptions": [
+        "glm-5.3-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-5.3-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "visible": true
+    },
+    {
+      "name": "千问",
+      "id": "千问_TokenPlan",
+      "modelId": "qwen3.8-flash",
+      "modelIdOptions": [
+        "qwen3.8-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "qwen3.8-flash": [
+          "最低",
+          "低",
+          "中",
+          "高",
+          "最高"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=qwen3.8-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=qwen3.8-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 2
+      },
+      "visible": true
+    },
+    {
+      "name": "openrouter",
+      "id": "openrouter",
+      "modelId": "nvidia/nemotron-3.5-lightning:free",
+      "modelIdOptions": [
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "nvidia/nemotron-3.5-lightning:free": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "nvidia/nemotron-3-ultra-550b-a55b:free": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=nvidia/nemotron-3.5-lightning%3Afree",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=nvidia/nemotron-3.5-lightning%3Afree",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 0.5
+      },
+      "visible": true
+    },
+    {
+      "name": "智谱 GLM-4.5-Flash",
+      "id": "GLM-4.5-Flash",
+      "modelId": "glm-4.5-flash",
+      "modelIdOptions": [
+        "glm-4.5-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-4.5-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-4.5-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 0.1
+      },
+      "visible": true
+    },
+    {
+      "name": "MiniMax",
+      "id": "MiniMax",
+      "modelId": "MiniMax-M3.1-Flash",
+      "modelIdOptions": [
+        "MiniMax-M3.1-Flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "MiniMax-M3.1-Flash": [
+          "low",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=MiniMax-M3.1-Flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=MiniMax-M3.1-Flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.8
+      },
+      "visible": true
+    },
+    {
+      "name": "智谱glm识图",
+      "id": "zf-glm-vision",
+      "modelId": "glm-5.3-flash",
+      "modelIdOptions": [
+        "glm-5.3-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-5.3-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "types_vision",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "visionInput": true,
+      "visible": true
+    },
+    {
+      "name": "千问识图",
+      "id": "qwen-vision",
+      "modelId": "qwen3.8-flash",
+      "modelIdOptions": [
+        "qwen3.8-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "qwen3.8-flash": [
+          "low",
+          "high"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=qwen3.8-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=qwen3.8-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "types_vision",
+      "abilities": [
+        "chat",
+        "vision"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 2
+      },
+      "isDefault": true,
+      "visionInput": true,
+      "visible": true
+    }
+  ],
+  "version": 3
+}

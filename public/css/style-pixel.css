@@ -1,0 +1,61 @@
+/* ========== style-pixel.css - 像素显示器样式 ========== */
+
+.pixel-display-wrap {
+    display: inline-block;
+    margin: 8px 0;
+    padding: 12px;
+    background: var(--bg-card, #1e1e2e);
+    border: 1px solid var(--border, #333344);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.pixel-display-canvas {
+    display: block;
+    margin: 0 auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 2px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+}
+
+.pixel-display-info {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text2, #888);
+    font-family: monospace;
+}
+
+.pixel-display-controls {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.pixel-display-play {
+    background: var(--bg-hover, #252535);
+    border: 1px solid var(--border, #333344);
+    border-radius: 4px;
+    color: var(--text, #e0e0e0);
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: background 0.15s;
+}
+
+.pixel-display-play:hover {
+    background: var(--blue, #0078d4);
+    color: #fff;
+}
+
+.pixel-display-framelabel {
+    font-size: 11px;
+    color: var(--text2, #888);
+    font-family: monospace;
+    min-width: 40px;
+    text-align: center;
+}

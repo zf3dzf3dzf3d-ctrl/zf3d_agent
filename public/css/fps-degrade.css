@@ -1,0 +1,8 @@
+/* ===== FPS 自动降级（由 fps-guard.js 控制 body.fps-degraded 类） =====
+   帧率过低时冻结全部装饰性 CSS 动画/过渡，恢复后自动解除 */
+body.fps-degraded *,
+body.fps-degraded *::before,
+body.fps-degraded *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}

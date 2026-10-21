@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh"><head>
+    <script src="/js/storage-guard.js?v=1"></script><meta charset="utf-8"><title>Shader 演示</title>
+<style>body{margin:0;background:#111;color:#ccc;font-family:monospace;font-size:13px}canvas{border:1px solid #444;margin:6px}</style></head>
+<body>
+<p>四种 WebGL 片元 shader（左→右：原始 / 溶解 / 波纹 / 命中闪白）</p>
+<div id="row"></div>
+<script src="shaders.js"></script>
+<script>
+// 画一个测试精灵
+function makeSprite() {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 128;
+  const g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, 256, 128);
+  gr.addColorStop(0, "#4ac"); gr.addColorStop(1, "#c4a");
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+  g.fillStyle = "#fff"; g.font = "bold 40px monospace"; g.fillText("精灵", 70, 78);
+  return c;
+}
+const types = [null, "dissolve", "ripple", "flash"];
+const canvases = [];
+const row = document.getElementById("row");
+types.forEach(t => {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 128;
+  row.appendChild(c); canvases.push({ c, t });
+});
+const sprite = makeSprite();
+let t0 = performance.now();
+function loop(now) {
+  const time = (now - t0) / 1000;
+  canvases.forEach(({c, t}, i) => {
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(sprite, 0, 0);
+    if (t) ShaderFX.apply(ctx, sprite, {
+      type: t, time,
+      params: t === "dissolve" ? [3.0, (Math.sin(time*.8)+1)/2, 0, 1]   // params.x=噪声密度 y=溶解进度
+            : t === "ripple" ? [14, 0, 0, 1]
+            : [0, (Math.sin(time*3)+1)/2, 0, 1],
+      color: [1, 0.4, 0.1]
+    });
+  });
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>

@@ -1,0 +1,4 @@
+{"action": "intercept", "cmd": "del F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp\\victim.txt", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp", "source": "shell", "moved": ["victim(3).txt"], "skipped": [], "ts": "2026-10-20 16:21:31"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp", "source": "shell", "moved": ["victim(3).txt"], "total": 1, "ts": "2026-10-20 16:21:31"}
+{"action": "intercept", "cmd": "del F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp\\victim.txt", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp", "source": "shell", "moved": ["victim(4).txt"], "skipped": [], "ts": "2026-10-20 16:41:31"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp", "source": "shell", "moved": ["victim(4).txt"], "total": 1, "ts": "2026-10-20 16:41:31"}

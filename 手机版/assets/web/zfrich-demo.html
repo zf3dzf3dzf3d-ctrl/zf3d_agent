@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZFRich v2.1 全要素演示（双端验收）</title>
+<script src="js/marked.min.js?v=2"></script>
+<script src="js/highlight.min.js?v=1"></script>
+<script src="js/echarts.min.js?v=1"></script>
+<script src="js/app-zfrich.js?v=4"></script>
+<style>body{font-family:sans-serif;max-width:860px;margin:24px auto;padding:0 16px;background:#0b0e1a;color:#eee}#out{border:1px solid #333;border-radius:12px;padding:12px}</style>
+</head><body>
+<h2>ZFRich v2.1 全要素演示</h2>
+<p>ZFRich.version = <span id="v"></span></p>
+<div id="out"></div>
+<script>
+document.getElementById('v').textContent = window.ZFRich ? ZFRich.version : '未加载!';
+var demo = [
+'# 全要素演示标题',
+'',
+':::zfrich animation=slide-up',
+'<div style="padding:20px;text-align:center"><h2>活 HTML 块</h2><button onclick="this.textContent=\'点中了!\'">点我</button></div>',
+':::',
+'',
+':::zfrich animation=zoom-in delay=0.3',
+':::chart',
+'{"title":{"text":"ECharts 图表"},"tooltip":{},"xAxis":{"data":["A","B","C"]},"yAxis":{},"series":[{"type":"bar","data":[5,20,36]}]}',
+':::',
+':::',
+'',
+':::zfrich',
+':::tabs',
+':::tab 表格',
+'| 列1 | 列2 |',
+'|---|---|',
+'| a | b |',
+':::',
+':::tab 代码',
+'```js',
+'console.log("hello zfrich");',
+'```',
+':::',
+':::',
+':::',
+'',
+':::zfrich',
+':::timeline lanes=2',
+'[lane=1][t=0s] 泳道1 · 第一步',
+'',
+'[lane=1][t=2s][parallel] 泳道1 · 第二步',
+'',
+'[lane=2][t=0s] 泳道2 · 并行任务A',
+'',
+'[lane=2][t=1s][parallel] 泳道2 · 并行任务B',
+':::',
+':::',
+'',
+':::chat title=嵌套对话',
+'**user:** 什么是 ZFRich?',
+'**ai:** 一个对话内富媒体引擎，这就是嵌套的迷你对话。',
+':::'
+].join('\n');
+var el = document.getElementById('out');
+var r = ZFRich.extract(demo);
+el.innerHTML = ZFRich.restore(marked.parse(r.text));
+</script>
+</body></html>

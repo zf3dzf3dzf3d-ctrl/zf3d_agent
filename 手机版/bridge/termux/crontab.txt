@@ -1,0 +1,5 @@
+# 峰控助手 Termux 定时任务
+# 晨报：每天 7:00
+0 7 * * * bash $HOME/scripts/morning_report.sh >> $HOME/scripts/cron.log 2>&1
+# 记忆备份：每天 23:30 推到 PC
+30 23 * * * bash $HOME/scripts/sync_memory.sh push >> $HOME/scripts/cron.log 2>&1

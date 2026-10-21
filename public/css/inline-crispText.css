@@ -1,0 +1,25 @@
+        /* 全局文字清晰度增强（不动大小/粗细，只提清晰度） */
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            /* Windows 下优先微软雅黑/思源黑体，中文渲染更锐利；禁用点阵字体回退 */
+            font-family: system-ui, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+        }
+        /* 屏幕字体平滑：避免 Windows 像素化 */
+        * { -webkit-font-smoothing: antialiased; }
+        /* 禁止浏览器在缩放/动画期间对文字做亚像素模糊 */
+        .msg, .chatbox, .chatbox * {
+            will-change: auto;
+            transform: none;
+            backface-visibility: visible;
+        }
+        /* 皮肤辉光文字阴影去掉，避免文字发虚（保留边框发光） */
+        .chatbox[data-skin] .chatbox-header, .chatbox[data-skin] .chatbox-header * {
+            text-shadow: none !important;
+        }
+        /* 变换元素上的文字消除模糊（整数像素渲染） */
+        .msg, .msg * { text-rendering: optimizeLegibility; }

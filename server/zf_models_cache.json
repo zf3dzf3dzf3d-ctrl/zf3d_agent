@@ -1,0 +1,286 @@
+{
+  "updated": "2026-10-20",
+  "models": [
+    {
+      "id": "zf-glm-flash",
+      "name": "智谱glm",
+      "apiUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 0,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "default": false
+    },
+    {
+      "id": "千问_TokenPlan",
+      "name": "千问",
+      "apiUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "qwen3.8-flash",
+          "tiers": [
+            {
+              "value": "最低",
+              "label": "低"
+            },
+            {
+              "value": "低",
+              "label": "高"
+            },
+            {
+              "value": "中",
+              "label": "中"
+            },
+            {
+              "value": "高",
+              "label": "高"
+            },
+            {
+              "value": "最高",
+              "label": "最高"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 5,
+      "billing": {
+        "type": "token",
+        "multiplier": 2
+      },
+      "default": true
+    },
+    {
+      "id": "openrouter",
+      "name": "openrouter",
+      "apiUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "nvidia/nemotron-3.5-lightning:free",
+          "tiers": [
+            {
+              "value": "none",
+              "label": "低"
+            },
+            {
+              "value": "minimal",
+              "label": "minimal"
+            },
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "medium",
+              "label": "medium"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "xhigh",
+              "label": "xhigh"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        },
+        {
+          "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+          "tiers": [
+            {
+              "value": "none",
+              "label": "低"
+            },
+            {
+              "value": "minimal",
+              "label": "高"
+            },
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "medium",
+              "label": "medium"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "xhigh",
+              "label": "xhigh"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 8,
+      "billing": {
+        "type": "token",
+        "multiplier": 0.5
+      },
+      "default": false
+    },
+    {
+      "id": "GLM-4.5-Flash",
+      "name": "智谱 GLM-4.5-Flash",
+      "apiUrl": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "modelIds": [
+        {
+          "id": "glm-4.5-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "低"
+            },
+            {
+              "value": "high",
+              "label": "高"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 10,
+      "billing": {
+        "type": "token",
+        "multiplier": 0.1
+      },
+      "default": false
+    },
+    {
+      "id": "MiniMax",
+      "name": "MiniMax",
+      "apiUrl": "https://api.minimax.cn/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "MiniMax-M3.1-Flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "低"
+            },
+            {
+              "value": "high",
+              "label": "高"
+            },
+            {
+              "value": "xhigh",
+              "label": "xhigh"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "chat",
+      "enabled": true,
+      "sort": 10,
+      "billing": {
+        "type": "token",
+        "multiplier": 1.8
+      },
+      "default": false
+    },
+    {
+      "id": "zf-glm-vision",
+      "name": "智谱glm识图",
+      "apiUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "modelIds": [
+        {
+          "id": "glm-5.3-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "low"
+            },
+            {
+              "value": "high",
+              "label": "high"
+            },
+            {
+              "value": "max",
+              "label": "max"
+            }
+          ]
+        }
+      ],
+      "category": "vision",
+      "enabled": true,
+      "sort": 1,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "default": false
+    },
+    {
+      "id": "qwen-vision",
+      "name": "千问识图",
+      "apiUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "modelIds": [
+        {
+          "id": "qwen3.8-flash",
+          "tiers": [
+            {
+              "value": "low",
+              "label": "低"
+            },
+            {
+              "value": "high",
+              "label": "高"
+            }
+          ]
+        }
+      ],
+      "category": "vision",
+      "enabled": true,
+      "sort": 5,
+      "billing": {
+        "type": "token",
+        "multiplier": 2
+      },
+      "default": true
+    }
+  ]
+}

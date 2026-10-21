@@ -1,0 +1,27 @@
+﻿
+        /* 鍏ㄥ眬鏂囧瓧娓呮櫚搴﹀寮猴紙涓嶅姩澶у皬/绮楃粏锛屽彧鎻愭竻鏅板害锛?*/
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            -webkit-text-size-adjust: 100%;
+        }
+        body {
+            /* Windows 涓嬩紭鍏堝井杞泤榛?鎬濇簮榛戜綋锛屼腑鏂囨覆鏌撴洿閿愬埄锛涚鐢ㄧ偣闃靛瓧浣撳洖閫€ */
+            font-family: system-ui, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+        }
+        /* 灞忓箷瀛椾綋骞虫粦锛氶伩鍏?Windows 鍍忕礌鍖?*/
+        * { -webkit-font-smoothing: antialiased; }
+        /* 绂佹娴忚鍣ㄥ湪缂╂斁/鍔ㄧ敾鏈熼棿瀵规枃瀛楀仛浜氬儚绱犳ā绯?*/
+        .msg, .chatbox, .chatbox * {
+            will-change: auto;
+            transform: none;
+            backface-visibility: visible;
+        }
+        /* 鐨偆杈夊厜鏂囧瓧闃村奖鍘绘帀锛岄伩鍏嶆枃瀛楀彂铏氾紙淇濈暀杈规鍙戝厜锛?*/
+        .chatbox[data-skin] .chatbox-header, .chatbox[data-skin] .chatbox-header * {
+            text-shadow: none !important;
+        }
+        /* 鍙樻崲鍏冪礌涓婄殑鏂囧瓧娑堥櫎妯＄硦锛堟暣鏁板儚绱犳覆鏌擄級 */
+        .msg, .msg * { text-rendering: optimizeLegibility; }
+    

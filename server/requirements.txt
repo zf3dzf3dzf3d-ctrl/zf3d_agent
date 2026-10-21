@@ -1,0 +1,26 @@
+# 朱峰社区智能体无限 — Linux/macOS 运行依赖
+# 供根目录 start.sh 首次运行 pip install -r server/requirements.txt 使用。
+# Windows 版自带绿色 python/，已预装全部依赖，不读本清单。
+# 选取原则：仅收录跨平台有 wheel、能稳定 pip 安装的包；
+# start.sh 启用了 set -e，单包安装失败会中断启动，故重型/易编译失败的
+# 可选增强（ddddocr 验证码、rembg 抠图、whisper/faster-whisper 语音）不列入，
+# 这些功能在 Linux 缺失时由代码内的 try/except 优雅降级，不影响主程序启动。
+
+# —— 核心（主服务与各功能模块直接 import）——
+requests
+urllib3
+Pillow
+numpy
+scipy
+psutil
+cryptography
+
+# —— 功能模块（内置浏览器/桌面自动化/音频/TTS/文档/Office 等）——
+playwright          # browser_control 内置浏览器（pip 装完首次需运行: python -m playwright install chromium）
+pynput              # 键鼠自动化（Linux 需图形会话 X11/Wayland）
+pystray             # 系统托盘
+sounddevice         # 音频播放
+edge-tts            # 微软 Edge 语音合成
+pywebview           # 桌面 Web 窗口（Linux 需 GTK/Qt 后端）
+Flask               # 部分子服务/插件入口
+python-pptx         # PPT 生成工具

@@ -1,0 +1,29 @@
+{
+  "spec": 1,
+  "id": "your_mode_id",
+  "name": "你的模式名",
+  "icon": "🧩",
+  "description": "一句话描述该对话模式做什么",
+  "version": "0.1.0",
+  "enabled": false,
+
+  "prompt": "prompt.md",
+
+  "tools": {
+    "backend": [],
+    "frontend": []
+  },
+
+  "fileAccess": [],
+
+  "db": "db/your_mode_id.db",
+
+  "limits": {
+    "max_tools_in_request": 500,
+    "request_timeout_seconds": 1800
+  },
+
+  "entry": {
+    "panel": "frontend/panel.js"
+  }
+}

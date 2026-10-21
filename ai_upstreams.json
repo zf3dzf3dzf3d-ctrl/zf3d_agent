@@ -1,0 +1,172 @@
+{
+  "_说明": "AI 赛道池配置（非硬编码，改完即生效，无需重启——ai_proxy 每 30 秒自动检测本文件 mtime 热重载）。channels: 每条线路一个渠道（url/key/model）；models: 模型名 -> 线路列表，请求在健康线路间轮询分摊，失败自动换道，连续失败3次熔断30秒。key 留空的线路自动跳过不参与转发，填上 key 即自动通车。",
+  "channels": {
+    "zhipu-1": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash",
+      "_说明": "智谱线路1（当前唯一有key的账号）"
+    },
+    "zhipu-2": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash",
+      "_说明": "智谱线路2：填第2个账号的key即通车"
+    },
+    "zhipu-3": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-4": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-5": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-6": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-7": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-8": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-9": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "zhipu-10": {
+      "url": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
+      "key": "",
+      "model": "glm-5.3-flash"
+    },
+    "qwen-1": {
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "key": "",
+      "model": "qwen-flash",
+      "_说明": "千问线路1：填阿里云百炼 DASHSCOPE key（sk-开头）即通车"
+    },
+    "qwen-2": {
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "key": "",
+      "model": "qwen-flash"
+    },
+    "qwen-3": {
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "key": "",
+      "model": "qwen-flash"
+    },
+    "qwen-4": {
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "key": "",
+      "model": "qwen-flash"
+    },
+    "qwen-5": {
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      "key": "",
+      "model": "qwen-flash"
+    },
+    "mimo-1": {
+      "url": "https://www.zf3d.com/api/zf_models_relay.asp",
+      "key": "",
+      "model": "mimo-v2.6-flash",
+      "zf_relay": true,
+      "_说明": "小米MiMo线路（官网中转免key，用本机登录态）"
+    },
+    "mimo-2": {
+      "url": "https://www.zf3d.com/api/zf_models_relay.asp",
+      "key": "",
+      "model": "mimo-v2.6-flash",
+      "zf_relay": true
+    },
+    "mimo-3": {
+      "url": "https://www.zf3d.com/api/zf_models_relay.asp",
+      "key": "",
+      "model": "mimo-v2.6-flash",
+      "zf_relay": true
+    },
+    "zf-relay": {
+      "url": "https://www.zf3d.com/api/zf_models_relay.asp",
+      "key": "",
+      "model": "glm-5.3-flash",
+      "zf_relay": true,
+      "_说明": "朱峰大模型线路（官网中转免key）"
+    }
+  },
+  "models": {
+    "zhipu-glm-5.3-flash": [
+      "zhipu-1",
+      "zhipu-2",
+      "zhipu-3",
+      "zhipu-4",
+      "zhipu-5",
+      "zhipu-6",
+      "zhipu-7",
+      "zhipu-8",
+      "zhipu-9",
+      "zhipu-10"
+    ],
+    "glm5.3-flash": [
+      "zhipu-1",
+      "zhipu-2",
+      "zhipu-3",
+      "zhipu-4",
+      "zhipu-5",
+      "zhipu-6",
+      "zhipu-7",
+      "zhipu-8",
+      "zhipu-9",
+      "zhipu-10"
+    ],
+    "glm-5.3-flash": [
+      "zhipu-1",
+      "zhipu-2",
+      "zhipu-3",
+      "zhipu-4",
+      "zhipu-5",
+      "zhipu-6",
+      "zhipu-7",
+      "zhipu-8",
+      "zhipu-9",
+      "zhipu-10"
+    ],
+    "qwen-flash": [
+      "qwen-1",
+      "qwen-2",
+      "qwen-3",
+      "qwen-4",
+      "qwen-5"
+    ],
+    "qwen3-flash": [
+      "qwen-1",
+      "qwen-2",
+      "qwen-3",
+      "qwen-4",
+      "qwen-5"
+    ],
+    "mimo-v2.6-flash": [
+      "mimo-1",
+      "mimo-2",
+      "mimo-3"
+    ],
+    "zf-glm-flash": [
+      "zf-relay"
+    ],
+    "glm-4.6v-flash": [
+      "zf-relay"
+    ]
+  }
+}

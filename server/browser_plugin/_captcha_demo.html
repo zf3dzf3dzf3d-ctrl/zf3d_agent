@@ -1,0 +1,40 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Captcha Demo</title>
+<style>body{font-family:sans-serif;margin:40px}#cap{border:1px solid #ccc}
+#stage{position:relative;width:400px;height:150px;background:#7ab;margin:10px 0}
+#gap{position:absolute;width:44px;height:150px;background:#333}
+#slide{position:relative;width:400px;height:40px;background:#ddd;margin-top:8px}
+#knob{position:absolute;width:44px;height:40px;background:#2563eb;cursor:grab;text-align:center;color:#fff;line-height:40px}
+#msg{margin-top:10px;font-weight:bold}</style></head><body>
+<h3>文字验证码</h3>
+<canvas id="cap" width="140" height="50"></canvas><br>
+<input id="tinp" placeholder="输入验证码"> <button onclick="checkText()">提交</button>
+<h3>滑块验证</h3>
+<div id="stage"><div id="gap" style="left:260px"></div></div>
+<div id="slide"><div id="knob">→</div></div>
+<div id="msg"></div>
+<script>
+const CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code='';
+function draw(){code='';const c=document.getElementById('cap').getContext('2d');
+c.fillStyle='#f0f0f0';c.fillRect(0,0,140,50);
+for(let i=0;i<4;i++){const ch=CHARS[Math.floor(Math.random()*CHARS.length)];code+=ch;
+c.font=(26+Math.random()*6)+'px Georgia';c.fillStyle=['#333','#555','#226','#833'][i%4];
+c.save();c.translate(15+i*32,34);c.rotate((Math.random()-0.5)*0.5);c.fillText(ch,0,0);c.restore();}
+for(let i=0;i<6;i++){c.strokeStyle='rgba(0,0,0,.25)';c.beginPath();
+c.moveTo(Math.random()*140,Math.random()*50);c.lineTo(Math.random()*140,Math.random()*50);c.stroke();}}
+draw();
+function checkText(){const v=document.getElementById('tinp').value.toUpperCase();
+document.getElementById('msg').textContent=v===code?'文字码 ✔ 通过':'文字码 ✘ 错误';}
+const GAP_X=235;
+const knob=document.getElementById('knob');let drag=null;
+function knobX(e){return (e.touches?e.touches[0].clientX:e.clientX);}
+function start(e){drag={sx:knobX(e)-knob.offsetLeft};e.preventDefault();}
+function move(e){if(!drag)return;let x=knobX(e)-drag.sx;x=Math.max(0,Math.min(356,x));
+knob.style.left=x+'px';document.getElementById('gap').style.left=(x-60+GAP_X-200)+'px';e.preventDefault();}
+function end(){if(drag===null)return;drag=null;
+const msg=document.getElementById('msg');
+if(Math.abs(knob.offsetLeft-GAP_X)<6)msg.textContent='滑块 ✔ 通过';else msg.textContent='滑块 ✘ 未对齐 (knob='+knob.offsetLeft+')';}
+knob.addEventListener('mousedown',start);document.addEventListener('mousemove',move);
+document.addEventListener('mouseup',end);
+knob.addEventListener('touchstart',start);document.addEventListener('touchmove',move);
+document.addEventListener('touchend',end);
+</script></body></html>

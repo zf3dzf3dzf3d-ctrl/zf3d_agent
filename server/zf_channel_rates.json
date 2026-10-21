@@ -1,0 +1,4 @@
+{
+  "_说明": "模型通道 API Key 配置。各通道按需填 apiKey，enabled 控制开关。",
+  "runninghub": { "apiKey": "", "enabled": true, "_说明": "runninghub.cn 任务中心获取 API Key；ref2va 视频接口约 $0.6/次" }
+}

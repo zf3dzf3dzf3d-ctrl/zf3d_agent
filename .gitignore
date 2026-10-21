@@ -1,0 +1,73 @@
+# ===== 运行时垃圾/缓存（不进 git，本地保留可自动重生成）=====
+
+# Playwright 浏览器内核（约 705MB，体积元凶，按需自下载，绝不上传 git）
+python/browsers/
+python/BrowserStable*/
+*.exe.lock
+
+# Python 字节码缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 临时/中间文件
+*.tmp
+syntax_check.tmp
+_*.py
+_*.txt
+
+# 日志（运行时数据，不入库）
+server/logs/
+*.log
+!system/trash/intercept.log
+
+# 缓存目录
+server/cache/thumbs/
+.cache/
+
+# 回收站/垃圾箱运行时内容（保留目录本身，忽略内容）
+server/垃圾箱/*
+!server/垃圾箱/.gitkeep
+
+# 备份文件
+*.bak
+
+# ===== 最简发布版新增忽略（隐私/体积/签名/运行时数据，本地保留、不入库）=====
+
+# 内嵌 Python 运行时（约147MB，含 node.exe 89MB；源码仓库不含，使用者自行准备）
+python/
+
+# 隐私与运行时状态目录（含密钥/用户设置/对话池/访问日志/记忆快照，全部不入库）
+private/
+server/private/
+
+# 运行时数据库（用户数据、可重生，绝不上传）
+*.db
+*.sqlite
+*.sqlite3
+
+# 运行时 json 状态（端口/网关/沙箱/沙盒/聊天池等非源码配置）
+server/data/memory.db
+server/data/semantic.db
+
+# Android 签名私钥与构建产物（绝不可外泄/上传；手机版源码仍保留）
+*.keystore
+*.jks
+*.apk
+
+# 自动备份垃圾（write_file/replace_text 产生的 .bak，不入库）
+*.bak
+*.bak.*
+*.tmp
+
+# 本机绝对路径配置（含用户名，去跟踪；模板由 README 说明）
+mcp_servers.json
+
+# OS / IDE 垃圾
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
+
+# 历史脱敏示例保留说明：ai_keys.json / ai_upstreams.json 中 key 均为空占位符（无真实密钥），
+# 作为配置模板保留入库；真实密钥仅存于本地 private/api_keys.json（已被上方 private/ 忽略，不入库）。

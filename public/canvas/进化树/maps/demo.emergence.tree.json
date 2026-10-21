@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "title": "涌现树-demo",
+    "subject_type": "project",
+    "subject_id": "demo",
+    "created": "2026-10-19"
+  },
+  "roots": [
+    {
+      "id": 20,
+      "parent_id": null,
+      "text": "演示项目",
+      "path": "演示项目",
+      "depth": 0,
+      "clarity": 0.6,
+      "status": "seed",
+      "icon": "",
+      "kind": "capability",
+      "x": 3.55,
+      "y": -129.53,
+      "children": [
+        {
+          "id": 21,
+          "parent_id": 20,
+          "text": "工具能力",
+          "path": "演示项目/工具能力",
+          "depth": 1,
+          "clarity": 0.5,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": -129.53,
+          "y": -219.89,
+          "children": [
+            {
+              "id": 24,
+              "parent_id": 21,
+              "text": "浏览器",
+              "path": "演示项目/工具能力/浏览器",
+              "depth": 2,
+              "clarity": 1.0,
+              "status": "sprout",
+              "icon": "",
+              "kind": "capability",
+              "x": -189.32,
+              "y": -440.46,
+              "children": []
+            },
+            {
+              "id": 25,
+              "parent_id": 21,
+              "text": "文件编辑",
+              "path": "演示项目/工具能力/文件编辑",
+              "depth": 2,
+              "clarity": 0.7999999999999999,
+              "status": "sprout",
+              "icon": "",
+              "kind": "capability",
+              "x": -76.17,
+              "y": -364.71,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 22,
+          "parent_id": 20,
+          "text": "对话能力",
+          "path": "演示项目/对话能力",
+          "depth": 1,
+          "clarity": 0.4,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": 38.46,
+          "y": -302.0,
+          "children": [
+            {
+              "id": 26,
+              "parent_id": 22,
+              "text": "总结",
+              "path": "演示项目/对话能力/总结",
+              "depth": 2,
+              "clarity": 0.3,
+              "status": "sprout",
+              "icon": "",
+              "kind": "capability",
+              "x": -136.87,
+              "y": -513.99,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": 23,
+          "parent_id": 20,
+          "text": "记忆能力",
+          "path": "演示项目/记忆能力",
+          "depth": 1,
+          "clarity": 0.25,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": 159.43,
+          "y": -401.85,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "id": 5,
+      "src": 24,
+      "dst": 26,
+      "kind": "depend"
+    },
+    {
+      "id": 6,
+      "src": 23,
+      "dst": 22,
+      "kind": "depend"
+    },
+    {
+      "id": 8,
+      "src": 25,
+      "dst": 22,
+      "kind": "depend"
+    },
+    {
+      "id": 9,
+      "src": 21,
+      "dst": 22,
+      "kind": "depend"
+    },
+    {
+      "id": 10,
+      "src": 20,
+      "dst": 21,
+      "kind": "depend"
+    }
+  ]
+}

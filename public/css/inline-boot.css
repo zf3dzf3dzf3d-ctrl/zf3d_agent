@@ -1,0 +1,55 @@
+.sb-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.sb-mask.show{opacity:1}
+.sb-panel{width:420px;max-width:92vw;max-height:86vh;overflow:auto;background:linear-gradient(180deg,#1b2230,#141a26);border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);color:#dde3ee;font-size:13px;transform:scale(.94);transition:transform .2s}
+.sb-mask.show .sb-panel{transform:scale(1)}
+.sb-head{display:flex;align-items:center;gap:8px;padding:14px 18px 10px;font-size:15px;font-weight:600}
+.sb-head .sb-ico{font-size:18px}
+.sb-close{margin-left:auto;cursor:pointer;color:#8a93a6;font-size:18px;line-height:1;padding:2px 6px;border-radius:6px}
+.sb-close:hover{color:#fff;background:rgba(255,255,255,.08)}
+.sb-body{padding:6px 18px 16px}
+.sb-top{display:flex;align-items:center;gap:18px;padding:6px 0 12px;border-bottom:1px dashed rgba(255,255,255,.08)}
+.sb-ring{position:relative;width:92px;height:92px;flex:none}
+.sb-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.sb-ring .bg{stroke:rgba(255,255,255,.1)}
+.sb-ring .fg{stroke:#3ecf8e;stroke-linecap:round;transition:stroke-dashoffset .25s ease, stroke .3s}
+.sb-ring.cleaning .fg{stroke:#4da3ff}
+.sb-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.sb-num b{font-size:22px;font-weight:700;line-height:1}
+.sb-num span{font-size:10px;color:#8a93a6;margin-top:3px}
+.sb-stat{flex:1;min-width:0}
+.sb-stat .sb-state{font-size:14px;font-weight:600;margin-bottom:6px}
+.sb-stat .sb-sub{color:#8a93a6;font-size:12px;line-height:1.7}
+.sb-stat .sb-sub b{color:#3ecf8e}
+.sb-layers{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.sb-li{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid transparent;transition:background .2s,border-color .2s}
+.sb-li.active{background:rgba(77,163,255,.12);border-color:rgba(77,163,255,.4)}
+.sb-li.done{border-color:rgba(62,207,142,.25)}
+.sb-li .sb-dot{width:8px;height:8px;border-radius:50%;flex:none;background:#59627a;transition:background .2s}
+.sb-li.active .sb-dot{background:#4da3ff;box-shadow:0 0 8px #4da3ff;animation:sbPulse 1s infinite}
+.sb-li.done .sb-dot{background:#3ecf8e}
+@keyframes sbPulse{50%{opacity:.4}}
+.sb-li .sb-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-li .sb-desc{color:#8a93a6;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-li .sb-mb{flex:none;font-variant-numeric:tabular-nums;color:#c3cadb;font-weight:600;min-width:64px;text-align:right}
+.sb-foot{display:flex;align-items:center;gap:10px;padding:12px 18px 16px}
+.sb-btn{flex:1;height:40px;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;color:#fff;background:linear-gradient(135deg,#4da3ff,#3e7bff);transition:filter .2s,opacity .2s}
+.sb-btn:hover{filter:brightness(1.1)}
+.sb-btn:disabled{opacity:.45;cursor:not-allowed}
+.sb-btn.ghost{flex:none;padding:0 16px;background:rgba(255,255,255,.08)}
+.sb-btn.go{background:linear-gradient(135deg,#3ecf8e,#22a86e)}
+/* 跟随全局主题：修复标题/文字过暗问题，与整体风格统一 */
+.sb-panel{background:var(--bg-card,#1e1e2e);border-color:var(--border,#333344);color:var(--text,#fff);box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.sb-head{color:var(--text,#fff)}
+.sb-close{color:var(--text2,#b8b8cc)}
+.sb-close:hover{color:var(--text,#fff);background:var(--bg-hover,#252535)}
+.sb-top{border-bottom-color:var(--border,#333344)}
+.sb-ring .bg{stroke:var(--border,#333344)}
+.sb-num span{color:var(--text2,#b8b8cc)}
+.sb-stat .sb-state{color:var(--text,#fff)}
+.sb-stat .sb-sub{color:var(--text2,#b8b8cc)}
+.sb-li{background:var(--bg-hover,#252535);border-color:transparent}
+.sb-li .sb-name{color:var(--text,#fff)}
+.sb-li .sb-desc{color:var(--text2,#b8b8cc)}
+.sb-li .sb-mb{color:var(--text,#fff)}
+.sb-foot{border-top:1px dashed var(--border,#333344)}
+.sb-btn.ghost{background:var(--bg-hover,#252535);color:var(--text,#fff)}

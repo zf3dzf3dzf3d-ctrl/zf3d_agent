@@ -1,0 +1,6 @@
+{
+  "player": { "speed": 260, "radius": 12, "hp": 3, "fireInterval": 0.14 },
+  "bullet":  { "speed": 620, "radius": 7 },
+  "enemy":  { "speed": 100, "radius": 13, "spawnInterval": 1.25, "damage": 1 },
+  "world":  { "w": 720, "h": 520 }
+}

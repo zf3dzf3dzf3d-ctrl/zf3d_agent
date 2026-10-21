@@ -1,0 +1,10 @@
+{
+  "title": "新版式测试",
+  "slides": [
+    { "type": "share", "title": "功能完成度", "data": [ {"value": 92, "label": "画布引擎"}, {"value": 78, "label": "演示系统"}, {"value": 65, "label": "语音链路"} ] },
+    { "type": "radar", "title": "能力评估", "data": [ {"value": 90, "label": "记忆"}, {"value": 85, "label": "工具"}, {"value": 70, "label": "规划"}, {"value": 95, "label": "响应"} ] },
+    { "type": "gallery", "title": "场景展示", "layout": "grid2", "images": [ {"src": "https://picsum.photos/600/400", "caption": "A"}, {"src": "https://picsum.photos/600/401", "caption": "B"}, {"src": "https://picsum.photos/600/402", "caption": "C"}, {"src": "https://picsum.photos/600/403", "caption": "D"} ] },
+    { "type": "split", "title": "左文右图", "bullets": ["要点一", "要点二"], "image": { "src": "https://picsum.photos/700/500" } },
+    { "type": "chart", "kind": "share", "mode": "percent", "title": "用户构成", "data": [ {"value": 45, "label": "设计师"}, {"value": 30, "label": "开发者"}, {"value": 25, "label": "学生"} ] }
+  ]
+}

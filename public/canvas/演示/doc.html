@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>大模型文档 · Word 查看器</title>
+<style>
+  :root{--bg:#1e2229;--panel:#262b34;--line:#3a4150;--fg:#e8ecf3;--dim:#9aa5b5;--acc:#4da3ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:15px/1.8 "Segoe UI","Microsoft YaHei",sans-serif;height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header b{font-size:16px}
+  header .meta{color:var(--dim);font-size:12px}
+  header input{margin-left:auto;background:var(--bg);border:1px solid var(--line);color:var(--fg);padding:5px 10px;border-radius:6px;width:200px}
+  #doc{flex:1;overflow:auto;padding:28px 0}
+  #page{max-width:820px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:48px 56px;box-shadow:0 4px 24px rgba(0,0,0,.35)}
+  h1{font-size:26px;border-bottom:2px solid var(--acc);padding-bottom:10px;margin-bottom:18px}
+  h2{font-size:20px;color:var(--acc);margin:22px 0 8px}
+  h3{font-size:17px;margin:16px 0 6px}
+  p{margin:8px 0}
+  ul,ol{margin:8px 0 8px 24px}
+  blockquote{border-left:4px solid var(--acc);background:#2f3542;padding:8px 16px;margin:12px 0;color:var(--dim);border-radius:0 8px 8px 0}
+  pre{background:#161a20;border:1px solid var(--line);border-radius:8px;padding:14px;overflow:auto;font:13px/1.6 Consolas,monospace;margin:12px 0}
+  code{font:13px Consolas,monospace;background:#161a20;padding:2px 6px;border-radius:4px}
+  img{max-width:100%;border-radius:8px;margin:10px 0}
+  table{border-collapse:collapse;margin:12px 0;width:100%}
+  th,td{border:1px solid var(--line);padding:6px 12px;text-align:left}
+  th{background:#2f3542;color:var(--acc)}
+  hr{border:none;border-top:1px solid var(--line);margin:20px 0}
+  mark{background:#ffd54f;color:#000;border-radius:2px}
+  #empty{color:var(--dim);padding:40px;text-align:center}
+  #stat{padding:6px 16px;color:var(--dim);font-size:12px;border-top:1px solid var(--line);background:var(--panel)}
+</style>
+</head>
+<body>
+<header><b>📄</b><b id="title">加载中…</b><span class="meta" id="meta"></span>
+  <input id="q" placeholder="🔍 高亮关键词…"></header>
+<div id="doc"><div id="page"><div id="empty">未指定文件，用法：doc.html?file=名字.doc.json（相对 演示/ 目录）</div></div></div>
+<div id="stat"></div>
+<script>
+let q='', rawDoc=null;
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function hl(s){ if(!q) return esc(s); try{ return esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>'<mark>'+m+'</mark>'); }catch(e){return esc(s);} }
+function block(b){
+  const t=b.type||'p', inner=b.html?b.html:hl(b.text||'');
+  if(t==='code') return '<pre><code>'+esc(b.text||'')+'</code></pre>';
+  if(t==='img') return '<img src="'+esc(b.src||'')+'" alt="'+esc(b.alt||'')+'">';
+  if(t==='ul'||t==='ol') return '<'+t+'>'+(b.items||[]).map(i=>'<li>'+hl(i)+'</li>').join('')+'</'+t+'>';
+  if(t==='table') return '<table><tr>'+(b.header||[]).map(h=>'<th>'+hl(h)+'</th>').join('')+'</tr>'+(b.rows||[]).map(r=>'<tr>'+r.map(c=>'<td>'+hl(c)+'</td>').join('')+'</tr>').join('')+'</table>';
+  if(t==='hr') return '<hr>';
+  if(/^h[1-3]$/.test(t)) return '<'+t+'>'+inner+'</'+t+'>';
+  if(t==='quote') return '<blockquote>'+inner+'</blockquote>';
+  return '<p>'+inner+'</p>';
+}
+function render(d){
+  rawDoc=d;
+  document.getElementById('title').textContent=d.title||'未命名文档';
+  document.getElementById('meta').textContent=(d.author?d.author+' · ':'')+(d.date||'');
+  const n=(d.blocks||[]).length;
+  document.getElementById('page').innerHTML=(d.blocks||[]).map(block).join('');
+  document.getElementById('stat').textContent=n+' 个内容块'+(q?' · 高亮「'+q+'」':'');
+}
+function load(){
+  const f=new URLSearchParams(location.search).get('file');
+  if(!f) return;
+  fetch('/pres/'+encodeURIComponent(f)).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>render(d))
+  .catch(e=>{document.getElementById('empty').textContent='加载失败：'+e.message});
+}
+document.getElementById('q').oninput=e=>{q=e.target.value.trim(); if(rawDoc) render(rawDoc);};
+load();
+</script>
+</body>
+</html>

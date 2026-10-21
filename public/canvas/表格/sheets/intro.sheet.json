@@ -1,0 +1,88 @@
+{
+  "title": "大模型表格格式介绍",
+  "sheets": [
+    {
+      "name": "格式说明",
+      "columns": [
+        {
+          "key": "item",
+          "title": "项目",
+          "width": 180
+        },
+        {
+          "key": "desc",
+          "title": "说明"
+        }
+      ],
+      "rows": [
+        {
+          "item": "文件后缀",
+          "desc": ".sheet.json（纯文本 JSON，大模型直接读写）"
+        },
+        {
+          "item": "顶层字段",
+          "desc": "title（文档名）、sheets（工作表数组）"
+        },
+        {
+          "item": "sheet 字段",
+          "desc": "name（页签名）、columns（列定义）、rows（数据行）"
+        },
+        {
+          "item": "列定义",
+          "desc": "key 对应行的字段名，title 是表头，width 可选（像素）"
+        },
+        {
+          "item": "单元格样式",
+          "desc": "行内 _style: {bg:'#fff3cd', color:'#856404', bold:true}"
+        },
+        {
+          "item": "多 sheet",
+          "desc": "sheets 数组放多个对象，查看器顶部出现页签"
+        },
+        {
+          "item": "新建流程",
+          "desc": "模型写 .sheet.json 到 表格/sheets/，并在 表格/index.json 追加一行"
+        }
+      ]
+    },
+    {
+      "name": "对比传统 Excel",
+      "columns": [
+        {
+          "key": "dim",
+          "title": "维度"
+        },
+        {
+          "key": "xlsx",
+          "title": "传统 Excel"
+        },
+        {
+          "key": "sheetjson",
+          "title": "大模型表格"
+        }
+      ],
+      "rows": [
+        {
+          "dim": "格式",
+          "xlsx": "二进制 zip",
+          "sheetjson": "纯文本 JSON"
+        },
+        {
+          "dim": "模型可编辑",
+          "xlsx": "困难",
+          "sheetjson": "直接改文本"
+        },
+        {
+          "dim": "打开方式",
+          "xlsx": "需装 Office",
+          "sheetjson": "浏览器即开"
+        },
+        {
+          "dim": "画布镶嵌",
+          "xlsx": "不支持",
+          "sheetjson": "iframe 节点"
+        }
+      ]
+    }
+  ]
+}

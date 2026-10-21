@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>峰控媒体中心 - 播放器与下载器</title>
+<style>
+  :root{--bg:#0f1117;--card:#1a1e2a;--line:#2a3040;--txt:#e8ecf4;--sub:#8b93a8;--acc:#4f8cff;--ok:#3fbf7f;--warn:#e8a33d;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font:15px/1.6 "Microsoft YaHei",system-ui,sans-serif;padding:14px;max-width:860px;margin:0 auto}
+  h2{font-size:17px;margin:18px 0 8px;color:var(--acc)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  video,audio{width:100%;border-radius:8px;outline:none;background:#000}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  input,select,button{font:inherit;border-radius:8px;border:1px solid var(--line);background:#12141c;color:var(--txt);padding:8px 10px}
+  input{flex:1;min-width:140px}
+  button{cursor:pointer;background:#222839}
+  button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  ul{list-style:none;max-height:300px;overflow-y:auto}
+  li{display:flex;align-items:center;gap:8px;padding:7px 8px;border-bottom:1px solid var(--line);border-radius:6px;cursor:pointer}
+  li:hover{background:#232938}
+  li .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  li .sz{color:var(--sub);font-size:12px}
+  .tag{font-size:11px;padding:1px 7px;border-radius:9px;background:#2a3040;color:var(--sub)}
+  .bar{height:8px;background:#12141c;border-radius:5px;overflow:hidden;margin-top:5px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#7fb0ff);transition:width .3s}
+  .meta{color:var(--sub);font-size:12px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tabs button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .hidden{display:none}
+  a{color:var(--acc);text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <button class="on" data-tab="play">▶ 播放器</button>
+  <button data-tab="dl">⬇ 下载器</button>
+</div>
+
+<!-- ============ 播放器 ============ -->
+<div id="tab-play">
+  <div class="card">
+    <div class="row">
+      <select id="srcDir">
+        <option value="downloads">downloads（含 to_phone）</option>
+        <option value="outputs">outputs</option>
+        <option value="public">public</option>
+      </select>
+      <select id="filter">
+        <option value="all">全部媒体</option>
+        <option value="video">仅视频</option>
+        <option value="audio">仅音频</option>
+      </select>
+      <button onclick="loadList()">🔄 刷新</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="nowName" class="meta" style="margin-bottom:6px">未选择媒体</div>
+    <video id="player" controls playsinline></video>
+    <div class="row" style="margin-top:8px">
+      <button onclick="step(-1)">⏮ 上一个</button>
+      <button onclick="step(1)">⏭ 下一个</button>
+      <span class="meta" id="idxInfo"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">媒体列表</h2>
+    <ul id="list"><li class="meta">加载中…</li></ul>
+  </div>
+</div>
+
+<!-- ============ 下载器 ============ -->
+<div id="tab-dl" class="hidden">
+  <div class="card">
+    <div class="row">
+      <input id="dlUrl" placeholder="粘贴文件直链 URL（支持断点续传：.zfpart 保存进度，重开服务器继续）">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="dlName" placeholder="保存文件名（留空自动取）" style="flex:0 1 240px">
+      <button class="primary" onclick="dlStart()">开始下载</button>
+      <button onclick="loadTasks()">刷新任务</button>
+      <span class="meta">已下载文件在 downloads/ 目录</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">任务列表（2 秒自动刷新）</h2>
+    <ul id="tasks"><li class="meta">暂无任务</li></ul>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  $('#tab-play').classList.toggle('hidden',b.dataset.tab!=='play');
+  $('#tab-dl').classList.toggle('hidden',b.dataset.tab!=='dl');
+  if(b.dataset.tab==='dl')loadTasks();
+});
+
+const VIDEO_EXT=['.mp4','.webm','.mkv','.mov','.avi','.m4v','.flv','.ts'];
+const AUDIO_EXT=['.mp3','.wav','.ogg','.m4a','.flac','.aac','.wma','.opus'];
+let items=[],cur=-1;
+
+function ext(n){const i=n.lastIndexOf('.');return i<0?'':n.slice(i).toLowerCase();}
+function kind(n){const e=ext(n);return VIDEO_EXT.includes(e)?'video':AUDIO_EXT.includes(e)?'audio':null;}
+function fmtSize(b){if(b>1<<30)return (b/1073741824).toFixed(2)+' GB';if(b>1<<20)return (b/1048576).toFixed(1)+' MB';if(b>1024)return (b/1024).toFixed(0)+' KB';return b+' B';}
+
+async function loadList(){
+  const dir=$('#srcDir').value,f=$('#filter').value;
+  $('#list').innerHTML='<li class="meta">加载中…</li>';
+  try{
+    const r=await fetch('/api/fengkong/files?dir='+encodeURIComponent(dir)+'&limit=300');
+    const j=await r.json();
+    items=(j.items||[]).filter(it=>{const k=kind(it.name);return k&&(f==='all'||k===f);});
+    renderList();
+  }catch(e){$('#list').innerHTML='<li class="meta">加载失败：'+e+'</li>';}
+}
+function renderList(){
+  const ul=$('#list');
+  if(!items.length){ul.innerHTML='<li class="meta">该目录暂无媒体文件</li>';return;}
+  ul.innerHTML='';
+  items.forEach((it,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML='<span class="tag">'+(kind(it.name)==='video'?'🎬':'🎵')+'</span>'+
+      '<span class="nm">'+it.name+'</span><span class="sz">'+fmtSize(it.size)+'</span>';
+    li.onclick=()=>play(i);
+    ul.appendChild(li);
+  });
+}
+function play(i){
+  cur=i;const it=items[i];const k=kind(it.name);
+  const p=$('#player');
+  p.outerHTML=k==='video'
+    ?'<video id="player" controls playsinline autoplay src="/api/fengkong/download?p='+encodeURIComponent(it.path)+'"></video>'
+    :'<video id="player" controls playsinline autoplay style="height:64px" src="/api/fengkong/download?p='+encodeURIComponent(it.path)+'"></video>';
+  $('#nowName').textContent='正在播放：'+it.name+'（'+fmtSize(it.size)+'）';
+  $('#idxInfo').textContent=(i+1)+' / '+items.length;
+}
+function step(d){if(!items.length)return;play(((cur<0?0:cur+d)+items.length)%items.length);}
+$('#player')?.addEventListener('ended',()=>step(1));
+
+/* ============ 下载器 ============ */
+let dlTimer=null;
+async function dlStart(){
+  const url=$('#dlUrl').value.trim();if(!url)return alert('请输入 URL');
+  const body={url};
+  if($('#dlName').value.trim())body.filename=$('#dlName').value.trim();
+  const r=await fetch('/api/download/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!j.ok)return alert('失败：'+(j.err||j.error||'未知'));
+  $('#dlUrl').value='';loadTasks();
+  if(!dlTimer)dlTimer=setInterval(loadTasks,2000);
+}
+async function loadTasks(){
+  try{
+    const r=await fetch('/api/download/list');
+    const j=await r.json();
+    const ts=j.tasks||j.items||[];
+    const ul=$('#tasks');
+    if(!ts.length){ul.innerHTML='<li class="meta">暂无任务</li>';return;}
+    ul.innerHTML='';
+    ts.forEach(t=>{
+      const pct=t.total?(t.downloaded/t.total*100):0;
+      const li=document.createElement('li');
+      li.style.cursor='default';
+      li.innerHTML='<div style="flex:1"><div class="row"><span class="nm">'+(t.filename||t.url)+'</span>'+
+        '<span class="tag">'+(t.status||'')+'</span></div>'+
+        '<div class="bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+
+        '<div class="meta">'+fmtSize(t.downloaded||0)+(t.total?' / '+fmtSize(t.total):'')+' · '+pct.toFixed(1)+'%'+
+        (t.err?' · <span style="color:#e66">'+t.err+'</span>':'')+'</div></div>'+
+        (t.status==='downloading'?'<button onclick="dlCancel(\''+t.id+'\')">取消</button>':'');
+      ul.appendChild(li);
+    });
+  }catch(e){}
+}
+async function dlCancel(id){
+  await fetch('/api/download/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  loadTasks();
+}
+
+loadList();
+if(dlTimer===null)dlTimer=setInterval(()=>{if(!$('#tab-dl').classList.contains('hidden'))loadTasks();},2000);
+</script>
+</body>
+</html>

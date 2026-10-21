@@ -1,0 +1,29 @@
+{
+  "meta": { "title": "图表能力演示", "author": "智能体", "created": "2026-09-06" },
+  "slides": [
+    { "type": "cover", "title": "图表能力演示", "subtitle": "柱状 / 折线 / 环形图，纯 JSON 驱动" },
+    { "type": "chart", "title": "柱状图 · 各版本性能对比", "chart": { "kind": "bar", "data": [
+      { "value": 32, "label": "4.0" },
+      { "value": 51, "label": "4.5" },
+      { "value": 68, "label": "5.0" },
+      { "value": 89, "label": "5.1", "color": "#ffb020" }
+    ] } },
+    { "type": "chart", "title": "折线图 · 月度活跃用户", "chart": { "kind": "line", "data": [
+      { "value": 120, "label": "1月" },
+      { "value": 180, "label": "2月" },
+      { "value": 260, "label": "3月" },
+      { "value": 310, "label": "4月" },
+      { "value": 470, "label": "5月" }
+    ] } },
+    { "type": "chart", "title": "环形图 · 用户构成占比", "chart": { "kind": "donut", "data": [
+      { "value": 45, "label": "3D设计师", "color": "#ffb020" },
+      { "value": 30, "label": "游戏开发者", "color": "#5aa7ff" },
+      { "value": 25, "label": "学生/爱好者", "color": "#6ee7a0" }
+    ] } },
+    { "type": "chart", "title": "饼图 · 任务类型分布（用 donut 即可，去掉中心留白就是饼图观感）", "chart": { "kind": "donut", "data": [
+      { "value": 40, "label": "建模" },
+      { "value": 35, "label": "渲染" },
+      { "value": 25, "label": "动画" }
+    ] } }
+  ]
+}

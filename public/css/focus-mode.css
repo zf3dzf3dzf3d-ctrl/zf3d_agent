@@ -1,0 +1,164 @@
+/* ========== focus-mode.css - Codex 式专注模式布局 ========== */
+body.zf-focus { overflow: hidden !important; }
+
+#zfFocusRoot {
+  position: fixed; inset: 0; z-index: 99990;
+  display: none;
+  /* 2026-10-18 二次对调：列序 = 侧栏|缝1|主|缝2|工作台坞（左列表·中对话·右工作台） */
+  grid-template-columns: var(--zf-side-w, 260px) 5px 1fr 0px 0px;
+  background: var(--bg-main, #16161c); color: var(--text-main, #e8e8ee);
+  font-size: 13px;
+}
+/* 2026-10-18 最终布局：左=会话列表(side)，中=对话(main)，右=工作台坞(wb-dock)；DOM 顺序本就如此，grid-column 显式钉死防错乱 */
+#zfFocusRoot .zf-side { grid-column: 1; }
+#zfFocusRoot .zf-split { grid-column: 2; }
+#zfFocusRoot .zf-main { grid-column: 3; }
+#zfFocusRoot .zf-split2 { grid-column: 4; }
+#zfFocusRoot .zf-wb-dock { grid-column: 5; }
+body.zf-focus #zfFocusRoot { display: grid; }
+body.zf-focus #canvasArea, body.zf-focus #canvasContent,
+body.zf-focus .zf-topbar, body.zf-focus #winControls { visibility: hidden !important; }
+body.zf-focus #zfFocusRoot { visibility: visible; }
+
+/* 左栏=会话列表（最左侧，边框朝右） */
+.zf-side { display: flex; flex-direction: column; border-right: 1px solid var(--border-main, #2a2a35); border-left: 0; min-width: 0; background: var(--bg-panel, #1c1c24); }
+#zfFocusRoot.side-collapsed { grid-template-columns: 0px 0px 1fr 0px 0px; }
+#zfFocusRoot.side-collapsed .zf-side { display: none; }
+.zf-split { width: 10px; margin-right: -3px; cursor: col-resize; background: transparent; position: relative; z-index: 6; flex: none; transition: background .15s; touch-action: none; }
+  /* 2026-10-17：加宽拖拽热区（视觉仍是 5px 缝，10px 宽 + 负 margin 更容易抓取） */
+  /* 2026-10-11：拖拽改用 Pointer Events（见 app-focus-mode.js initSplitter），加 touch-action:none 保证峰控触屏可拖 */
+.zf-split:hover, .zf-split.dragging { background: var(--accent, #7aa2ff); opacity: .55; }
+#zfFocusRoot.side-collapsed .zf-split { display: none; }
+.zf-proj-head { padding: 10px 12px 6px; font-weight: 600; opacity: .75; display: flex; justify-content: space-between; align-items: center; }
+.zf-proj-list { overflow-y: auto; max-height: 34%; padding: 0 6px; }
+.zf-proj-item { padding: 7px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zf-proj-item:hover { background: rgba(255,255,255,.06); }
+.zf-proj-item.active { background: var(--accent-soft, rgba(90,140,255,.18)); color: var(--accent, #7aa2ff); }
+/* 2026-10-15：去掉「会话」标题行——只隐藏文字并压缩标题条，保留行内「＋」新建会话按钮 */
+.zf-sess-head { padding: 2px 10px 2px; border-top: 1px solid var(--border-main, #2a2a35); }
+.zf-sess-head > span { display: none; }
+.zf-sess-list { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 0 6px 12px; }
+.zf-sess-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+.zf-sess-item:hover { background: rgba(255,255,255,.06); }
+.zf-sess-item.active { background: var(--accent-soft, rgba(90,140,255,.18)); }
+.zf-sess-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf78; flex: none; }
+.zf-sess-dot.sending { background: #ffb84d; animation: zfPulse 1s infinite; }
+.zf-sess-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes zfPulse { 50% { opacity: .3; } }
+
+/* 顶部条 + 对话区 */
+.zf-main { grid-column: 3; display: flex; flex-direction: column; min-width: 0; }
+/* 2026-10-15 顶栏图标化：收紧 padding/gap 把空间让给内容 */
+.zf-top { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border-main, #2a2a35); }
+.zf-btn { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-main, #2a2a35); background: transparent; color: inherit; cursor: pointer; }
+  /* 2026-10-11：退出专注模式按钮禁止文字换行 */
+  .zf-top .zf-btn { white-space: nowrap; flex: none; }
+.zf-btn:hover { background: rgba(255,255,255,.07); }
+.zf-top .zf-crumb { flex: 0 1 auto; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
+/* ---------- 2026-10-15 纯图标白线按钮：方形无边框、居中、低透明度，hover 才显形 ---------- */
+.zf-top .zf-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: none; border-radius: 6px;
+  background: transparent; color: inherit; opacity: .62; flex: none;
+  transition: opacity .15s, background .15s;
+}
+.zf-top .zf-icon-btn:hover { opacity: 1; background: rgba(255,255,255,.08); }
+.zf-top .zf-icon-btn svg { display: block; }
+/* 退出按钮 hover 转红，呼应"退出/破坏性"语义 */
+.zf-top .zf-icon-btn.zf-ic-exit:hover { color: #ff6b6b; background: rgba(255,107,107,.12); }
+/* 2026-10-15 关键坑：margin-left:auto 所有权由 exit 转移到 new —— [＋][⤡] 成组靠右，会话名左端自然延伸 */
+#zfBtnNewTop { margin-left: auto; }
+.zf-stage { position: relative; flex: 1; min-height: 0; }
+/* 会话视口：把原 chatbox 元素移进来 */
+.zf-stage .chat-box, .zf-stage .zf-hosted { position: absolute; }
+body.zf-focus .zf-stage .chat-box { resize: none !important; }
+.zf-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: .5; }
+
+/* ---------- 舞台内 chatbox 适配：撑满舞台、消息区可滚、输入区不塌陷 ---------- */
+/* 舞台上的 chatbox 强制块级撑满（JS inline 之外的双保险），并恢复可见性 */
+body.zf-focus #zfStage .chatbox.zf-hosted {
+  display: flex !important;
+  flex-direction: column !important;
+  left: 0 !important; top: 0 !important;
+  width: 100% !important; height: 100% !important;
+  max-width: none !important; max-height: none !important;
+  border-radius: 0 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+}
+/* chatbox 内部常见结构：头部 / 消息体 / 输入区，纵向 flex 自适应 */
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-input,
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-footer,
+body.zf-focus #zfStage .chatbox.zf-hosted .chat-input-area {
+  flex: none !important;
+  width: 100% !important;
+}
+/* 舞台尺寸变化（窗口最大化/折叠左栏）时子元素百分比布局自动跟随 */
+#zfStage { overflow: hidden; }
+
+/* 右缘工作台拉手 */
+/* 项目分组头（可点击展开/收起） */
+.zf-group-head { display: flex; align-items: center; gap: 6px; font-weight: 600; padding: 8px 10px; margin-top: 2px; }
+.zf-group-head .zf-group-arrow { width: 12px; flex: none; opacity: .7; font-size: 11px; }
+.zf-group-head .zf-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zf-group-head .zf-group-count { flex: none; font-size: 11px; opacity: .55; background: rgba(255,255,255,.08); border-radius: 8px; padding: 1px 7px; }
+/* 展开组下的会话行缩进 */
+.zf-sess-item { margin-left: 14px; }
+.zf-wb-handle { position: absolute; left: 0; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; padding: 12px 4px; border-radius: 0 8px 8px 0; background: var(--bg-panel, #1c1c24); border: 1px solid var(--border-main, #2a2a35); border-left: 0; cursor: pointer; opacity: .6; z-index: 5; }
+.zf-wb-handle:hover { opacity: 1; }
+
+/* ========== 工作台右坞（五列布局：side | 缝1 | main | 缝2 | wbDock） ========== */
+/* 基础态（未进坞）wb-dock 是 display:none 不占格，列4/列5 必须归 0，
+   否则 var(--zf-wb-w,380px) 会在右侧留出一条 380px 空白，把主区挤偏错位 */
+#zfFocusRoot { grid-template-columns: var(--zf-side-w, 260px) 5px 1fr 0px 0px; }
+#zfFocusRoot.wb-docked { grid-template-columns: var(--zf-side-w, 260px) 5px 1fr 5px var(--zf-wb-w, 380px); }
+#zfFocusRoot.wb-docked.side-collapsed { grid-template-columns: 0px 0px 1fr 5px var(--zf-wb-w, 380px); }
+.zf-split2 { width: 0; cursor: col-resize; background: transparent; position: relative; z-index: 6; transition: background .15s; touch-action: none; }
+#zfFocusRoot.wb-docked .zf-split2 { width: 10px; margin-right: -3px; } /* 2026-10-18：坞在右侧，热区负 margin 改朝右 */
+.zf-split2:hover, .zf-split2.dragging { background: var(--accent, #7aa2ff); opacity: .55; }
+.zf-wb-dock { min-width: 0; overflow: hidden; position: relative; display: none; background: var(--bg-panel, #1c1c24); border-left: 1px solid var(--border-main, #2a2a35); border-right: 0; }
+#zfFocusRoot.wb-docked .zf-wb-dock { display: block; }
+/* 进坞后的抽屉：填满坞区，屏蔽浮层定位/动画/阴影 */
+.wb-drawer.zf-wb-docked { position: absolute; inset: 0; left: auto; top: auto; bottom: auto; right: auto; transform: none !important; transition: none !important; box-shadow: none !important; border-radius: 0; width: 100%; height: 100%; }
+.wb-drawer.zf-wb-docked .wb-drawer-resize { display: none; }
+/* 触屏（峰控）：侧栏 220px，工作台默认坞宽 55vw，防止 380px 溢出小屏 */
+[data-zf-mobile='1'] #zfFocusRoot.wb-docked { grid-template-columns: var(--zf-side-w, 220px) 5px 1fr 5px var(--zf-wb-w, 55vw); }
+
+/* ==========================================================
+   2026-10-10 修复：专注模式下弹层被 #zfFocusRoot(z-index:99990) 盖住
+   问题：专注模式下点「项目/极简(设置)/文件树/任务面板」等弹层，
+   面板 z-index（项目面板~9999、设置面板~5000）全部低于专注遮罩
+   99990，弹出来也被盖住，表现为"打不开/在下面看不到"。
+   修复：专注模式下把这些弹层提到专注遮罩之上。
+   #projPanel/#projPanelOverlay 是 body 级子元素（dom-side-panels.js
+   注入），不受 #canvasArea visibility:hidden 影响，只差 z-index。
+   ========================================================== */
+body.zf-focus #projPanel,
+body.zf-focus #projPanelOverlay,
+body.zf-focus #ftPanel,
+body.zf-focus #ftPanelOverlay,
+body.zf-focus #taskPanel,
+body.zf-focus #taskPanelOverlay,
+body.zf-focus #settingsOverlay,
+body.zf-focus #themePanel {
+  visibility: visible !important;
+  z-index: 99995 !important;
+}
+/* 专注模式下顶栏虽然整体隐藏，但 #settingsBtn 等 topbar-icon 实际被
+   studio-skin 移到了 rail/foot 等位置（非 .zf-topbar 内），按需放行
+   设置入口避免无法打开设置；其余顶栏保持隐藏不受影响 */
+body.zf-focus .zf-topbar .topbar-icon { visibility: visible !important; }
+
+
+/* ========== 2026-10-14 修复：专注模式隐藏右下角浮动入口栏（对话数量按钮 chatStatusBtn + 更多按钮 tpFabMoreBtn 整组） ==========
+   原 .tp-fab-group 是 body 直接子元素，不被 #canvasArea visibility:hidden 影响，
+   专注模式下会浮在 #zfFocusRoot 遮罩之上。沉浸布局不需要它，整组隐藏。 */
+body.zf-focus .tp-fab-group { display: none !important; }
+body.zf-focus #tpFabMoreMenu { display: none !important; }

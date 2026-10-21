@@ -1,0 +1,87 @@
+/* ============================================================
+ * rocket-launch.css —— 太空无限风·对话框"火箭发射"特效（底部整条喷焰版）
+ * 触发：js/rocket-launch.js 监听某对话框发送按钮 .sending 类跃变
+ *       无->有=用户发送(发射)  有->无=AI回答完成(返航点火)
+ * 范围：只覆盖"发生跃变的那个对话框"的底部整条边（非全局）。
+ * 性能铁律：动画只碰 transform / opacity（GPU 合成），绝不动画宽高/left/top。
+ * 零开销：空闲时容器内无任何喷焰节点（JS 用完即清空）。
+ * ============================================================ */
+
+/* 全局浮层：pointer-events:none 不挡任何操作 */
+.zfr-overlay{
+  position:fixed; left:0; top:0; width:0; height:0;
+  pointer-events:none; z-index:9000; /* 低于设置面板遮罩(.overlay z-index:9999)，高于对话框 */
+}
+/* 喷焰锚点：JS 实时设 left/top(=本框底边)/width(=本框宽度)，高 0，子节点向上下溢出可见 */
+.zfr-thrust{
+  position:fixed; height:0; width:0; pointer-events:none;
+  overflow:visible;
+}
+/* 底部一条高亮喷火线：横铺整条底边，靠 scaleX 抽出 + opacity 淡出 */
+.zfr-barline{
+  position:absolute; left:0; top:-2px; width:100%; height:4px;
+  border-radius:4px;
+  background:linear-gradient(to right,
+    rgba(255,120,40,0) 0%,
+    rgba(255,200,90,0.95) 18%,
+    rgba(255,250,225,1) 50%,
+    rgba(255,200,90,0.95) 82%,
+    rgba(255,120,40,0) 100%);
+  transform:scaleX(0.1); opacity:0;
+  will-change:transform,opacity;
+  animation:zfr-line 0.7s cubic-bezier(.22,.61,.36,1) forwards;
+  filter:blur(0.6px);
+}
+/* 整条底边向上泛起的暖橙光晕（覆盖感） */
+.zfr-glow{
+  position:absolute; left:0; top:-26px; width:100%; height:30px;
+  background:linear-gradient(to top,
+    rgba(255,170,70,0.55) 0%,
+    rgba(255,140,50,0.28) 40%,
+    rgba(255,90,30,0) 100%);
+  transform:scaleY(0.2); transform-origin:bottom center; opacity:0;
+  will-change:transform,opacity;
+  animation:zfr-glowrise 0.65s ease-out forwards;
+}
+/* 沿底边排开的向下喷焰柱（JS 按本框宽度自适应数量），靠 scaleY 抖动喷射 */
+.zfr-jet{
+  position:absolute; top:-2px;
+  width:12px; height:64px; margin-left:-6px;
+  transform-origin:top center;
+  border-radius:50% 50% 45% 45%;
+  background:linear-gradient(to bottom,
+    rgba(255,250,220,0.95) 0%,
+    rgba(255,190,90,0.9) 28%,
+    rgba(255,120,40,0.7) 60%,
+    rgba(255,70,25,0.25) 82%,
+    rgba(255,50,20,0) 100%);
+  opacity:0; transform:scaleY(0.12);
+  will-change:transform,opacity;
+  animation:zfr-burn 0.7s ease-out forwards;
+  filter:blur(0.4px);
+}
+
+@keyframes zfr-line{
+  0%   { opacity:0; transform:scaleX(0.1); }
+  22%  { opacity:1; transform:scaleX(1); }
+  100% { opacity:0; transform:scaleX(1.02); }
+}
+@keyframes zfr-glowrise{
+  0%   { opacity:0; transform:scaleY(0.2); }
+  30%  { opacity:0.9; transform:scaleY(1); }
+  100% { opacity:0; transform:scaleY(1.35); }
+}
+@keyframes zfr-burn{
+  0%   { opacity:0; transform:scaleY(0.12); }
+  18%  { opacity:0.95; transform:scaleY(1.05); }
+  55%  { opacity:0.8; transform:scaleY(0.8); }
+  100% { opacity:0; transform:scaleY(0.18); }
+}
+
+/* 无障碍：系统要求"减少动态效果"时，全部特效静止（JS 也会跳过注入，双保险） */
+@media (prefers-reduced-motion: reduce){
+  .zfr-barline, .zfr-glow, .zfr-jet{ animation:none !important; opacity:0 !important; }
+}
+
+/* 静音按钮已取消，兜底隐藏（防旧缓存残留显示） */
+.zfr-mute{ display:none !important; }

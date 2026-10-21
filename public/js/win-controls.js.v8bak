@@ -1,0 +1,145 @@
+/* 桌面客户端窗口控制 v8 —— 三大功能彻底解耦，互不传染：
+   1) 最大化/还原：后端 toggle_maximize() 纯 SetWindowPos 手动实现，返回新状态
+   2) 平移：JS 增量 → window_delta(0,dx,dy)，最大化时直接忽略
+   3) 缩放：JS 增量 → window_delta(ht,dx,dy)，最大化时直接忽略
+   仅在 pywebview 客户端内生效；浏览器访问时自动隐藏。 */
+(function () {
+  function init() {
+    var api = window.pywebview && window.pywebview.api;
+    if (!api) { setTimeout(init, 300); return; }
+
+    /* ---------- 控制条（固定右上角） ---------- */
+    var bar = document.createElement('div');
+    bar.id = 'zfWinCtrl';
+    bar.innerHTML =
+      '<span class="zf-win-btn" id="zfWinMin" title="最小化">&#x2500;</span>' +
+      '<span class="zf-win-btn" id="zfWinMax" title="最大化/还原">&#x25A1;</span>' +
+      '<span class="zf-win-btn zf-win-close" id="zfWinClose" title="关闭窗口（后台服务继续运行）">&#x2715;</span>';
+    document.body.appendChild(bar);
+    bar.classList.add('zf-win-fixed');
+
+    var maxBtn = bar.querySelector('#zfWinMax');
+    function setMaxIcon(isMax) {
+      maxBtn.textContent = isMax ? '\u2750' : '\u25A1';
+    }
+    bar.querySelector('#zfWinMin').onclick = function () { api.minimize(); };
+    bar.querySelector('#zfWinClose').onclick = function () { api.close(); };
+    /* 最大化/还原：以后端返回的新状态为准，本地不猜 */
+    function doToggle() {
+      try {
+        var p = api.toggle_maximize();
+        if (p && p.then) p.then(function (s) { setMaxIcon(s === 'maximized'); }, function () {});
+      } catch (err) {}
+    }
+    maxBtn.onclick = doToggle;
+    api.window_state().then(function (s) { setMaxIcon(s === 'maximized'); }).catch(function () {});
+
+    /* ---------- 平移手势（独立，只发 mode=0；最大化时后端忽略） ---------- */
+    function makeDrag() {
+      return function (e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.zf-win-btn, button, input, select, a')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var lx = e.screenX, ly = e.screenY;
+        var pending = null, raf = 0;
+        function flush() {
+          raf = 0;
+          if (!pending) return;
+          var d = pending; pending = null;
+          try { api.window_delta(0, d[0], d[1]); } catch (err) {}
+        }
+        function onMove(ev) {
+          var dx = ev.screenX - lx, dy = ev.screenY - ly;
+          if (!dx && !dy) return;
+          lx = ev.screenX; ly = ev.screenY;
+          /* rAF 节流：每帧最多发一次 IPC，避免调用洪泛导致 WebView2 卡黑 */
+          pending = [dx, dy];
+          if (!raf) raf = requestAnimationFrame(flush);
+        }
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          setTimeout(function () { try { api.save_bounds(); } catch (err) {} }, 300);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      };
+    }
+
+    /* 顶栏可平移 */
+    var topbar = document.querySelector('.topbar');
+    if (topbar) topbar.addEventListener('mousedown', makeDrag());
+
+    /* 顶部拖拽条（32px 高） */
+    var strip = document.createElement('div');
+    strip.id = 'zfDragStrip';
+    strip.addEventListener('mousedown', makeDrag());
+    strip.addEventListener('dblclick', doToggle);
+    document.body.appendChild(strip);
+
+    /* ---------- 缩放热区（独立，只发边缘命中码） ---------- */
+    var edges = [
+      { ht: 10, css: 'left:0;top:12px;bottom:12px;width:6px;cursor:ew-resize;' },
+      { ht: 11, css: 'right:0;top:12px;bottom:12px;width:6px;cursor:ew-resize;' },
+      { ht: 12, css: 'top:0;left:12px;right:12px;height:6px;cursor:ns-resize;' },
+      { ht: 13, css: 'top:0;left:0;width:16px;height:16px;cursor:nwse-resize;' },
+      { ht: 14, css: 'top:0;right:0;width:16px;height:16px;cursor:nesw-resize;' },
+      { ht: 15, css: 'bottom:0;left:12px;right:12px;height:6px;cursor:ns-resize;' },
+      { ht: 16, css: 'bottom:0;left:0;width:16px;height:16px;cursor:nesw-resize;' },
+      { ht: 17, css: 'bottom:0;right:0;width:16px;height:16px;cursor:nwse-resize;' }
+    ];
+    edges.forEach(function (ed) {
+      var d = document.createElement('div');
+      d.className = 'zfResizeEdge';
+      d.style.cssText = ed.css;
+      d.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var lx = e.screenX, ly = e.screenY;
+        var pending = null, raf = 0;
+        function flush() {
+          raf = 0;
+          if (!pending) return;
+          var d = pending; pending = null;
+          try { api.window_delta(ed.ht, d[0], d[1]); } catch (err) {}
+        }
+        function onMove(ev) {
+          var dx = ev.screenX - lx, dy = ev.screenY - ly;
+          if (!dx && !dy) return;
+          lx = ev.screenX; ly = ev.screenY;
+          pending = [dx, dy];
+          if (!raf) raf = requestAnimationFrame(flush);
+        }
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          setTimeout(function () { try { api.save_bounds(); } catch (err) {} }, 300);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+      document.body.appendChild(d);
+    });
+
+    /* ---------- 样式 ---------- */
+    var css = document.createElement('style');
+    css.textContent =
+      '#zfWinCtrl{display:flex;align-items:center;user-select:none;-webkit-user-select:none}' +
+      '#zfWinCtrl.zf-win-fixed{position:fixed;top:0;right:0;z-index:2147483000;background:rgba(24,26,48,.85);padding:4px 6px;border-radius:0 0 0 8px}' +
+      '.zf-win-btn{width:34px;height:28px;display:flex;align-items:center;justify-content:center;' +
+      'color:#cfd3ff;font-size:13px;cursor:pointer;border-radius:6px;transition:background .15s,color .15s}' +
+      '.zf-win-btn:hover{background:rgba(255,255,255,.12)}' +
+      '.zf-win-close:hover{background:rgba(255,255,255,.22);color:#fff}' +
+      '#zfDragStrip{position:fixed;top:0;left:0;right:0;height:32px;z-index:2147482000;cursor:move;}' +
+      '.zfResizeEdge{position:fixed;z-index:2147482000;}';
+    document.head.appendChild(css);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

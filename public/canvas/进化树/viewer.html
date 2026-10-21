@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>万物进化树 · Viewer</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1117;overflow:hidden;font-family:"Microsoft YaHei",sans-serif;}
+  #cv{display:block;width:100%;height:100%;cursor:grab;}
+  #cv.drag{cursor:grabbing;}
+  #bar{position:fixed;left:12px;top:12px;z-index:9;color:#c9d1d9;font-size:13px;background:rgba(22,27,34,.85);border:1px solid #30363d;border-radius:8px;padding:8px 10px;display:none;} /* 按需求：隐藏全部按钮，进化树改为纯查看+选择，操作交 AI */
+  #bar b{color:#58d68d;}
+  #bar .row{margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #bar button,#bar label{cursor:pointer;background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:4px 9px;font-size:12px;}
+  #bar button:hover{background:#30363d;}
+  #tip{position:fixed;right:12px;bottom:12px;z-index:9;color:#8b949e;font-size:12px;background:rgba(22,27,34,.8);padding:6px 9px;border-radius:6px;max-width:340px;}
+  #sel{background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:3px 6px;font-size:12px;}
+  #panel{position:fixed;right:12px;top:12px;z-index:13;width:300px;max-height:80%;overflow:auto;background:rgba(22,27,34,.94);border:1px solid #58d68d;border-radius:8px;padding:10px 12px;color:#c9d1d9;font-size:13px;display:none;}
+  /* 点击空白处关闭浮层面板用的透明遮罩：铺满全屏、位于面板(z13)之下、canvas 之上 */
+  #panelMask{position:fixed;inset:0;z-index:12;display:none;background:transparent;cursor:pointer;}
+  #panel b{color:#58d68d;} #panel small{color:#8b949e;}
+  .emrow{border-top:1px solid #30363d;padding:6px 0;display:flex;gap:6px;align-items:center;justify-content:space-between;}
+  .emrow button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:3px 7px;font-size:12px;cursor:pointer;}
+  .emrow button[data-c]{color:#58d68d;border-color:#58d68d;}
+  #panelClose{cursor:pointer;float:right;color:#f85149;}
+  #hovercard{position:fixed;z-index:12;pointer-events:none;display:none;background:rgba(13,17,23,.72);backdrop-filter:blur(3px);border:1px solid #58d68d;border-radius:7px;padding:7px 10px;color:#e6edf3;font-size:12px;line-height:1.5;max-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.5);}
+  #hovercard b{color:#58d68d;} #hovercard .hc-path{color:#8b949e;} #hovercard .hc-binds{color:#f0b450;}
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>🌳 万物进化树</b> <span id="title"></span>
+  <div class="row">
+    <label><input type="checkbox" id="showLink"> 显示网状关系（默认隐）</label>
+    <button id="fit">▢ 适应窗口</button>
+    <button id="unfocus">✺ 看全树</button>
+    <select id="sel"><option>选择树文件…</option></select>
+  </div>
+  <div class="row" id="focusInfo" style="color:#58d68d;display:none;"></div>
+  <div class="row">
+    <button id="emergeBtn">🔍 涌现侦测</button>
+    <button id="ctxBtn" disabled>＋ 上下文</button>
+    <button id="saveBtn" style="display:none;">💾 保存钉位</button>
+  </div>
+  <div class="row">
+    <button id="linkMode">🔗 连线</button>
+    <button id="spring">🌀 弹簧布局</button>
+    <button id="roundBtn">▢ 全屏</button>
+    <button id="replayBtn">▶ 生长回放</button>
+    <button id="growBtn">🌱 万物成树</button>
+    <button id="collBtn" style="background:#3a6ea5">⚪ 碰撞</button>
+    <button id="fanBtn" style="background:#3a6ea5">🌤 扇形</button>
+    <button id="sprBtn" style="background:#3a6ea5">🌱 发芽</button>
+    <button id="liveBtn">🔄 实时</button>
+    <button id="aiModBtn" disabled>🛠 让AI改这里</button>
+    <span id="linkHint" style="color:#f0b450;display:none;font-size:12px;"></span>
+  </div>
+  <div class="row" id="replayCtl" style="display:none;">
+    <button id="rpPause">⏸ 暂停</button>
+    <button id="rpSpeed">1×</button>
+    <span id="rpInfo" style="color:#8b949e;font-size:12px;"></span>
+  </div>
+</div>
+<div id="panelMask"></div>
+<div id="panel"><span id="panelClose">✕</span><b id="panelTitle"></b><div id="panelBody"></div></div>
+<div id="tip">滚轮缩放 · 左键拖节点/空白平移 · 右键拖拽整个太空舱位置（自动记住） · 单击节点聚焦子树 · 左上角为舱体玻璃高光</div>
+<div id="hovercard"></div>
+<canvas id="cv"></canvas>
+<script>
+// ===== 万物进化树 viewer（P0：engine2d 常驻无限画布范式 · 真树自下而上 · clarity 驱动视觉 · 子树过滤 focus）=====
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let DPR = window.devicePixelRatio || 1;
+let cam = {x:0, y:0, zoom:1};   // 平移缩放（复用 engine2d/camera.js 的平移缩放语义，轻量自实现避免模块加载依赖）
+let tree = null;                 // {meta,roots,links}
+let nodes = [];                  // 展平 + 布局后的节点（含 wx,wy）
+let edges = [];                  // 父子实线（主干，常显）
+let allLinks = [];               // 网状关系边（数据保留，默认隐）
+let focusSet = null;             // 聚焦子树 id 集合；null=全树
+let showLink = false;
+
+// ===== 太空舱（pod）：圆形舱体可在无限画布中拖拽、记住位置 =====
+// embed 模式：被「无限画布·进化树节点」以 iframe(?embed=1) 内嵌时使用。
+//   舱体始终居中于自身视口，不读写独立单标签页的 tree_pod_pos（避免两种入口位置互相污染），
+//   并隐藏页面底部操作提示条（外层画布节点标题栏已承担说明）。
+const IS_EMBED = /[?&]embed=1(?:&|$)/.test(location.search);
+let pod = {cx:null, cy:null, r:0};   // 舱体屏幕中心与半径；null=未初始化
+if(!IS_EMBED){ try{ const _s=JSON.parse(localStorage.getItem('tree_pod_pos')||'null'); if(_s && _s.cx!=null){ pod.cx=_s.cx; pod.cy=_s.cy; } }catch(e){} }
+function savePod(){ if(IS_EMBED) return; try{ localStorage.setItem('tree_pod_pos', JSON.stringify({cx:Math.round(pod.cx), cy:Math.round(pod.cy)})); }catch(e){} }
+if(IS_EMBED){ var _tip=document.getElementById('tip'); if(_tip) _tip.style.display='none';
+  // embed：整页透明，圆形舱之外透出外层画布（无边框无背景的太空舱观感）
+  document.documentElement.style.background='transparent';
+  document.body.style.background='transparent';
+}
+// 视图中心：圆形舱模式下=舱体中心，全屏模式=屏幕中心。所有屏幕↔世界换算以此为锚。
+function vcx(){ return roundFrame && pod.cx!=null ? pod.cx : innerWidth/2; }
+function vcy(){ return roundFrame && pod.cy!=null ? pod.cy : innerHeight/2; }
+
+function resize(){
+  DPR = window.devicePixelRatio || 1;
+  cv.width = innerWidth*DPR; cv.height = innerHeight*DPR;
+  cv.style.width = innerWidth+'px'; cv.style.height = innerHeight+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  draw();
+}
+addEventListener('resize', resize);
+
+// 展平 + 真树布局（自下而上：depth 越大越靠上；x 按叶子序号横向铺开，父居中）
+function layout(){
+  nodes = []; edges = [];
+  if(!tree) return;
+  let leafX = 0;
+  const V_GAP = 130;   // 每层垂直间距（自下而上）
+  const H_GAP = 150;   // 叶子水平间距
+  function walk(n, parent){
+    const node = {id:n.id, text:n.text, clarity:+n.clarity||0, status:n.status, icon:n.icon, depth:n.depth||0, parent_id:n.parent_id, _raw:n, children:[], _kids:[], _binds:n.binds, _kind:n.kind, path:n.path, spawn:(sproutOn?0:1)};
+    if(!n.children || !n.children.length){
+      node.wx = (leafX++)*H_GAP;
+    } else {
+      for(const c of n.children){ const cn=walk(c, node); node._kids.push(cn); }
+      const first=node._kids[0], last=node._kids[node._kids.length-1];
+      node.wx = (first.wx + last.wx)/2;
+    }
+    node.wy = -node.depth*V_GAP;   // 根 depth0 在最底(y=0)，向上为负
+    if(parent){ edges.push({from:node, to:parent}); node.children.push(parent);} // children 这里指"已遍历"，仅用于边
+    nodes.push(node);
+    return node;
+  }
+  for(const r of tree.roots) walk(r, null);
+  allLinks = (tree.links||[]).slice();
+  _anchor.init=false;   // 换树/重排后质心锚点失效，下一帧重新取
+  // P1 径向 tidy 布局：用算法覆盖后端重叠钉位（后端为同心圆放射，50 节点最小间距仅~10px，必堆叠）
+  // 思路：按各子树「叶子数」比例切分角度扇区，depth 决定半径 → 自然铺开、像树、文字不重叠
+  function leafCount(node){
+    if(!node._kids.length) return 1;
+    let s=0; for(const k of node._kids) s+=leafCount(k); return s;
+  }
+  const totalLeaves = Math.max(1, nodes.reduce((s,n)=> s + (n.parent_id==null ? leafCount(n) : 0), 0));
+  const LEAF_ARC = 160;                                  // 叶子沿外圈期望弧长间距（含文字空间；叶球放大1.5倍后需加大防重叠抖动）
+  const R_LEAF = (totalLeaves*LEAF_ARC)/(Math.PI*2);     // 最外圈半径
+  let maxD=0; nodes.forEach(n=>{ if(n.depth>maxD) maxD=n.depth; });
+  const LVL=[0]; for(let d=1; d<=maxD; d++) LVL[d]=R_LEAF*(d/maxD);   // 各层半径，根=0
+  function placeRadial(node, a0, a1){
+    const am=(a0+a1)/2 - Math.PI/2;                      // 顶部为 0 度，顺时针展开
+    node.wx = Math.cos(am)*LVL[node.depth];
+    node.wy = Math.sin(am)*LVL[node.depth];
+    node._pinned=true;
+    if(!node._kids.length) return;
+    const total=leafCount(node)||1; let acc=a0;
+    for(const k of node._kids){
+      const share=(leafCount(k)/total)*(a1-a0);
+      placeRadial(k, acc, acc+share); acc+=share;
+    }
+  }
+  let aCur=0;
+  nodes.filter(n=>n.parent_id==null).forEach(r=>{
+    const share=(leafCount(r)/totalLeaves)*(Math.PI*2);
+    placeRadial(r, aCur, aCur+share); aCur+=share;
+  });
+  // 记录 home（权威目标坐标）：力导向只围绕 home 呼吸，防坍缩聚集
+  // 同时标记叶子（末端子节点）：_kids 为空 = 该节点无下级，球体更大
+  nodes.forEach(n=>{ n._home={x:n.wx, y:n.wy}; n._leaf = !n._kids.length; });
+}
+
+// clarity → 半径/透明度/颜色映射（步骤4）：浅=淡蓝小而虚，深=亮绿大而实，>=0.8 带✓
+// 入参为节点对象 n：末端子节点（叶子，无下级）整体放大 LEAF_BOOST 倍，让"多球"更醒目。
+const LEAF_BOOST = 1.5;   // 子节点（末端叶球）半径放大倍数
+function styleByClarity(n){
+  const cl = (n && typeof n==='object') ? (+n.clarity||0) : (+n||0);   // 兼容旧式传 clarity 数字
+  const isLeaf = !!(n && typeof n==='object' && n._leaf);
+  let r = 17 + cl*30;            // 基础球径
+  if(isLeaf) r *= LEAF_BOOST;    // 子节点更大
+  // 有更多子节点的圆形更大：按直接子节点数温和放大（1 子不放大，子越多越大，上限 +50%）
+  const _kc = (n && n._kids) ? n._kids.length : 0;
+  if(_kc>1) r *= (1 + Math.min(0.5, (_kc-1)*0.06));
+  const alpha = 0.28 + cl*0.62;
+  // 颜色：从 #3a6ea5(模糊蓝) 渐变到 #58d68d(清晰绿)
+  const t = Math.max(0,Math.min(1,cl));
+  const c1=[58,110,165], c2=[88,214,141];
+  const rgb = c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
+  return {r, alpha, color:`rgb(${rgb.join(',')})`};
+}
+
+function toScreen(n){ return {x:(n.wx-cam.x)*cam.zoom+vcx(), y:(n.wy-cam.y)*cam.zoom+vcy()}; }
+
+function inFocus(n){ return focusSet===null || focusSet.has(n.id); }
+
+function draw(){
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  // 舱体几何：圆形模式下若未初始化则默认居中
+  if(pod.cx==null){ pod.cx=innerWidth/2; pod.cy=innerHeight/2; }
+  const cx=vcx(), cy=vcy();
+  const R = roundFrame ? Math.min(innerWidth,innerHeight)*0.42 : Math.hypot(innerWidth,innerHeight);
+  pod.r = R;
+  if(roundFrame && !IS_EMBED) drawSpaceBackdrop();   // 舱外宇宙背景（embed 时透明，透出外层画布）
+  if(!tree){ if(roundFrame) drawPodFrame(cx,cy,R); return; }
+  if(roundFrame){ ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip(); drawPodInterior(cx,cy,R); }
+  // 父子主干连线（保留：体现父子层级关系，画在圆点下层）；网状关系线仍不绘制，关系由 hover 文字提示承载
+  ctx.lineWidth=1.6; ctx.strokeStyle='rgba(88,214,141,.28)';
+  for(const e of edges){
+    if(!inFocus(e.from) || !inFocus(e.to)) continue;
+    const a=toScreen(e.from), b=toScreen(e.to);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  // 节点
+  for(const n of nodes){
+    if(!inFocus(n)) continue;
+    const p=toScreen(n); const st=styleByClarity(n);
+    ctx.globalAlpha=st.alpha;
+    const _sp=(n.spawn==null?1:n.spawn); ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp,0,Math.PI*2);
+    ctx.fillStyle=st.color; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.stroke();
+    ctx.globalAlpha=1;
+    // 文字 + ✓ —— ① 按层级隐藏：缩小只看主干(depth浅)文字，放大才显示分支(depth深)文字；② 再叠加鼠标屏幕距离渐显
+    const _depthLimit = Math.max(0, Math.floor(cam.zoom/0.3));   // 缩放越大，可见层级越深
+    let _a = (n.depth||0) > _depthLimit ? 0 : 1;
+    if(_a>0){
+      const _d=Math.hypot(p.x-mouse.x, p.y-mouse.y);
+      if(mouse.in){ const NEAR=300, FAR=760; _a=1-Math.min(1,Math.max(0,(_d-NEAR)/(FAR-NEAR))); }   // 文字显示距离调为原2倍
+    }
+    if(_a>0.03){
+      const _ft=Math.max(11, 13*cam.zoom)*(0.9+0.45*_a);   // 近大远小
+      ctx.font=`${_ft}px "Microsoft YaHei"`;
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const _tx=n.text+(n.clarity>=0.8?' ✓':'');
+      const _ty=p.y+st.r*cam.zoom+4;
+      ctx.lineWidth=Math.max(2,_ft*0.22); ctx.lineJoin='round'; ctx.strokeStyle='rgba(6,10,16,.92)';
+      ctx.globalAlpha=_a;                                   // 远→透明，近→清晰
+      ctx.strokeText(_tx, p.x, _ty);
+      ctx.fillStyle='#e6edf3'; ctx.fillText(_tx, p.x, _ty);
+      ctx.globalAlpha=1;
+    }
+  }
+  // P3-1 连线橡皮筋预览
+  if(linkTemp){
+    ctx.strokeStyle='#f0b450'; ctx.setLineDash([4,4]); ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(linkTemp.x1,linkTemp.y1); ctx.lineTo(linkTemp.x2,linkTemp.y2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // 选中节点高亮环
+  if(selected && inFocus(selected)){
+    const p=toScreen(selected); const st=styleByClarity(selected);
+    ctx.strokeStyle='#f0b450'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(p.x,p.y,(st.r+5)*cam.zoom,0,Math.PI*2); ctx.stroke();
+  }
+  if(roundFrame){ ctx.restore(); drawPodFrame(cx,cy,R); }
+}
+// 舱外宇宙背景：深色渐变 + 星点
+let _stars=null;
+function drawSpaceBackdrop(){
+  const g=ctx.createRadialGradient(innerWidth/2,innerHeight/2,0, innerWidth/2,innerHeight/2, Math.max(innerWidth,innerHeight));
+  g.addColorStop(0,'#0a1020'); g.addColorStop(1,'#05070d');
+  ctx.fillStyle=g; ctx.fillRect(0,0,innerWidth,innerHeight);
+  if(!_stars || _stars.w!==innerWidth || _stars.h!==innerHeight){
+    _stars={w:innerWidth,h:innerHeight,pts:[]};
+    for(let i=0;i<140;i++) _stars.pts.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.4+0.3,a:Math.random()*0.6+0.2});
+  }
+  for(const s of _stars.pts){ ctx.globalAlpha=s.a; ctx.fillStyle='#cfe3ff'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
+  ctx.globalAlpha=1;
+}
+// 舱内：玻璃罩内底色（比舱外略亮的太空腔体）
+function drawPodInterior(cx,cy,R){
+  const g=ctx.createRadialGradient(cx,cy-R*0.3,R*0.1, cx,cy,R);
+  g.addColorStop(0,'rgba(20,40,60,.35)'); g.addColorStop(1,'rgba(8,14,24,.55)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill();
+}
+// 太空舱舱体：金属外环 + 铆钉 + 左上玻璃高光弧 + 边缘描光
+function drawPodFrame(cx,cy,R){
+  ctx.save();
+  // 金属外环
+  const ringW = Math.max(10, R*0.06);
+  const mg=ctx.createLinearGradient(cx-R,cy-R,cx+R,cy+R);
+  mg.addColorStop(0,'#5a6577'); mg.addColorStop(0.5,'#2a3140'); mg.addColorStop(1,'#6b7689');
+  ctx.lineWidth=ringW; ctx.strokeStyle=mg;
+  ctx.beginPath(); ctx.arc(cx,cy,R+ringW/2,0,Math.PI*2); ctx.stroke();
+  // 内描光（玻璃边缘青色发光）
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(88,214,241,.55)';
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
+  // 铆钉：沿外环均布
+  const n=16;
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2; const rr=R+ringW/2;
+    const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr;
+    ctx.beginPath(); ctx.arc(x,y,Math.max(2,ringW*0.22),0,Math.PI*2);
+    ctx.fillStyle='#8a94a6'; ctx.fill();
+    ctx.beginPath(); ctx.arc(x-Math.cos(a)*0.8,y-Math.sin(a)*0.8,Math.max(1,ringW*0.1),0,Math.PI*2);
+    ctx.fillStyle='#c8d2e0'; ctx.fill();
+  }
+  // 左上玻璃高光：两段白色弧（大弧+小弧），模拟太空舱罩反光
+  ctx.lineCap='round';
+  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=Math.max(3,R*0.025);
+  ctx.beginPath(); ctx.arc(cx,cy,R-ringW*0.2, Math.PI*1.05, Math.PI*1.45); ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=Math.max(2,R*0.015);
+  ctx.beginPath(); ctx.arc(cx,cy,R-ringW*0.55, Math.PI*1.12, Math.PI*1.32); ctx.stroke();
+  // 高光晕（左上径向白）
+  const hg=ctx.createRadialGradient(cx-R*0.45,cy-R*0.45,0, cx-R*0.45,cy-R*0.45,R*0.7);
+  hg.addColorStop(0,'rgba(180,220,255,.18)'); hg.addColorStop(1,'rgba(180,220,255,0)');
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fillStyle=hg; ctx.fill();
+  ctx.restore();
+}
+
+// ===== 交互：平移/缩放/点选聚焦/拖拽挪枝 =====
+let drag=null, selected=null;
+let linkMode=false, linkTemp=null;     // P3-1 连线模式 / 橡皮筋预览 {x1,y1,x2,y2}
+let springOn=true, springRAF=null;     // P3-2 力导向弹簧（P0 圆形盆景：默认开+常驻漂浮）
+let roundFrame=true;                   // P0 圆形取景（玻璃罩），可切换全屏
+let floatPhase=0;                      // P0 常驻微扰相位
+// ===== P1/P2 新增运行时开关（活体物理 + 实时热重载）=====
+let collideOn=true;                    // P1-1 Verlet 软碰撞：小球互不重叠（细胞感）
+let fanOn=true;                        // P1-2 角约束扇形：子锁父朝上/外扇形角域，轮廓像树
+let sproutOn=true;                     // P1-3 发芽动画：新节点 scale 0→1 + 连线生长
+let liveOn=false, liveTimer=null, liveLast='';  // P2 实时热重载：轮询 maps json，按 id diff 增量套用
+const FAN={k:0.10};                    // 扇形角约束回弹强度（温和，防与弹簧打架抖动）
+const COLL={pad:1.02};                 // 软碰撞半径放大系数
+let _anchor={x:0,y:0,init:false};      // 质心锚点（防漂移兜底），layout 时重置
+// 鼠标屏幕坐标 + 是否在画布内：供「文字标签按鼠标距离渐显」使用。鼠标不在画布时显示全部标签（避免空屏）。
+let mouse={x:-1e9,y:-1e9,in:false};
+let replayRAF=null, replayPlaying=false;  // P4 回放
+function hitTest(mx,my){
+  for(const n of nodes){
+    if(!inFocus(n)) continue;
+    const p=toScreen(n); const st=styleByClarity(n);
+    if((mx-p.x)**2+(my-p.y)**2 <= (st.r*cam.zoom+4)**2) return n;
+  }
+  return null;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// P0 悬停文字提示：圆点=内容，鼠标搭上出 hovercard（名称/路径/清晰度/状态/挂接）
+function hoverCard(e){
+  const hc=document.getElementById('hovercard');
+  if(e.target!==cv){ hc.style.display='none'; return; }
+  const n=hitTest(e.clientX,e.clientY);
+  if(!n){ hc.style.display='none'; return; }
+  hc.innerHTML='<b>'+esc(n.text)+'</b>'
+    +'<div class="hc-path">'+esc(n.path||('id:'+n.id))+'</div>'
+    +'清晰度 '+Number(n.clarity||0).toFixed(2)+' · 状态 '+(n.status||'-')+' · '+esc(n.kind||'capability')
+    +((n.binds||n._binds)?('<div class="hc-binds">🔗挂接：'+esc(n.binds||n._binds)+'</div>'):('<div class="hc-binds">（未挂接文件）</div>'));
+  hc.style.display='block';
+  // —— 智能定位：让卡片完整可见、不被圆舱边缘裁切 ——
+  const w=hc.offsetWidth, h=hc.offsetHeight, gap=30, M=6;   // 离鼠标远一点，避免卡片压住小球挡住视线
+  let x=e.clientX+gap, y=e.clientY+gap;
+  // 1) 防超出视口：右侧放不下就翻到鼠标左侧，底部同理
+  if(x+w>innerWidth-M) x=e.clientX-w-gap;
+  if(y+h>innerHeight-M) y=e.clientY-h-gap;
+  if(x<M) x=M; if(y<M) y=M;
+  // 2) 圆形舱模式：hovercard 不再约束进舱体圆内，允许显示在圆外（仅保留上面的视口防溢出），
+  //    避免卡片被圆形边界收拢/遮挡。
+  hc.style.left=Math.round(x)+'px'; hc.style.top=Math.round(y)+'px';
+}
+function toWorld(sx,sy){ return {x:(sx-vcx())/cam.zoom+cam.x, y:(sy-vcy())/cam.zoom+cam.y}; }
+cv.addEventListener('mousedown', e=>{
+  if(replayPlaying) return;   // 回放时锁交互
+  // 右键：拖拽太空舱整体位置（在画布中移动舱体），松手记住
+  if(e.button===2){
+    // embed（被无限画布太空舱节点内嵌）：右键拖拽应移动【整个球】，
+    // 而非舱内取景框（否则内部偏移被外层 clip 圆裁切）。→ 通知父窗口移动。
+    if(IS_EMBED){
+      try{ parent.postMessage({__tree:1,type:'podDragStart',x:e.clientX,y:e.clientY},'*'); }catch(_){}
+      var _pdMv=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragMove',x:ev.clientX,y:ev.clientY},'*'); }catch(_){} };
+      var _pdUp=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragEnd',x:ev.clientX,y:ev.clientY},'*'); }catch(_){}
+        document.removeEventListener('mousemove',_pdMv); document.removeEventListener('mouseup',_pdUp); };
+      document.addEventListener('mousemove',_pdMv); document.addEventListener('mouseup',_pdUp);
+      e.preventDefault(); return;
+    }
+    if(!roundFrame){ flash('◯ 请先切到圆形舱模式'); return; }
+    drag={mode:'pod', sx:e.clientX, sy:e.clientY, pcx:pod.cx, pcy:pod.cy, moved:0};
+    cv.classList.add('drag'); return;
+  }
+  const hit = hitTest(e.clientX,e.clientY);
+  if(linkMode && hit){        // P3-1 连线模式：从节点起拉橡皮筋
+    drag={mode:'link', from:hit, sx:e.clientX, sy:e.clientY, moved:0};
+    linkTemp={x1:e.clientX,y1:e.clientY,x2:e.clientX,y2:e.clientY};
+    cv.classList.add('drag'); return;
+  }
+  if(hit){
+    // 拖拽级联只向下传播「后代」，绝不向上牵动祖先（修复：动子→父跟着动的 bug）
+    const ids = descendantIds(hit.id);
+    const snap = {}; nodes.forEach(n=>{ if(ids.has(n.id)) snap[n.id]={x:n.wx,y:n.wy}; });
+    drag={mode:'node', root:hit, snap, sx:e.clientX, sy:e.clientY, w0:toWorld(e.clientX,e.clientY), moved:0};
+  } else {
+    drag={mode:'pan', sx:e.clientX,sy:e.clientY,camx:cam.x,camy:cam.y,moved:0};
+  }
+  cv.classList.add('drag');
+});
+addEventListener('mousemove', e=>{
+  mouse.x=e.clientX; mouse.y=e.clientY; mouse.in=(e.target===cv);   // 仅当鼠标在画布上才渐显门控；移到工具栏/面板时 in=false 恢复全显示
+  if(!drag){ hoverCard(e); if(mouse.in) draw(); return; }   // 重绘让文字随鼠标即时渐显（弹簧关闭时也生效）
+  document.getElementById('hovercard').style.display='none';
+  const dx=e.clientX-drag.sx, dy=e.clientY-drag.sy;
+  drag.moved=Math.max(drag.moved,Math.abs(dx)+Math.abs(dy));
+  if(drag.mode==='link'){ linkTemp.x2=e.clientX; linkTemp.y2=e.clientY; draw(); return; }
+  if(drag.mode==='pod'){ pod.cx=drag.pcx+dx; pod.cy=drag.pcy+dy; draw(); return; }
+  if(drag.mode==='pan'){
+    cam.x=drag.camx-dx/cam.zoom; cam.y=drag.camy-dy/cam.zoom; draw();
+  } else {
+    // 世界位移 = 当前鼠标世界 - 按下世界，作用于整棵子树
+    const w=toWorld(e.clientX,e.clientY); const ox=w.x-drag.w0.x, oy=w.y-drag.w0.y;
+    nodes.forEach(n=>{ if(drag.snap[n.id]){ n.wx=drag.snap[n.id].x+ox; n.wy=drag.snap[n.id].y+oy; if(n._home){ n._home.x=n.wx; n._home.y=n.wy; } } });
+    draw();
+  }
+});
+addEventListener('mouseup', e=>{
+  cv.classList.remove('drag');
+  if(!drag){ return; }
+  if(drag.mode==='link'){
+    linkTemp=null;
+    if(drag.moved<5){ draw(); }           // 没拖动=取消
+    else { const tgt=hitTest(e.clientX,e.clientY); if(tgt && tgt.id!==drag.from.id) createLink(drag.from.id,tgt.id); }
+    draw(); drag=null; return;
+  }
+  if(drag.mode==='pod'){
+    if(drag.moved>=5){ savePod(); flash('🚀 舱体位置已记住'); }
+    drag=null; return;
+  }
+  if(drag.mode==='node'){
+    if(drag.moved<5){ // 视作点击 = 聚焦子树
+      selectNode(drag.root); focusSubtree(drag.root);
+    } else { saveMove(drag); }  // 真拖拽 = 回写新坐标（P1-1 级联：整棵子树坐标已随动）
+  } else {
+    if(drag.moved<5){ const hit=hitTest(e.clientX,e.clientY); if(hit){ selectNode(hit); focusSubtree(hit);} }
+  }
+  drag=null;
+});
+cv.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.12:1/1.12;
+  // 以鼠标点为中心缩放
+  const wx=(e.clientX-vcx())/cam.zoom+cam.x;
+  const wy=(e.clientY-vcy())/cam.zoom+cam.y;
+  cam.zoom=Math.max(0.05,Math.min(4,cam.zoom*f));
+  cam.x=wx-(e.clientX-vcx())/cam.zoom;
+  cam.y=wy-(e.clientY-vcy())/cam.zoom;
+  draw();
+},{passive:false});
+// 右键拖拽舱体：屏蔽浏览器默认右键菜单
+cv.addEventListener('contextmenu', e=>{ e.preventDefault(); });
+// 鼠标移出画布：取消渐显门控，恢复全部标签显示（避免空屏无文字）
+cv.addEventListener('mouseleave', e=>{ mouse.in=false; draw(); });
+
+function clickNode(mx,my){ /* 已由 hitTest 取代 */ }
+// ===== P1 后端回写：拖拽保存钉位 =====
+async function api(body){
+  try{
+    const r=await fetch('/api/tools/capability_tree',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    return await r.json();
+  }catch(e){ return {ok:false, error:String(e)}; }
+}
+function sel(){ return tree && tree.meta ? {subject_type:tree.meta.subject_type||'project', subject_id:tree.meta.subject_id||''} : {}; }
+async function saveMove(d){
+  const positions=[];
+  nodes.forEach(n=>{ if(d.snap[n.id]) positions.push({id:n.id, x:Math.round(n.wx*100)/100, y:Math.round(n.wy*100)/100}); });
+  const r=await api({action:'move', positions, ...sel()});
+  const sb=document.getElementById('saveBtn');
+  if(r && r.ok){ if(sb){sb.style.display='none';} flash('💾 已保存 '+positions.length+' 个钉位'); }
+  else flash('⚠️ 保存失败：'+(r&&r.error||'需经服务端打开'));
+}
+function flash(msg){
+  const fi=document.getElementById('focusInfo'); fi.style.display='block'; fi.textContent=msg;
+  setTimeout(()=>{ if(!focusSet) fi.style.display='none'; }, 2500);
+}
+// ===== P1 选中节点（供上下文按钮）=====
+function selectNode(n){ selected=n; const cb=document.getElementById('ctxBtn'); if(cb) cb.disabled=false; const ab=document.getElementById('aiModBtn'); if(ab) ab.disabled=false; }
+// 步骤5：子树集合过滤——只绘以命中节点为根的整棵子树（含祖先主干保留根连线视觉，这里取子树+其祖先链方便定位）
+function subtreeIds(rootId){
+  // 按原始 tree.roots 求子树
+  const set=new Set();
+  function collect(id){ set.add(id); const n=findRaw(id); if(n&&n.children) n.children.forEach(c=>collect(c.id)); }
+  collect(rootId);
+  // 加上祖先链（让"看子树"时仍连到根，主干关系不断）
+  const anc=ancestors(rootId); anc.forEach(a=>set.add(a));
+  return set;
+}
+// 仅后代（含自身）：拖拽级联专用。不含祖先链，避免「拖动子节点→父节点被牵动」。
+function descendantIds(rootId){
+  buildIndex();
+  const set=new Set();
+  (function collect(id){ set.add(id); const n=findRaw(id); if(n&&n.children) n.children.forEach(c=>collect(c.id)); })(rootId);
+  return set;
+}
+let rawIndex={};
+function buildIndex(){ rawIndex={}; (function w(arr){ arr.forEach(n=>{rawIndex[n.id]=n; if(n.children) w(n.children);}); })(tree.roots||[]); }
+function findRaw(id){ return rawIndex[id]; }
+function ancestors(id){ const out=[]; let n=findRaw(id); while(n){ n.parent_id!=null && out.push(n.parent_id); n=findRaw(n.parent_id); } return out; }
+function focusSubtree(n){
+  buildIndex();
+  focusSet = subtreeIds(n.id);
+  const fi=document.getElementById('focusInfo');
+  fi.style.display='block'; fi.textContent=`聚焦：${n.text}（只看这条枝 ${focusSet.size} 个节点·主干关系保留到根）`;
+  draw();
+}
+document.getElementById('unfocus').onclick=()=>{ focusSet=null; document.getElementById('focusInfo').style.display='none'; draw(); };
+document.getElementById('showLink').onchange=e=>{ showLink=e.target.checked; draw(); };
+document.getElementById('fit').onclick=fit;
+function fit(){
+  if(!nodes.length) return;
+  const xs=nodes.map(n=>n.wx), ys=nodes.map(n=>n.wy);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  cam.x=(minX+maxX)/2; cam.y=(minY+maxY)/2;
+  const spanX=Math.max(200,maxX-minX+300), spanY=Math.max(200,maxY-minY+300);
+  // 圆形舱模式：内容需落在舱内（内切正方边≈2R·0.72），留出舱体环边距
+  const avail = roundFrame ? Math.min(innerWidth,innerHeight)*0.42*2*0.72 : Math.min(innerWidth,innerHeight);
+  cam.zoom=Math.min(4,Math.max(0.2,Math.min(avail/spanX, avail/spanY)));
+  draw();
+}
+
+// ===== P1-2 上下文面板（＋ 注入祖先/兄弟/子，供 AI 防跑偏）=====
+function openPanel(title){ document.getElementById('panelTitle').textContent=title; document.getElementById('panel').style.display='block'; const mk=document.getElementById('panelMask'); if(mk) mk.style.display='block'; }   // 打开面板同时显示透明遮罩，点空白处即关闭
+function closePanel(){ document.getElementById('panel').style.display='none'; const mk=document.getElementById('panelMask'); if(mk) mk.style.display='none'; }
+document.getElementById('panelClose').onclick=closePanel;
+(function(){ var mk=document.getElementById('panelMask'); if(mk) mk.addEventListener('mousedown', function(ev){ ev.preventDefault(); ev.stopPropagation(); closePanel(); }); })();   // 点空白处（遮罩）关闭浮层面板
+document.getElementById('ctxBtn').onclick=async ()=>{
+  if(!selected) return;
+  openPanel('＋ 上下文 · '+selected.text);
+  const r=await api({action:'context', id:selected.id, ...sel()});
+  const bd=document.getElementById('panelBody');
+  if(!r||!r.ok){ bd.innerHTML='<small>读取失败：'+(r&&r.error||'需服务端')+'</small>'; return; }
+  const line=n=>'　'.repeat(n.depth)+'· '+n.text+' <small>('+(+n.clarity).toFixed(2)+')</small>';
+  let h='<b>祖先链</b><div>'+(r.ancestors.length? r.ancestors.map(line).join('<br>'):'<small>（已是根）</small>')+'</div>';
+  h+='<b>路径</b><div>'+r.self.path+' <small>depth '+r.self.depth+'</small></div>';
+  h+='<b>兄弟</b><div>'+(r.siblings.length? r.siblings.map(s=>'· '+s.text+' <small>('+(+s.clarity).toFixed(2)+')</small>').join('<br>'):'<small>（无）</small>')+'</div>';
+  h+='<b>子节点</b><div>'+(r.children.length? r.children.map(c=>'· '+c.text).join('<br>'):'<small>（叶子）</small>')+'</div>';
+  bd.innerHTML=h;
+};
+// ===== P1-4 涌现侦测面板（confirm/reject 闭环 + 开关）=====
+var _curFile=new URLSearchParams(location.search).get('file')||'';
+// 把当前 DB 重新导出为 maps json（confirm/evidence 改了 clarity 后，画布才能看到深浅变化）
+async function renderNow(){ var f=_curFile||new URLSearchParams(location.search).get('file'); if(!f) return; try{ await api({action:'render', file:f.replace(/\.emergence\.tree\.json$/,''), ...sel()}); }catch(e){} }
+async function reloadTree(){ const q=_curFile||new URLSearchParams(location.search).get('file'); if(q){ try{ useTree(await (await fetch('maps/'+q)).json()); }catch(e){} } }
+document.getElementById('emergeBtn').onclick=async ()=>{
+  openPanel('🔍 涌现侦测');
+  const bd=document.getElementById('panelBody');
+  bd.innerHTML='<div id="emlist">加载中…</div><button id="toggleSw">切换侦测开关</button>';
+  const r=await api({action:'emerge_pending', ...sel()});
+  const list=document.getElementById('emlist');
+  if(!r||!r.ok) list.innerHTML='<small>读取失败：'+(r&&r.error||'需服务端')+'</small>';
+  else if(!r.count) list.innerHTML='<small>（暂无待确认候选）</small>';
+  else list.innerHTML=r.items.map(it=>'<div class="emrow"><span>'+(it.text||('#'+it.cap_id))+' <small>+'+(+it.delta_clarity).toFixed(2)+'</small><br><small>'+(it.detail||'')+'</small></span><span><button data-c="'+it.id+'" data-cap="'+(it.cap_id||0)+'">✓</button> <button data-r="'+it.id+'">✕</button></span></div>').join('');
+  list.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await api({action:'confirm', event_id:+b.dataset.c, cap_id:+b.dataset.cap, ...sel()}); await renderNow(); document.getElementById('emergeBtn').click(); reloadTree(); });
+  list.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{ await api({action:'reject', event_id:+b.dataset.r, ...sel()}); document.getElementById('emergeBtn').click(); });
+  document.getElementById('toggleSw').onclick=async()=>{ const s=await api({action:'switch', state:'toggle'}); flash('侦测开关：'+(s&&s.emerge_enabled||'?')); };
+};
+
+// ===== P3-1 连线模式 =====
+async function createLink(src,dst){
+  const r=await api({action:'link', src, dst, kind:'depend', ...sel()});
+  if(r && r.ok){ await renderNow(); await reloadTree(); linkModeHint('🔗 已连线 #'+src+'→#'+dst); setTimeout(()=>renderNow(),50); }
+  else linkModeHint('⚠️ 连线失败：'+(r&&r.error||'需服务端'));
+}
+function linkModeHint(msg){ const h=document.getElementById('linkHint'); h.style.display='inline'; h.textContent=msg; setTimeout(()=>{ if(!linkMode) h.style.display='none'; },3000); }
+document.getElementById('linkMode').onclick=()=>{
+  linkMode=!linkMode;
+  document.getElementById('linkMode').style.background=linkMode?'#3a6ea5':'#21262d';
+  if(linkMode){ linkModeHint('连线模式：从一个球拖到另一个球释放即连线'); document.getElementById('tip').textContent='连线模式 · 拖拽球→球建立关系边 · 点空白退出'; }
+  else { linkTemp=null; document.getElementById('linkHint').style.display='none'; document.getElementById('tip').textContent='滚轮缩放 · 空白拖拽平移 · 单击节点=聚焦该子树 · 父子主干永远单线常显'; draw(); }
+};
+// ===== P3-2 弹簧力导向布局（连线即弹簧，自平衡）=====
+const SPR={damp:0.62};   // 物理阻尼：唯一在用的参数（朝 _home 临界回弹）。原 k/rest/repel/treeRest/repelMax 已随「删除4股打架力」重构失效，清理为死配置。
+const REST_V=0.02;       // 静止阈值（模块级，供 springLoop 停帧判断用；原误定义在 springStep 内导致 springLoop 引用不到）
+function ensureVel(){ nodes.forEach(n=>{ if(n.vx==null){n.vx=0;n.vy=0;} }); }
+function springStep(){
+  ensureVel();
+  // 【已重构】删除 斥力/父子弹簧/扇形角约束/网状弹簧 这 4 股互相打架的力。
+  // 根因：layout() 已用「径向 tidy 树布局」算出一套天然无重叠、像树的权威坐标 _home，
+  // 力导向再叠加多股力 → 50 节点时把 _home 推乱（坍缩堆一起）且无唯一平衡点（持续颤动）。
+  // 改为下方「纯 home 临界回弹」：朝 _home 一阶收敛，目标即树形布局、收敛后速度归零绝不振。
+  const byId={}; nodes.forEach(n=>byId[n.id]=n);
+
+  // home 回弹（核心·唯一这股力）：以 layout 算好的 _home 树形坐标为权威目标，一阶临界收敛。
+  // 目标即不重叠树形 → 绝不堆一起；速度随 damp 单调衰减到 0 → 收敛后绝不颤。
+  const HOMEK=0.10;            // 回弹强度（越大越快贴合树形）
+  let maxV=0;
+  for(const n of nodes){
+    if(n._home){ n.vx=(n.vx+(n._home.x-n.wx)*HOMEK)*SPR.damp; n.vy=(n.vy+(n._home.y-n.wy)*SPR.damp)*SPR.damp; }
+    const VMAX=8; n.vx=Math.max(-VMAX,Math.min(VMAX,n.vx)); n.vy=Math.max(-VMAX,Math.min(VMAX,n.vy));
+    n.wx+=n.vx; n.wy+=n.vy;
+    if(sproutOn && n.spawn<1) n.spawn=Math.min(1,n.spawn+0.06); else if(!sproutOn) n.spawn=1;
+    maxV=Math.max(maxV,Math.abs(n.vx)+Math.abs(n.vy));
+  }
+  // 碰撞：仅在收敛后用位置修正兜底（不动速度，杜绝与 home 力互相注入能量致颤）
+  if(collideOn){
+    for(let i=0;i<nodes.length;i++){ for(let j=i+1;j<nodes.length;j++){
+      const a=nodes[i], b=nodes[j];
+      const ra=styleByClarity(a).r*COLL.pad, rb=styleByClarity(b).r*COLL.pad;
+      let dx=b.wx-a.wx, dy=b.wy-a.wy; let d=Math.sqrt(dx*dx+dy*dy); const min=ra+rb;
+      if(d<min){ if(d<0.01){ d=0.01; dx=0.01; dy=0; } const ov=(min-d)/2; const ux=dx/d, uy=dy/d;
+        a.wx-=ux*ov; a.wy-=uy*ov; b.wx+=ux*ov; b.wy+=uy*ov; }
+    }}
+  }
+  // 不再在此无条件 draw()：绘制权完全交给 springLoop 的 if(maxV>REST_V) 停帧判断，收敛后真正停绘省电（审核#2 整改）。
+  return maxV;
+}
+function springLoop(){ if(!springOn) return; const maxV=springStep(); /* 纯 home 临界回弹：收敛后 maxV→0 自动停绘，杜绝微颤与空耗；拖拽/新节点偏离 _home 时下一帧 maxV 回升自动恢复 */ if(maxV>REST_V) draw(); springRAF=requestAnimationFrame(springLoop); }
+// P0 圆形盆景：常驻漂浮启动器 + 圆形/全屏切换
+function startFloat(){
+  const sb=document.getElementById('spring'); if(sb) sb.style.background='#3a6ea5';
+  ensureVel(); cancelAnimationFrame(springRAF); springRAF=requestAnimationFrame(springLoop);
+}
+function toggleRound(){
+  roundFrame=!roundFrame;
+  const rb=document.getElementById('roundBtn'); if(rb) rb.textContent=roundFrame?'▢ 全屏':'◯ 圆形';
+  draw();
+}
+document.getElementById('roundBtn').onclick=toggleRound;
+_togPhys('collBtn', ()=>collideOn, v=>collideOn=v); _togPhys('fanBtn', ()=>fanOn, v=>fanOn=v); _togPhys('sprBtn', ()=>sproutOn, v=>sproutOn=v);
+document.getElementById('liveBtn').onclick=()=>{ if(liveOn) stopLive(); else startLive(); };
+document.getElementById('aiModBtn').onclick=aiModify;
+document.getElementById('spring').onclick=()=>{
+  if(replayPlaying) return;
+  springOn=!springOn;
+  document.getElementById('spring').style.background=springOn?'#3a6ea5':'#21262d';
+  if(springOn){ ensureVel(); flash('🌀 弹簧布局运行中…'); springLoop(); }
+  else if(springRAF){ cancelAnimationFrame(springRAF); springRAF=null; }
+};
+// ===== P4 生长回放（按涌现事件时间戳重播生长史）=====
+let rpFrames=[], rpIdx=0, rpSpeed=1, rpTimer=null, rpVisible=null;
+function rpRenderOne(){
+  const fr=rpFrames[rpIdx]; if(!fr) return;
+  const n=nodes.find(x=>x.id===fr.cap_id); if(!n){ return; }
+  rpVisible.add(n.id);
+  const d=+fr.delta_clarity||0.05;
+  if(fr.kind==='seed') n.clarity = (n._raw&&+n._raw.clarity)||d;       // 种子用其初值
+  else if(fr.kind==='add') n.clarity = Math.max(0.15, (n.clarity||0)+d); // 发芽至少露出一点
+  else n.clarity = Math.max(0, Math.min(1, (n.clarity||0)+d));            // evidence/emerge/confirm 累加
+  focusSet=new Set(rpVisible);
+  draw();
+  document.getElementById('rpInfo').textContent=`${rpIdx+1}/${rpFrames.length} · ${fr.kind} · ${n.text||('#'+fr.cap_id)}`;
+}
+async function startReplay(){
+  if(!tree){ flash('⚠️ 请先加载一棵树'); return; }
+  const r=await api({action:'replay', ...sel()});
+  if(!r||!r.ok||!r.events||!r.events.length){ flash('⚠️ 无可回放事件（'+(r&&r.error||'需服务端')+'）'); return; }
+  rpFrames=r.events; rpIdx=0; rpVisible=new Set();
+  nodes.forEach(n=>{ n.clarity=0; });   // 全部清零，回放逐帧点亮
+  focusSet=new Set(); draw();
+  replayPlaying=true;
+  document.getElementById('replayCtl').style.display='flex';
+  document.getElementById('replayBtn').textContent='⏹ 停止回放';
+  document.getElementById('rpPause').textContent='⏸ 暂停';
+  flash('▶ 回放生长史（'+rpFrames.length+' 步）');
+  playReplay();
+}
+function stopReplay(){
+  replayPlaying=false; if(rpTimer) clearTimeout(rpTimer);
+  document.getElementById('replayCtl').style.display='none';
+  document.getElementById('replayBtn').textContent='▶ 生长回放';
+  // 还原真实 clarity：重新拉取 maps json（DB 里是最终值）
+  reloadTree().then(()=>{ flash('回放结束，已还原全树'); });
+}
+function playReplay(){
+  if(!replayPlaying) return;
+  if(rpIdx>=rpFrames.length){ flash('✅ 回放结束'); stopReplay(); return; }
+  rpRenderOne(); rpIdx++;
+  rpTimer=setTimeout(playReplay, 900/rpSpeed);
+}
+document.getElementById('replayBtn').onclick=()=>{ if(replayPlaying){ stopReplay(); } else startReplay(); };
+document.getElementById('rpPause').onclick=(e)=>{
+  if(replayPlaying){ replayPlaying=false; if(rpTimer)clearTimeout(rpTimer); e.target.textContent='▶ 继续'; }
+  else if(rpIdx<rpFrames.length){ replayPlaying=true; e.target.textContent='⏸ 暂停'; playReplay(); }
+};
+document.getElementById('rpSpeed').onclick=(e)=>{ rpSpeed = rpSpeed>=4?1:rpSpeed*2; e.target.textContent=rpSpeed+'×'; };
+// ===== P5 万物成树（一键批量 seed 建树面板）=====
+document.getElementById('growBtn').onclick=async ()=>{
+  openPanel('🌱 万物成树');
+  const bd=document.getElementById('panelBody');
+  bd.innerHTML=`<small>输入主体名（项目/技能/任意）与一行一个节点。用 <code>缩进/斜杠</code> 表示层级，例：<br>我的项目<br>&nbsp;&nbsp;模块A<br>&nbsp;&nbsp;模块B<br>&nbsp;&nbsp;&nbsp;&nbsp;子节点B1</small>
+    <div style="margin-top:6px"><input id="gSubject" placeholder="主体ID(subject)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px"></div>
+    <textarea id="gText" rows="7" placeholder="根节点&#10;  子节点1&#10;  子节点2&#10;    孙节点" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea>
+    <div style="margin-top:6px"><button id="gGo" style="background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">🌱 一键生成树</button></div>`;
+  document.getElementById('gGo').onclick=async ()=>{
+    const subject=(document.getElementById('gSubject').value||'').trim()||('grow_'+Date.now());
+    const lines=document.getElementById('gText').value.split('\n').map(l=>l.replace(/\t/g,'  ')).filter(l=>l.trim()!=='');
+    if(!lines.length){ flash('⚠️ 请至少输入一个节点'); return; }
+    const stv='project';
+    const stack=[]; let cnt=0;
+    for(const line of lines){
+      const indent=line.match(/^ */)[0].length; const text=line.trim();
+      const level=Math.floor(indent/2);
+      stack.length=level; // 保留 0..level-1 祖先，作为后续层的父链
+      const parentId = level>0 ? (stack[level-1]||null) : null;
+      let res;
+      if(level===0){ res=await api({action:'seed', text, subject_type:stv, subject_id:subject}); }
+      else { res=await api({action:'add', text, parent_id:parentId, subject_type:stv, subject_id:subject}); }
+      if(res&&res.ok){ stack[level]=res.id; cnt++; }
+      else { stack[level]=null; }
+    }
+    const rr=await api({action:'render', file:subject, title:'进化树-'+subject, subject_type:stv, subject_id:subject});
+    closePanel();
+    if(rr&&rr.ok){ _curFile=rr.file; document.getElementById('title').textContent=' · 进化树-'+subject; flash('🌱 已生成 '+cnt+' 个节点，正在加载'); try{ useTree(await (await fetch('maps/'+rr.file)).json()); }catch(e){ reloadTree(); } }
+    else flash('⚠️ 生成失败：'+(rr&&rr.error||'需服务端'));
+  };
+};
+
+// ===== 加载数据 =====
+async function load(file){
+  const resp=await fetch('maps/'+file); if(!resp.ok){ alert('打不开 '+file); return; }
+  tree=await resp.json(); buildIndex(); layout(); focusSet=null;
+  document.getElementById('focusInfo').style.display='none';
+  document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
+  fit();
+  startFloat();
+}
+function _togPhys(btnId, get, set){ const b=document.getElementById(btnId); if(!b) return; b.onclick=()=>{ const v=!get(); set(v); b.style.background=v?'#3a6ea5':'#21262d'; }; }
+// P2 实时热重载：按 id diff 增量套用，新点发芽、旧点不跳（保留运行时 wx/wy/v/spawn）
+function applyTreeDelta(t){
+  const old={}; nodes.forEach(n=>old[n.id]={wx:n.wx,wy:n.wy,vx:n.vx||0,vy:n.vy||0,spawn:n.spawn});
+  tree=t; buildIndex(); layout();
+  const byId={}; nodes.forEach(n=>byId[n.id]=n);
+  nodes.forEach(n=>{
+    if(old[n.id]){ n.wx=old[n.id].wx; n.wy=old[n.id].wy; n.vx=old[n.id].vx; n.vy=old[n.id].vy; n.spawn=(old[n.id].spawn==null?1:old[n.id].spawn); }
+    else { n.spawn=0; if(n.parent_id!=null && byId[n.parent_id]){ const pp=byId[n.parent_id]; n.wx=pp.wx+(Math.random()-.5)*40; n.wy=pp.wy+(Math.random()-.5)*40; } }
+  });
+  ensureVel(); draw();
+}
+async function liveTick(){
+  const q=_curFile||new URLSearchParams(location.search).get('file'); if(!q) return;
+  try{ const r=await fetch('maps/'+q+'?t='+Date.now()); if(!r.ok) return; const txt=await r.text(); if(txt===liveLast) return; liveLast=txt; applyTreeDelta(JSON.parse(txt)); }catch(e){}
+}
+function startLive(){ if(liveTimer) return; liveOn=true; const lb=document.getElementById('liveBtn'); if(lb) lb.style.background='#3a6ea5'; liveTimer=setInterval(liveTick,2000); liveTick(); }
+function stopLive(){ liveOn=false; if(liveTimer){clearInterval(liveTimer); liveTimer=null;} const lb=document.getElementById('liveBtn'); if(lb) lb.style.background='#21262d'; }
+// P3 让AI修改这里：选中节点->生成含 subject+id+binds+context 的可复制指令
+function aiModify(){
+  if(!selected){ flash('⚠️ 请先单击选中一个节点'); return; }
+  const m=sel(); const binds=(selected._binds||selected.binds)||'';
+  const cmd='【进化树·修改节点】subject_type='+(m.subject_type||'project')+' subject_id='+(m.subject_id||'')+' 节点id='+selected.id+' 名称="'+selected.text+'"'+(binds?(' 挂接文件binds='+binds):'（该节点未挂接文件）')+'\n请调用 capability_tree(action=context, id='+selected.id+', subject_type='+(m.subject_type||'project')+', subject_id='+(m.subject_id||'')+') 读回祖先/兄弟/binds，定位到对应文件后修改这个部件（不要全项目盲搜）。';
+  openPanel('🛠 让AI修改这里 · '+selected.text);
+  const bd=document.getElementById('panelBody');
+  bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea><button id="aiCopy" style="margin-top:6px;background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">📋 复制指令</button>';
+  document.getElementById('aiCmd').value=cmd;
+  document.getElementById('aiCopy').onclick=()=>{ const ta=document.getElementById('aiCmd'); ta.select(); try{ document.execCommand('copy'); flash('📋 已复制，去新对话粘贴'); }catch(e){ flash('⚠️ 复制失败，请手动全选'); } };
+}
+function useTree(t){
+  tree=t; buildIndex(); layout(); focusSet=null;
+  document.getElementById('focusInfo').style.display='none';
+  document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
+  fit();
+  startFloat();
+}
+(async function init(){
+  resize();
+  const q=new URLSearchParams(location.search).get('file');
+  const inline=new URLSearchParams(location.search).get('inline');
+  // 兜底1：file:// 下无法 fetch，可带 ?inline=<base64(JSON)> 直接渲染
+  if(inline){ try{ useTree(JSON.parse(decodeURIComponent(escape(atob(inline))))); }catch(e){ alert('inline 解析失败 '+e); } return; }
+  // 兜底2：内联脚本 window.__TREE__ 注入（测试用）
+  if(window.__TREE__){ useTree(window.__TREE__); return; }
+  try{ const ix=await (await fetch('index.json')).json();
+    const sel=document.getElementById('sel');
+    (ix.files||[]).forEach(f=>{ const o=document.createElement('option'); o.value=f.file; o.textContent=f.title||f.file; sel.appendChild(o); });
+    sel.onchange=()=>load(sel.value);
+  }catch(e){}
+  if(q) load(q);
+  else if(IS_EMBED){ load('project.tree.json'); }   // embed 默认强制加载项目进化树，避免落到 demo 树/空白
+  else { const ix0=document.getElementById('sel'); if(ix0.options.length>1){ ix0.value=ix0.options[1].value; load(ix0.value);} }
+  // embed：默认开启实时热重载，AI 更新进化树后球内自动刷新（2s 轮询 maps json 增量套用）
+  if(IS_EMBED){ try{ startLive(); }catch(e){} }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">峰控</string>
+    <string name="a11y_desc">允许朱峰智能体读取屏幕内容并代替你操作手机（点击/输入/返回），用于执行你的自然语言指令</string>
+</resources>

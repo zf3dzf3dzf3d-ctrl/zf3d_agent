@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>魂斗罗 · engine2d</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1520;color:#fff;font-family:Consolas,monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  canvas{border:1px solid #345;border-radius:6px;image-rendering:pixelated}
+  #hud{font-size:13px;color:#cde}
+</style>
+</head>
+<body>
+<canvas id="cv" width="720" height="480"></canvas>
+<div id="hud">← → / A D 移动 · 空格 跳 · J / X / 鼠标 射击 · 消灭敌人抵达蓝色终点门</div>
+<script src="/engine2d/input.js"></script>
+<script src="/engine2d/audio.js"></script>
+<script src="/engine2d/core.js"></script>
+<script src="/engine2d/games/common.js"></script>
+<script src="/engine2d/games/contra/game.js"></script>
+</body>
+</html>

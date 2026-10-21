@@ -1,0 +1,245 @@
+﻿/* growth-panel.css —— 智能体养成面板样式 v2
+   v2：等级数字改为右上角登录入口角标；成就墙每项带进度条；面板顶部渐变美化 */
+
+/* ===== 右上角等级角标（挂在登录入口右上角） ===== */
+.growth-top-lv {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #5b8cff, #a56bff);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 17px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 1px 5px rgba(90, 110, 255, .55), 0 0 0 2px rgba(255, 255, 255, .12);
+    z-index: 9002;
+    user-select: none;
+    transition: transform .15s, box-shadow .15s;
+    pointer-events: auto;
+}
+.growth-top-lv:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(120, 140, 255, .75);
+}
+/* 色阶随等级段进阶（每 10 级一档） */
+.growth-top-lv[data-stage="0"] { background: linear-gradient(135deg, #6b7f9e, #8a9bb5); }
+.growth-top-lv[data-stage="1"] { background: linear-gradient(135deg, #4d9e6b, #5bc285); }
+.growth-top-lv[data-stage="2"] { background: linear-gradient(135deg, #b88a2e, #d9b44a); }
+.growth-top-lv[data-stage="3"] { background: linear-gradient(135deg, #a56bff, #5b8cff); }
+.growth-top-lv[data-stage="4"] { background: linear-gradient(135deg, #e0245e, #a56bff); animation: growthPulse 2s infinite; }
+@keyframes growthPulse {
+    0%, 100% { box-shadow: 0 1px 5px rgba(224, 60, 140, .55); }
+    50% { box-shadow: 0 1px 10px rgba(224, 60, 140, .95); }
+}
+
+/* ===== 详情面板 ===== */
+.growth-panel {
+    position: fixed;
+    top: 42px;
+    right: 12px;
+    width: 300px;
+    min-width: 260px;
+    max-width: 60vw;
+    max-height: calc(100vh - 60px); /* 防止超高内容纵向溢出视口 */
+    resize: horizontal; /* 右下角可拖拽调宽 */
+    overflow-y: auto;
+    border-radius: 14px;
+    background: rgba(18, 24, 38, .97);
+    border: 1px solid rgba(120, 160, 255, .3);
+    color: #e7eeff;
+    z-index: 9001;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(10px);
+    animation: growthIn .2s ease-out;
+}
+@keyframes growthIn { from { opacity: 0; transform: translateY(-8px); } }
+/* 右下角拖拽手柄提示 */
+.growth-panel::-webkit-resizer {
+    background: linear-gradient(135deg, transparent 50%, rgba(120,160,255,.5) 50%);
+    border-bottom-right-radius: 14px;
+}
+/* 左侧拖拽手柄：贴左边缘，悬停/拖拽时高亮 */
+.growth-lhandle {
+    position: absolute;
+    left: -4px; top: 0; bottom: 0;
+    width: 8px;
+    cursor: ew-resize;
+    z-index: 2;
+    border-radius: 14px 0 0 14px;
+}
+.growth-lhandle:hover, .growth-panel.resizing .growth-lhandle {
+    background: linear-gradient(90deg, rgba(120,160,255,.35), transparent);
+}
+.growth-panel.resizing { user-select: none; transition: none; }
+.growth-panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    font-weight: 700; font-size: 14px;
+    background: linear-gradient(135deg, rgba(91, 140, 255, .22), rgba(165, 107, 255, .22));
+    position: sticky; top: 0;
+    backdrop-filter: blur(8px);
+}
+.growth-close { cursor: pointer; font-size: 18px; opacity: .6; }
+.growth-close:hover { opacity: 1; }
+.growth-panel-body { padding: 14px; }
+.growth-loading { text-align: center; opacity: .6; padding: 20px 0; font-size: 13px; }
+.growth-hero { display: flex; align-items: center; gap: 12px; }
+.growth-hero-icon { font-size: 40px; }
+.growth-hero-info b { font-size: 16px; }
+.growth-xp { font-size: 12px; opacity: .65; margin-top: 2px; }
+.growth-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; margin: 10px 0 12px; }
+.growth-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #5b8cff, #a56bff); transition: width .4s; }
+.growth-stats { display: flex; gap: 8px; margin-bottom: 10px; }
+.growth-stats > div { flex: 1; text-align: center; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 2px; }
+.growth-stats span { display: block; font-size: 17px; font-weight: 800; color: #cfe0ff; }
+.growth-stats label { font-size: 10px; color: #8899bb; }
+.growth-sec-title { font-size: 12px; font-weight: 700; color: #9fb4e8; margin: 12px 0 6px; letter-spacing: .5px; }
+
+/* ===== 成就墙（每项带进度条） ===== */
+.growth-badges { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.growth-badge-item {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 8px; row-gap: 3px;
+    align-items: center;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px;
+    padding: 7px 9px;
+    opacity: .75;
+    transition: border-color .15s, background .15s;
+}
+.growth-badge-item.got {
+    opacity: 1;
+    border-color: rgba(245, 197, 66, .45);
+    background: rgba(245, 197, 66, .07);
+}
+.growth-badge-item .gb-icon { font-size: 17px; grid-row: 1 / 3; }
+.growth-badge-item .gb-name { font-size: 12px; font-weight: 600; color: #dde6ff; }
+.growth-badge-item .gb-num { font-size: 10px; color: #7d8db0; }
+.growth-badge-item .gb-bar {
+    grid-column: 2 / 4;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.1);
+    overflow: hidden;
+}
+.growth-badge-item .gb-bar i {
+    display: block; height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #5b8cff, #a56bff);
+    transition: width .4s;
+}
+.growth-badge-item.got .gb-bar i { background: linear-gradient(90deg, #f5c542, #e8a020); }
+
+/* ===== 技能树 ===== */
+.growth-skills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.growth-skill-item {
+    display: flex; flex-direction: column; gap: 2px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px; padding: 8px;
+    opacity: .5;
+}
+.growth-skill-item.ready { opacity: .85; border-color: rgba(91, 140, 255, .4); }
+.growth-skill-item.got { opacity: 1; border-color: rgba(91, 200, 140, .5); background: rgba(91, 200, 140, .07); }
+.growth-skill-item .gs-icon { font-size: 18px; }
+.growth-skill-item .gs-name { font-size: 12px; font-weight: 600; color: #dde6ff; }
+.growth-skill-item .gs-desc { font-size: 10px; color: #8a99bb; }
+
+/* ===== 周挑战（自带进度条） ===== */
+.growth-week-item {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 9px; padding: 7px 9px; margin-bottom: 6px;
+    opacity: .8;
+}
+.growth-week-item.got { opacity: 1; border-color: rgba(91, 200, 140, .5); background: rgba(91, 200, 140, .06); }
+.growth-week-item .gw-icon { font-size: 16px; }
+.growth-week-item .gw-main { flex: 1; }
+.growth-week-item .gw-name { font-size: 11px; color: #dde6ff; margin-bottom: 3px; }
+.growth-week-item .gw-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
+.growth-week-item .gw-bar i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #5b8cff, #a56bff); }
+.growth-week-item.got .gw-bar i { background: linear-gradient(90deg, #5bc285, #4d9e6b); }
+.growth-week-item .gw-num { font-size: 10px; color: #7d8db0; white-space: nowrap; }
+
+/* ===== 签到 / 晒图 ===== */
+.growth-share-row { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.growth-checkin-btn {
+    background: linear-gradient(135deg, #5b8cff, #7a6bff);
+    border: 0; border-radius: 9px; padding: 8px 14px;
+    font-size: 13px; font-weight: bold; color: #fff; cursor: pointer;
+    width: 100%;
+}
+.growth-checkin-btn:disabled { opacity: .55; cursor: default; }
+.growth-checkin-btn:not(:disabled):hover { filter: brightness(1.12); }
+.growth-share-btn {
+    background: linear-gradient(135deg, #f5c542, #e8a020);
+    border: 0; border-radius: 9px; padding: 7px 18px;
+    font-size: 13px; font-weight: bold; color: #1a2332; cursor: pointer;
+}
+.growth-share-btn:hover { filter: brightness(1.1); }
+.growth-tip { font-size: 11px; color: #778; margin-top: 8px; line-height: 1.6; }
+
+/* ===== 晒图卡片预览弹窗 ===== */
+.growth-share-preview { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .25s; }
+.growth-share-preview.show { opacity: 1; }
+.growth-share-preview .gsp-mask { position: absolute; inset: 0; background: rgba(10, 14, 24, .65); }
+.growth-share-preview .gsp-box {
+    position: relative; background: linear-gradient(160deg, #232f4a, #1a2332);
+    border: 1px solid rgba(245, 197, 66, .4); border-radius: 14px;
+    padding: 14px; max-width: min(92vw, 680px); box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    transform: scale(.92); transition: transform .25s;
+}
+.growth-share-preview.show .gsp-box { transform: scale(1); }
+.growth-share-preview .gsp-head { font-size: 14px; font-weight: bold; color: #f5c542; margin-bottom: 10px; }
+.growth-share-preview .gsp-close { float: right; cursor: pointer; color: #889; font-size: 18px; line-height: 1; }
+.growth-share-preview .gsp-close:hover { color: #fff; }
+.growth-share-preview .gsp-img { display: block; width: 100%; border-radius: 8px; }
+.growth-share-preview .gsp-actions { display: flex; gap: 10px; margin-top: 12px; }
+.growth-share-preview .gsp-actions button {
+    flex: 1; border: 0; border-radius: 8px; padding: 8px 0; font-size: 13px; font-weight: bold; cursor: pointer;
+}
+.growth-share-preview .gsp-save { background: linear-gradient(135deg, #f5c542, #e8a020); color: #1a2332; }
+.growth-share-preview .gsp-copy { background: linear-gradient(135deg, #5b8cff, #7a6bff); color: #fff; }
+
+/* ===== 升级动效 ===== */
+.growth-levelup {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10, 14, 24, .55);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+}
+.growth-levelup.show { opacity: 1; }
+.growth-levelup-card {
+    text-align: center;
+    background: linear-gradient(160deg, #232f4a, #1a2332);
+    border: 1px solid rgba(245, 197, 66, .5);
+    border-radius: 18px;
+    padding: 30px 60px;
+    transform: scale(.85);
+    transition: transform .4s cubic-bezier(.2, 1.4, .4, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .6);
+}
+.growth-levelup.show .growth-levelup-card { transform: scale(1); }
+.growth-levelup-glow {
+    position: absolute; width: 260px; height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 197, 66, .25), transparent 65%);
+    animation: growthSpin 3s linear infinite;
+}
+@keyframes growthSpin { to { transform: rotate(360deg); } }
+.growth-levelup-icon { font-size: 52px; }
+.growth-levelup-title { font-size: 22px; font-weight: 800; color: #f5c542; margin-top: 8px; }
+.growth-levelup-lv { font-size: 16px; color: #cfd9ff; margin-top: 6px; }
+/* 等级角标保留显示（曾临时隐藏，2026-10 恢复：用户要求右上角头像角标可见） */

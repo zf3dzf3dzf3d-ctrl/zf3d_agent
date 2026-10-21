@@ -1,0 +1,2381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0e1a">
+<title>朱峰智能体</title>
+<style>
+:root{--bg:#0b0e1a;--bg2:#141a2e;--bg3:#1e2745;--fg:#f2f5ff;--fg2:#93a0c4;--acc:#7c6cff;--acc2:#4da3ff;--ok:#3fbf7f;--err:#ff6b6b;--rad:16px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 800px at 85% -10%,rgba(124,108,255,.16),transparent 60%),radial-gradient(900px 700px at -10% 110%,rgba(77,163,255,.12),transparent 55%),var(--bg);color:var(--fg);font-size:15px;overflow:hidden}
+.page{position:absolute;inset:0;display:none;flex-direction:column}
+.page.on{display:flex}
+/* ---------- 登录页（品牌化·深空科技风） ---------- */
+#pgLogin{justify-content:center;padding:32px 28px;position:relative;overflow:hidden}
+.brand-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 120% 70% at 50% -10%,rgba(77,128,255,.28),transparent 60%),radial-gradient(ellipse 80% 50% at 85% 105%,rgba(122,92,255,.16),transparent 60%)}
+.brand-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;pointer-events:none}
+.orb1{width:220px;height:220px;background:#2f6bff;top:-60px;left:-70px;animation:orbFloat 11s ease-in-out infinite}
+.orb2{width:180px;height:180px;background:#7a5cff;bottom:-50px;right:-50px;animation:orbFloat 13s ease-in-out infinite reverse}
+.orb3{width:120px;height:120px;background:#19b8d8;top:40%;right:-40px;animation:orbFloat 15s ease-in-out infinite;opacity:.35}
+@keyframes orbFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,26px)}}
+#pgLogin>*:not(.brand-bg):not(.brand-orb){position:relative;z-index:1}
+.logo{width:84px;height:84px;margin:0 auto 14px;animation:logoIn .7s cubic-bezier(.2,.9,.3,1.3) both,logoBreath 3.2s ease-in-out .8s infinite}
+.logo img{width:100%;height:100%;display:block;border-radius:22px;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 8px 30px rgba(47,107,255,.45),0 0 46px rgba(122,92,255,.35)}
+@keyframes logoIn{from{opacity:0;transform:scale(.6) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes logoBreath{0%,100%{filter:drop-shadow(0 0 6px rgba(77,128,255,.45))}50%{filter:drop-shadow(0 0 20px rgba(122,92,255,.8))}}
+h1{text-align:center;font-size:22px;margin-bottom:4px;background:linear-gradient(90deg,#e8edf2,#9dc0ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{text-align:center;color:var(--fg2);font-size:13px;margin-bottom:28px}
+.sub b{color:#9dc0ff;font-weight:600}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--fg2);margin-bottom:6px}
+.field input{width:100%;padding:13px 14px;border:1px solid var(--bg3);border-radius:var(--rad);background:rgba(26,32,39,.72);color:var(--fg);font-size:15px;outline:none;transition:border-color .25s,box-shadow .25s}
+.field input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,108,255,.25)}
+.btn{width:100%;padding:14px;border:0;border-radius:var(--rad);background:linear-gradient(135deg,#4da3ff,#7c6cff);color:#fff;font-size:16px;font-weight:600;margin-top:6px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .25s;box-shadow:0 6px 24px rgba(124,108,255,.45)}
+.btn:active{transform:scale(.98);box-shadow:0 3px 12px rgba(61,110,255,.35)}
+.btn::after{content:'';position:absolute;top:0;left:-80%;width:50%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);animation:btnShine 3.4s ease-in-out infinite}
+@keyframes btnShine{0%,55%{left:-80%}75%,100%{left:130%}}
+.btn[disabled]{opacity:.5}
+#loginMsg{color:var(--err);font-size:13px;text-align:center;min-height:18px;margin-top:10px}
+/* 工具计数徽标（融合进 tools 按钮，>0 才显示） + +1 动画 */
+#btnTools{position:relative}
+/* 顶栏图标已上移到 App 原生导航栏：网页 header 的 工具/日志/列表/新建 隐藏（DOM 保留供原生按钮触发） */
+#btnTools,#btnLogs,#btnHist,#btnNew{display:none!important}
+
+.tcount.tbadge{display:none;min-width:16px;padding:0 5px;margin-left:4px;position:relative;top:-8px}
+.tcount.tbadge.on{display:inline-block}
+.tcount{display:inline-block;min-width:20px;padding:2px 7px;margin-left:8px;border-radius:999px;background:var(--acc);color:#fff;font-size:12px;font-weight:700;text-align:center;transition:transform .15s}
+.tcount.pop{animation:tpop .45s ease}
+@keyframes tpop{0%{transform:scale(1)}40%{transform:scale(1.7);background:#7a5cff}100%{transform:scale(1)}}
+.titem.run{outline:1px solid var(--acc);border-radius:10px}
+.toastplus{position:fixed;right:18px;top:70px;z-index:99;background:var(--acc);color:#fff;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:all .4s}
+.toastplus.on{opacity:1;transform:translateY(-8px)}
+/* ---------- 对话页 ---------- */
+header{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;background:var(--bg2);border-bottom:1px solid var(--bg3)}
+header .t{flex:1;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header select{background:var(--bg3);color:var(--fg);border:0;border-radius:8px;padding:6px 8px;font-size:12px;max-width:130px}
+header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--bg3);color:var(--fg);font-size:16px;flex:none}
+#chat{flex:1;overflow-y:auto;padding:14px 12px 8px;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
+.msg{max-width:100%;width:100%;box-sizing:border-box;margin-bottom:12px;padding:10px 13px;border-radius:var(--rad);line-height:1.55;word-break:break-word;font-size:15px;touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.msg.ai,.msg.user{white-space:pre-wrap}
+.msg .md p{margin:0 0 8px}
+.msg .md p:last-child{margin-bottom:0}
+.msg .md h1,.msg .md h2,.msg .md h3{margin:10px 0 6px;line-height:1.3}
+.msg .md h1{font-size:19px}.msg .md h2{font-size:17px}.msg .md h3{font-size:15px}
+.msg .md code{background:#0d1117;border:1px solid var(--bg3);border-radius:5px;padding:1px 5px;font-family:Menlo,Consolas,monospace;font-size:13px;color:#a5d6ff}
+.msg .md pre{background:#0d1117;border:1px solid var(--bg3);border-radius:10px;padding:10px 12px;overflow-x:auto;margin:8px 0;position:relative;touch-action:pan-x pan-y}
+.msg .md pre code{background:none;border:0;padding:0;color:#e8edf2;white-space:pre;display:block}
+.msg .md .cpy{position:absolute;top:6px;right:6px;border:1px solid var(--bg3);border-radius:6px;background:var(--bg3);color:var(--fg2);font-size:11px;padding:3px 8px}
+.msg .md ul,.msg .md ol{padding-left:22px;margin:6px 0}
+.msg .md li{margin:3px 0}
+.msg .md blockquote{border-left:3px solid var(--acc);padding-left:10px;color:var(--fg2);margin:6px 0}
+.msg .md a{color:var(--acc)}
+.msg .md table{border-collapse:collapse;margin:8px 0;font-size:13px;max-width:100%;display:block;overflow-x:auto}
+.msg .md th,.msg .md td{border:1px solid var(--bg3);padding:4px 8px}
+.msg .md th{background:var(--bg3)}
+.msg .md hr{border:0;border-top:1px solid var(--bg3);margin:10px 0}
+.panel{position:absolute;top:0;right:0;bottom:0;width:86%;max-width:360px;background:var(--bg2);border-left:1px solid var(--bg3);transform:translateX(100%);transition:transform .25s;z-index:20;display:flex;flex-direction:column}
+.panel.full{width:100%;max-width:none;border-left:0}
+.panel.on{transform:translateX(0)}
+.panel .ph{display:flex;align-items:center;padding:calc(env(safe-area-inset-top) + 12px) 14px 12px;border-bottom:1px solid var(--bg3);font-weight:600;gap:10px}
+.panel .ph .x{margin-left:auto;border:0;background:none;color:var(--fg2);font-size:18px;padding:4px 8px}
+.panel .pc{flex:1;overflow-y:auto;padding:12px}
+.mp-cat{font-size:12px;color:var(--fg2);margin:12px 4px 6px}
+.mp-item{padding:10px 12px;border:1px solid var(--bg3);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:14px}
+.mp-item small{display:block;color:var(--fg2);font-size:11px;margin-top:2px}
+.mp-item.on{border-color:var(--ok);background:rgba(143,211,160,.08)}
+.pbtns{display:flex;gap:6px}
+.pbtns .ib{font-size:13px}
+.titem{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--bg3);border-radius:10px;margin-bottom:8px}
+.titem .ti{font-size:20px;flex:none}
+.titem .tn{flex:1;font-size:14px;font-weight:600}
+.titem .td{font-size:12px;color:var(--fg2);margin-top:2px;font-weight:400}
+.titem .use{border:0;border-radius:8px;background:var(--bg3);color:var(--acc);font-size:12px;padding:6px 10px;flex:none}
+.logline{font-family:Menlo,Consolas,monospace;font-size:11px;padding:5px 8px;border-bottom:1px solid var(--bg3);word-break:break-all;white-space:pre-wrap}
+/* ---- 问题反馈面板（全屏版式） ---- */
+#pnLogs .pc{padding:0}
+.log-sec{padding:12px 14px 4px;font-size:13px;font-weight:700;color:#7ab0ff;display:flex;align-items:center;gap:8px}
+.log-sec::after{content:'';flex:1;height:1px;background:var(--bg3)}
+.log-card{margin:8px 12px;padding:10px 12px;border:1px solid var(--bg3);border-radius:12px;background:var(--bg3);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.log-card .lc-head{font-size:11px;color:var(--fg2);margin-bottom:4px;display:flex;gap:8px;align-items:center}
+.log-card .lc-role{font-weight:700;color:var(--acc2)}
+.log-card .lc-msg{margin:6px 0}
+.log-card .lc-msg.u .lc-role{color:var(--acc2)}
+.log-card .lc-msg.a .lc-role{color:var(--acc)}
+.log-card.u{border-left:3px solid var(--acc2)}
+.log-card.a{border-left:3px solid var(--acc)}
+.log-empty{padding:20px 16px;text-align:center;color:var(--fg2);font-size:13px}
+.logline.e{color:var(--err)}
+.logline.t{color:var(--ok)}
+.logline.w{color:#e0b050}
+#mask{position:absolute;inset:0;background:rgba(0,0,0,.45);display:none;z-index:15}
+#mask.on{display:block}
+.msg.user{margin-left:auto;background:#2b5cad;color:#fff;border-bottom-right-radius:4px}
+.msg.ai{background:var(--bg2);border:1px solid var(--bg3);border-bottom-left-radius:4px}
+.msg.err{color:var(--err);border-color:var(--err)}
+.msg .cursor{display:none}/*去掉流式回复气泡顶部闪烁小方块（原紫色光标动画）*/
+@keyframes bl{50%{opacity:0}}
+#bar{display:flex;padding:8px 10px calc(env(safe-area-inset-bottom) + 10px);background:var(--bg2);border-top:1px solid var(--bg3)}
+#inp{flex:1;min-width:0;padding:6px 4px;border:0;background:transparent;color:var(--fg);font-size:15px;outline:none;resize:none;max-height:90px;line-height:1.4}
+#inp:focus{border:0}
+#btnPlus{width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--acc);font-size:22px;line-height:1;padding:0;flex:none;display:flex;align-items:center;justify-content:center}
+#send{width:36px;height:36px;flex:none;border:0;border-radius:50%;background:transparent;color:var(--acc);font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0}
+#send.stop{background:transparent;color:var(--err)}
+#send svg{width:26px;height:26px;pointer-events:none}
+#attachRow{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 4px}
+#attachRow:empty{display:none}
+.att{position:relative;width:56px;height:56px;border-radius:10px;overflow:hidden;border:1px solid var(--bg3);background:var(--bg2)}
+.att img{width:100%;height:100%;object-fit:cover}
+.msg img{max-width:100%;height:auto;border-radius:8px;margin:6px 0}
+.msg video,.msg audio,.msg iframe{max-width:100%;width:100%;border-radius:8px;margin:6px 0}
+.msg pre,.msg code{white-space:pre-wrap;word-break:break-word}
+.att .fname{position:absolute;left:0;right:0;bottom:0;font-size:9px;background:rgba(0,0,0,.6);color:#fff;padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.att .x{position:absolute;top:1px;right:1px;width:18px;height:18px;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:11px;line-height:1}
+.attmenu{position:fixed;left:12px;bottom:calc(env(safe-area-inset-bottom) + 84px);background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--rad);padding:6px;display:none;z-index:60;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.attmenu.on{display:block}
+.attmenu button{display:block;width:100%;text-align:left;padding:11px 14px;border:0;background:none;color:var(--fg);font-size:15px;border-radius:8px}
+.attmenu button:active{background:var(--bg3)}
+#send .ico-stop{display:none}
+#send.stop .ico-send{display:none}
+.aladdin-fx .a-flame{transform-origin:5px 11px;animation:zfLampFlame 1.6s ease-in-out infinite;}@keyframes zfLampFlame{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.25) translateY(-.6px);opacity:1}}.aladdin-fx .a-smoke{opacity:0;animation:zfLampSmoke 2.2s ease-out infinite;}@keyframes zfLampSmoke{0%{opacity:0;transform:translateY(0)}30%{opacity:.85}100%{opacity:0;transform:translateY(-3px)}}.ico-send{display:block}
+#send.stop .ico-stop{display:block}
+#send.stop .ico-stop{animation:zfCarpet 1.8s ease-in-out infinite;transform-origin:12px 13px}
+/* 输入框容器：把 ＋ / textarea / 发送 三者包进同一圆角框内，整体更简洁 */
+#inputBox{flex:1;display:flex;align-items:center;gap:8px;padding:4px 4px 4px 6px;border:1px solid var(--bg3);border-radius:var(--rad);background:var(--bg);transition:border-color .15s}
+#inputBox:focus-within{border-color:var(--acc)}
+#bar>#inputBox{min-height:44px}
+@keyframes zfCarpet{0%{transform:translateY(0) rotate(0deg)}25%{transform:translateY(-1.6px) rotate(-4deg)}50%{transform:translateY(-2.4px) rotate(0deg)}75%{transform:translateY(-1.2px) rotate(4deg)}100%{transform:translateY(0) rotate(0deg)}}
+/* ===== 工具执行记录卡片（toolpanel 移植） ===== */
+.trc-title{padding:10px 14px 4px;font-size:12px;color:var(--fg2);border-bottom:1px solid var(--bg3)}
+.trc-wrap{flex:1;min-height:60px}
+.trc-card{background:var(--bg);border:1px solid var(--bg3);border-radius:10px;margin-bottom:8px;overflow:hidden}
+.trc-card.trc-fail{border-color:rgba(255,107,107,.5)}
+.trc-head{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:13px;cursor:pointer}
+.trc-head .trc-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trc-card.trc-fail .trc-head{color:var(--err)}
+.trc-ms{font-size:11px;color:var(--fg2);flex:none}
+.trc-body{display:none;border-top:1px solid var(--bg3);padding:8px 11px;max-height:260px;overflow-y:auto}
+.trc-card.trc-open .trc-body{display:block}
+.trc-sec{margin-bottom:8px}
+.trc-lab{font-size:11px;color:var(--fg2);margin-bottom:3px}
+.trc-sec pre{font-family:Menlo,Consolas,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--fg);background:var(--bg2);border-radius:6px;padding:6px;max-height:120px;overflow-y:auto}
+.trc-empty{color:var(--fg2);font-size:12px;text-align:center;padding:16px 0}
+/* ===== 台球工具球（移植自桌面版，手机适配：球14px、飞入70px） ===== */
+.tt-row{position:relative;display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin-top:6px;vertical-align:middle;transition:opacity .3s}
+.tt-row.tt-done{opacity:0}
+.tt-hole{position:relative;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 50% 45%,#0a0f1f 0%,#060a16 70%);box-shadow:inset 0 1px 2px rgba(0,0,0,.8);flex-shrink:0}
+/* 旋转的是左边的"洞"（袋口光环），不是文字球：对齐 PC 端，球静止逐个累积、洞转起来 */
+.tt-hole::after{content:'';position:absolute;left:-2px;top:-2px;right:-2px;bottom:-2px;border-radius:50%;border:2px solid rgba(100,130,255,.75);border-top-color:transparent;border-bottom-color:transparent;animation:typing-spin 1s linear infinite}
+.thinking-tools{display:inline-flex;gap:5px;flex-shrink:0}
+.tt-circle{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:rgba(100,130,255,.15);border:1.5px solid rgba(100,130,255,.35);color:#e8eeff;font-size:16px;font-weight:700;line-height:1;animation:tt-pop .35s ease both;flex-shrink:0}
+@keyframes tt-pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+.tt-circle.tt-fly-in{animation:ttFlyIn .55s cubic-bezier(.18,.9,.28,1.05) both}
+@keyframes ttFlyIn{0%{transform:translateX(105px) scale(.4) rotate(180deg);opacity:0}35%{opacity:1}75%{transform:translateX(-5px) scale(1.06) rotate(-8deg);opacity:1}100%{transform:translateX(0) scale(1) rotate(0deg);opacity:1}}
+.tt-circle.tt-new{background:rgba(100,130,255,.35);border-color:rgba(130,160,255,.75);color:#dfe6ff;box-shadow:0 0 6px rgba(100,130,255,.45)}
+.tt-circle.tt-hit{animation:ttHit .5s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes ttHit{0%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(120,150,255,0)}18%{transform:translateX(-3px) scale(1.18);box-shadow:0 0 10px 3px rgba(120,150,255,.65)}55%{transform:translateX(2px) scale(.96);box-shadow:0 0 6px 2px rgba(120,150,255,.35)}100%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(120,150,255,0)}}
+.tt-plus-pop{position:absolute;left:6px;top:-14px;font-size:11px;font-weight:800;color:#9fb6ff;text-shadow:0 0 6px rgba(120,150,255,.8);pointer-events:none;animation:ttPlusPop 1.1s ease-out both;z-index:3}
+@keyframes ttPlusPop{0%{opacity:0;transform:translateY(4px) scale(.6)}25%{opacity:1;transform:translateY(-6px) scale(1.15)}70%{opacity:1;transform:translateY(-14px) scale(1)}100%{opacity:0;transform:translateY(-22px) scale(.9)}}
+.tt-hole.tt-burst{animation:ttBurst .7s ease both}
+@keyframes ttBurst{0%{box-shadow:0 0 0 0 rgba(120,150,255,.6);transform:scale(1)}30%{transform:scale(1.5);box-shadow:0 0 18px 8px rgba(120,150,255,.65)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(120,150,255,0)}}
+.thinking-tools.tt-potting .tt-circle{animation:ttRollToHole .5s cubic-bezier(.5,0,.9,.4) both}
+.thinking-tools.tt-potting .tt-circle:nth-child(2){animation-delay:.05s}
+.thinking-tools.tt-potting .tt-circle:nth-child(3){animation-delay:.1s}
+.thinking-tools.tt-potting .tt-circle:nth-child(4){animation-delay:.15s}
+.thinking-tools.tt-potting .tt-circle:nth-child(5){animation-delay:.2s}
+.thinking-tools.tt-potting .tt-circle:nth-child(6){animation-delay:.25s}
+.thinking-tools.tt-potting .tt-circle:nth-child(7){animation-delay:.3s}
+.thinking-tools.tt-potting .tt-circle:nth-child(8){animation-delay:.35s}
+.thinking-tools.tt-potting .tt-circle:nth-child(9){animation-delay:.4s}
+.thinking-tools.tt-potting .tt-circle:nth-child(10){animation-delay:.45s}
+@keyframes ttRollToHole{to{transform:translateX(-20px) scale(.15);opacity:0}}
+/* ===== 折叠卡片（对齐PC端）：思考片段/工具调用/结果默认只显示一行摘要，点击展开全文 ===== */
+.tc-card{max-width:100%;width:100%;box-sizing:border-box;margin:4px 0;border-radius:8px;background:var(--bg2);border:1px solid var(--bg3);font-size:12px;overflow:hidden}
+.tc-card .tc-head{padding:5px 10px;color:var(--fg2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none}
+.tc-card .tc-body{padding:6px 10px;color:var(--fg2);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow-y:auto;border-top:1px dashed var(--bg3)}
+.msg ul{list-style:disc;padding-left:20px;margin:6px 0}
+.msg ol{list-style:decimal;padding-left:22px;margin:6px 0}
+.msg li{margin:2px 0}
+.msg table{border-collapse:collapse;margin:6px 0;max-width:100%;display:block;overflow-x:auto}
+.msg th,.msg td{border:1px solid var(--bg3);padding:4px 8px;font-size:13px;text-align:left}
+.msg th{background:var(--bg2);font-weight:600}
+.msg blockquote{border-left:3px solid var(--acc);padding:2px 10px;margin:6px 0;color:var(--fg2)}
+.msg hr{border:0;border-top:1px solid var(--bg3);margin:8px 0}
+.msg h1,.msg h2,.msg h3{margin:8px 0 4px;-webkit-text-fill-color:currentColor;background:none}
+
+.logbtn{background:#1c2740;border:1px solid #33415e;color:#a9c4ef;border-radius:10px;padding:5px 14px;font-size:12px}
+.logbtn:active{background:#28375a}
+
+/* 手机峰控面板全屏修复：工具/历史/日志侧滑面板铺满全屏，内部弹性滚动，防中间截断 */
+.panel{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;max-width:none;transform:translateY(100%)}
+.panel.on{transform:translateY(0)}
+.panel .pc{flex:1;min-height:0;overflow-y:auto}
+/* ---------- 自研全局弹窗（替代原生 confirm/alert/prompt，统一深空科技风） ---------- */
+.zf-dlg-overlay{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(6,9,20,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:26px;opacity:0;transition:opacity .2s ease}
+.zf-dlg-overlay.on{display:flex;opacity:1}
+.zf-dlg{width:100%;max-width:340px;background:linear-gradient(180deg,var(--bg2),#10162a);border:1px solid var(--bg3);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(124,108,255,.12);padding:0;overflow:hidden;transform:scale(.9) translateY(10px);transition:transform .24s cubic-bezier(.2,.9,.3,1.25)}
+.zf-dlg-overlay.on .zf-dlg{transform:scale(1) translateY(0)}
+.zf-dlg-head{display:flex;align-items:center;gap:8px;padding:18px 20px 0}
+.zf-dlg-icon{font-size:20px;line-height:1}
+.zf-dlg-title{font-size:16px;font-weight:700;color:var(--fg);letter-spacing:.3px}
+.zf-dlg-msg{padding:10px 20px 4px;font-size:14px;line-height:1.6;color:var(--fg2);word-break:break-word;white-space:pre-wrap}
+.zf-dlg-input{margin:12px 20px 2px;width:calc(100% - 40px);padding:11px 13px;border:1px solid var(--bg3);border-radius:12px;background:rgba(11,14,26,.7);color:var(--fg);font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s}
+.zf-dlg-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,108,255,.22)}
+.zf-dlg-actions{display:flex;gap:10px;padding:16px 20px 18px}
+.zf-dlg-btn{flex:1;padding:11px 0;border:0;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:transform .12s,filter .2s;-webkit-tap-highlight-color:transparent}
+.zf-dlg-btn:active{transform:scale(.97)}
+.zf-dlg-btn.cancel{background:var(--bg3);color:var(--fg2)}
+.zf-dlg-btn.ok{background:linear-gradient(135deg,#4da3ff,#7c6cff);color:#fff;box-shadow:0 4px 14px rgba(124,108,255,.4)}
+.zf-dlg-btn.danger{background:linear-gradient(135deg,#ff7a7a,#e0464f);color:#fff;box-shadow:0 4px 14px rgba(255,107,107,.4)}
+</style>
+<link rel="stylesheet" href="css/md-render.css?v=2">
+</head>
+<body>
+
+<!-- 登录页 -->
+<div class="page on" id="pgLogin">
+  <div class="brand-bg"></div>
+  <div class="brand-orb orb1"></div>
+  <div class="brand-orb orb2"></div>
+  <div class="brand-orb orb3"></div>
+  <div class="logo"><img src="logo.png" alt="朱峰智能体"></div>
+  <h1>朱峰智能体</h1>
+  <div class="sub">朱峰社区账号 · 直连朱峰大模型</div>
+  <div class="field"><label>账号（朱峰社区用户名）</label><input id="user" placeholder="用户名"></div>
+  <div class="field"><label>密码</label><div style="position:relative"><input id="pass" type="password" placeholder="密码" style="padding-right:44px"><button type="button" id="eye" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:20px;padding:6px;color:var(--fg2)">👁</button></div></div>
+  <button class="btn" id="btnLogin">登 录</button>
+  <div id="loginMsg"></div>
+  <div class="hint" style="margin-top:4px"><a id="btnReg" href="https://www.zf3d.com/" target="_blank" rel="noopener" style="color:#7c6cff;text-decoration:underline;font-weight:600">还没有账号？前往朱峰社区注册 ›</a></div>
+  <div class="hint">无需电脑开机 · 手机独立运行</div>
+</div>
+
+<!-- 对话页 -->
+<div class="page" id="pgChat">
+  <header>
+    <button class="ib" id="btnTools" title="工具">&#129524;<span class="tcount tbadge" id="toolCount">0</span></button>
+    <button class="ib" id="btnLogs" title="logs">&#128220;</button>
+    <button class="ib" id="btnHist" title="历史对话">&#128218;</button>
+    <button class="ib" id="btnNew" title="新建对话">&#10133;</button>
+  </header>
+  <div id="chat"></div>
+  <div id="attachRow"></div>
+  <div id="bar">
+    <div id="inputBox">
+    <button id="btnPlus" title="添加图片/文件">＋</button>
+    <textarea id="inp" rows="1" placeholder="输入消息…"></textarea>
+    <button id="send"><svg class="ico-send" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.6 13.8c0-2.9 3.1-4.7 7.4-4.7 2.1 0 4 .5 5.4 1.3.9-.6 1.7-1.5 2.1-2.5.15-.4.75-.35.85.05.35 1.5-.1 3.2-1.2 4.4.3.5.45 1 .45 1.5 0 2.6-3.2 4.3-7.6 4.3s-7.4-1.7-7.4-4.3z"/><path d="M12 7.4c.5-1.2 1.7-2 3-2h1.2c.4 0 .4.6 0 .6H15c-1 0-2 .7-2.3 1.7l-.7-.3z"/><path d="M4.2 12.2c-1.3.3-2.2 1.2-2.2 2.3 0 1.1.9 2 2.2 2.3l.4-.9c-.9-.2-1.5-.8-1.5-1.4s.6-1.2 1.5-1.4l-.4-.9z"/><circle cx="12" cy="8" r="1.3"/><g class="aladdin-fx"><path class="a-flame" d="M4.6 11.2c-1.1-1-1.2-2.6-.2-4 .2 1 .8 1.5 1.6 1.4-.5-1.4.1-2.6 1.3-3.3-.4 1.2.1 1.9.9 2.6.8.7 1.2 1.7.8 2.8-.5 1.3-1.5 1.9-2.7 1.9-.7 0-1.3-.5-1.7-1.4z"/><circle class="a-smoke" cx="6.5" cy="6" r="1.1"/><circle class="a-smoke" cx="8" cy="4.6" r=".9" style="animation-delay:.15s"/><circle class="a-smoke" cx="4.8" cy="4.4" r=".8" style="animation-delay:.3s"/></g></svg><svg class="ico-stop" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.6 15.2l9.6-8.6 5.4 4.7-9.6 8.6z"/><path d="M7.8 12.4l6.7 5.6" stroke="currentColor" stroke-width=".9" fill="none" opacity=".5"/><path d="M10.2 10.3l6.7 5.6" stroke="currentColor" stroke-width=".9" fill="none" opacity=".35"/><path d="M3.6 16.2l-1.7 1.2M4.8 17.8l-1.2 1.7M14.9 6.1l.4-2M16.8 7.3l1.3-1.6" stroke="currentColor" stroke-width="1" fill="none"/></svg></button>
+    </div>
+  </div>
+  <div class="attmenu" id="attMenu">
+    <button id="miGallery">🖼 从相册选图</button>
+    <button id="miCamera">📷 拍照</button>
+    <button id="miFile">📄 选择文件</button>
+    <button id="miPaste">📋 粘贴剪贴板图片</button>
+  </div>
+  <input type="file" id="fImg" accept="image/*" multiple style="display:none">
+  <input type="file" id="fCam" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="fFile" multiple style="display:none">
+  <div id="mask"></div>
+  <div class="panel" id="pnHist">
+    <div class="ph">&#128218; 历史对话 <button class="x" id="xHist">X</button></div>
+    <div class="pc" id="histList"></div>
+  </div>
+  <div class="panel" id="pnTools">
+    <div class="ph">&#129524; 工具 <span class="tcount" id="toolCount2">0</span><button class="x" id="xTools">X</button></div>
+    <div class="trc-title" style="display:flex;align-items:center;justify-content:space-between"><span>工具执行记录（最近100条，点卡片看详情）</span><button id="btnTrcCopy" style="border:1px solid var(--bg3);background:var(--bg2);color:var(--fg);font-size:12px;border-radius:8px;padding:4px 10px;flex:none">📋 复制全部</button></div>
+    <div class="pc trc-wrap" id="toolRecList"></div>
+    <div class="trc-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>工具利用率统计（服务器长期数据）</span><span style="display:flex;gap:6px;flex:none"><button id="btnUsageView" style="border:1px solid var(--bg3);background:var(--bg2);color:var(--fg);font-size:12px;border-radius:8px;padding:4px 10px">📊 查看</button><button id="btnUsageCopy" style="border:1px solid var(--bg3);background:var(--bg2);color:var(--fg);font-size:12px;border-radius:8px;padding:4px 10px">📋 复制给电脑</button></span></div>
+    <div class="pc trc-wrap" id="usageList" style="display:none;white-space:pre-wrap;font-family:monospace;font-size:12px"></div>
+  </div>
+  <div class="panel" id="pnLogs">
+    <div class="ph">&#128220; 日志 <button class="ib logbtn" id="btnCopyLog" style="margin-left:auto">复制</button><button class="ib logbtn" id="btnClearLog">清空</button><button class="x" id="xLogs">X</button></div>
+    <div class="pc" id="logList"></div>
+  </div>
+</div>
+
+<script>
+function zfApiBase(){try{if(location.protocol==='http:'||location.protocol==='https:')return location.origin}catch(e){}return (typeof window.ZF_SERVER_BASE==='string'&&window.ZF_SERVER_BASE)?window.ZF_SERVER_BASE:''}
+'use strict';
+/* ===== 自研全局弹窗组件（替代原生 confirm/alert/prompt，统一视觉，异步 Promise） ===== */
+window.zfDialog=(function(){
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  function open(cfg){
+    cfg=cfg||{};
+    return new Promise(function(resolve){
+      var ov=document.createElement('div');ov.className='zf-dlg-overlay';
+      var isInput=!!cfg.input;
+      var okCls=cfg.danger?'danger':'ok';
+      var html='<div class="zf-dlg" role="dialog" aria-modal="true">'
+        +'<div class="zf-dlg-head"><span class="zf-dlg-icon">'+(cfg.icon||'&#128172;')+'</span><span class="zf-dlg-title">'+esc(cfg.title||'提示')+'</span></div>'
+        +'<div class="zf-dlg-msg">'+esc(cfg.message||'')+'</div>'
+        +(isInput?'<input class="zf-dlg-input" type="text" value="'+esc(cfg.default||'')+'" placeholder="'+esc(cfg.placeholder||'')+'" autocomplete="off" spellcheck="false">':'')
+        +'<div class="zf-dlg-actions">'
+        +(isInput||cfg.showCancel?'<button class="zf-dlg-btn cancel" data-r="0">'+esc(cfg.cancelText||'取消')+'</button>':'')
+        +'<button class="zf-dlg-btn '+okCls+'" data-r="1">'+esc(cfg.okText||'确定')+'</button>'
+        +'</div></div>';
+      ov.innerHTML=html;
+      document.body.appendChild(ov);
+      var inp=ov.querySelector('.zf-dlg-input');
+      requestAnimationFrame(function(){ov.classList.add('on');if(inp){try{inp.focus();inp.select()}catch(e){}}});
+      var closed=false;
+      function done(val){if(closed)return;closed=true;ov.classList.remove('on');setTimeout(function(){try{ov.remove()}catch(e){}},220);resolve(val)}
+      ov.addEventListener('click',function(ev){
+        var b=ev.target.closest?ev.target.closest('.zf-dlg-btn'):null;
+        if(b){
+          if(b.getAttribute('data-r')==='1'){done(isInput?(inp?inp.value:''):true)}
+          else{done(isInput?null:false)}
+        } else if(ev.target===ov){done(isInput?null:false)}
+      });
+      if(inp){inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();done(inp.value)}})}
+    });
+  }
+  return {
+    confirm:function(msg,opts){opts=opts||{};return open({message:msg,title:opts.title||'请确认',icon:opts.icon||'❓',danger:opts.danger,okText:opts.okText||'确定',cancelText:opts.cancelText||'取消',showCancel:true})},
+    alert:function(msg,opts){opts=opts||{};return open({message:msg,title:opts.title||'提示',icon:opts.icon||'ℹ️',okText:opts.okText||'知道了'})},
+    prompt:function(msg,def,opts){opts=opts||{};return open({message:msg,title:opts.title||'请输入',icon:opts.icon||'✏️',input:true,default:def||'',placeholder:opts.placeholder||'',okText:opts.okText||'确定',cancelText:opts.cancelText||'取消'})}
+  };
+})();
+/* ===== 调试：全局错误捕获，仅输出到 console（不显示在聊天区，避免泄露内部信息） ===== */
+function _dbgErr(label,msg){try{console.log('['+label+'] '+msg)}catch(e){}try{pushLog('e',label+': '+msg)}catch(e2){}}
+window.addEventListener('error',function(ev){_dbgErr('JS错误',(ev.message||'')+' @'+(ev.lineno||'?')+':'+(ev.colno||'?'))});
+window.addEventListener('unhandledrejection',function(ev){var r=ev.reason;_dbgErr('Promise',(r&&(r.message||r))||String(r))});
+// ---- 原生 fetch shim：file:// 页在新版 WebView 中 fetch 被 CORS 拦截，转交原生 HTTP 桥 ----
+(function(){
+  try{
+    if(location.protocol!=='file:'||!window.ZFHttp||window.__zfFetchShim)return;
+    window.__zfFetchShim=true;
+    var __origFetch=window.fetch.bind(window);
+    var __pending={},__seq=0;
+    window.__zfHttpDone=function(id,resp){
+      var p=__pending[id];if(!p)return;delete __pending[id];
+      var ok=resp.status>=200&&resp.status<300;
+      p.res({status:resp.status,ok:ok,statusText:ok?'OK':'Error',
+        headers:{get:function(){return null}},
+        text:function(){return Promise.resolve(resp.body)},
+        json:function(){return Promise.resolve(JSON.parse(resp.body))}});
+    };
+    window.fetch=function(input,init){
+      init=init||{};
+      var url=typeof input==='string'?input:(input&&input.url)||'';
+      if(!/^https?:/i.test(url))return __origFetch(input,init);
+      var headers={};
+      var src=init.headers||((input&&input.headers)||(typeof Headers!=='undefined'&&new Headers())||{});
+      try{
+        if(typeof src.forEach==='function')src.forEach(function(v,k){headers[k]=v});
+        else for(var k in src)headers[k]=src[k];
+      }catch(e){}
+      var body=init.body;
+      if(body&&typeof body!=='string'){
+        try{body=body.toString()}catch(e){body=String(body)}
+      }
+      var id='h'+(++__seq);
+      var sig=init.signal;
+      return new Promise(function(resolve,reject){
+        var _aborted=function(){
+          if(__pending[id]){delete __pending[id];try{window.ZFHttp.cancel(id)}catch(e){}reject(new DOMException('Aborted','AbortError'))}
+        };
+        if(sig){
+          if(sig.aborted){_aborted();return}
+          try{sig.addEventListener('abort',_aborted)}catch(e){}
+        }
+        __pending[id]={res:function(v){try{sig&&sig.removeEventListener('abort',_aborted)}catch(e){}resolve(v)},rej:function(e){try{sig&&sig.removeEventListener('abort',_aborted)}catch(e){}reject(e)}};
+        window.ZFHttp.request(id,url,(init.method||'GET'),JSON.stringify(headers),body||null);
+        setTimeout(function(){if(__pending[id]){delete __pending[id];reject(new TypeError('连接超时：网络较慢或服务器未响应，请稍后重试'))}},150000);
+      });
+    };
+  }catch(e){}
+})();
+var ZF='https://www.zf3d.com';
+var LS=window.localStorage;
+function $(id){return document.getElementById(id)}
+function save(k,v){try{LS.setItem(k,typeof v==='object'?JSON.stringify(v):v)}catch(e){}}
+function load(k,d){try{var v=LS.getItem(k);return v===null?d:(v&&(v[0]==='{'||v[0]==='[')?JSON.parse(v):v)}catch(e){return d}}
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+/* 智能滚动：仅当用户本来就在底部附近时才自动跟滚；用户上翻阅读时不打扰（修复思考期间无法拖拽滚动） */
+function _nearBottom(){try{var c=$('chat');return c.scrollHeight-c.scrollTop-c.clientHeight<90}catch(e){return true}}
+function scrollEnd(force){var c=$('chat');try{if(force||_nearBottom())c.scrollTop=c.scrollHeight}catch(e){}}
+
+/* ---------- 登录：直接 POST zf3d.com/api/auth.asp ---------- */
+var agKey=load('zf_agkey',''), zfUser=parseInt(load('zf_uid','0'))||0, zfName=load('zf_name','');
+async function doLogin(){
+  var u=$('user').value.trim(), p=$('pass').value;
+  if(!u||!p){$('loginMsg').textContent='请输入账号和密码';return}
+  $('btnLogin').disabled=true;$('loginMsg').textContent='登录中…';
+  try{
+    var fd=new URLSearchParams();fd.set('a','login');fd.set('username',u);fd.set('password',p);
+    var r=await fetch(ZF+'/api/auth.asp',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Referer':ZF+'/'},body:fd.toString()});
+    var txt=await r.text();
+      var j;try{j=JSON.parse(txt)}catch(e){throw new Error('服务器响应异常，请稍后重试')}
+    if(!j.success)throw new Error(j.message||'登录失败，请检查账号密码');
+    var d=j.data||{};
+    if(typeof d==='string')try{d=JSON.parse(d)}catch(e){}
+    agKey=(d&&d.agent_api_key)||'';
+    zfUser=parseInt((d&&d.user_id)||0)||0;
+    save('zf_agkey',agKey);save('zf_uid',zfUser);save('zf_name',u);
+    enterChat();
+  }catch(e){
+    $('loginMsg').textContent='⚠️ '+(e.message||'网络连接失败，请检查手机网络后重试');
+    // 预填上次账号
+  }finally{$('btnLogin').disabled=false}
+}
+$('btnLogin').onclick=doLogin;
+$('pass').onkeydown=function(e){if(e.key==='Enter')doLogin()};
+$('eye').onclick=function(){var p=$('pass');p.type=p.type==='password'?'text':'password';this.textContent=p.type==='password'?'👁':'🙈'};
+/* 注册入口：朱峰账号注册仅在网页完成，点击用系统浏览器打开官网（原生桥优先，兜底新窗口） */
+$('btnReg').onclick=function(ev){
+  ev.preventDefault();
+  var url=ZF+'/';
+  try{
+    if(typeof bJson==='function'&&(window.ZFBridge||window.ZFMobile)){
+      var rc=bJson('openUrl',url);
+      if(rc&&rc.ok)return;
+    }
+  }catch(e){}
+  try{window.open(url,'_blank','noopener');}catch(e){$('loginMsg').textContent='请用浏览器访问 '+url+' 注册账号';}
+};
+
+/* ---------- 模型：恒用官方推荐（选择模型功能已删除） ---------- */
+/* 【v88 修复"没反应/模型没弄到"】初值即内置官方默认（实测 zf_models_config.json：
+   chat=zf-glm-flash / vision=zf-glm-vision），即使 loadModels 因启动竞态/BOM 解析失败
+   未能填充，MODEL.chat 也不为空，发送不会因"未获取到默认模型"被拦截 */
+var MODEL={chat:'zf-glm-flash',vision:'zf-glm-vision'};
+var MODELS={chat:[],vision:[]};
+function _mId(m){
+  if(m.modelIds&&m.modelIds.length){var mi=m.modelIds[0];return (typeof mi==='string')?mi:mi.id}
+  return m.model||m.id||'';
+}
+async function loadModels(){
+  try{
+    var r=await fetch(ZF+'/api/zf_models_config.json');
+    /* 【v88 修复"模型没弄到"】实测 config 响应体开头带 UTF-8 BOM(﻿)，老 WebView 的
+       r.json() 遇 BOM 抛错 → MODELS 没填充 → MODEL.chat 留空 → 发送被拦截"没反应"。
+       改为 text 取响应、手动 strip BOM 再 JSON.parse，更稳 */
+    var cfgTxt=await r.text();var cfg=JSON.parse(String(cfgTxt).replace(/^\uFEFF/,''));
+    var list=(cfg&&cfg.models)||[];
+    MODELS={chat:[],vision:[]};
+    list.forEach(function(m){
+      if(m.enabled===false)return;
+      var cat=m.category||'chat';
+      var rec=(m.isDefault===true||m.recommended===true||m.recommend===true||m.default===true);
+      var id=_mId(m);if(!id)return;
+      MODELS[cat].push({id:id,name:m.name||m.label||'',rec:rec});
+      if(rec||!MODEL[cat])MODEL[cat]=id;
+    });
+  }catch(e){
+    console.warn('模型配置加载失败，用缓存/默认',e);
+  }
+  if(!MODEL.chat){var _fb=load('zf_model_cache','')||''; if(!_fb&&MODELS.chat&&MODELS.chat.length)_fb=MODELS.chat[0].id; MODEL.chat=_fb;}
+  if(!MODEL.vision){var _fv=load('zf_vision_cache','')||''; if(!_fv&&MODELS.vision&&MODELS.vision.length)_fv=MODELS.vision[0].id; MODEL.vision=_fv;}
+  /* 墓碑：选择模型功能（⚙按钮/pnModel面板/手动选择逻辑）已按用户要求删除，严禁恢复 btnModel/pnModel/zf_model_sel 相关 UI 或逻辑，模型恒用官方推荐 */
+  save('zf_model_cache',MODEL.chat);save('zf_vision_cache',MODEL.vision);
+  try{var stEl2=document.getElementById('stTxt');if(stEl2)stEl2.textContent='峰控'}catch(e2){}
+}
+
+/* 墓碑：电脑控制按钮/面板/WS 命令通道已按用户要求删除，严禁在此恢复 btnPC/pnPC/pcWS 相关 UI 或逻辑 */
+var pcPoolBase=function(){try{var b=String(load('zf_pool_base','')||'').trim();return b.replace(/\/+$/,'')}catch(e){return ''}};
+var pcPoolOn=function(){return load('zf_pool_on','0')==='1'}; /* 池托管开关：默认仍关闭（直连官方）；对话说「开启池托管/关闭池托管」「池地址：http://ip:端口」即可配置 */
+/* ---------- 并行赛道：同问多模型竞速，先到先得，败者折叠 ---------- */
+function raceOn(){return load('zf_race_on','0')==='1'}
+function raceCount(){var n=parseInt(load('zf_race_n','2'))||2;return Math.min(Math.max(n,1),3)}
+function raceOne(model,msgs,ctl,genSig){
+  var sigs=[ctl.signal];if(genSig)sigs.push(genSig);
+  var sig=(window.AbortSignal&&AbortSignal.any)?AbortSignal.any(sigs):ctl.signal;
+  return fetch(ZF+'/api/zf_models_relay.asp?model='+encodeURIComponent(model),{
+    method:'POST',signal:sig,
+    headers:{'Content-Type':'application/json','X-ZF-Key':agKey,'X-ZF-User':String(zfUser||'')},
+    body:JSON.stringify({model:model,messages:msgs,stream:false,temperature:0.7,max_tokens:32768})
+  }).then(function(r){return r.text().then(function(txt){
+    if(!r.ok)throw new Error('HTTP '+r.status+(txt?'：'+txt.slice(0,120):''));
+    var j;try{j=JSON.parse(txt)}catch(e){throw new Error('响应非JSON')}
+    if(j.error)throw new Error(j.error.message||j.error);
+    var m=((j.choices||[])[0]||{}).message||{};
+    var out=String(m.content||'').trim();
+    if(!out)throw new Error('空响应');
+    return out;
+  })});
+}
+async function sendRace(msgs,span,onDone,genSig){
+  var n=raceCount();
+  var base=MODEL.chat;
+  /* 赛道模型列表：zf_race_models 逗号分隔，不足补当前模型，超出截断 */
+  var list=String(load('zf_race_models','')||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
+  while(list.length<n)list.push(base);
+  list=list.slice(0,n);
+  var ctls=list.map(function(){return new AbortController()});
+  var results=list.map(function(){return null});
+  var done=0,settled=false;
+  span.textContent='🏁 '+n+' 路赛道并行中（'+list.join(' / ')+'）…';scrollEnd();
+  function check(){
+    done++;if(settled)return;
+    var win=null;
+    for(var i=0;i<results.length;i++)if(results[i]&&results[i].out){win=results[i];break}
+    if(!win){
+      if(done<results.length)return;
+      settled=true;
+      onDone(new Error('全部赛道失败：'+results.map(function(r){return (r.model||'?')+': '+(r.err||'?')}).join('；')),null);
+      return;
+    }
+    settled=true;
+    ctls.forEach(function(c,j){if(results[j]!==win){try{ctls[j].abort()}catch(e){}}});
+    var losers=results.filter(function(r){return r&&r!==win});
+    onDone(null,{win:win,losers:losers});
+  }
+  var ps=list.map(function(mo,i){
+    var go=function(){return raceOne(mo,msgs,ctls[i],genSig)
+      .then(function(out){results[i]={model:mo,out:out};check()})
+      .catch(function(e){results[i]={model:mo,err:(e&&e.name==='AbortError')?'已取消':e.message};check()})};
+    return i?new Promise(function(res){setTimeout(res,200*i)}).then(go):go();
+  });
+  await Promise.all(ps);
+}
+/* ---------- 对话：POST zf_models_relay.asp?model=xx + X-ZF-Key/X-ZF-User ---------- */
+/* ---- 多会话 ---- */
+var SESSIONS=load('zf_sessions',[]);
+var CUR=load('zf_cur','');
+function curSess(){for(var i=0;i<SESSIONS.length;i++)if(SESSIONS[i].id===CUR)return SESSIONS[i];return null}
+function persist(){save('zf_sessions',SESSIONS);save('zf_cur',CUR)}
+/* ===== v89 会话级后台生成：切换/新建不再中止旧对话，结果始终写回发起会话 ===== */
+function renderSess(id){
+  var s0=null;for(var i=0;i<SESSIONS.length;i++)if(SESSIONS[i].id===id){s0=SESSIONS[i];break}
+  if(!s0)return;
+  var box=$('chat');if(!box)return;
+  box.innerHTML='';
+  (s0.msgs||[]).forEach(function(h0){addMsg(h0.role==='assistant'?'ai':'user',h0.content||'')});
+  if(isRunning(id)){var _b=addMsg('ai','…（后台生成中，完成后自动显示）');_b._bg=1}
+  scrollEnd();
+}
+function syncSendBtn(){
+  var run=RUNNING[CUR];
+  try{$('send').classList.toggle('stop',!!run)}catch(e){}
+}
+/* 会话级写回（v90）：把 user+assistant 落到发起会话对象（局部引用，不受切换影响），切走时后台占位气泡转真实消息，回前台时刷新显示 */
+function _sessFinish(sess,h,userTxt,aiObj){
+  h=sess.msgs||(sess.msgs=[]); /* 用会话当前数组（压缩分支可能已重建 msgs，_h 快照会失效，故以 sess.msgs 为准） */
+  h.push({role:'user',content:userTxt});
+  h.push(typeof aiObj==='string'?{role:'assistant',content:aiObj}:aiObj);
+  sess.msgs=h;
+  if(sess.title==='新对话'){for(var i=0;i<h.length;i++){if(h[i].role==='user'){sess.title=h[i].content.slice(0,20);break}}}
+  sess.ts=Date.now();
+  persist();
+}
+/* 停止当前前台会话的生成（v90：会话级，仅停当前正在看的那一个） */
+function stopCurrentRun(){
+  var run=RUNNING[CUR];
+  if(!run)return false;
+  run.stopped=true;
+  try{if(typeof zfStopSpeak==='function')zfStopSpeak()}catch(_s){}
+  try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(_s2){}
+  try{run.ctl.abort()}catch(_s3){}
+  try{pushLog('t','已请求停止')}catch(_s4){}
+  return true;
+}
+(function(){
+  if(SESSIONS.length===0){var old=load('zf_hist',null);
+    SESSIONS=[{id:'s'+Date.now(),title:old&&old.length?'历史对话':'新对话',ts:Date.now(),msgs:(old&&old.length?old:[])}];
+    CUR=SESSIONS[0].id;persist()}
+  if(!curSess()){CUR=SESSIONS[0].id;persist()}
+})();
+var hist=curSess().msgs; /* hist 仅作为「当前前台视图」的消息数组引用；后台生成用 send 内会话局部 _h，切换/新建不中止旧会话（v89 补全） */
+/* 会话级运行登记（v89 改造）：sessId -> {ctl:AbortController, stop:fn}
+   切换/新建会话不再中止后台生成：每次生成绑定发起时的会话对象，结果始终写回该会话并落库。 */
+var RUNNING={};
+function isRunning(id){return !!RUNNING[id]}
+/* 启动恢复：localStorage 无技能但手机存储有 zf_self.json（重装场景）→ 读回写入 localStorage */
+(function(){
+  try{
+    if(LS.getItem('zf_skills'))return;
+    var B=window.ZFBridge;if(!B||!B.readFile)return;
+    var si=B.storageInfo&&JSON.parse(B.storageInfo());
+    var r=JSON.parse(B.readFile((si&&si.appDir||'/sdcard/Android/data/com.zf.pocket')+'/zf_self.json'));
+    if(Array.isArray(r)&&r.length){LS.setItem('zf_skills',JSON.stringify(r))}
+  }catch(e){}
+})();
+function addMsg(role,text){
+  var b=document.createElement('div');
+  b.className='msg '+(role==='user'?'user':'ai'+(role==='err'?' err':''));
+  b.textContent=text;$('chat').appendChild(b);scrollEnd();return b;
+}
+/* ==================== 朱峰底层智能体循环（移植自 server/brain/main_brain_seg2.py brain_chat） ==================== */
+/* 模式：模型多轮返回 tool_calls → 本地执行 → 结果回填 msgs(role=tool) → 继续下一轮，直到模型给出最终答复 */
+var AGENT_MAX_ROUNDS = 299; /* 上限大幅提高，复杂任务由 AI 多轮工具调用完成 */
+/* ===== 原生桥（全局）：agentExecTool 与 send() 内命令层共用 ===== */
+function bCall(method){try{var A=window.ZFMobile,B=window.ZFBridge;var Br=(A&&A[method])?A:((B&&B[method])?B:null);if(!Br)return null;return Br[method].apply(Br,[].slice.call(arguments,1))}catch(e){_dbgErr('bridge',e.message);return null}}
+function bJson(method){var r=bCall.apply(null,arguments);if(r===null)return null;try{return JSON.parse(r)}catch(e){return null}}
+/* ===== 异步原生桥（修复"计算过程中界面定住、无法拖拽/无法停止"）=====
+   背景：@JavascriptInterface 同步调用会阻塞 WebView 渲染主线程（触摸/滚动/点击/停止全靠它），
+   耗时工具（httpGet/截图/终端命令/连续手势等）在原生线程里跑时整页冻结。
+   原生侧已注册 window.ZFAsync（AsyncBridge.kt，后台线程反射各桥同名方法→回调 window.__zfAsyncDone），
+   此前前端未接线，bJson 一直走同步。下列封装把阻塞移出主线程；无 ZFAsync 时回退同步 bJson（兼容旧包）。 */
+var _zfAsyncSeq=0,_zfAsyncMap={};
+window.__zfAsyncDone=function(callId,resultJson){var cb=_zfAsyncMap[callId];if(cb){delete _zfAsyncMap[callId];try{cb(resultJson)}catch(e){}}};
+function zfAsyncCall(ns,method,args,timeoutMs){return new Promise(function(res){
+  if(!window.ZFAsync||!window.ZFAsync.call){/*无异步桥：本帧后同步执行，至少让点击/触摸事件先排空*/
+    setTimeout(function(){try{var Br=window[ns];res(Br&&Br[method]?Br[method].apply(Br,args||[]):null)}catch(e){res(null)}},0);return;}
+  var id='c'+(++_zfAsyncSeq);_zfAsyncMap[id]=res;
+  var _to=(typeof timeoutMs==='number'&&timeoutMs>0)?timeoutMs:30000;/*单次兜底 30s（用户要求：所有工具超时锁死不超过30秒，到点直接报错跳过返回null，绝不让对话干等；轻量工具走同步白名单不受影响）*/
+  var _t=setTimeout(function(){if(_zfAsyncMap[id]){delete _zfAsyncMap[id];res(null)}},_to);
+  try{window.ZFAsync.call(ns,method,JSON.stringify(args||[]),id)}catch(e){clearTimeout(_t);delete _zfAsyncMap[id];res(null)}
+})}
+/* 与 bJson 等价的异步版：优先 ZFMobile 命名空间，缺失(bridge-missing)再试 ZFBridge；解析 JSON 同旧逻辑 */
+/* 轻量秒回型查询方法（纯读内存/系统属性，毫秒返回）：直接走同步桥。
+   修复"运行工具奇慢"：这些方法走异步桥时，若原生反射不回调，会先干等 180s(ZFMobile)
+   再 180s(ZFBridge)=360s 才超时返回。它们本不会阻塞主线程，没必要异步化。 */
+/* 【修复"运行工具奇慢"】本地文件/触发类操作同步桥秒回，绝不该走异步桥。
+   旧包/反射不回调时异步桥会先干等 15s(ZFMobile)+15s(ZFBridge)=30s 才超时回退，
+   表现为 vibrate/list_files/read_file 等"奇慢"。它们不会真阻塞主线程，直接同步化根治。 */
+var _zfSyncFast={deviceInfo:1,netInfo:1,a11yReady:1,getBrightness:1,getVolume:1,clipboardRead:1,clipboardWrite:1,vibrate:1,listFiles:1,readFile:1,writeFile:1,appendFile:1,deleteFile:1,searchFiles:1};
+async function bJsonA(method){var args=[].slice.call(arguments,1);
+  if(!window.ZFAsync||!window.ZFAsync.call)return bJson.apply(null,arguments);/*回退同步*/
+  if(_zfSyncFast[method])return bJson.apply(null,arguments);/*轻量方法直接同步，防异步桥悬挂干等超时*/
+  /* 【双命名空间回退·关键修复】方法可能定义在 ZFMobile 或 ZFBridge 任一桥内。
+     原生对「对象在但方法不在」(反射 NoSuchMethod) 现返回 bridge-missing；
+     旧包可能仍返回 bridge-error:...method not found...，两者都需触发回退，
+     否则 httpGet/listFiles/readFile/writeFile/deviceInfo/netInfo 等仅在 ZFBridge
+     定义的工具会被误判失败，导致 web_search/文件读写/设备信息全体"获取失败"。 */
+  function _zfNeedFallback(r){return r===null||r===undefined||r==='bridge-missing'||(typeof r==='string'&&r.indexOf('bridge-error:')===0&&/method not found/i.test(r));}
+  var raw=await zfAsyncCall('ZFMobile',method,args,30000);
+  /* 双命名空间回退：第二次用更短超时(20s)，避免 60s+60s 叠加成长达 2 分钟的悬挂 */
+  if(_zfNeedFallback(raw))raw=await zfAsyncCall('ZFBridge',method,args,20000);
+  /* 【悬挂兜底】异步桥两命名空间都没结果（原生未回调/反射异常）→ 回退同步 bCall，
+     避免 deviceInfo 这类本可同步秒回的方法因异步桥悬挂干等 180s×2=360s 后返回 null。 */
+  if(raw===null||raw===undefined||raw===''||raw==='bridge-missing'||_zfNeedFallback(raw)){
+    var sres=bCall.apply(null,arguments);
+    if(sres!==null&&sres!==undefined){try{return JSON.parse(sres)}catch(e){return sres}}
+    return null;
+  }
+  try{return JSON.parse(raw)}catch(e){return raw}}
+/* 异步等价：把 window.ZFTerm/ZFTermux/ZFBrowser 等直接同步调用转后台线程，返回原始字符串 */
+async function bRaw(ns,method,args){if(!window.ZFAsync||!window.ZFAsync.call){try{var Br=window[ns];return Br&&Br[method]?String(Br[method].apply(Br,args||[])):null}catch(e){return null}}
+  var raw=await zfAsyncCall(ns,method,args);return raw===null||raw===undefined?null:String(raw)}
+/* 路径别名归一：/storage/emulated/0/xxx 与 /sdcard/xxx 是同一位置，统一成 /sdcard 前缀，避免白名单/缓存误判 */
+function normPath(p){p=String(p||'').trim();return p.replace(/^\/storage\/emulated\/0/i,'/sdcard');}
+var AGENT_TOOLS=[
+  {type:'function',function:{name:'read_file',description:'读取手机文件内容',parameters:{type:'object',properties:{path:{type:'string',description:'文件路径'}},required:['path']}}},
+  {type:'function',function:{name:'write_file',description:'写入手机文件（目录不存在会失败，先 list_files 确认；超长内容请分段写+append_file 追加）',parameters:{type:'object',properties:{path:{type:'string'},content:{type:'string'}},required:['path','content']}}},
+  {type:'function',function:{name:'speak',description:'用手机原生TTS朗读文字。注意：App默认会自动朗读你的最终回答，平时不要调用本工具；仅当用户明确要求朗读时才调用。rate 语速：1.0=正常 1.1 1.2 加速',parameters:{type:'object',properties:{text:{type:'string'},rate:{type:'number'}},required:['text']}}},
+  {type:'function',function:{name:'speak_stop',description:'停止朗读',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'append_file',description:'向文件末尾追加内容（配合 write_file 分段写超长内容）',parameters:{type:'object',properties:{path:{type:'string'},content:{type:'string'}},required:['path','content']}}},
+  {type:'function',function:{name:'list_files',description:'列出目录内容',parameters:{type:'object',properties:{path:{type:'string'}},required:['path']}}},
+  {type:'function',function:{name:'search_files',description:'按关键词搜索文件名',parameters:{type:'object',properties:{dir:{type:'string'},keyword:{type:'string'}},required:['dir','keyword']}}},
+  {type:'function',function:{name:'delete_file',description:'删除文件',parameters:{type:'object',properties:{path:{type:'string'}},required:['path']}}},
+  {type:'function',function:{name:'web_search',description:'联网搜索',parameters:{type:'object',properties:{query:{type:'string'}},required:['query']}}},
+  {type:'function',function:{name:'fetch_url',description:'抓取网页正文',parameters:{type:'object',properties:{url:{type:'string'}},required:['url']}}},
+  {type:'function',function:{name:'device_info',description:'电量/型号等设备信息',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'net_info',description:'网络状态与本机IP',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'clipboard_copy',description:'复制文本到剪贴板',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'vibrate',description:'震动手机(毫秒)',parameters:{type:'object',properties:{ms:{type:'number'}},required:[]}}},
+  {type:'function',function:{name:'open_url',description:'用系统浏览器打开网址',parameters:{type:'object',properties:{url:{type:'string'}},required:['url']}}},
+  {type:'function',function:{name:'notify',description:'发系统通知',parameters:{type:'object',properties:{title:{type:'string'},body:{type:'string'}},
+required:['title']}}},
+  {type:'function',function:{name:'phone_read_screen',description:'读取当前手机屏幕文字（无障碍树）。操作手机前先调用看屏幕',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_screenshot',description:'截取手机屏幕返回base64图片（Android 11+，首次弹系统授权）',parameters:{type:'object',properties:{quality:{type:'number',description:'JPEG质量1-100默认60'}},required:[]}}},
+  {type:'function',function:{name:'phone_tap',description:'按屏幕坐标点击（可操作自绘界面）',parameters:{type:'object',properties:{x:{type:'number'},y:{type:'number'}},required:['x','y']}}},
+  {type:'function',function:{name:'phone_long_press',description:'按坐标长按',parameters:{type:'object',properties:{x:{type:'number'},y:{type:'number'},ms:{type:'number'}},required:['x','y']}}},
+  {type:'function',function:{name:'phone_swipe',description:'从x1,y1滑到x2,y2',parameters:{type:'object',properties:{x1:{type:'number'},y1:{type:'number'},x2:{type:'number'},y2:{type:'number'},ms:{type:'number'}},required:['x1','y1','x2','y2']}}},
+  {type:'function',function:{name:'phone_click_text',description:'按屏幕文字点击控件',parameters:{type:'object',properties:{text:{type:'string'},exact:{type:'boolean'}},required:['text']}}},
+  {type:'function',function:{name:'phone_click_id',description:'按控件viewId点击（配合phone_read_screen）',parameters:{type:'object',properties:{id:{type:'string'}},required:['id']}}},
+  {type:'function',function:{name:'phone_input',description:'向聚焦的输入框输入文字',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_scroll',description:'滚动屏幕 up/down/left/right',parameters:{type:'object',properties:{dir:{type:'string',enum:['up','down','left','right']}},required:['dir']}}},
+  {type:'function',function:{name:'phone_key',description:'系统键 back/home/recents/notifications/quick_settings',parameters:{type:'object',properties:{key:{type:'string',enum:['back','home','recents','notifications','quick_settings']}},required:['key']}}},
+  {type:'function',function:{name:'phone_launch_app',description:'启动已装App（包名或名称）',parameters:{type:'object',properties:{app:{type:'string'}},required:['app']}}},
+  {type:'function',function:{name:'phone_list_apps',description:'列出所有已装App（含包名）',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_double_tap',description:'双击屏幕坐标',parameters:{type:'object',properties:{x:{type:'number'},y:{type:'number'}},required:['x','y']}}},
+  {type:'function',function:{name:'phone_drag',description:'按住x1,y1拖拽到x2,y2（拖动滑块/排序用）',parameters:{type:'object',properties:{x1:{type:'number'},y1:{type:'number'},x2:{type:'number'},y2:{type:'number'},ms:{type:'number'}},required:['x1','y1','x2','y2']}}},
+  {type:'function',function:{name:'phone_long_press_text',description:'长按屏幕上的文字控件',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_click_text_exact',description:'按完全匹配的文字点击（比phone_click_text更严格，防误点相似文字）',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_check',description:'检查屏幕上是否存在某文字（不点击，用于判断界面状态）',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_screenshot_quality',description:'设置默认截屏质量（调低可省流量/提速，1-100）',parameters:{type:'object',properties:{quality:{type:'number'}},required:['quality']}}},
+  {type:'function',function:{name:'phone_a11y_status',description:'查询无障碍服务是否已开启',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_open_a11y',description:'打开系统无障碍设置页，引导用户开启峰控无障碍服务',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_location',description:'获取手机最近一次定位（经纬度）。需已授予定位权限',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_brightness',description:'读取或设置屏幕亮度(1-255)。set 时需系统设置写入权限（未授权会提示用 phone_open_write_settings）',parameters:{type:'object',properties:{value:{type:'number',description:'不传=只读；传1-255=设置'}},required:[]}}},
+  {type:'function',function:{name:'phone_volume',description:'读取或设置音量。type: music/ring/alarm',parameters:{type:'object',properties:{type:{type:'string',enum:['music','ring','alarm']},value:{type:'number',description:'不传=只读；传0-最大值=设置'}},required:['type']}}},
+  {type:'function',function:{name:'clipboard_read',description:'读取手机剪贴板文本',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'clipboard_write',description:'写入手机剪贴板文本',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_alarm',description:'设置一个系统闹钟（24小时制）',parameters:{type:'object',properties:{hour:{type:'number'},minute:{type:'number'},label:{type:'string',description:'闹钟备注，可空'}},required:['hour','minute']}}},
+  {type:'function',function:{name:'phone_share',description:'调起系统分享面板分享一段文本',parameters:{type:'object',properties:{text:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'phone_settings',description:'打开系统设置页。page: 空=主页/wifi/bluetooth/location/display/sound/apps/battery/notification',parameters:{type:'object',properties:{page:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'phone_open_write_settings',description:'跳转「修改系统设置」授权页（设置亮度前需要用户授权一次）',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_shell',description:'受限沙盒命令：只允许 ls/pwd/date/uptime/cat /proc//getprop/df/ping -c 等只读白名单命令',parameters:{type:'object',properties:{cmd:{type:'string'}},required:['cmd']}}},
+  {type:'function',function:{name:'phone_read_notifications',description:'读取当前通知栏通知列表。未授权时返回提示，可配合 phone_open_notification_access',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_open_notification_access',description:'跳转系统「通知使用权」设置页，授权后才能读取通知',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_read_contacts',description:'读取手机联系人列表（需通讯录权限，首次调用会弹出授权）',parameters:{type:'object',properties:{limit:{type:'number',description:'最多条数，默认50'}},required:[]}}},
+  {type:'function',function:{name:'phone_read_sms',description:'读取收件箱短信（需短信权限，首次调用会弹出授权）',parameters:{type:'object',properties:{limit:{type:'number',description:'最多条数，默认20'}},required:[]}}},
+  {type:'function',function:{name:'phone_send_sms',description:'【高危·需用户明确同意】发送短信',parameters:{type:'object',properties:{phone:{type:'string'},text:{type:'string'},confirm:{type:'string',description:'用户已明确同意后传 yes'}},required:['phone','text']}}},
+  {type:'function',function:{name:'phone_call',description:'【高危·需用户明确同意】直接拨打电话',parameters:{type:'object',properties:{phone:{type:'string'},confirm:{type:'string',description:'用户已明确同意后传 yes'}},required:['phone']}}},
+  {type:'function',function:{name:'phone_read_calendar',description:'读取日历中未来的日程（需日历权限）',parameters:{type:'object',properties:{limit:{type:'number',description:'最多条数，默认20'}},required:[]}}},
+  {type:'function',function:{name:'phone_add_calendar',description:'添加一条日历日程（默认1小时）',parameters:{type:'object',properties:{title:{type:'string'},start_ms:{type:'number',description:'开始时间的epoch毫秒'}},required:['title','start_ms']}}},
+  {type:'function',function:{name:'phone_list_images',description:'列出相册最近的图片路径（需媒体权限）',parameters:{type:'object',properties:{limit:{type:'number',description:'最多条数，默认30'}},required:[]}}},
+  {type:'function',function:{name:'term_run',description:'在峰控App内置终端（system sh/toybox）执行一条命令并返回输出。适合本地文件操作/脚本/系统信息查询，输出截断约6000字符',parameters:{type:'object',properties:{cmd:{type:'string',description:'要执行的shell命令，如 ls /sdcard/Download'}},required:['cmd']}}},
+  {type:'function',function:{name:'termux_run',description:'把命令投递给Termux后台执行（异步，不等结果，无需打开Termux界面）。适合需要完整Linux环境的任务：跑脚本/curl/定时任务。前提：手机已装Termux且已授权RUN_COMMAND。返回的是投递回执而非命令输出',parameters:{type:'object',properties:{cmd:{type:'string',description:'要Termux执行的bash命令'}},required:['cmd']}}},
+  {type:'function',function:{name:'device_list',description:'列出家庭设备与场景（电视/插座等，来自峰控设备网关注册表）',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'device_control',description:'控制家庭设备。action: key(按键up/down/ok/back/home/menu/power/volume_up/volume_down/mute/play_pause)/launch(打开App,配合value=App名)/power/text/connect。设备敏感时需 confirm=yes 二次确认',parameters:{type:'object',properties:{device:{type:'string',description:'设备id，可先device_list查看'},action:{type:'string'},value:{type:'string',description:'按键名或App名等'},confirm:{type:'string',description:'敏感设备传yes'}},required:['device','action']}}},
+  {type:'function',function:{name:'browser_open',description:'在服务器内置浏览器中打开网页（独立于手机系统浏览器，带登录态）。session 会话名默认 default，同一 session 保持登录态',parameters:{type:'object',properties:{url:{type:'string'},session:{type:'string',description:'会话名，默认default'}},required:['url']}}},
+  {type:'function',function:{name:'browser_content',description:'读取内置浏览器当前页面的正文文本',parameters:{type:'object',properties:{session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_snapshot',description:'获取内置浏览器页面可交互元素快照（返回ref列表，供browser_click/browser_fill定位）',parameters:{type:'object',properties:{session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_click',description:'点击内置浏览器页面元素。优先传ref（来自browser_snapshot），也可传text或CSS selector',parameters:{type:'object',properties:{ref:{type:'string'},text:{type:'string'},selector:{type:'string'},session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_fill',description:'在内置浏览器页面输入框填入文本（先browser_snapshot拿ref）',parameters:{type:'object',properties:{ref:{type:'string'},selector:{type:'string'},text:{type:'string',description:'要填入的内容'},session:{type:'string'}},required:['text']}}},
+  {type:'function',function:{name:'browser_press',description:'在内置浏览器页面按按键，如 Enter、Escape',parameters:{type:'object',properties:{key:{type:'string'},session:{type:'string'}},required:['key']}}},
+  {type:'function',function:{name:'browser_scroll',description:'滚动内置浏览器页面。y=像素(正下负上)，或to=top/bottom',parameters:{type:'object',properties:{y:{type:'number'},to:{type:'string'},session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_eval',description:'在内置浏览器页面执行JS表达式并返回结果',parameters:{type:'object',properties:{script:{type:'string'},session:{type:'string'}},required:['script']}}},
+  {type:'function',function:{name:'browser_screenshot',description:'对内置浏览器当前页面截图（返回图片）',parameters:{type:'object',properties:{session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_tabs',description:'列出内置浏览器所有标签页（index/url/title）',parameters:{type:'object',properties:{session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'browser_switchtab',description:'切换内置浏览器活动标签页（index来自browser_tabs）',parameters:{type:'object',properties:{index:{type:'number'},session:{type:'string'}},required:['index']}}},
+  {type:'function',function:{name:'browser_map_site',description:'抓取内置浏览器当前页面同域全部链接（站点地图）',parameters:{type:'object',properties:{limit:{type:'number'},session:{type:'string'}},required:[]}}},
+  {type:'function',function:{name:'phone_browser_open',description:'打开手机App内置浏览器页并加载网址（App自己的浏览器，与服务器浏览器无关）',parameters:{type:'object',properties:{url:{type:'string'}},required:['url']}}},
+  {type:'function',function:{name:'phone_browser_content',description:'读取手机App内置浏览器当前页面的URL/标题/正文文本',parameters:{type:'object',properties:{},required:[]}}},
+  {type:'function',function:{name:'phone_browser_eval',description:'在手机App内置浏览器当前页面执行JS表达式并返回结果',parameters:{type:'object',properties:{script:{type:'string'}},required:['script']}}},
+  {type:'function',function:{name:'phone_browser_screenshot',description:'对手机App内置浏览器当前页面截图（quality默认60，返回图片）',parameters:{type:'object',properties:{quality:{type:'number'}},required:[]}}},
+  {type:'function',function:{name:'phone_browser_nav',description:'手机App内置浏览器导航：action=back/forward/reload 或 action=goto配合url',parameters:{type:'object',properties:{action:{type:'string',description:'back/forward/reload/goto'},url:{type:'string'}},required:['action']}}},
+  {type:'function',function:{name:'phone_run_steps',description:'批量连续执行多步手机操作（无障碍队列，节流默认500ms，失败即停并回报）。steps 为 JSON 数组字符串，每项如 {"op":"tap","x":100,"y":200}，op 支持 tap/longPress/swipe/drag/text/back/home；swipe/drag 用 x,y,x2,y2,duration；text 用 {"op":"text","text":"内容"}。单次最多20步',parameters:{type:'object',properties:{steps:{type:'string',description:'JSON数组字符串'},interval:{type:'number',description:'步间隔毫秒，默认500，最小200'}},required:['steps']}}},
+];
+/* 工具执行器：等价于底层 _brain_tool_exec */
+/* 高危工具 JS 硬门禁（审核建议）：L3 确认门落地前的最小拦截，弹窗须用户明确同意 */
+var HIGH_RISK_TOOLS={'delete_file':1};
+/* 峰控手机端 → 服务器内置浏览器 /api/browser 桥（GET方式，避免CORS/POST复杂度） */
+function zfApiBase(){try{if(location.protocol==='http:'||location.protocol==='https:')return location.origin}catch(e){}return (typeof window.ZF_SERVER_BASE==='string'&&window.ZF_SERVER_BASE)?window.ZF_SERVER_BASE:''}
+async function _brApi(payload){
+  var b=zfApiBase();if(!b)return '错误:无法连接服务器(接口地址未知)';
+  var qs=Object.keys(payload).filter(function(kk){return payload[kk]!==undefined&&payload[kk]!==null&&payload[kk]!==''}).map(function(kk){return kk+'='+encodeURIComponent(payload[kk])}).join('&');
+  var r=await bJsonA('httpGet',b+'/api/browser?'+qs);/*异步：不阻塞主线程，计算中仍可拖拽/停止*/
+
+  if(!(r&&r.ok))r=await bJsonA('httpGet',b+'/api/browser?'+qs);/*偶发失败重试一次*/
+
+  if(!(r&&r.ok))return '错误:'+((r&&r.error)||'请求失败（服务器不可达？可改用 phone_browser_open 用手机内置浏览器打开）');
+  var t=r.text||'';
+  try{var j=JSON.parse(t);}catch(e){return t.slice(0,4000)||'成功';}
+  if(j&&j.ok===false)return '错误:'+(j.error||JSON.stringify(j).slice(0,500));
+  return (typeof j.data==='string')?j.data.slice(0,4000):JSON.stringify(j.data!==undefined?j.data:j).slice(0,4000);
+}
+async function _brShot(session){
+  var b=zfApiBase();if(!b)return '错误:无法连接服务器';
+  /* 先让引擎拍一张 */
+  var r=await bJsonA('httpGet',b+'/api/browser?action=screenshot&session='+(session||'default'));
+  /* 再拉图 */
+  var u=b+'/api/browser?action=shot&fmt=jpeg&session='+(session||'default');
+  var img=await bJsonA('httpGet',u);
+  if(img&&img.ok&&img.base64)return 'data:image/jpeg;base64,'+img.base64;
+  return (r&&r.ok)?('已触发截图（图片请在服务器端查看: '+u+'）'):('错误:'+((r&&r.error)||'截图失败'));
+}
+async function agentExecTool(fn,args){
+  if(HIGH_RISK_TOOLS[fn]){
+    var desc=(args&&(args.to||args.number||args.path||args.pkg||args.package))||'';
+    var ok=await window.zfDialog.confirm('助手请求执行高危操作：'+fn+(desc?(' → '+desc):'')+'。是否允许？',{title:'高危操作确认',icon:'⚠️',danger:true,okText:'允许执行',cancelText:'拒绝'});
+    if(!ok)return '用户未授权，操作已取消';
+  }
+  function J(){var r=bCall.apply(null,[fn.replace(/_/g,'')].map(function(k){return args[k]}));try{return JSON.parse(r)}catch(e){return r}}
+  switch(fn){
+    case 'read_file':{var r=await bJsonA('readFile',normPath(args.path));return r?(r.ok?String(r.content||'').slice(0,4000):'错误:'+(r.error||'失败')):'bridge不可用';}
+    case 'write_file':{var p=normPath(args.path),c=args.content||'';
+      var r2=await bJsonA('writeFile',p,c);
+      if(!(r2&&r2.ok)){
+        /* 不再静默搬家：如实报错并列出可写目录，让模型一次选对，避免产生垃圾文件 */
+        var d2=await bJsonA('listFiles','/sdcard/Download');
+        return '错误:'+((r2&&r2.error)||'写入失败')+'（提示：可写目录有 /sdcard/Download /sdcard/Documents /sdcard；请把目录补全后重写，写前可用 list_files 确认目录存在）'+(d2&&d2.ok?('。/sdcard/Download 现有'+d2.items.length+'项'):'');
+      }
+      if(c&&r2.size===0)return '错误:写入后文件为0字节（内容可能超长被截断），请拆成多段用 append_file 追加';
+      return '已写入 '+r2.path+'（'+(r2.size||0)+'字节）';}
+    case 'append_file':{var pa=normPath(args.path),ca=args.content||'';var rra=await bJsonA('appendFile',pa,ca);return (rra&&rra.ok)?('已追加 '+pa+'（现'+(rra.size||'?')+'字节）'):('错误:'+((rra&&rra.error)||'失败'));}
+    case 'list_files':{var _lp=normPath(args.path);var r3=await bJsonA('listFiles',_lp);if(!(r3&&r3.ok)){
+      var ep=String((r3&&r3.error)||'');
+      if(/Android\/data/i.test(_lp||''))return '错误:Android 11+ 系统限制，App 无法列出 /sdcard/Android/data 下的内容（非工具故障，请改查其他目录）';
+      return '错误:'+(ep||'失败')+'（提示：可写/可读目录示例 /sdcard/Documents /sdcard/Download /sdcard；注意 /sdcard/Download/xxx 即 /storage/emulated/0/Download/xxx，同一位置）';}
+      return _lp+'（共'+r3.items.length+'项）：\n'+r3.items.slice(0,80).map(function(it){return (it.dir?'[目录] ':'')+it.name+(it.dir?'':' ('+it.size+'B)')}).join('\n');}
+    case 'search_files':{var r4=await bJsonA('searchFiles',args.dir,args.keyword,true);return (r4&&r4.ok)?('命中'+r4.total+'条：\n'+r4.hits.slice(0,30).join('\n')):('错误:'+((r4&&r4.error)||'失败'));}
+    case 'delete_file':{var r5=await bJsonA('deleteFile',normPath(args.path));return (r5&&r5.ok)?'已删除 '+args.path:('错误:'+((r5&&r5.error)||'失败'));}
+    case 'web_search':{
+      var engines=['https://html.duckduckgo.com/html/?q=','https://cn.bing.com/search?q=','https://www.baidu.com/s?wd='];
+      var r6=null,lines=[];
+      for(var ei=0;ei<engines.length;ei++){
+        r6=await bJsonA('httpGet',engines[ei]+encodeURIComponent(args.query||''));
+        if(!(r6&&r6.ok))continue;
+        var html=r6.text||'';
+        // 优先结构化提取（Bing: b_algo 块 / DDG: result__snippet），失败再退回整行过滤（只滤导航/脚本行，不再一刀切滤含域名的行）
+        var blocks=html.match(/<li class="b_algo"[\s\S]*?<\/li>/gi)||html.match(/class="result__snippet"[\s\S]*?<\/a>/gi)||[];
+        lines=blocks.map(function(b){return b.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim()}).filter(function(l){return l.length>25}).slice(0,12);
+        if(!lines.length){
+          lines=html.split('\n').map(function(l){return l.trim()}).filter(function(l){return l.length>25&&!/<script|<style|百度一下|hao123|切换到国际版|搜索工具/i.test(l)}).slice(0,12);
+        }
+        if(lines.length)break;
+      }
+      if(!lines.length)return '搜索失败:'+((r6&&r6.error)||'无有效结果')+'（可改用 fetch_url 抓 cn.bing.com/search?q=关键词）';
+      return lines.map(function(l,i){return (i+1)+'. '+l}).join('\n');}
+    case 'fetch_url':{var r7=await bJsonA('httpGet',args.url);return (r7&&r7.ok)?r7.text.slice(0,4000):('抓取失败:'+((r7&&r7.error)||''));}
+    case 'device_info':{var r8=await bJsonA('deviceInfo');return (r8&&r8.ok)?('电量'+r8.battery+'% '+(r8.charging?'充电中 ':'')+'| '+r8.model+' | Android '+r8.android):'获取失败';}
+    case 'net_info':{var r9=await bJsonA('netInfo');return (r9&&r9.ok)?('网络:'+(r9.online?'已连接('+r9.type+')':'未连接')+' IP:'+(r9.ip||'未知')):'获取失败';}
+    case 'clipboard_copy':{var ra=await bJsonA('clipboardCopy',args.text||'');return (ra&&ra.ok)?('已复制('+((args.text||'').length)+'字)'):'复制失败';}
+    case 'vibrate':{var rb=await bJsonA('vibrate',parseInt(args.ms||'300'));return (rb&&rb.ok)?'已震动':'震动失败';}
+    case 'open_url':{var rc=await bJsonA('openUrl',args.url);if(!(rc&&rc.ok))return '错误:'+((rc&&rc.error)||'打开失败');return '已交给系统处理（resolver:'+(rc.resolver||'?')+'，'+(rc.note||'')+'）。⚠️这只是已发出打开请求，是否拉起成功需用户肉眼确认';}
+    case 'speak':{var rs=await bJsonA('speak',String(args.text||''),parseFloat(args.rate||'1.0'));return (rs&&rs.ok)?('🗣️ 开始朗读（语速'+(rs.rate||1.0)+'x）'):('错误:'+((rs&&rs.error)||'朗读失败'));}
+    case 'speak_stop':{var rsx=await bJsonA('speakStop');return (rsx&&rsx.ok)?'已停止朗读':'停止失败';}
+    case 'notify':{var rd=await bJsonA('notify',args.title||'朱峰智能体',args.body||'');
+      if(rd&&rd.ok)return '已发通知';
+      return '通知失败（Android 13+ 需在系统设置里给本 App 允许通知权限，或在 App 内点标题栏🔧旁的权限按钮重试）';}
+    case 'phone_read_screen':{var rs=await bJsonA('readScreen');return (rs&&rs.ok)?('屏幕内容：\n'+String(rs.text||JSON.stringify(rs)).slice(0,3000)):('错误:无障碍服务未就绪'+((rs&&rs.error)?(' '+rs.error):'（请到系统设置开启本App无障碍服务）'));}
+    case 'phone_screenshot':{var ss=await bJsonA('screenshot',args.quality||60);return (ss&&ss.ok)?('data:image/jpeg;base64,'+ss.data):(ss?('错误:'+(ss.error||'失败')):'bridge不可用（截屏需Android 11+，首次会弹授权）');}
+    case 'phone_tap':{var t1=await bJsonA('tap',args.x,args.y);return (t1&&t1.ok)?('已点击('+args.x+','+args.y+')'):('错误:'+((t1&&t1.error)||'手势失败（需Android 7+且无障碍服务开启）'));}
+    case 'phone_long_press':{var t2=await bJsonA('longPress',args.x,args.y,args.ms||600);return (t2&&t2.ok)?('已长按'):('错误:'+((t2&&t2.error)||'失败'));}
+    case 'phone_swipe':{var t3=await bJsonA('swipe',args.x1,args.y1,args.x2,args.y2,args.ms||300);return (t3&&t3.ok)?('已滑动'):('错误:'+((t3&&t3.error)||'失败'));}
+    case 'phone_click_text':{var t4=await bJsonA(args.exact?'clickTextExact':'clickText',args.text);return (t4&&t4.ok)?('已点击「'+args.text+'」'):('错误:'+((t4&&t4.error)||'未找到该文字，可先phone_read_screen查看'));}
+    case 'phone_click_id':{var t5=await bJsonA('clickId',args.id);return (t5&&t5.ok)?('已点击id:'+args.id):('错误:'+((t5&&t5.error)||'未找到该id'));}
+    case 'phone_input':{var t6=await bJsonA('inputText',args.text);return (t6&&t6.ok)?('已输入'):('错误:'+((t6&&t6.error)||'失败（需先聚焦输入框）'));}
+    case 'phone_scroll':{var sc=await bJsonA('swipeScreen',args.dir||'up');return (sc&&sc.ok)?('已滚动'+(args.dir||'up')):('错误:'+((sc&&sc.error)||'失败'));}
+    case 'phone_key':{var km={back:'pressBack',home:'pressHome',recents:'pressRecents',notifications:'openNotifications',quick_settings:'openQuickSettings'};var m=km[args.key];if(!m)return '未知key';var t7=await bJsonA(m);return (t7===null)?'bridge不可用':((t7&&(t7.ok!==false))?'已执行 '+args.key:('错误:'+((t7&&t7.error)||'失败')));}
+    case 'phone_launch_app':{var la=await bJsonA('launchApp',args.app);return (la&&la.ok)?('已启动 '+args.app):(la?('错误:'+(la.error||'未找到App，可用phone_list_apps查包名')):'bridge不可用');}
+    case 'phone_list_apps':{var ls=await bJsonA('listApps');if(!ls||!ls.ok){ls=await bJsonA('listApps');}return (ls&&ls.ok)?('共'+ls.apps.length+'个App：\n'+ls.apps.slice(0,100).map(function(a){return a.name+' ('+a.pkg+')'}).join('\n')):('错误:'+((ls&&ls.error)||'失败'));}
+    case 'phone_double_tap':{var dt=await bJsonA('doubleTap',args.x,args.y);return (dt===true||(dt&&dt.ok))?('已双击('+args.x+','+args.y+')'):('错误:'+((dt&&dt.error)||'失败（需Android 7+且无障碍开启）'));}
+    case 'phone_drag':{var dg=await bJsonA('drag',args.x1,args.y1,args.x2,args.y2,args.ms||800);return (dg===true||(dg&&dg.ok))?('已拖拽'):('错误:'+((dg&&dg.error)||'失败'));}
+    case 'phone_long_press_text':{var lt=await bJsonA('longPressText',args.text);return (lt===true||(lt&&lt.ok))?('已长按「'+args.text+'」'):('错误:'+((lt&&lt.error)||'未找到该文字'));}
+    case 'phone_click_text_exact':{var ce=await bJsonA('clickTextExact',args.text);return (ce===true||(ce&&ce.ok))?('已点击「'+args.text+'」'):('错误:'+((ce&&ce.error)||'未找到完全匹配文字'));}
+    case 'phone_check':{var ck=await bJsonA('existsByText',args.text,!!args.exact);return (ck===null)?'bridge不可用':((ck&&ck.error)?('错误:'+ck.error):((ck===true||(ck&&(ck.exists===true||ck.ok===true)))?('- '+args.text+'：存在'):(ck===false||(ck&&(ck.exists===false||ck.ok===false))?('- '+args.text+'：不存在'):JSON.stringify(ck))));}
+    case 'phone_screenshot_quality':{var sq=await bJsonA('screenshotQuality',args.quality||40);return (sq&&sq.ok!==false&&!(sq&&sq.error))?('截屏质量已用于本次截屏（'+(args.quality||40)+'，phone_screenshot 不带 quality 时默认60，建议每次带 quality）'):('错误:'+((sq&&sq.error)||'失败'));}
+    case 'phone_a11y_status':{var ar=await bJsonA('a11yReady');return (ar===null)?'bridge不可用':((ar===true||(ar&&ar.ok===true))?'无障碍服务已开启':((ar===false||(ar&&ar.ok===false))?'无障碍服务未开启，可用phone_open_a11y打开设置开启':JSON.stringify(ar)));}
+    case 'phone_open_a11y':{var oa=await bJsonA('openA11ySettings');return (oa===null)?'bridge不可用':((oa&&oa.ok!==false)?'已打开系统无障碍设置，请开启「峰控」服务后回来重试':('错误:'+((oa&&oa.error)||'失败')));}
+    case 'phone_location':{var lc=await bJsonA('getLocation');return (lc===null)?'bridge不可用':((lc&&lc.ok)?('定位成功：纬度 '+lc.lat+'，经度 '+lc.lng+'（'+lc.provider+'）'):('定位失败：'+((lc&&lc.error)||'未知')+(lc&&lc.hint?('（'+lc.hint+'）'):'')));}
+    case 'phone_brightness':{if(args.value!=null){var bs=await bJsonA('setBrightness',Math.round(args.value));return (bs&&bs.ok)?('亮度已设为 '+bs.value):('错误:'+((bs&&bs.error)||'失败')+(bs&&bs.hint?('——'+bs.hint):''));}var bg=await bJsonA('getBrightness');return (bg&&bg.ok)?('当前亮度：'+bg.value+'（范围1-255）'):('错误:'+((bg&&bg.error)||'失败'));}
+    case 'phone_volume':{var vt=args.type||'music';if(args.value!=null){var vs=await bJsonA('setVolume',vt,Math.round(args.value));return (vs&&vs.ok)?('音量('+vt+')已设为 '+vs.value):('错误:'+((vs&&vs.error)||'失败'));}var vg=await bJsonA('getVolume',vt);return (vg&&vg.ok)?('当前音量('+vt+')：'+vg.value+'/'+vg.max):('错误:'+((vg&&vg.error)||'失败'));}
+    case 'clipboard_read':{var cr=await bJsonA('clipboardRead');return (cr&&cr.ok)?('剪贴板内容：'+(cr.text||'(空)')):('错误:'+((cr&&cr.error)||'失败'));}
+    case 'clipboard_write':{var cw=await bJsonA('clipboardWrite',args.text||'');return (cw&&cw.ok)?'已写入剪贴板':('错误:'+((cw&&cw.error)||'失败'));}
+    case 'phone_alarm':{var al=await bJsonA('setAlarm',Math.round(args.hour||0),Math.round(args.minute||0),args.label||'');return (al&&al.ok)?('已设置闹钟 '+args.hour+':'+(args.minute<10?'0':'')+args.minute+(args.label?('（'+args.label+'）'):'')):('错误:'+((al&&al.error)||'失败'));}
+    case 'phone_share':{var sh=await bJsonA('shareText',args.text||'');return (sh&&sh.ok)?'已调起系统分享面板，请在手机上选择分享对象':('错误:'+((sh&&sh.error)||'失败'));}
+    case 'phone_settings':{var st=await bJsonA('openSettingsPage',args.page||'');return (st&&st.ok)?('已打开系统设置'+(args.page?('（'+args.page+'）'):'')):('错误:'+((st&&st.error)||'失败'));}
+    case 'phone_open_write_settings':{var ws=await bJsonA('openWriteSettings');return (ws&&ws.ok)?'已跳转「修改系统设置」授权页，请允许峰控后回来重试':('错误:'+((ws&&ws.error)||'失败'));}
+    case 'phone_shell':{var sx=await bJsonA('execSandbox',args.cmd||'');return (sx&&sx.ok)?('输出：\n'+(sx.output||'(空)')):('错误:'+((sx&&sx.error)||'失败')+(sx&&sx.allow?('\n允许的白名单：'+sx.allow):''));}
+    case 'phone_read_notifications':{var rn=await bJsonA('readNotifications');if(rn===null)return 'bridge不可用';if(rn&&rn.ok===false)return '通知读取未就绪：'+((rn&&rn.error)||'')+(rn&&rn.hint?('（'+rn.hint+'，可用 phone_open_notification_access 跳转）'):'');try{var nj=JSON.parse(rn.list||'[]');if(!nj.length)return '当前没有通知';return '通知'+nj.length+'条：\n'+nj.map(function(x){return '['+x.pkg+'] '+(x.title||'')+' '+(x.text||'')}).join('\n')}catch(e){return JSON.stringify(rn)}}
+    case 'phone_open_notification_access':{var na=await bJsonA('openNotificationAccess');return (na&&na.ok)?'已跳转「通知使用权」设置页，请允许峰控后回来重试':('错误:'+((na&&na.error)||'失败'));}
+    case 'phone_read_contacts':{var rc=await bJsonA('readContacts',Math.min(args.limit||50,200));if(rc===null)return 'bridge不可用';if(rc&&rc.ok===false)return '错误:'+(rc.error||'失败')+'（首次调用如未弹授权，可到系统设置-应用-峰控-权限中开启通讯录）';try{var cj=JSON.parse(rc.list||'[]');if(!cj.length)return '通讯录为空或未授权';return '联系人'+cj.length+'个：\n'+cj.map(function(x){return x.name+' '+x.phone}).join('\n')}catch(e){return JSON.stringify(rc)}}
+    case 'phone_read_sms':{var rs=await bJsonA('readSms',Math.min(args.limit||20,100));if(rs===null)return 'bridge不可用';if(rs&&rs.ok===false)return '错误:'+(rs.error||'失败')+'（需要短信权限，首次调用如未弹授权请到系统设置中开启）';try{var sj=JSON.parse(rs.list||'[]');if(!sj.length)return '收件箱为空或未授权';return '短信'+sj.length+'条：\n'+sj.map(function(x){return '['+x.from+'] '+(x.body||'').slice(0,80)}).join('\n')}catch(e){return JSON.stringify(rs)}}
+    case 'phone_send_sms':{if(args.confirm!=='yes')return '【高危操作】即将向 '+args.phone+' 发送短信：'+args.text+'\n用户未确认，已取消。必须先向用户完整说明并获得明确「同意」后，带 confirm=yes 重试。';var sm=await bJsonA('sendSms',args.phone,args.text);return (sm&&sm.ok)?('短信已发送至 '+args.phone):('错误:'+((sm&&sm.error)||'失败'));}
+    case 'phone_call':{if(args.confirm!=='yes')return '【高危操作】即将拨打电话 '+args.phone+'\n用户未确认，已取消。必须先向用户完整说明并获得明确「同意」后，带 confirm=yes 重试。';var cp=await bJsonA('callPhone',args.phone);return (cp&&cp.ok)?('正在拨打 '+args.phone):('错误:'+((cp&&cp.error)||'失败'));}
+    case 'phone_read_calendar':{var rg=await bJsonA('readCalendar',Math.min(args.limit||20,100));if(rg===null)return 'bridge不可用';if(rg&&rg.ok===false)return '错误:'+(rg.error||'失败')+'（需要日历权限）';try{var gj=JSON.parse(rg.list||'[]');if(!gj.length)return '日历中没有未来的日程';return '未来日程'+gj.length+'条：\n'+gj.map(function(x){return new Date(x.start).toLocaleString()+' '+x.title}).join('\n')}catch(e){return JSON.stringify(rg)}}
+    case 'phone_add_calendar':{var ac=await bJsonA('addCalendarEvent',args.title||'(无标题)',Math.round(args.start_ms||Date.now()));return (ac&&ac.ok)?('日程「'+args.title+'」已写入日历'):('错误:'+((ac&&ac.error)||'失败'));}
+    case 'phone_list_images':{var li=await bJsonA('listImages',Math.min(args.limit||30,100));if(li===null)return 'bridge不可用';if(li&&li.ok===false)return '错误:'+(li.error||'失败');try{var ij=JSON.parse(li.list||'[]');if(!ij.length)return '相册为空或未授权';return '最近图片'+ij.length+'张：\n'+ij.join('\n')}catch(e){return JSON.stringify(li)}}
+function zfApiBase(){try{if(location.protocol==='http:'||location.protocol==='https:')return location.origin}catch(e){}return (typeof window.ZF_SERVER_BASE==='string'&&window.ZF_SERVER_BASE)?window.ZF_SERVER_BASE:''}
+    case 'device_list':{
+      var dl=await bJsonA('httpGet',zfApiBase()+'/api/device/list');if(!(dl&&dl.ok))return '错误:'+(dl?((dl.error||'获取失败')):'bridge不可用');try{var j=JSON.parse(dl.text||'{}');if(!j.ok)return '错误:'+(j.err||'失败');var s='设备：\n'+j.devices.map(function(d){return d.id+' | '+d.name+'('+d.type+','+(d.enabled?'已启用':'未启用')+')'+(d.apps.length?' 可开App:'+d.apps.join('/'):'')}).join('\n');if(j.scenes&&j.scenes.length)s+='\n场景：'+j.scenes.join('/');return s}catch(e){return '错误:'+e.message}}
+    case 'device_control':{
+      var u=zfApiBase()+'/api/device/control?device='+encodeURIComponent(args.device)+'&action='+encodeURIComponent(args.action)+(args.value?'&value='+encodeURIComponent(args.value):'')+(args.confirm?'&confirm='+encodeURIComponent(args.confirm):'');
+      try{var rc=await bJsonA('httpGet',u);if(!(rc&&rc.ok))return '错误:请求失败';var jc=JSON.parse(rc.text||'{}');return jc.ok?('✅ 已执行 '+jc.device+' '+jc.action+(jc.value?' '+jc.value:'')+((jc.output&&jc.output!=='')?' | '+String(jc.output).slice(0,200):'')):('错误:'+(jc.err||jc.error||'失败'));}catch(e){return '错误:'+e.message}}
+    case 'device_scene':{
+      var us=zfApiBase()+'/api/device/scene?scene='+encodeURIComponent(args.scene)+(args.confirm?'&confirm='+encodeURIComponent(args.confirm):'');
+      try{var rsc=await bJsonA('httpGet',us);if(!(rsc&&rsc.ok))return '错误:请求失败';var js2=JSON.parse(rsc.text||'{}');return js2.ok?('✅ 场景「'+js2.scene+'」执行完成：\n'+js2.results.map(function(r){return (r.ok?'✅':'❌')+' '+r.device+': '+String(r.msg).slice(0,100)}).join('\n')):('错误:'+(js2.err||js2.error||'失败'));}catch(e){return '错误:'+e.message}}
+    case 'browser_open':{return await _brApi({action:'goto',url:args.url,session:args.session});}
+    case 'browser_content':{return await _brApi({action:'content',session:args.session});}
+    case 'browser_snapshot':{return await _brApi({action:'snapshot',session:args.session});}
+    case 'browser_click':{return await _brApi({action:'click',ref:args.ref,selector:args.selector,text:args.text,session:args.session});}
+    case 'browser_fill':{return await _brApi({action:'fill',ref:args.ref,selector:args.selector,text:args.text,session:args.session});}
+    case 'browser_press':{return await _brApi({action:'press',key:args.key,session:args.session});}
+    case 'browser_scroll':{return await _brApi({action:'scroll',y:args.y,to:args.to,session:args.session});}
+    case 'browser_eval':{return await _brApi({action:'eval',script:args.script,session:args.session});}
+    case 'browser_screenshot':{return await _brShot(args.session);}
+    case 'browser_tabs':{return await _brApi({action:'tabs',session:args.session});}
+    case 'browser_switchtab':{return await _brApi({action:'switchtab',index:args.index,session:args.session});}
+    case 'browser_map_site':{return await _brApi({action:'map_site',limit:args.limit,session:args.session});}
+    case 'term_run':{if(!window.ZFTerm)return 'bridge不可用（需新版App内置终端）';try{var tr=await bRaw('ZFTerm','runCommand',[String(args.cmd||'')]);return tr?String(tr).slice(0,6000):'[无输出]'}catch(e){return '错误:'+e.message}}
+    case 'termux_run':{if(!window.ZFTermux)return 'bridge不可用（需v56+新版App）';try{var _r=await bRaw('ZFTermux','run',[String(args.cmd||'')]);_r=String(_r||'');if(/失败|fail|error/i.test(_r))_r+='\n【RUN_COMMAND授权引导】首次使用需一次性授权Termux广播权限（Android 10+是AppOps级权限，仅装APK声明不够）：①手机连电脑执行 adb shell appops set com.termux RUN_COMMAND allow；或②装App Ops类工具给Termux授予RUN_COMMAND=允许。另确认已安装Termux且本App已在其允许列表中（Termux设置→allows external apps）。授权一次后永久生效';return _r}catch(e){return '错误:'+e.message+'（若为权限类错误，授权命令：adb shell appops set com.termux RUN_COMMAND allow）'}}
+    case 'phone_browser_open':{if(!window.ZFBrowser)return 'bridge不可用（需新版App）';try{return await bRaw('ZFBrowser','navigate',[String(args.url||'')])}catch(e){return '错误:'+e.message}}
+    case 'phone_browser_content':{if(!window.ZFBrowser)return 'bridge不可用（需新版App）';try{return await bRaw('ZFBrowser','getContent',[])}catch(e){return '错误:'+e.message}}
+    case 'phone_browser_eval':{if(!window.ZFBrowser)return 'bridge不可用（需新版App）';try{return await bRaw('ZFBrowser','evalJS',[String(args.script||'')])}catch(e){return '错误:'+e.message}}
+    case 'phone_browser_screenshot':{if(!window.ZFBrowser)return 'bridge不可用（需新版App）';try{return await bRaw('ZFBrowser','screenshot',[parseInt(args.quality||'60')])}catch(e){return '错误:'+e.message}}
+    case 'phone_run_steps':{if(!a11yReady())return '错误:无障碍服务未开启（请先在系统设置开启无障碍）';try{var sq=JSON.parse(String(args.steps||'[]'));if(!Array.isArray(sq)||!sq.length)return '错误:steps 必须是非空JSON数组';if(sq.length>20)return '错误:单次最多20步';var si=await bJsonA('runSequence',String(args.steps),Math.max(200,Math.round(args.interval||500)));if(si===null)return 'bridge不可用（需新版App）';if(si&&si.ok)return '连续执行完成：'+si.done+'/'+si.total+' 步';return '执行到第 '+((si&&si.step!=null?si.step:0)+1)+' 步失败停止：'+((si&&si.error)||'操作未生效');}catch(e){return '错误:steps 不是合法JSON：'+e.message}}
+    case 'phone_browser_nav':{if(!window.ZFBrowser)return 'bridge不可用（需新版App）';try{var na=String(args.action||'goto');if(na==='back')return await bRaw('ZFBrowser','goBack',[]);if(na==='forward')return await bRaw('ZFBrowser','goForward',[]);if(na==='reload')return await bRaw('ZFBrowser','reload',[]);return await bRaw('ZFBrowser','navigate',[String(args.url||'')])}catch(e){return '错误:'+e.message}}
+    default:{
+      // 复数自动识别：phone_taps→phone_tap、entries→entry 等（仅剥一层，避免异常链式递归）
+      var sing=fn.replace(/ies$/,'y').replace(/(ch|sh|x|ss)es$/,'$1').replace(/s$/,'');
+      if(sing!==fn&&sing.length>1){
+        var r2=await agentExecTool(sing,args);
+        var r2s=String(r2||'');
+        if(r2s&&r2s.indexOf('未知工具')!==0&&r2s.indexOf('错误:')!==0&&r2s.indexOf('错误：')!==0)return r2s+'（已自动识别复数形式→'+sing+'）';
+      }
+      return '未知工具:'+fn;
+    }
+  }
+}
+/* ===== 工具执行记录（移植自 PC 端 toolpanel）：内存数组，上限50条，仅面板打开时渲染 ===== */
+var TOOL_EXEC_LOG=[];
+function toolRecPush(fn,args,result,ms,ok){
+  try{
+    TOOL_EXEC_LOG.push({fn:fn,args:JSON.stringify(args||{}),result:String(result||'').slice(0,600),ms:Math.round(ms),ok:!!ok,t:new Date()});
+    if(TOOL_EXEC_LOG.length>100)TOOL_EXEC_LOG.shift();
+    var tlEl=document.getElementById('toolRecList');if(tlEl)renderToolRec();
+  }catch(e){}
+}
+function renderToolRec(){
+  var box=document.getElementById('toolRecList');if(!box)return;
+  var list=TOOL_EXEC_LOG.slice(-100).reverse(); /* 默认渲染最近100条（上限100），方便排错 */
+  box.textContent='';
+  if(!list.length){var e0=document.createElement('div');e0.className='trc-empty';e0.textContent='（本会话暂无工具执行记录）';box.appendChild(e0);return;}
+  list.forEach(function(rec){
+    var card=document.createElement('div');card.className='trc-card'+(rec.ok?'':' trc-fail');
+    var head=document.createElement('div');head.className='trc-head';
+    var st=document.createElement('span');st.textContent=rec.ok?'✓':'✗';
+    var nm=document.createElement('span');nm.className='trc-name';nm.textContent='🔧 '+rec.fn;
+    var ms=document.createElement('span');ms.className='trc-ms';ms.textContent=rec.ms+'ms';
+    head.appendChild(st);head.appendChild(nm);head.appendChild(ms);
+    head.addEventListener('click',function(){card.classList.toggle('trc-open')});
+    var body=document.createElement('div');body.className='trc-body';
+    var pa=document.createElement('div');pa.className='trc-sec';
+    var pal=document.createElement('div');pal.className='trc-lab';pal.textContent='入参';
+    var pav=document.createElement('pre');pav.textContent=rec.args;
+    pa.appendChild(pal);pa.appendChild(pav);
+    var rb=document.createElement('div');rb.className='trc-sec';
+    var rbl=document.createElement('div');rbl.className='trc-lab';rbl.textContent='出参';
+    var rbv=document.createElement('pre');rbv.textContent=rec.result;
+    rb.appendChild(rbl);rb.appendChild(rbv);
+    body.appendChild(pa);body.appendChild(rb);
+    card.appendChild(head);card.appendChild(body);
+    box.appendChild(card);
+  });
+}
+/* 复制全部工具执行记录（排错用）：clipboard API 优先 + execCommand 降级 */
+(function(){
+  var btn=document.getElementById('btnTrcCopy');if(!btn)return;
+  btn.addEventListener('click',function(){
+    try{
+      var lines=TOOL_EXEC_LOG.slice().reverse().map(function(r){
+        return '['+(r.ok?'成功':'失败')+'] '+r.fn+' ('+r.ms+'ms) '+r.t.toLocaleTimeString()+'\n入参: '+r.args+'\n出参: '+r.result+'\n';
+      });
+      var text=lines.length?('共 '+lines.length+' 条工具执行记录：\n\n'+lines.join('\n')):'（本会话暂无工具执行记录）';
+      var done=function(){var o=btn.textContent;btn.textContent='✅ 已复制';setTimeout(function(){btn.textContent=o},1200)};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,function(){fallback()});}
+      else fallback();
+      function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){window.zfDialog.alert('复制失败，请手动选中复制',{title:'提示',icon:'⚠️'});}document.body.removeChild(ta);}
+    }catch(e){window.zfDialog.alert('复制失败:'+e.message,{title:'提示',icon:'⚠️'})}
+  });
+})();
+/* ===== 工具利用率统计（峰控 App ← 服务器 /api/tool/stats）===== */
+var _usageCache=null;
+function usageFetch(days,cb){
+  var b=zfApiBase();if(!b){cb('错误:无法连接服务器(接口地址未知)');return;}
+  try{
+    var r=bJson('httpGet',b+'/api/tool/stats?days='+(days||30));
+    if(!(r&&r.ok)){cb('错误:'+((r&&r.error)||'请求失败（服务器不可达？）'));return;}
+    var j=JSON.parse(r.text||'{}');
+    if(!j.ok){cb('错误:'+(j.err||'失败'));return;}
+    _usageCache=j;cb(null,j);
+  }catch(e){cb('错误:'+e.message)}
+}
+function usageText(j){
+  var items=j.items||[];
+  if(!items.length)return '（近'+(j.days||30)+'天暂无工具使用数据）';
+  var tot=0;items.forEach(function(x){tot+=x.calls});
+  var lines=['【工具利用率统计】近'+(j.days||30)+'天 | 工具'+items.length+'个 | 总调用'+tot+'次',
+    '排名 | 分类 | 工具 | 调用 | 错误 | 错误率 | 均耗时 | 活跃天数'];
+  items.forEach(function(x,i){
+    var er=x.calls?(100*x.errors/x.calls).toFixed(1)+'%':'-';
+    var avg=x.calls?Math.round(x.total_ms/x.calls)+'ms':'-';
+    lines.push((i+1)+' | '+(x.category||'未知')+' | '+x.tool+' | '+x.calls+' | '+x.errors+' | '+er+' | '+avg+' | '+x.active_days+'天');
+  });
+  return lines.join('\n');
+}
+(function(){
+  var bv=document.getElementById('btnUsageView'),bc=document.getElementById('btnUsageCopy'),box=document.getElementById('usageList');
+  if(!bv||!bc||!box)return;
+  var btnState=function(btn,txt){var o=btn.textContent;btn.textContent=txt;setTimeout(function(){btn.textContent=o},1200)};
+  bv.addEventListener('click',function(){
+    bv.textContent='…加载中';
+    usageFetch(30,function(err,j){
+      bv.textContent='📊 查看';
+      if(err){box.style.display='block';box.textContent=err;return;}
+      box.style.display=box.style.display==='none'?'block':'none';
+      box.textContent=usageText(j);
+    });
+  });
+  bc.addEventListener('click',function(){
+    var done=function(){btnState(bc,'✅ 已复制，去电脑粘贴即可')};
+    var copy=function(text){
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,function(){fallback(text)});}
+      else fallback(text);
+    };
+    var fallback=function(text){var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){window.zfDialog.alert('复制失败，请手动复制',{title:'提示',icon:'⚠️'});}document.body.removeChild(ta);};
+    if(_usageCache){copy(usageText(_usageCache));return;}
+    bc.textContent='…加载中';
+    usageFetch(30,function(err,j){
+      bc.textContent='📋 复制给电脑';
+      if(err){window.zfDialog.alert(err,{title:'提示',icon:'⚠️'});return;}
+      copy(usageText(j));
+    });
+  });
+})();
+/* 包装 agentExecTool：首尾埋点 + try/finally 兜底失败路径 */
+var _agentExecToolRaw=agentExecTool;
+agentExecTool=async function(fn,args){
+  var t0=Date.now(),r;
+  try{r=await _agentExecToolRaw(fn,args);}
+  catch(e){r='工具执行失败:'+e.message;toolRecPush(fn,args,r,Date.now()-t0,false);throw e;}
+  var ok=!/^错误:|^失败|工具执行失败|未知工具/.test(String(r).slice(0,12));
+  toolRecPush(fn,args,r,Date.now()-t0,ok);
+  return r;
+}
+/* ===== 工具执行计数 + 动画 + 声音 ===== */
+var TOOL_USED=0;
+/* 台球工具球：挂在当前 AI 气泡旁的洞口+球队列，满10颗进洞清零（移植自桌面版） */
+var _ttRow=null,_ttHole=null,_ttTools=null,_ttCount=0,_ttRound=0;
+function ttGetRow(){
+  var chat=$('chat');
+  var bub=chat&&chat.lastElementChild;
+  /* 关键修复：台球行 _ttRow 本身被 appendChild 在 chat 末尾，若不排除会让 lastElementChild 变成台球行自身，导致下一个工具误判「气泡变了」而重建清空旧球（表现为 4 个工具只并列 1 个球、后球吞掉前球）。台球行在末尾时取其前一个兄弟作为真正气泡 */
+  if(bub&&bub===_ttRow&&_ttRow.previousElementSibling)bub=_ttRow.previousElementSibling;
+  if(!bub)return null;
+  if(_ttRow&&_ttRow._bub===bub&&document.body.contains(_ttRow))return _ttRow;
+  /* 气泡变化时先移除旧的台球行，保证全屏幕始终只有一行台球（左边洞只出现一次），防止残留多行堆成多列 */
+  if(_ttRow&&_ttRow.parentNode){try{_ttRow.remove()}catch(eRM){}}
+  _ttRow=document.createElement('div');_ttRow.className='tt-row';_ttRow._bub=bub;
+  _ttHole=document.createElement('span');_ttHole.className='tt-hole';_ttRow.appendChild(_ttHole);
+  /* 「正在思考…」文字已按需求移除：台球小球区保留，不再显示文字 */
+  _ttTools=document.createElement('span');_ttTools.className='thinking-tools';_ttRow.appendChild(_ttTools);
+  /* 台球固定在最下面：插到气泡后并挪到 chat 末尾 */
+  chat.appendChild(_ttRow);
+  _ttCount=0;_ttRound=0;
+  return _ttRow;
+}
+var _ttTipEl=null,_ttTipTimer=null;
+function ttShowTip(el, ev){
+  try{
+    if(_ttTipEl){_ttTipEl.remove();_ttTipEl=null}
+    var tip=document.createElement('div');tip.className='tt-tip';
+    tip.textContent=el.getAttribute('data-tip')||el.title||'工具';
+    document.body.appendChild(tip);_ttTipEl=tip;
+    var x,y;
+    if(ev.touches&&ev.touches[0]){x=ev.touches[0].clientX;y=ev.touches[0].clientY}
+    else if(ev.clientX!=null){x=ev.clientX;y=ev.clientY}
+    else{var r=el.getBoundingClientRect();x=r.left+r.width/2;y=r.top}
+    if(x==null){var r2=el.getBoundingClientRect();x=r2.left;y=r2.top}
+    var rect=tip.getBoundingClientRect();
+    var L=Math.max(8,Math.min((window.innerWidth-rect.width-8),x-rect.width/2));
+    var T=y-rect.height-14; if(T<8)T=y+24;
+    tip.style.left=L+'px';tip.style.top=T+'px';
+    if(_ttTipTimer)clearTimeout(_ttTipTimer);
+    _ttTipTimer=setTimeout(function(){if(_ttTipEl){_ttTipEl.remove();_ttTipEl=null}},1800);
+  }catch(e){}
+}
+function ttPush(toolName){
+  try{
+    var row=ttGetRow();if(!row)return;
+    if(_ttHole.classList.contains('tt-burst'))return;
+    _ttCount++;
+    var ch=String(toolName||'?').charAt(0).toUpperCase();
+    var sp=document.createElement('span');
+    sp.className='tt-circle tt-fly-in tt-new';
+    sp.setAttribute('data-tip',toolName);
+    sp.textContent=ch;
+    _ttTools.appendChild(sp);
+    /* 飞入 0.55s 后移除 tt-fly-in：ttFlyIn 的 both 会锁住 transform，
+       移除后小球静止落位、逐个累积（对齐 PC 端），旋转交给左边的"洞" */
+    setTimeout(function(){try{sp.classList.remove('tt-fly-in')}catch(e){}},600);
+    sp.addEventListener('click', function(ev){ ev.stopPropagation(); try{ttShowTip(sp, ev)}catch(e){} });
+    sp.addEventListener('touchstart', function(ev){ try{ttShowTip(sp, ev)}catch(e){} }, {passive:true});
+    var prev=sp.previousElementSibling;
+    if(prev&&prev.classList.contains('tt-circle')){
+      prev.classList.remove('tt-hit');void prev.offsetWidth;prev.classList.add('tt-hit');
+      setTimeout(function(){prev.classList.remove('tt-hit')},600);
+    }
+    var balls=_ttTools.querySelectorAll('.tt-circle');
+    for(var i=0;i<balls.length-1;i++)balls[i].classList.remove('tt-new');
+    if(_ttCount>=10){
+      _ttHole.classList.add('tt-burst');
+      _ttTools.classList.add('tt-potting');
+      _ttRound++;
+      var plus=document.createElement('span');plus.className='tt-plus-pop';plus.textContent='+'+_ttRound;
+      _ttRow.insertBefore(plus,_ttHole);
+      setTimeout(function(){try{plus.remove()}catch(e){}},1200);
+      setTimeout(function(){
+        _ttTools.classList.remove('tt-potting');_ttTools.innerHTML='';_ttCount=0;
+        try{_ttHole.classList.remove('tt-burst')}catch(e){}
+      },700);
+    }
+  }catch(eTT){}
+}
+/* 系统行：工具调用/结果在对话中展示（对齐PC端：一行摘要卡片，点击展开全文） */
+var _thinkCard=null,_thinkBody=null;
+function thinkCardLabel(n){return n?('💭 已思考 '+n+' 字'):'💭 思考中…'}
+function addThinkCard(txt){
+  return; /* 已禁用：不显示思考过程 */
+  try{
+    if(!_thinkCard||!_thinkCard.parentNode){
+      _thinkCard=document.createElement('div');_thinkCard.className='tc-card';
+      var h=document.createElement('div');h.className='tc-head';h.textContent=thinkCardLabel(0)+' ▸';h._n=0;
+      var b=document.createElement('div');b.className='tc-body';b.style.display='none';
+      h.onclick=function(){var open=b.style.display==='none';b.style.display=open?'block':'none';h.textContent=thinkCardLabel(h._n||0)+(open?' ▾':' ▸')};
+      _thinkCard.appendChild(h);_thinkCard.appendChild(b);
+      document.getElementById('chat').appendChild(_thinkCard);
+      _thinkBody=b;_thinkCard._h=h;_thinkCard._n=0;
+    }
+    _thinkCard._n+=String(txt).length;
+    _thinkBody.textContent+=txt+'\n';
+    _thinkCard._h.textContent=thinkCardLabel(_thinkCard._n)+' ▸';
+    scrollEnd();
+  }catch(e){}
+}
+function thinkDone(){return; /* 已禁用 */try{if(_thinkCard&&_thinkCard._h)_thinkCard._h.textContent=thinkCardLabel(_thinkCard._n||0)+' ▸';_thinkCard=null;_thinkBody=null}catch(e){}}
+function addSysLine(txt){
+  /* 已禁用渲染（对齐PC端）：工具调用/结果不再显示在对话里，只保留台球动画；
+     中途 AI 正文气泡由 addMsg 渲染，最终回复正常显示 */
+  return null;
+  try{
+    var d=document.createElement('div');
+    d.className='tc-card';
+    var firstLine=String(txt).split('\n')[0].slice(0,80);
+    var h=document.createElement('div');h.className='tc-head';h.textContent=firstLine+' ▸';
+    var b=document.createElement('div');b.className='tc-body';b.style.display='none';b.textContent=txt;
+    h.onclick=function(){var open=b.style.display==='none';b.style.display=open?'block':'none';h.textContent=firstLine+(open?' ▾':' ▸')};
+    d.appendChild(h);d.appendChild(b);
+    var _chat=document.getElementById('chat');_chat.appendChild(d);
+    /* 台球始终压在最底部 */
+    try{if(_ttRow&&document.body.contains(_ttRow))_chat.appendChild(_ttRow)}catch(e){}
+    scrollEnd();
+    return d;
+  }catch(e){return null}
+}
+function toolBump(name){
+  ttPush(name);
+  TOOL_USED++;
+  try{
+    ['toolCount','toolCount2'].forEach(function(id){var el=$(id);if(!el)return;el.textContent=TOOL_USED;if(TOOL_USED>0)el.classList.add('on');el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')});
+    /* 同步到 App 原生顶部导航栏 工具按钮徽标（带放大动画） */
+    try{if(window.ZFUI&&window.ZFUI.setToolCount)window.ZFUI.setToolCount(TOOL_USED);}catch(e){}
+    /* 面板内对应项高亮 */
+    var ti=document.querySelector('.titem[data-name="'+name+'"]');if(ti){ti.classList.add('run');setTimeout(function(){ti.classList.remove('run')},900)}
+    /* +1 飘字（已禁用：对齐PC端，工具调用过程不在对话区显示，仅保留台球动画） */
+    /* var tp=document.createElement('div');tp.className='toastplus';tp.textContent='🔧 +1 '+name;document.body.appendChild(tp);
+    requestAnimationFrame(function(){tp.classList.add('on')});setTimeout(function(){tp.classList.remove('on');setTimeout(function(){tp.remove()},400)},900); */
+    /* 声音：WebAudio 短促叮声 */
+    try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){toolBump._ac=toolBump._ac||new AC();var ac=toolBump._ac,o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.18)}}catch(e){}
+    try{if(window.ZFBridge&&ZFBridge.vibrate)ZFBridge.vibrate(30)}catch(e){}
+  }catch(e){}
+}
+/* 底层循环：与 brain_chat 的 for _round in range(MAX_TOOL_ROUNDS) 一致 */
+async function agentLoop(msgs,onStep,ctx){
+  var toolLog=[],loopThink='',poolOk=false;
+  /* 开局捕获本次生成的停止信号（会话级，不依赖全局 aborter）：后台生成切走也不中止 */
+  ctx=ctx||{};
+  var _sig=ctx.signal||null;
+  var _stop=function(){return (_sig&&_sig.aborted)||(ctx.isStop?ctx.isStop():false)};
+  for(var round=0;round<AGENT_MAX_ROUNDS;round++){
+    if(_stop())throw new DOMException('Aborted','AbortError');
+    var payload={model:MODEL.chat,messages:msgs,stream:false,temperature:0.7,max_tokens:32768};
+    payload.tools=AGENT_TOOLS;
+    var j=null;
+    /* 池托管（首轮或上轮池成功则延续）：经电脑端 chat-pool 车道排队+断点续读；失败回退直连 */
+    if(pcPoolOn()&&(round===0||poolOk)){
+      try{pushLog('t','[池] 提交电脑池托管请求…')}catch(_pl){}
+      var pr=await zfPoolCall(msgs,payload,_sig||null);
+      if(pr){
+        if(!pr.ok)throw new Error('HTTP '+(pr.status||0)+(pr.error?'：'+String(pr.error).slice(0,150):''));
+        j=(pr.data&&pr.data.choices)?pr.data:(pr.choices?pr:null);
+        if(j){poolOk=true;pushLog('t','[池] 电脑池返回 ✓')}
+      }else{poolOk=false}
+    }
+    if(!j){
+      /* 【v86 修复"消息发不出去/没反应"】主对话 fetch 原无超时，服务端挂起时永久 pending，
+         aborter 不释放导致后续发送全被 if(aborter)return 吞掉。加 90s 超时兜底：超时抛普通 Error，
+         走报错气泡并在 finally 释放 aborter，恢复可发送。 */
+      var _toP=(function(ms){var t,p=new Promise(function(_,rej){t=setTimeout(function(){rej(new Error('请求超时（'+Math.round(ms/1000)+'秒）：服务器未响应，请检查网络后重试'))},ms)});p._c=function(){clearTimeout(t)};return p})(90000);
+      var r,txt;
+      try{
+        var _chain=fetch(ZF+'/api/zf_models_relay.asp?model='+encodeURIComponent(MODEL.chat),{
+          method:'POST',signal:_sig||undefined,
+          headers:{'Content-Type':'application/json','X-ZF-Key':agKey,'X-ZF-User':String(zfUser||'')},
+          body:JSON.stringify(payload)
+        }).then(function(_r){return _r.text().then(function(_t){return {_r:_r,_t:_t}})});
+        var _res=await Promise.race([_chain,_toP]);
+        r=_res._r;txt=_res._t;
+      }finally{try{_toP._c()}catch(e){}}
+      if(!r.ok)throw new Error(r.status===401?'朱峰登录已失效，请退出后重新登录账号再发送':('HTTP '+r.status+(txt?'：'+txt.slice(0,150):'')));
+      try{j=JSON.parse(txt)}catch(e){throw new Error('响应非JSON: '+txt.slice(0,120))}
+      if(j.error)throw new Error(j.error.message||j.error);
+    }
+    var msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
+    if(msg.reasoning_content){var _th=String(msg.reasoning_content).trim();if(_th){loopThink+=(_th+'\n');try{addThinkCard(_th)}catch(_eT){}}}
+    var tcs=msg.tool_calls||[];
+    var content=String(msg.content||'').trim();
+    if(!tcs.length){
+      if(!content)content=String(msg.reasoning_content||'').trim()||'（模型返回为空）';
+      return {out:content,toolLog:toolLog,think:loopThink};
+    }
+    /* 回放 assistant（含 tool_calls），逐个本地执行，再回填 role=tool —— 与底层完全一致 */
+    if(content){try{addMsg('ai',content)}catch(_eM){}if(AUTO_VOICE)ttsSpeak(content)} /* 中途 AI 正文（工具调用前模型说的话）渲染成气泡并念出；去掉「中途消息：」前缀，使朗读与屏幕气泡文本完全一致 */
+    msgs.push({role:'assistant',content:content,tool_calls:tcs});
+    for(var i=0;i<tcs.length;i++){
+      var tc=tcs[i],fn=((tc.function||{}).name)||'',fargs={};
+      try{fargs=JSON.parse((tc.function||{}).arguments||'{}');if(typeof fargs!=='object'||fargs===null||Array.isArray(fargs))fargs={}}catch(e){
+        /* arguments 被截断/非法时的抢救：截到最后一个完整键值对再补括号重试 */
+        try{var _a=String((tc.function||{}).arguments||'');var _c=_a.slice(0,_a.lastIndexOf('}},')+3);if(_c.indexOf('{')===0){fargs=JSON.parse(_c+'}')||{}}}catch(e2){}
+      }
+      var _argsP=JSON.stringify(fargs).slice(0,120);
+      toolBump(fn);
+      var _sl1=addSysLine('🔧 '+fn+' '+_argsP);
+      /* 不再播报"调用工具 xxx"，改为只播报工具执行结果（见下方 _rLine 播报） */
+      var result;
+      if(_stop())throw new DOMException('Aborted','AbortError');
+      /* 让出主线程一拍：先让停止按钮的点击事件被处理（abort 生效），再执行同步工具，否则工具执行期间UI卡死点停止无反应 */
+      await new Promise(function(rs){setTimeout(rs,0)});
+      if(_stop())throw new DOMException('Aborted','AbortError');
+      try{result=await agentExecTool(fn,fargs)}catch(eT){result='工具执行失败:'+eT.message}
+      archRegister(fn,fargs,result); /* 【阶段D】登记已执行工具，供压缩索引防重复调用 */
+      pushLog('t','R'+(round+1)+' '+fn+'('+JSON.stringify(fargs).slice(0,120)+') => '+String(result).slice(0,200));
+      toolLog.push(fn+' -> '+String(result).slice(0,120));
+      var _rs;try{_rs=typeof result==='object'?JSON.stringify(result):String(result)}catch(_re){_rs=String(result)}
+      var _rLine=(String(_rs).indexOf('失败')>=0||String(_rs).indexOf('⚠️')>=0?'⚠️ ':'✅ ')+fn+' → '+String(_rs).slice(0,200);
+      addSysLine(_rLine);
+      /* 【朗读对齐屏幕】工具结果行屏幕已不显示（addSysLine 内部禁用），故此处不再朗读，避免「听到工具播报但屏幕看不到」的不一致 */
+      msgs.push({role:'tool',tool_call_id:tc.id||'',content:String(result).slice(0,4000)});
+    }
+  }
+  return {out:'（已达工具轮数上限 '+AGENT_MAX_ROUNDS+' 轮，已中止。已完成操作：'+toolLog.slice(-5).join('；')+'）',toolLog:toolLog};
+}
+
+/* ===== 上下文管理员：历史过长时压缩早期内容为摘要，存入当前会话 ===== */
+/* 【阶段D·峰控对齐】工具执行登记 + 压缩时生成「已执行工具索引」注入摘要，防止 AI 失忆后重复调用已执行过的工具 */
+var _archSeq=0;
+function archRegister(fn,fargs,result){
+  try{
+    var s=curSess();
+    if(!s.archIdx)s.archIdx=[];
+    /* 按 id 查重：同一会话同一序号只登记一次 */
+    var brief=fn+'('+(function(a){try{return JSON.stringify(a)}catch(e){return ''}})(fargs).slice(0,60)+')';
+    var first=String(result||'').split('\n').map(function(x){return x.trim()}).filter(function(x){return x})[0]||'';
+    if(first.length>16)first=first.substring(0,16)+'…';
+    var last=s.archIdx[s.archIdx.length-1];
+    if(last&&last.brief===brief&&last.first===first)return; /* 相邻重复调用不重复登记 */
+    s.archIdx.push({id:++_archSeq,brief:brief,first:first,tool:fn});
+    if(s.archIdx.length>40)s.archIdx=s.archIdx.slice(-40); /* 索引自身防膨胀：只留最近40条 */
+    persist();
+  }catch(e){}
+}
+function buildArchIndexSuffix(){
+  try{
+    var s=curSess();
+    if(!s.archIdx||!s.archIdx.length)return '';
+    var lines=s.archIdx.slice(-30).map(function(a){return '#'+a.id+'|'+a.brief+'|'+a.first});
+    var out='\n【已执行工具索引】以下工具在本会话早期已执行过（结果已随历史压缩，不再重发原文；除非必要请勿盲目重复调用，可结合摘要判断是否需要重试）：\n'+lines.join('\n');
+    /* 总预算 500 字，超了丢最旧 */
+    while(out.length>500&&lines.length>1){lines.shift();out='\n【已执行工具索引】以下工具在本会话早期已执行过（结果已随历史压缩，不再重发原文；除非必要请勿盲目重复调用，可结合摘要判断是否需要重试）：\n'+lines.join('\n');}
+    return out.length<=600?out:'';
+  }catch(e){return ''}
+}
+async function ctxCompress(hist,prevSummary,sig){
+  var old=hist.slice(0,hist.length-30),recent=hist.slice(-30);
+  if(old.length<6)return null;
+  /* 修复"中间对话遗忘"：把上一轮摘要并入压缩输入，摘要逐轮累计而非覆盖 */
+  var txt=(prevSummary?('【上一次摘要（必须保留其全部要点并与新内容合并）】\n'+String(prevSummary).replace(buildArchIndexSuffix(),'').slice(-2000)+'\n【新增历史】\n'):'')+old.map(function(m){return (m.role==='user'?'用户':'助手')+'：'+String(m.content||'').slice(0,300)}).join('\n').slice(0,8000);
+  /* 60 秒超时兜底：压缩请求挂起时不再卡住回答 */
+  var r=await fetch(ZF+'/api/zf_models_relay.asp?model='+encodeURIComponent(MODEL.chat),{
+    method:'POST',headers:{'Content-Type':'application/json','X-ZF-Key':agKey,'X-ZF-User':String(zfUser||'')},
+    body:JSON.stringify({model:MODEL.chat,stream:false,max_tokens:2000,temperature:0.3,
+      messages:[{role:'system',content:'你是上下文管理员。把对话历史压缩成一份精炼摘要（400字内，中文），必须保留：用户目标、已做的决定、关键数据与结论、文件路径、待办事项。'},{role:'user',content:txt}]}),signal:(function(){var sigs=[AbortSignal.timeout(60000)];if(sig&&sig.aborted){}if(sig)sigs.push(sig);return (window.AbortSignal&&AbortSignal.any)?AbortSignal.any(sigs):sigs[0]})()});
+  var j=await r.json();var m=((j.choices||[])[0]||{}).message||{};
+  var s=String(m.content||'').trim();
+  /* 【阶段D】压缩摘要后附「已执行工具索引」，与桌面端存档索引行为对齐 */
+  if(s)s+=buildArchIndexSuffix();
+  return s?{summary:s,recent:recent}:null;
+}
+/* ==================== 附件（图片/文件）+ 左下角加号菜单 ==================== */
+var ATTACH=[]; /* {type:'image',dataUrl,name} | {type:'file',name,text} */
+function isImg(n){return /\.(png|jpe?g|gif|webp|bmp)$/i.test(n||'')}
+function renderAttach(){
+  var row=$('attachRow');row.innerHTML='';
+  ATTACH.forEach(function(a,i){
+    var d=document.createElement('div');d.className='att';
+    if(a.type==='image'){var im=document.createElement('img');im.src=a.dataUrl;d.appendChild(im)}
+    else{d.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:22px">📄</div>'}
+    var fn=document.createElement('div');fn.className='fname';fn.textContent=a.name||'文件';d.appendChild(fn);
+    var x=document.createElement('button');x.className='x';x.textContent='✕';
+    x.onclick=function(ev){ev.stopPropagation();ATTACH.splice(i,1);renderAttach()};d.appendChild(x);
+    row.appendChild(d);
+  });
+}
+/* 【2026-10-12】移动端图片压缩：canvas 长边1568 + JPEG q0.82，超4MB逐级降质；fail-open 失败回退原图。
+   Android WebView/file:// 下 createImageBitmap 兼容性差，用 Image+dataURL 加载。 */
+function _compressImageMob(dataUrl, cb){
+  try{
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var w=img.naturalWidth,h=img.naturalHeight;
+        if(!w||!h){cb(dataUrl);return}
+        var MAX=1568,scale=Math.min(1,MAX/Math.max(w,h));
+        /* 极端长图保护：缩放后最短边不得低于24px，否则放弃缩图只转码 */
+        if(Math.round(Math.min(w,h)*scale)<24)scale=Math.max(scale,24/Math.min(w,h));
+        var cw=Math.round(w*scale),ch=Math.round(h*scale);
+        var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+        var ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cw,ch);ctx.drawImage(img,0,0,cw,ch);
+        var q=0.82,out='';
+        (function loop(){
+          out=cv.toDataURL('image/jpeg',q);
+          if(out.length>4*1024*1024*4/3&&q>0.5){q-=0.15;loop()}else{cb(out.length<dataUrl.length?out:dataUrl)}
+        })();
+      }catch(e){cb(dataUrl)}
+    };
+    img.onerror=function(){cb(dataUrl)};
+    img.src=dataUrl;
+  }catch(e){cb(dataUrl)}
+}
+function fileToDataUrl(f,cb){var r=new FileReader();r.onload=function(){cb(r.result)};r.readAsDataURL(f)}
+function addFiles(files){
+  Array.prototype.forEach.call(files,function(f){
+    /* Android WebView 文件选择器回传的 name 可能无扩展名、type 可能为空，不能只靠名字判断；
+       先读 dataURL，以 data:image 开头即按图片处理（缩略图+关闭按钮），否则按文本附件 */
+    var r=new FileReader();
+    r.onload=function(){
+      var u=String(r.result||'');
+      if(/^data:image\//.test(u)){
+        if(/^data:image\/gif/.test(u)){ATTACH.push({type:'image',dataUrl:u,name:f.name||'图片'});renderAttach();return}
+        _compressImageMob(u,function(cu){
+          if(cu!==u)try{addMsg('ai','🗜️ 大图已自动压缩')}catch(e){}
+          ATTACH.push({type:'image',dataUrl:cu,name:f.name||'图片'});renderAttach();
+        });
+      }else{
+        var r2=new FileReader();
+        r2.onload=function(){ATTACH.push({type:'file',name:f.name||'文件',text:String(r2.result).slice(0,8000)});renderAttach()};
+        r2.onerror=function(){ATTACH.push({type:'file',name:f.name||'文件',text:'（文件读取失败）'});renderAttach()};
+        r2.readAsText(f);
+      }
+    };
+    r.readAsDataURL(f);
+  });
+}
+function pasteImage(cb){
+  try{
+    var B=window.ZFBridge;
+    if(B&&B.clipboardImage){var r=B.clipboardImage();try{r=JSON.parse(r)}catch(e){}
+      if(r&&r.ok&&r.dataUrl){_compressImageMob(r.dataUrl,function(cu){if(cu!==r.dataUrl)try{addMsg('ai','🗜️ 大图已自动压缩')}catch(e){}ATTACH.push({type:'image',dataUrl:cu,name:r.name||'clipboard.png'});renderAttach()});return}}
+  }catch(e){}
+  /* 回退：读剪贴板文本提示 */
+  try{var rp=bJson('clipboardPaste');if(rp&&rp.ok&&/^data:image/.test(rp.text||'')){_compressImageMob(rp.text,function(cu){if(cu!==rp.text)try{addMsg('ai','🗜️ 大图已自动压缩')}catch(e){}ATTACH.push({type:'image',dataUrl:cu,name:'clipboard.png'});renderAttach()});return}}catch(e2){}
+  addMsg('ai','⚠️ 剪贴板里没有图片（可先截图或复制图片再试）');
+}
+$('btnPlus').onclick=function(){$('attMenu').classList.toggle('on')};
+document.addEventListener('click',function(ev){if(!$('attMenu').contains(ev.target)&&ev.target!==$('btnPlus'))$('attMenu').classList.remove('on')});
+$('miGallery').onclick=function(){$('attMenu').classList.remove('on');$('fImg').click()};
+$('miCamera').onclick=function(){$('attMenu').classList.remove('on');$('fCam').click()};
+$('miFile').onclick=function(){$('attMenu').classList.remove('on');$('fFile').click()};
+$('miPaste').onclick=function(){$('attMenu').classList.remove('on');pasteImage()};
+$('fImg').onchange=function(){addFiles(this.files);this.value=''};
+$('fCam').onchange=function(){addFiles(this.files);this.value=''};
+$('fFile').onchange=function(){addFiles(this.files);this.value=''};
+/* 输入框粘贴图片（长按输入框粘贴） */
+$('inp').addEventListener('paste',function(e){
+  var items=(e.clipboardData||{}).items||[];
+  for(var i=0;i<items.length;i++){
+    if(items[i].type&&items[i].type.indexOf('image')===0){e.preventDefault();addFiles([items[i].getAsFile()]);return}
+  }
+});
+
+async function send(){
+  _dbgErr('send入口','点击发送, agKey='+(agKey?'有':'无')+' zfUser='+zfUser+' model='+(MODEL.chat||''));
+  var t='';
+  try{t=$('inp').value.trim()}catch(e0){_dbgErr('send入口',e0.message);return}
+  /* 【空输入快捷继续】输入为空且无附件时，自动改发"继续"，用于快速续跑 */
+  if(!t&&!ATTACH.length&&!RUNNING[CUR])t='继续';
+  if(!t||RUNNING[CUR])return; /* 本会话正在生成中禁止重复发送（其他会话不受影响，v90） */
+  /* 会话隔离 v90：快照发起会话对象，结果始终写回该会话；切换/新建不中止 */
+  var _sendSessId=CUR;
+  var _sess=curSess();
+  var _h=_sess.msgs;
+  var _sameSess=function(){return CUR===_sendSessId};
+  $('inp').value='';$('inp').style.height='auto';
+  /* 快捷指令：并行赛道/池托管 开关与配置 */
+  var _mSw=t.match(/^(开启|关闭)(上下文压缩)$/);
+  if(_mSw){
+    var _on=_mSw[1]==='开启';
+    {var _s0=curSess();_s0.compressOff=!_on;persist();}
+    var _o2='⚙️ 已'+_mSw[1]+_mSw[2];
+    addMsg('user',t);
+    var _bSw=addMsg('ai',_o2);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_o2});persist();scrollEnd();
+    return;
+  }
+  var _mRc=t.match(/^(开启|关闭)(并行赛道|赛道)$/);
+  if(_mRc){
+    save('zf_race_on',_mRc[1]==='开启'?'1':'0');
+    var _oR='🏁 已'+_mRc[1]+'并行赛道（当前 '+raceCount()+' 路'+(load('zf_race_models','')?'，模型：'+load('zf_race_models',''):'，模型：'+(MODEL.chat||'默认')+'×'+raceCount())+'，上限3路）';
+    addMsg('user',t);var _bR=addMsg('ai',_oR);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_oR});persist();scrollEnd();return;
+  }
+  var _mRn=t.match(/^赛道数[：:，,\s]*(\d)$/);
+  if(_mRn){
+    var _n=Math.min(Math.max(parseInt(_mRn[1]),1),3);save('zf_race_n',String(_n));
+    var _oN='🏁 赛道数已设为 '+_n;
+    addMsg('user',t);var _bN=addMsg('ai',_oN);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_oN});persist();scrollEnd();return;
+  }
+  var _mRm=t.match(/^赛道模型[：:，,\s]*(.+)$/);
+  if(_mRm){
+    save('zf_race_models',_mRm[1].trim());
+    var _oM='🏁 赛道模型已设为：'+_mRm[1].trim()+'（逗号分隔，超出赛道数的部分忽略，不足自动补当前模型）';
+    addMsg('user',t);var _bM=addMsg('ai',_oM);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_oM});persist();scrollEnd();return;
+  }
+  var _mPl=t.match(/^池地址[：:，,\s]*(\S+)$/);
+  if(_mPl){save('zf_pool_base',_mPl[1].trim());var _oP='🗄 池地址已设为 '+_mPl[1].trim()+'（配合「开启池托管」使用）';
+    addMsg('user',t);var _bP=addMsg('ai',_oP);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_oP});persist();scrollEnd();return;}
+  if(/^(开启|关闭)池托管$/.test(t)){
+    var _pon=/^开启/.test(t);save('zf_pool_on',_pon?'1':'0');
+    var _oPo='🗄 已'+(_pon?'开启':'关闭')+'池托管'+(_pon&&!pcPoolBase()?'（⚠️ 尚未设置池地址，先说「池地址：http://电脑IP:端口」）':'');
+    addMsg('user',t);var _bPo=addMsg('ai',_oPo);
+    hist.push({role:'user',content:t});hist.push({role:'assistant',content:_oPo});persist();scrollEnd();return;
+  }
+  /* 附件：有图片→本次走识图模型；文件文本并入消息；气泡内显示缩略图 */
+  var _att=ATTACH.slice();ATTACH=[];renderAttach();
+  var _hasImg=_att.some(function(a){return a.type==='image'});
+  var _fileTxt=_att.filter(function(a){return a.type==='file'}).map(function(a){return '\n【附件文件 '+a.name+'】\n'+a.text}).join('');
+  var tAll=t+_fileTxt;
+  window._useVision=_hasImg;
+  scrollEnd(true);
+  addMsg('user',t);
+  if(_att.length){
+    var _arow=document.createElement('div');_arow.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 10px auto;max-width:100%;justify-content:flex-end';
+    _att.forEach(function(a){
+      if(a.type==='image'){var im=document.createElement('img');im.src=a.dataUrl;im.style.cssText='width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--bg3)';_arow.appendChild(im)}
+      else{var fb=document.createElement('div');fb.style.cssText='padding:8px 12px;border-radius:10px;background:var(--bg2);border:1px solid var(--bg3);font-size:12px';fb.textContent='📄 '+a.name;_arow.appendChild(fb)}
+    });
+    $('chat').appendChild(_arow);scrollEnd();
+  }
+  if(!tAll.trim()){tAll='（请识别这些图片）'}
+  var bub=addMsg('ai','…');
+  var span=document.createElement('span');span.textContent='';
+  var cur=document.createElement('span');cur.className='cursor';
+  bub.textContent='';bub.appendChild(span);bub.appendChild(cur);
+  var _ctl=new AbortController(); /* 会话级停止控制器（v90）：归属发起会话 _sendSessId */
+  RUNNING[_sendSessId]={ctl:_ctl,stopped:false};
+  syncSendBtn();
+  /* ---- 原生工具层：bCall/bJson 已提升为全局（修复 bJson is not defined） ---- */
+  var toolOut='';
+  try{
+  /* 【修复】model 校验移入 try 块：原在 try 外 throw 会绕过 catch/finally，导致 aborter 残留、发送按钮永久卡死（点发送没反应） */
+  var model=window._useVision?(MODEL.vision):(MODEL.chat);
+  if(!model){throw new Error('未获取到朱峰默认模型，请检查网络后重试');}
+    /* ① 联网搜索：搜索X / 搜一下X / 帮我搜X */
+    var mS=t.match(/^(?:帮我)?(?:搜索|搜一下|查一下|上网搜)[：:，,\s]*(.+)$/);
+    if(mS){
+      var q=mS[1].trim();
+      var r1=bJson('httpGet','https://html.duckduckgo.com/html/?q='+encodeURIComponent(q));
+      if(r1&&r1.ok){
+        /* 提取前若干条结果 */
+        var lines=r1.text.split('\n').filter(function(l){return l.length>25}).slice(0,12);
+        toolOut='🔍 「'+q+'」搜索结果：\n'+(lines.length?lines.map(function(l,i){return (i+1)+'. '+l.trim()}).join('\n'):'（无有效结果，原始内容前500字：\n'+r1.text.slice(0,500)+'）');
+      }else toolOut='⚠️ 搜索失败：'+((r1&&r1.error)||'网络不可用');
+    }
+    /* ② 抓网页：打开/抓取 网址 */
+    if(!toolOut){
+      var mU=t.match(/^(?:打开|抓取|访问|读网页)[：:，,\s]*(https?:\/\/\S+)$/);
+      if(mU){
+        var r2=bJson('httpGet',mU[1]);
+        toolOut=r2&&r2.ok?('🌐 '+mU[1]+' 正文（前2000字）：\n'+r2.text.slice(0,2000)):('⚠️ 抓取失败：'+((r2&&r2.error)||''));
+      }
+    }
+    /* ③ 写文件：写入 路径 内容：xxx 或 写文件 路径 => 内容 */
+    if(!toolOut){
+      var mW=t.match(/^(?:写入|写文件|保存文件)[：:，,\s]*(\S+?)(?:\s+(?:内容[：:]?|=>|=|:)\s*([\s\S]+))?$/);
+      if(mW){
+        var r3=bJson('writeFile',mW[1],mW[2]||'');
+        toolOut=r3&&r3.ok?('✅ 已写入 '+r3.path+'（'+(r3.size||0)+' 字节）'):('⚠️ 写入失败：'+((r3&&r3.error)||'无权限，先说"申请存储权限"'));
+      }
+    }
+    /* ④ 读文件：读取 路径 */
+    if(!toolOut){
+      var mR=t.match(/^(?:读取|读文件|看文件|打开文件)[：:，,\s]*(\S+)$/);
+      if(mR){
+        var r4=bJson('readFile',mR[1]);
+        toolOut=r4&&r4.ok?('📄 '+r4.path+'：\n'+String(r4.content).slice(0,3000)):('⚠️ 读取失败：'+((r4&&r4.error)||''));
+      }
+    }
+    /* ⑤ 列目录：列出 目录 */
+    if(!toolOut){
+      var mL=t.match(/^(?:列出?|列目录|看目录|查看目录)[：:，,\s]*(\S+)$/);
+      if(mL){
+        var r5=bJson('listFiles',mL[1]);
+        if(r5&&r5.ok){
+          var items=r5.items.slice(0,60).map(function(it){return (it.dir?'📁 ':'📄 ')+it.name+(it.dir?'':(' ('+it.size+'B)'))});
+          toolOut='📁 '+r5.dir+'（共'+r5.items.length+'项）：\n'+items.join('\n');
+        }else toolOut='⚠️ 列目录失败：'+((r5&&r5.error)||'');
+      }
+    }
+    /* ⑥ 搜索文件：搜索文件 关键词 [在 目录] */
+    if(!toolOut){
+      var mF=t.match(/^(?:搜索文件|找文件|查文件)[：:，,\s]*(\S+?)(?:\s+(?:在|于|目录)\s+(\S+))?$/);
+      if(mF){
+        var si=bJson('storageInfo');
+        var dir=mF[2]||(si&&si.external)||'/sdcard';
+        var r6=bJson('searchFiles',dir,mF[1],true);
+        if(r6&&r6.ok){
+          toolOut='🔍 在 '+dir+' 搜「'+mF[1]+'」，命中 '+r6.total+' 条：\n'+r6.hits.slice(0,30).join('\n');
+        }else toolOut='⚠️ 搜索失败：'+((r6&&r6.error)||'');
+      }
+    }
+    /* ⑦ 存储信息/申请权限 */
+    if(!toolOut&&/^(存储信息|存储权限|申请存储)/.test(t)){
+      var si7=bJson('storageInfo');
+      if(/申请/.test(t)){bCall('requestStorage');toolOut='📲 已弹出权限申请，请在系统弹窗中允许。'}
+      if(si7)toolOut+=(toolOut?'\n':'')+'💾 外部存储：'+si7.external+'\n应用专属目录：'+si7.appDir+'\n权限状态：'+(si7.granted?'已授权':'未授权（Android 11+ 部分目录受限，专属目录始终可写）');
+    }
+    /* ⑧ 自我改造：教我X / 忘掉X / 我的技能 —— 写入 appDir/zf_self.json，启动时加载进 system 提示词 */
+    if(!toolOut){
+      var mM=t.match(/^(?:教我|学习|记住技能|自我改造)[：:，,\s]*([\s\S]+)$/);
+      if(mM){
+        var skills=load('zf_skills',[]);
+        skills.push({t:mM[1].trim(),ts:Date.now()});
+        if(skills.length>50)skills=skills.slice(-50);
+        save('zf_skills',skills);
+        var siE=null;try{siE=bJson('storageInfo')}catch(e){}
+        var selfPath=(siE&&siE.appDir||'/sdcard/Android/data/com.zf.pocket')+'/zf_self.json';
+        try{bJson('writeFile',selfPath,JSON.stringify(skills))}catch(e){}
+        toolOut='🧬 已学会新技能，下次对话自动生效：\n'+mM[1].trim()+'\n（当前共 '+skills.length+' 条技能，存于 zf_self.json，重装不丢）';
+      }
+    }
+    if(!toolOut){
+      var mF2=t.match(/^(?:忘掉|删除技能|清除技能)(?:第(\d+)条)?[：:，,\s]*(.*)$/);
+      if(mF2){
+        var sk=load('zf_skills',[]);
+        if(mF2[1]){sk.splice(parseInt(mF2[1])-1,1)}
+        else if(mF2[2]){var n=sk.length;sk=sk.filter(function(s){return s.t.indexOf(mF2[2])<0});if(sk.length===n){toolOut='没有匹配「'+mF2[2]+'」的技能';}}
+        else sk=[];
+        save('zf_skills',sk);
+        var siD=null;try{siD=bJson('storageInfo')}catch(e){}
+        try{bJson('writeFile',(siD&&siD.appDir||'/sdcard/Android/data/com.zf.pocket')+'/zf_self.json',JSON.stringify(sk))}catch(e){}
+        if(!toolOut)toolOut='🗑 已忘掉，剩余 '+sk.length+' 条技能。';
+      }
+    }
+    if(!toolOut&&/^(我的技能|技能列表|自我状态)/.test(t)){
+      var sk2=load('zf_skills',[]);
+      toolOut=sk2.length?('🧬 已掌握 '+sk2.length+' 条技能：\n'+sk2.map(function(s,i){return (i+1)+'. '+s.t}).join('\n')):'（还没有学会任何技能，说「教我：xxx」可以教我）';
+    }
+    /* ⑩ 手机操控：剪贴板/震动/电量/网络/亮度/音量/打开App/打开网址/通知/删除文件 */
+    if(!toolOut){
+      var mC=t.match(/^(?:复制|拷贝|复制到剪贴板)[：:，,\s]*([\s\S]+)$/);
+      if(mC){var rc=bJson('clipboardCopy',mC[1]);toolOut=rc&&rc.ok?'📋 已复制到剪贴板（'+mC[1].length+'字）':'⚠️ 复制失败：'+((rc&&rc.error)||'');}
+    }
+    if(!toolOut&&/^(粘贴|读剪贴板|剪贴板内容)/.test(t)){
+      var rp=bJson('clipboardPaste');
+      toolOut=rp&&rp.ok?('📋 剪贴板内容：\n'+(rp.text||'（空）')):'⚠️ 读取失败';
+    }
+    if(!toolOut){
+      var mV=t.match(/^(?:震动|振动)[：:，,\s]*(\d+)?/);
+      if(mV){var rv=bJson('vibrate',parseInt(mV[1]||'300'));toolOut=rv&&rv.ok?'📳 已震动 '+(mV[1]||300)+'ms':'⚠️ 震动失败';}
+    }
+    if(!toolOut&&/^(电量|电池|设备信息|手机信息|我的手机)/.test(t)){
+      var rd=bJson('deviceInfo');
+      toolOut=rd&&rd.ok?('🔋 电量 '+rd.battery+'%'+(rd.charging?'（充电中）':'')+'\n📱 '+rd.model+'\n🤖 Android '+rd.android+(rd.wifi?'\n📶 WiFi: '+rd.wifi:'')):'⚠️ 获取失败：'+((rd&&rd.error)||'');
+    }
+    if(!toolOut&&/^(网络|联网状态|IP|本机IP)/.test(t)){
+      var rn=bJson('netInfo');
+      toolOut=rn&&rn.ok?('🌐 网络：'+(rn.online?'已连接（'+rn.type+'）':'未连接')+'\n📍 本机IP：'+(rn.ip||'未知')):'⚠️ 获取失败';
+    }
+    if(!toolOut){
+      var mB=t.match(/^(?:亮度|调亮度|设置亮度)[：:，,\s]*(\d{1,3})$/);
+      if(mB){var rb=bJson('setBrightness',parseInt(mB[1]));toolOut=rb&&rb.ok?('🔆 亮度已设为 '+mB[1]+'/255'):('⚠️ '+(rb&&rb.error||'设置失败'));}
+      else if(/^(屏幕信息|亮度)$/.test(t)){var rs=bJson('screenInfo');toolOut=rs&&rs.ok?('🖥 '+rs.w+'x'+rs.h+' 密度'+rs.density+' 当前亮度'+rs.brightness+'/255'):'⚠️ 获取失败';}
+    }
+    if(!toolOut){
+      var mV2=t.match(/^(?:音量|调音量|设置音量)[：:，,\s]*(\d{1,3})$/);
+      if(mV2){var rv2=bJson('volume',parseInt(mV2[1]));toolOut=rv2&&rv2.ok?'🔊 音量已设为 '+rv2.volume+'%':'⚠️ 设置失败';}
+    }
+    if(!toolOut){
+      var mO=t.match(/^(?:打开应用|启动应用|打开App|启动App)[：:，,\s]*([\w.]+)$/);
+      if(mO){var ro=bJson('openApp',mO[1]);toolOut=ro&&ro.ok?'🚀 已启动 '+mO[1]:'⚠️ '+(ro&&ro.error||'启动失败');}
+    }
+    if(!toolOut&&/^(应用列表|装了什么App|列出应用)/.test(t)){
+      var ra=bJson('listApps');
+      if(ra&&ra.ok)toolOut='📱 已安装应用（前100个）：\n'+ra.apps.map(function(a){return a.name+' ('+a.pkg+')'}).join('\n');
+      else toolOut='⚠️ '+(ra&&ra.error||'获取失败');
+    }
+    if(!toolOut){
+      var mBr=t.match(/^(?:打开网址|用浏览器打开)[：:，,\s]*(https?:\/\/\S+)$/);
+      if(mBr){var rbr=bJson('openUrl',mBr[1]);toolOut=rbr&&rbr.ok?'🌐 已在系统浏览器打开 '+mBr[1]:'⚠️ 打开失败';}
+    }
+    if(!toolOut){
+      var mN=t.match(/^(?:提醒我|发通知|通知)[：:，,\s]*([^,，\n]+)(?:[，,][\s]*)?([\s\S]*)$/);
+      if(mN){var rnt=bJson('notifyMe',mN[1].trim(),(mN[2]||'').trim());toolOut=rnt&&rnt.ok?'🔔 已发系统通知':'⚠️ 通知失败（Android 13+ 需允许通知权限）';}
+    }
+    if(!toolOut){
+      var mD2=t.match(/^(?:删除文件|删掉文件)[：:，,\s]*(\S+)$/);
+      if(mD2){var rd2=bJson('deleteFile',mD2[1]);toolOut=rd2&&rd2.ok?'🗑 已删除 '+mD2[1]:'⚠️ '+(rd2&&rd2.error||'删除失败');}
+    }
+    /* ⑪ 文件进阶：替换文本/文件信息/移动/目录树/内容搜索 */
+    if(!toolOut){
+      var mRp=t.match(/^(?:替换文本|替换)[：:，,\s]*(\S+?)\s+(.+?)(?:\s+=>|\s+为|→)\s*([\s\S]+)$/);
+      if(mRp){var rr=bJson('replaceInFile',mRp[1],mRp[2],mRp[3]);toolOut=rr&&rr.ok?('✏️ 已替换 '+rr.count+' 处'):('⚠️ '+(rr&&rr.error||'替换失败'));}
+    }
+    if(!toolOut){
+      var mFi=t.match(/^(?:文件信息|文件详情)[：:，,\s]*(\S+)$/);
+      if(mFi){var rfi=bJson('fileInfo',mFi[1]);toolOut=rfi&&rfi.ok?(rfi.dir?'📁 目录':'📄 文件')+' '+mFi[1]+'\n大小：'+rfi.size+'B\n修改时间：'+new Date(rfi.modified).toLocaleString()+'\n可写：'+(rfi.canWrite?'是':'否'):('⚠️ '+(rfi&&rfi.error||'获取失败'));}
+    }
+    if(!toolOut){
+      var mMv=t.match(/^(?:移动|重命名|改名)[：:，,\s]*(\S+?)\s+(?:到|→|=>|为)\s+(\S+)$/);
+      if(mMv){var rmv=bJson('moveFile',mMv[1],mMv[2]);toolOut=rmv&&rmv.ok?('📦 已移动 '+mMv[1]+' → '+mMv[2]):('⚠️ '+(rmv&&rmv.error||'移动失败'));}
+    }
+    if(!toolOut){
+      var mTr=t.match(/^(?:目录树|树形|结构)[：:，,\s]*(\S+?)(?:\s+(\d+))?$/);
+      if(mTr){var rtr=bJson('treeDir',mTr[1],parseInt(mTr[2]||'3'));toolOut=rtr&&rtr.ok?('🌳 '+mTr[1]+'：\n'+rtr.tree):('⚠️ '+(rtr&&rtr.error||'失败'));}
+    }
+    if(!toolOut){
+      var mGp=t.match(/^(?:搜内容|内容搜索|在文件里找|grep)[：:，,\s]*(\S+?)(?:\s+(?:在|于|目录)\s+(\S+))?$/);
+      if(mGp){var rgp=bJson('grepFiles',mGp[2]||'/sdcard',mGp[1]);toolOut=rgp&&rgp.ok?('🔍 内容含「'+mGp[1]+'」命中 '+rgp.total+' 条：\n'+rgp.hits.join('\n')):('⚠️ '+(rgp&&rgp.error||'失败'));}
+    }
+    /* ⑫ 本机命令：命令 xxx（受限 shell） */
+    if(!toolOut){
+      var mCmd=t.match(/^(?:命令|执行命令|运行命令|shell)[：:，,\s]*([\s\S]+)$/);
+      if(mCmd){var rcm=bJson('runCmd',mCmd[1]);toolOut=rcm&&rcm.ok?('$ '+mCmd[1]+'\n'+(rcm.output||'（无输出）')+'\n[退出码 '+rcm.code+']'):('⚠️ '+(rcm&&rcm.error||'执行失败'));}
+    }
+    /* ⑬ 记事本：记下/查记/记录列表 —— 持久化存 zf_notes.json，重装随应用目录丢失但可导出 */
+    if(!toolOut){
+      var mNt=t.match(/^(?:记下|记录|备忘)[：:，,\s]*([^=：:，,]+)[=：:，,]?\s*([\s\S]*)$/);
+      if(mNt){var rnt2=bJson('noteSave',mNt[1].trim(),mNt[2].trim());toolOut=rnt2&&rnt2.ok?('📝 已记下「'+mNt[1].trim()+'」'):('⚠️ '+(rnt2&&rnt2.error||'保存失败'));}
+    }
+    if(!toolOut){
+      var mNg=t.match(/^(?:查记|查备忘|我的记录)(?:[：:，,\s]*(\S+))?$/);
+      if(mNg){
+        if(mNg[1]){var rng=bJson('noteGet',mNg[1]);toolOut=rng&&rng.ok?('📝 '+mNg[1]+'：'+(rng.val||'（空）')):('⚠️ '+(rng&&rng.error||'失败'));}
+        else{var rnl=bJson('noteList');toolOut=rnl&&rnl.ok?('📝 共 '+(rnl.keys.length)+' 条记录：\n'+rnl.keys.join('\n')):('⚠️ '+(rnl&&rnl.error||'失败'));}
+      }
+    }
+    /* ⑨ 本地基础：时间 / 算式 */
+    if(!toolOut){
+      if(/(几点|时间|日期|星期几|几号)/.test(t)&&t.length<20){
+        var d=new Date();
+        toolOut='🕐 现在时间：'+d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 '+d.getHours()+':'+String(d.getMinutes()).padStart(2,'0')+' 星期'+'日一二三四五六'[d.getDay()];
+      }else if(/^[\d\s+\-*/().%]+$/.test(t)&&/[+\-*/]/.test(t)){
+        toolOut='🧮 计算结果：'+Function('"use strict";return('+t+')')();
+      }
+    }
+  }catch(eT){toolOut='工具执行失败：'+eT.message}
+  /* 带图片附件时强制走识图分支，本地命令短路会静默丢图，不适用 */
+  if(window._useVision)toolOut='';
+  /* 命令快捷方式命中则直接输出，不走模型；否则进入朱峰底层智能体循环 */
+  if(toolOut){
+    for(var k2=0;k2<toolOut.length;k2+=3){span.textContent=toolOut.slice(0,k2+3);if(k2%30===0)scrollEnd();await new Promise(function(res){setTimeout(res,8)});}
+    span.textContent=toolOut;cur.remove();
+    _sessFinish(_sess,_h,t,toolOut); /* v90：落到发起会话对象，切走也正确 */
+    _lastAI=toolOut;if(AUTO_VOICE&&_sameSess())ttsSpeak(toolOut);if(_sameSess()){try{addVoiceBtn(bub,toolOut)}catch(_e){}}
+    delete RUNNING[_sendSessId];syncSendBtn();scrollEnd();return;
+  }
+  var _skills=load('zf_skills',[]);
+  var _sys='你是朱峰智能体（手机版），底层搭载朱峰智能体循环：你可以多轮调用工具（read_file/write_file/append_file/list_files/search_files/delete_file/web_search/fetch_url/device_info/net_info/clipboard_copy/vibrate/open_url/notify/term_run）真正完成任务，不要只给建议——能动手就动手，每轮工具结果会回传给你，直到任务完成再给最终答复。写超长文件请分段（write_file 首段 + append_file 追加）。路径统一用 /sdcard/... 形式。简洁、准确、用中文。\n【手机操控】操作手机前先用 phone_read_screen 或 phone_screenshot 看屏再动手；精细手势有 phone_double_tap/phone_drag/phone_long_press_text/phone_click_text_exact；phone_check 判断屏幕文字是否存在；phone_a11y_status 查无障碍状态；【系统层能力（L2/L3，可直接用）】定位 phone_location；亮度/音量 phone_brightness/phone_volume（亮度设置需先 phone_open_write_settings 授权一次）；剪贴板 clipboard_read/clipboard_write；闹钟 phone_alarm；分享 phone_share；设置页 phone_settings；只读沙盒命令 phone_shell；通知栏 phone_read_notifications（未授权先 phone_open_notification_access）；联系人 phone_read_contacts；短信 phone_read_sms；日历 phone_read_calendar/phone_add_calendar；相册 phone_list_images。首次调用会弹系统授权框，请告知用户点允许；【高危】phone_send_sms/phone_call 必须先向用户说明并获得明确同意（confirm=yes）才能调用。【内置终端】用 term_run 可在手机本地 system shell 执行命令（toybox/ls/cat/grep/curl；多数机型无 busybox/wget/git，先探测再降级），查看或整理本机文件、phone_open_a11y 引导开启无障碍服务；phone_screenshot_quality 可调低截屏质量提速。\n【预装扩展能力（跨设备/自愈，优先用系统自带 /system/bin/curl 落地；本机常无 busybox/wget/git，任何命令先用 `which xxx` 或 `xxx --version` 探测，缺则降级）】\n① ntfy推送（自愈通知，首选）：发通知优先用 term_run 执行 curl -s -X POST -d\"消息内容\" https://ntfy.sh/主题名 —— 完全免费，绕过notify失灵问题；主题名先问用户要（手机ntfy客户端订阅同一主题）。涉及对外发送的消息要先经用户同意。\n② 局域网HTTP互通：手机端 term_run 执行 busybox httpd -p 8080 -h /sdcard/分享目录 可起文件/指令服务（注：本机常无 busybox，需先 `which busybox` 探测；无则此能力不可用，可改用 Termux 内 pkg install busybox 后再用，或直接用 Python `python -m http.server`）；对方(电脑/其他设备)起本地API时可用 fetch_url 调用借力。结束后记得 busybox httpd -k 或说明端口已开。\n③ Git记忆同步：若手机装有git（term_run 试 git --version），可将 记忆.md+技能库 推到用户提供的私有仓库(GitHub/Gitee)，与PC版共享记忆、防失忆；未装则提示用户在应用商店装Termux后执行 pkg install git。\n④ SSH跨设备借力：若用户已配好ssh（试 ssh -V），可 ssh 用户@电脑IP \"命令\" 借电脑算力（浏览器自动化/大文件处理/跑大模型）；密钥由用户配置，绝不索要密码。\n⑤ 米家设备：用户有小米设备时，可引导用户在米家开放平台/第三方工具获取设备token走HTTP局域网控制；token属敏感信息，仅在用户主动提供时使用。\n⑥ 多媒体处理：若手机有ffmpeg（试 ffmpeg -version），可做音频转文字素材预处理、视频压缩、提取音频；没有则提示 pkg install ffmpeg（需Termux）。\n⑦ RSS订阅盯梢：可用 fetch_url 抓 RSS/Atom 源，发现更新时用①推送提醒；更复杂的站点转RSS可建议用户自建 RSSHub。\n⑧ 预装触发词技能（收到对应口令直接照做，无需再确认方案）：\n  - 「翻译 xxx」/「翻译成英文 xxx」：调 fetch_url 抓免费翻译API（https://api.mymemory.translated.net/get?q=xxx&langpair=zh|en），返回译文；其他语种改 langpair。\n  - 「快递 单号」：fetch_url 抓 https://api.51tracking.com 不可用时的兜底——term_run 跑 curl -s \"https://www.kuaidi100.com/autonumber/autoComNum?text=单号\" 识别快递公司，再提示用户到对应小程序查详情（无稳定免费全链路API，如实说明）。\n  - 「记一笔 金额 说明」：write_file 追加到 /sdcard/Download/朱峰智能体/峰控账本.md（不存在则先 write 建表头：日期|金额|说明），随后回读一行确认。\n  - 「查账」：read_file /sdcard/Download/朱峰智能体/峰控账本.md 汇总本月合计。\n  - 「晨报」：term_run 取 date + fetch_url 抓天气API（wttr.in/城市?format=3）+ 一言API（https://v1.hitokoto.cn/），合成一段晨报送 ttsSpeak 朗读。\n  - 「一言」：fetch_url https://v1.hitokoto.cn/ 直接念出来。\n  - 「二维码 内容」：fetch_url https://api.qrserver.com/v1/create-qr-code/?data=内容&size=200x200 返回图片链接。\n⑨ Termux 定时预案（桥未活时不执行，仅告知）：安装包脚本已预置在应用私有目录（morning_report.sh、cron_setup.sh，可复制一份到 /sdcard/Download/朱峰智能体/ 便于查看；注：/sdcard/ 根目录及自建子目录多为只读，写入统一落在 /sdcard/Download/朱峰智能体/），用户装好 Termux 后说「激活定时」即引导执行 sh /sdcard/Download/朱峰智能体/cron_setup.sh，实现每日晨报/盯梢推送（ntfy）。\n⑩ 免费AI外脑：用户提供了免费额度的大模型API key时，可用 curl -s -X POST -H \"Content-Type: application/json\" -d 或 fetch_url 调用其API做图像理解/长文总结；key属敏感信息，不写入分享出去的文件。\n【使用原则】以上能力先探测再使用（先跑 xxx --version/试连一次），失败就降级并告知用户需要装什么；任何对外发送/开启端口/跨设备连接，必须先向用户说明并获得同意。\n【高危确认】涉及发短信、打电话、删除文件、卸载App等高危操作，必须先向用户完整说明并获得明确同意后才能执行。'
+    +(_skills.length?'\n【用户教你的技能，必须遵守】\n'+_skills.map(function(s,i){return (i+1)+'. '+s.t}).join('\n'):'');
+  /* 阶段B：开场自动注入长期记忆与技能库（只注入一次，避免模型每轮手读浪费轮次） */
+  try{
+    var _mR=bJson('readFile','/sdcard/Download/朱峰智能体/记忆.md');
+    if(_mR&&_mR.ok)_sys+='\n【长期记忆（已自动读入，无需再用 read_file 读它）】\n'+String(_mR.content||'').slice(0,3000);
+    var _sR=bJson('readFile','/sdcard/Download/朱峰智能体/技能库.md');
+    if(_sR&&_sR.ok)_sys+='\n【技能库（已自动读入，无需再读）】\n'+String(_sR.content||'').slice(0,2500);
+  }catch(_eI){}
+  /* 阶段C：能力预装包（首次自动落到 /sdcard/Download/朱峰智能体/，并注入能力说明书+自检引导） */
+  try{
+    var CAP_PATH='/sdcard/Download/朱峰智能体/能力清单.md';
+    var CAP_DOC=[
+    '# 峰控智能体能力清单（预装版）',
+    '',
+    '## 一、开机自检（进入新会话先跑一遍，结果记入记忆.md）',
+    '用 term_run 逐条探测（任一失败都正常，说明该能力未安装）：',
+    '1. `command -v rish || ls /data/local/tmp/rish 2>/dev/null` → Shizuku桥（ADB级操控备用通道）',
+    '2. `command -v termux-am || ls /data/data/com.termux/files/usr/bin/termux-am 2>/dev/null` → termux-am Intent发射器',
+    '3. `command -v termux-sensor || command -v termux-location` → Termux:API 传感器',
+    '4. `command -v tesseract` → 离线OCR；`command -v vosk` 或 `ls ~/vosk*` → 离线语音',
+    '5. `command -v proot-distro` → 完整Linux；`command -v sqlite3` → 数据库；`command -v aria2c` → 下载机',
+    '6. `command -v tsu; ip route 2>/dev/null | grep -c tailscale` → Tailscale组网',
+    '7. `ls /sdcard/Download/朱峰智能体/脚本/ 2>/dev/null; pm list packages 2>/dev/null | grep -i autox` → AutoX.js（第二操控引擎，无障碍桥的替代手脚）',
+    '8. `pm list packages 2>/dev/null | grep -i mnn` → MNN Chat（本地离线小模型，隐私推理/离线OCR备用脑）',
+    '自检结果写入 /sdcard/Download/朱峰智能体/记忆.md 的「能力状态」一节，之后不必重复探测。',
+    '',
+    '## 二、能力用法速查',
+    '- **操控备用隧道（Shizuku/rish）**：无障碍桥坏掉时，改用 `rish -c "uiautomator dump /sdcard/ui.xml"` 读屏（再 read_file 读xml拿控件坐标），`rish -c "input tap x y"` 点击，`rish -c "input text xxx"` 输入，`screencap -p /sdcard/s.png` 截屏。',
+    '- **termux-am**：发Intent——`termux-am start -a android.intent.action.SHOW_ALARMS`（闹钟）、`termux-am start -a android.media.action.STILL_IMAGE_CAMERA`（拍照）、媒体控制等系统级动作。',
+    '- **传感器**：`termux-sensor -s -n 5`；GPS：`termux-location -p network`；拍照：`termux-camera-photo -c 0 /sdcard/photo.jpg`（配OCR识图）。',
+    '- **OCR**：`tesseract /sdcard/xxx.png /sdcard/xxx -l chi_sim+eng` 后读 /sdcard/xxx.txt。',
+    '- **proot-distro**：`proot-distro login debian` 进入完整Linux，apt装任意软件。',
+    '- **SQLite**：记账/笔记统一放 /sdcard/Download/朱峰智能体/data.db，`sqlite3 data.db "select ..."` 出报表。',
+    '- **aria2**：`aria2c -d /sdcard/Download "直链"` 后台下载。',
+    '- **Tailscale**：`ssh 用户@100.x.x.x` 遥控电脑/其他设备上的智能体。',
+    '- **AutoX.js（第二操控引擎，优先级高于Shizuku隧道）**：免root的安卓JS自动化，基于UiAutomator，能点击/滑动/输入/截图/找控件/监听通知。用法：把JS脚本写到 `/sdcard/Download/朱峰智能体/脚本/任务.js`（脚本里可读 `/sdcard/Download/朱峰智能体/脚本/指令.json` 取任务参数、把结果写 `/sdcard/Download/朱峰智能体/脚本/结果.json`，形成文件队列指挥通道），用户在AutoX.js里运行即可。它还能常驻值守（如监听通知触发动作），相当于峰控被杀后的替身。装法：GitHub `autojsx/AutoX-v7` releases 下 APK（v7.2.2+）。无障碍桥坏掉时优先走 AutoX.js，其次 rish。',
+    '- **MNN Chat（本地AI备用脑）**：阿里开源移动端推理引擎，手机离线跑Qwen等小模型。用途：隐私数据不出手机、断网推理、图像识别/OCR不花钱调云端。装法：应用商店/GitHub搜 MNN Chat。',
+    '- **MCP工具总线（PC端武装）**：Anthropic开放协议，AI调工具的万能接口，现成Server海量（浏览器自动化/Excel/数据库/爬虫等），导航站 mcpworld.com。PC版峰控若接入，能力立刻指数级扩展；用户在电脑装好Server后，把用法写进技能库即可。',
+    '- **Waydroid 辨析**：它是Linux跑安卓，方向反了；安卓上要跑Linux用 proot-distro。',
+    '- **云分身**：电脑端有Cloudflare Workers定时任务时，手机只需保持能收ntfy/邮件推送即可。',
+    '',
+    '## 三、原则',
+    '- 无障碍桥不可用时：优先 AutoX.js（写脚本到 /sdcard/Download/朱峰智能体/脚本/），其次 Shizuku/rish 隧道，不要反复重试坏掉的桥。',
+    '- 新装好的能力（如Shizuku）立即把用法追加到本清单和记忆.md，越用越强。',
+    '- 高危操作（发短信/打电话/删文件）必须先向用户确认。'].join('\n');
+    var _cR=bJson('readFile',CAP_PATH);
+    if(!(_cR&&_cR.ok&&String(_cR.content||'').indexOf('能力清单')>=0)){
+      try{bJson('writeFile',CAP_PATH,CAP_DOC);}catch(_eW){}
+      _sys+='\n【能力清单（已自动读入，无需再读）】\n'+CAP_DOC.slice(0,6000);
+    }else{
+      _sys+='\n【能力清单（已自动读入，无需再读）】\n'+String(_cR.content||'').slice(0,2500);
+    }
+  }catch(_eC){}
+  var msgs=[{role:'system',content:_sys}];
+  /* 上下文管理员：早期历史超限时压缩为摘要并持久化到会话 */
+  var _pre='';
+  if(curSess().summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+curSess().summary+'\n';
+  if(hist.length>36&&!curSess().compressOff){
+    span.textContent='🗂 上下文管理员：压缩早期历史…';scrollEnd();
+    try{var _c=await ctxCompress(hist,(curSess().summary||''));
+      if(_c&&_c.summary){ if(!_sameSess())throw Object.assign(new Error('switched'),{name:'AbortError'});
+        curSess().summary=_c.summary;hist=curSess().msgs=_c.recent;persist();}
+    }catch(_eC){}
+    if(curSess().summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+curSess().summary+'\n';
+  }
+  if(_pre)msgs=[{role:'system',content:_sys+'\n'+_pre}];
+  msgs=msgs.concat(hist.slice(-30),[{role:'user',content:tAll||t}]);
+  /* 【v68 改造】带图消息不再直连识图模型：实测官方 relay 配朱峰默认语言模型（识图分类推荐同款），
+     且其支持 tool_calls（2026-10 实测返回 call test）——glm-4.6v-flash 未配置（404）。
+     多模态 image_url 并入最后一条 user 消息，进入 agentLoop 工具循环，对话顺序与纯文本一致；
+     历史只存纯文本（L1537 push 的是 t），dataUrl 仅当轮生效，防 token/localStorage 爆炸 */
+  if(window._useVision){
+    var _imgAtt=_att.filter(function(a){return a.type==='image'});
+    var _content=[{type:'text',text:tAll||'（请识别这些图片）'}].concat(
+      _imgAtt.map(function(a){return {type:'image_url',image_url:{url:a.dataUrl}}}));
+    /* 重建 msgs 只保留 system + 最近10条历史 + 多模态消息，避免历史拼两遍 */
+    msgs=msgs.slice(0,1).concat(hist.slice(-10),[{role:'user',content:_content}]);
+    span.textContent='🖼 识图+工具循环分析中…';scrollEnd();
+  }
+  try{
+    if(raceOn()&&!window._useVision){
+      var _raceOut=null,_raceErr=null;
+      await sendRace(msgs,span,function(err,r){
+        if(err){_raceErr=err}else{_raceOut=r}
+      });
+      if(_raceErr)throw _raceErr;
+      var out=_raceOut.win.out;
+      _lastAI=out;
+      /* 展示节点：场景A全程前台=bub；场景B切走又切回=renderSess的_bg占位 */
+      var _rview=bub.parentNode?bub:null;
+      if(_sameSess()&&!_rview){var _rl=$('chat')&&$('chat').lastChild;if(_rl&&_rl._bg)_rview=_rl}
+      /* 败者折叠卡：点击展开对比，只存摘要不存全文（localStorage 容量保护） */
+      if(_raceOut.losers&&_raceOut.losers.length){
+        var _fold=document.createElement('div');_fold.style.cssText='margin-top:6px;font-size:12px';
+        var _btn=document.createElement('button');_btn.textContent='📂 其他赛道（'+_raceOut.losers.length+'）';
+        var _bd=document.createElement('div');_bd.style.cssText='display:none;margin-top:4px;padding:8px;border:1px solid var(--bg3);border-radius:8px;max-height:220px;overflow:auto;white-space:pre-wrap;background:var(--bg2)';
+        _raceOut.losers.forEach(function(l){var _h=document.createElement('div');_h.innerHTML='<b>'+esc(l.model)+'</b>：'+(l.err?'❌ '+esc(l.err):(esc(String(l.out).slice(0,600))+(String(l.out).length>600?'…':'')));_bd.appendChild(_h)});
+        _btn.onclick=function(){var on=_bd.style.display!=='none';_bd.style.display=on?'none':'block';_btn.textContent=on?'📂 其他赛道（'+_raceOut.losers.length+'）':'📁 收起赛道'};
+        _fold.appendChild(_btn);_fold.appendChild(_bd);bub.appendChild(_fold);
+      }
+      var _rh={role:'assistant',content:out};
+      if(_raceOut.losers&&_raceOut.losers.length)_rh.race={model:_raceOut.win.model,losers:_raceOut.losers.map(function(l){return {model:l.model,err:l.err||String(l.out).slice(0,200)}})};
+      if(_rview){ /* 前台可见：渲染答案（场景A含败者折叠卡，场景B回填占位） */
+        if(_rview===bub){span.innerHTML=renderMD(out);try{$('chat').appendChild(bub)}catch(e){}cur.remove();}
+        else{_rview.innerHTML=renderMD(out);_rview._bg=0;try{$('chat').appendChild(_rview)}catch(e){}}
+        /* 答案置底后，把等待点+台球行重新压到对话区最底部（点在上、球在下，始终位于 AI 回复下方） */
+        try{if(_ttRow&&document.body.contains(_ttRow))$('chat').appendChild(_ttRow)}catch(e){}
+        try{addVoiceBtn(_rview,out)}catch(_e){}scrollEnd();
+      }else{cur.remove()} /* 仍切走：仅落库，切回 renderSess 自动显示 */
+      _sessFinish(_sess,_h,t,_rh); /* v90：始终落到发起会话（切走也不丢，切回 renderSess 自动显示） */
+      if(_sameSess()&&AUTO_VOICE)ttsSpeak(out);
+      delete RUNNING[_sendSessId];syncSendBtn();
+      return;
+    }
+    var res=await agentLoop(msgs,function(stepTxt){if(_sameSess()){span.textContent=stepTxt;scrollEnd()}},{signal:_ctl.signal,isStop:function(){return RUNNING[_sendSessId]?RUNNING[_sendSessId].stopped:false}});
+    res.out=res.out||'';
+    var out=res.out;
+    _lastAI=out;
+    /* 展示节点 view：场景A全程前台=bub(含流式span)；场景B切走又切回=renderSess画的_bg占位；场景C仍切走=null */
+    var _view=bub.parentNode?bub:null;
+    if(_sameSess()&&!_view){var _lc=$('chat')&&$('chat').lastChild;if(_lc&&_lc._bg)_view=_lc}
+    if(_view===bub){
+      span.textContent='';
+      for(var k=0;k<out.length;k+=3){
+        span.textContent=out.slice(0,k+3);
+        if(k%30===0)scrollEnd();
+        await new Promise(function(res2){setTimeout(res2,10)});
+        if(RUNNING[_sendSessId]&&RUNNING[_sendSessId].stopped)break; /* 打字机输出循环也要响应停止 */
+      }
+      if(RUNNING[_sendSessId]&&RUNNING[_sendSessId].stopped)throw new DOMException('Aborted','AbortError');
+      bub.innerHTML=renderMD(out);try{$('chat').appendChild(bub)}catch(e){}/* 答案置底 */cur.remove();/* 等待点+台球重新压到最底部（AI 回复下方） */try{if(_ttRow&&document.body.contains(_ttRow))$('chat').appendChild(_ttRow)}catch(e){}try{addVoiceBtn(bub,out)}catch(_e){}
+    }else if(_view){ /* 切回场景：把后台占位气泡回填为完整答案 */
+      _view.innerHTML=renderMD(out);_view._bg=0;try{$('chat').appendChild(_view)}catch(e){}try{if(_ttRow&&document.body.contains(_ttRow))$('chat').appendChild(_ttRow)}catch(e){}try{addVoiceBtn(_view,out)}catch(_e){}
+    }else{ /* 仍切走：清掉游离占位节点引用 */
+      cur.remove();
+    }
+    _sessFinish(_sess,_h,t,out); /* v90：始终落到发起会话（切走也不丢，切回 renderSess 自动显示） */
+    if(_sameSess()&&AUTO_VOICE)ttsSpeak(out);
+  }catch(e){
+    if(bub.parentNode)cur.remove();
+    if(e.name==='AbortError'){
+      var _partial=(span&&span.textContent)?span.textContent:'';
+      if(_partial)_sessFinish(_sess,_h,t,_partial); /* 半截回答也落到发起会话 */
+      if(_sess===curSess()){var _pb=$('chat')&&$('chat').lastChild;if(_pb&&_pb._bg){_pb.innerHTML=renderMD(_partial);_pb._bg=0}else if(bub.parentNode){bub.innerHTML=renderMD(_partial)}}
+    }
+    else{
+      if(_sess===curSess()){bub.classList.add('err');bub.textContent='⚠️ '+e.message;try{$('chat').appendChild(bub)}catch(_x){}try{if(_ttRow&&document.body.contains(_ttRow))$('chat').appendChild(_ttRow)}catch(_y){}}
+    }
+  }finally{
+    /* 回答结束：思考卡片收口 + 台球排队淡出消失 */
+    try{thinkDone()}catch(e){}
+    try{if(_ttRow){_ttRow.classList.add('tt-done');var _tr=_ttRow;setTimeout(function(){try{_tr.remove()}catch(e){}},400);_ttRow=null}}catch(e){}
+    delete RUNNING[_sendSessId];syncSendBtn();
+    scrollEnd();
+  }
+}
+/* ==================== 语音朗读：默认自动朗读AI最终回答，可开关/重读/停止 ==================== */
+var AUTO_VOICE=load('zf_autoVoice','1')==='1'; /* 默认开启：答案出来自动朗读 */
+/* 全局朗读停止：原生 TTS 交给桥，WebSpeech/服务端 audio 各自可停 */
+window._zfTtsAudio=null;
+function zfStopSpeak(){
+  /* 递增打断令牌：让所有排队/续读段立即失效，再物理停止当前播放 */
+  window._zfSpeakToken=(window._zfSpeakToken||0)+1;
+  try{if(typeof bCall==='function')bCall('speakStop')}catch(_e){}
+  try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(_e){}
+  try{if(window._zfTtsAudio){window._zfTtsAudio.pause();window._zfTtsAudio.src='';window._zfTtsAudio=null}}catch(_e){}
+  try{var bar=document.getElementById('zfTtsBar');if(bar)bar.remove()}catch(_e){}
+}
+function _zfSplitSpeak(text,max){
+  /* 全文分段：尽量在句末标点断开，每段不超过 max 字；无总长度上限，保证再长也能全部读出来 */
+  var segs=[],buf='';
+  var cut='。！？!?；;，,\n';
+  text=text||'';
+  for(var i=0;i<text.length;i++){
+    var ch=text.charAt(i);
+    buf+=ch;
+    if((ch==='\n'||cut.indexOf(ch)>=0)&&buf.length>=max*0.5){segs.push(buf);buf='';}
+    else if(buf.length>=max){segs.push(buf);buf='';}
+  }
+  if(buf)segs.push(buf);
+  if(!segs.length&&text)segs.push(text);
+  return segs;
+}
+function _zfApiBase(){
+  try{if(location.protocol==='http:'||location.protocol==='https:')return location.origin;}catch(_e){}
+  return '';
+}
+function _zfBar(){
+  var bar=document.getElementById('zfTtsBar');
+  if(bar)return bar;
+  bar=document.createElement('div');bar.id='zfTtsBar';
+  bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(70px + env(safe-area-inset-bottom));z-index:99999;display:flex;align-items:center;gap:8px;background:#1f2937;border:1px solid #4b5563;border-radius:999px;padding:6px 12px;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:92vw';
+  /* 已按用户要求移除底部悬浮「▶ 播放朗读 / 第x段朗读中…」大按钮条：
+     不再 appendChild 到页面，故 getElementById 取不到、朗读照常自动进行但无悬浮进度条。
+     保留 bar 对象仅用于停止时安全 remove（实际未挂载，remove 为空操作）。 */
+  bar.innerHTML='<span id="zfTtsSt" style="display:none"></span><button id="zfTtsBtn" style="display:none"></button>';
+  var x=document.getElementById('zfTtsX');
+  if(x)x.onclick=function(){try{zfStopSpeak()}catch(_e){}};
+  return bar;
+}
+function _zfPlayServerSeg(base,segs,idx,token){
+  /* 服务端 TTS 逐段续读：本段 audio 播完自动播下一段；某段合成失败也跳过续读，绝不漏后文 */
+  if(token!==window._zfSpeakToken)return;
+  if(idx>=segs.length){
+    var bar=document.getElementById('zfTtsBar');if(bar)bar.remove();
+    pushLog('t','朗读完成：共 '+segs.length+' 段全部读完');
+    return;
+  }
+  var seg=segs[idx];
+  var bar=_zfBar();
+  var btn=document.getElementById('zfTtsBtn'),st=document.getElementById('zfTtsSt');
+  if(st)st.textContent='第 '+(idx+1)+'/'+segs.length+' 段 合成中…';
+  fetch(base+'/api/avatar/tts?text='+encodeURIComponent(seg)).then(function(r){
+    return r.text().then(function(t){try{return JSON.parse(t)}catch(_e){throw new Error('tts接口无响应(HTTP '+r.status+')')}});
+  }).then(function(j){
+    if(token!==window._zfSpeakToken)return;
+    if(!j||!j.ok||!j.url)throw new Error('tts接口失败');
+    var url=(j.url.indexOf('http')===0)?j.url:base+(j.url.charAt(0)==='/'?j.url:'/'+j.url);
+    var au=window._zfTtsAudio=new Audio(url);
+    au.preload='auto';
+    au.onended=function(){au=null;_zfPlayServerSeg(base,segs,idx+1,token)};
+    au.onerror=function(){pushLog('t','第 '+(idx+1)+' 段播放失败，跳过');_zfPlayServerSeg(base,segs,idx+1,token)};
+    if(st)st.textContent='第 '+(idx+1)+'/'+segs.length+' 段';
+    if(btn)btn.onclick=function(){var p=au.play();if(p&&p.catch)p.catch(function(e){if(st)st.textContent=' 点▶播放:'+e.message});};
+    var pr=au.play();
+    if(pr&&pr.catch)pr.catch(function(){if(btn)btn.textContent='▶ 播放第'+(idx+1)+'段';if(st)st.textContent=' 自动播放被拦截，点 ▶'});
+    else if(btn)btn.textContent='⏸ 播放中';
+    au.onplay=function(){if(btn)btn.textContent='⏸ 播放中';};
+  }).catch(function(e){
+    pushLog('e','第 '+(idx+1)+' 段朗读失败:'+e.message);
+    _zfPlayServerSeg(base,segs,idx+1,token);   /* 失败也续读，保证全文读完 */
+  });
+}
+function _zfNativeSpeakOne(seg){
+  /* 单段交给原生：优先 serverSpeak（服务端 TTS+原生播放），失败/未连服务器降级本机 speak。
+     返回 {ok, mode}，调用方据 ok 判断是否续读。 */
+  var r=null;
+  try{ r=bJson('serverSpeak',seg); }catch(_e){ r=null; }
+  if(r&&r.ok) return {ok:true,mode:'server'};
+  /* serverSpeak 不可用/未连电脑 → 本机 TTS */
+  try{ r=bJson('speak',seg,1.1); }catch(_e2){ r=null; }
+  if(r&&r.ok) return {ok:true,mode:'local'};
+  return {ok:false,mode:'?',error:(r&&r.error)||'原生朗读失败'};
+}
+function _zfNativeBusy(){
+  /* 查询原生是否仍在朗读当前段（serverSpeak 用 MediaPlayer / speak 用 TTS）。 */
+  var r=null;
+  try{ r=bJson('speakBusy'); }catch(_e){ r=null; }
+  if(r&&typeof r.busy==='boolean') return r.busy;
+  return false;
+}
+function _zfPlayNativeSeg(segs,idx,token){
+  /* 原生桥逐段续读：本段播完(轮询 speakBusy=false)自动读下一段；
+     某段失败也跳过续读，保证超长文本全部读完。带打断令牌。 */
+  if(token!==window._zfSpeakToken)return;
+  if(idx>=segs.length){
+    var bar=document.getElementById('zfTtsBar');if(bar)bar.remove();
+    pushLog('t','朗读完成：共 '+segs.length+' 段全部读完');
+    return;
+  }
+  var bar=_zfBar();
+  var st=document.getElementById('zfTtsSt');
+  if(st)st.textContent='第 '+(idx+1)+'/'+segs.length+' 段 朗读中…';
+  var res=_zfNativeSpeakOne(segs[idx]);
+  if(!res.ok){
+    pushLog('t','第 '+(idx+1)+' 段原生朗读失败('+res.error+')，跳过续读');
+    _zfPlayNativeSeg(segs,idx+1,token);
+    return;
+  }
+  /* 轮询等待本段播完再续读下一段：busy 为真时继续等，超时兜底也续读，绝不卡死漏后文 */
+  var waited=0;
+  var timer=setInterval(function(){
+    if(token!==window._zfSpeakToken){clearInterval(timer);return;}
+    var busy=false;
+    try{busy=_zfNativeBusy()}catch(_e){busy=false;}
+    waited+=150;
+    /* 粗略估计本段时长上限：按字数*0.22秒*rate，最低6秒，避免引擎不报busy时提前跳；
+       或 speakBusy 报空闲则立即续读 */
+    var estMs=Math.max(6000,segs[idx].length*220);
+    if(!busy&&waited>=1200){clearInterval(timer);_zfPlayNativeSeg(segs,idx+1,token);}
+    else if(waited>estMs+30000){clearInterval(timer);_zfPlayNativeSeg(segs,idx+1,token);}
+  },150);
+}
+function ttsSpeak(txt){
+  if(!txt)return;
+  /* 新朗读先掐断上一段（递增打断令牌）：任何时刻只有一串朗读，新旧互不冲突 */
+  try{if(typeof zfStopSpeak==='function')zfStopSpeak()}catch(_eS){}
+  var plain=String(txt)
+    .replace(/```[\s\S]*?```/g,' [代码] ')
+    .replace(/[#*_>`|]+/g,'')
+    .replace(/\r/g,'');
+  /* 全文分段（无总长度上限）：再长的回答也会切成多段逐段读完 */
+  var segs=_zfSplitSpeak(plain,600);
+  if(!segs.length){pushLog('t','无正文可朗读');return;}
+  var token=(window._zfSpeakToken=(window._zfSpeakToken||0)+1);
+  var base=_zfApiBase();
+  /* 通道1：服务端 TTS + 逐段续读（手机 App 主通道，可完整朗读超长文本） */
+  if(base){
+    pushLog('t','分段朗读：共 '+segs.length+' 段，服务端 TTS 逐段续读');
+    _zfPlayServerSeg(base,segs,0,token);
+    return;
+  }
+  /* 通道2：手机 App（file:// 加载，无 http base）原生桥逐段续读 —— 本次修复主路径。
+     优先原生 serverSpeak（电脑服务端 TTS + MediaPlayer，绕开 WebView fetch/自动播放死路）；
+     未连电脑时降级本机 speak。两者均逐段读、轮询播完再续下一段，绝不整段一次性提交，
+     从根本上解决“长文只读半句就断”。带打断令牌，停止即时生效。 */
+  var nativeOK=false;
+  try{ nativeOK=(typeof bJson==='function')&&!!(window.ZFBridge||window.ZFMobile); }catch(_e){}
+  if(nativeOK){
+    pushLog('t','分段朗读：共 '+segs.length+' 段，原生桥逐段续读');
+    _zfPlayNativeSeg(segs,0,token);
+    return;
+  }
+  /* 通道3：浏览器 WebSpeech（分段 speak 自动排队续读） */
+  try{
+    if(window.speechSynthesis){
+      speechSynthesis.cancel();
+      for(var i=0;i<segs.length;i++){
+        var u=new SpeechSynthesisUtterance(segs[i]);u.lang='zh-CN';u.rate=1.1;
+        speechSynthesis.speak(u);
+      }
+      pushLog('t','分段朗读：共 '+segs.length+' 段，浏览器 WebSpeech 续读');
+      return;
+    }
+  }catch(_e){}
+  pushLog('t','当前版本无可用朗读通道(原生TTS未就绪)');
+}
+function addVoiceBtn(bub,txt){
+  try{
+    if(!bub||!txt)return;
+    /* 防重复：同一气泡只加一次操作条 */
+    if(bub._zfOps)return; bub._zfOps=true;
+    var bar=document.createElement('div');
+    bar.style.cssText='display:flex;gap:8px;margin-top:8px;align-items:center';
+    function mkBtn(label,fn){
+      var b=document.createElement('button');b.className='vbtn';b.textContent=label;
+      b.style.cssText='padding:4px 12px;border:1px solid var(--bg3);border-radius:999px;background:var(--bg3);color:var(--fg2);font-size:12px;cursor:pointer';
+      b.onclick=function(ev){ev.stopPropagation();fn(b)};
+      return b;
+    }
+    /* 🔊 朗读：先停上一段再读，播完自动恢复按钮文字 */
+    var vb=mkBtn('🔊 朗读',function(b){
+      try{if(typeof zfStopSpeak==='function')zfStopSpeak()}catch(_e){}
+      try{if(window.speechSynthesis)speechSynthesis.cancel()}catch(_e2){}
+      b.textContent='🔊 朗读中…';ttsSpeak(txt);
+      setTimeout(function(){b.textContent='🔊 朗读'},2500);
+    });
+    /* 📋 复制 */
+    var cb=mkBtn('📋 复制',function(b){
+      var ok=false;
+      try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; } }catch(e){}
+      if(!ok){
+        try{var ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();ok=document.execCommand('copy');ta.remove();}catch(e2){}
+      }
+      b.textContent=ok?'✅ 已复制':'❌ 复制失败';
+      setTimeout(function(){b.textContent='📋 复制'},1500);
+    });
+    bar.appendChild(vb);bar.appendChild(cb);
+    bub.appendChild(bar);
+  }catch(_eV){}
+}
+var _lastAI='';
+$('send').onclick=function(){
+  if(RUNNING[CUR]){
+    /* v90：仅停当前正在看的会话；其他会话的后台生成不受影响 */
+    stopCurrentRun();
+    /* 即时反馈：立刻复位发送按钮，让用户知道停止已被接收 */
+    try{syncSendBtn()}catch(_ps4){}
+  }else send()
+};
+var inp=$('inp');
+inp.oninput=function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'};
+inp.onkeydown=function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+function renderHist(){
+  var h=$('histList');h.innerHTML='';
+  SESSIONS.sort(function(a,b){return b.ts-a.ts});
+  SESSIONS.forEach(function(s0,i){
+    var d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;padding:10px;border-bottom:1px solid var(--bg3);cursor:pointer';
+    var tt=document.createElement('div');tt.style.cssText='flex:1;overflow:hidden';
+    tt.innerHTML='<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s0.id===CUR?'<span style="color:var(--acc)">&#10003; </span>':'')+e2(s0.title)+'</div><div style="font-size:12px;color:var(--fg2)">'+new Date(s0.ts).toLocaleString()+' · '+s0.msgs.length+' 条</div>';
+    d.appendChild(tt);
+    var ren=document.createElement('button');ren.textContent='\u270E';ren.style.cssText='border:0;background:none;color:var(--acc);font-size:14px;padding:6px';
+    ren.onclick=async function(ev){ev.stopPropagation();
+      var nt=await window.zfDialog.prompt('请输入新的对话名称',s0.title||'',{title:'重命名对话',icon:'✏️',placeholder:'对话名称'});
+      if(nt&&nt.trim()){s0.title=nt.trim().slice(0,30);persist();renderHist()}};
+    d.appendChild(ren);
+    var del=document.createElement('button');del.textContent='\u2716';del.style.cssText='border:0;background:none;color:var(--err);font-size:14px;padding:6px';
+    del.onclick=async function(ev){ev.stopPropagation();
+      var ok=await window.zfDialog.confirm('确定删除对话「'+(s0.title||'未命名')+'」吗？删除后不可恢复。',{title:'删除对话',icon:'🗑️',danger:true,okText:'删除',cancelText:'取消'});
+      if(!ok)return;
+      if(SESSIONS.length<=1){hist=[];curSess().msgs=hist;curSess().ts=Date.now();curSess().title='新对话';persist();$('chat').innerHTML='';renderHist();return}
+      SESSIONS.splice(i,1);if(CUR===s0.id){switchSess(SESSIONS[0].id)}else{persist();renderHist()}};
+    d.appendChild(del);
+    d.onclick=function(){switchSess(s0.id)};
+    h.appendChild(d);
+  });
+}
+function switchSess(id){
+  /* v90 会话隔离修复：切换会话【不中止】任何后台生成——切走/切回，正在生成的对话继续跑，
+     结果完成后写回其发起会话。切走时给正在生成的会话补占位气泡，切回时刷新显示。 */
+  CUR=id;persist();
+  hist=curSess().msgs;
+  renderSess(id);
+  syncSendBtn();
+  closePanels();
+}
+function newSess(){var s0={id:'s'+Date.now(),title:'新对话',ts:Date.now(),msgs:[]};SESSIONS.push(s0);persist();switchSess(s0.id)}
+$('btnNew').onclick=function(){if(hist.length>0){newSess()}else{closePanels()}};
+$('btnHist').onclick=function(){renderHist();openPanel('pnHist')};
+$('xHist').onclick=closePanels;
+
+/* ---------- 启动 ---------- */
+function enterChat(){
+  $('pgLogin').classList.remove('on');$('pgChat').classList.add('on');
+  try{var stEl=$('stTxt');if(stEl)stEl.textContent='峰控'}catch(e0){}
+  try{ if(window.ZFUI&&window.ZFUI.setToolsVisible) window.ZFUI.setToolsVisible(true);}catch(e){}
+  loadModels();
+  hist.forEach(function(h){addMsg(h.role==='assistant'?'ai':'user',h.content||'')});
+  scrollEnd();
+}
+(function init(){
+  if(agKey&&zfUser>0)enterChat();
+  else{$('user').value=load('zf_name','')}
+})();
+/* _v19-extra-injected *//* ==================== v19：Markdown 渲染 + 日志 + 面板（朱峰手机版） ==================== */
+/* ---- 日志系统 ---- */
+var ZLOGS=[];
+function pushLog(cls,txt){try{ZLOGS.push(new Date().toLocaleTimeString()+' ['+cls+'] '+txt);if(ZLOGS.length>500)ZLOGS.shift();renderLogs()}catch(e){}}
+function renderLogs(){
+  var el=$('logList');if(!el)return;
+  var _h='';
+  /* 第一部分：对话记录（各会话的完整问答，卡片式版面） */
+  try{
+    _h+='<div class="log-sec">对话记录</div>';
+    (SESSIONS||[]).forEach(function(s){
+      var has=(s.msgs&&s.msgs.length);
+      _h+='<div class="log-card"><div class="lc-head">🗂 '+esc(s.title||'未命名')+' · '+new Date(s.ts||Date.now()).toLocaleString()+'</div>';
+      if(has){
+        (s.msgs||[]).forEach(function(m){
+          var tag=m.role==='user'?'用户':'AI';
+          var _c=(m.content==null?'':String(m.content)).slice(0,1500);
+          _h+='<div class="lc-msg'+(m.role==='user'?' u':' a')+'"><span class="lc-role">'+tag+'</span>'+esc(_c)+'</div>';
+        });
+      }else{_h+='<div class="lc-msg" style="color:var(--fg2)">（无消息）</div>'}
+      _h+='</div>';
+    });
+    if(!(SESSIONS&&SESSIONS.length))_h+='<div class="log-empty">（无对话记录）</div>';
+  }catch(e){_h+='<div class="log-empty">对话记录读取失败:'+esc(String(e))+'</div>'}
+  /* 第二部分：运行日志 */
+  _h+='<div class="log-sec">运行日志</div>';
+  _h+=ZLOGS.length?'<div class="log-card" style="font-family:Menlo,Consolas,monospace;font-size:11px">'+ZLOGS.map(function(l){return esc(l)}).join('\n')+'</div>':'<div class="log-empty">（暂无日志）</div>';
+  el.innerHTML=_h;el.scrollTop=0;
+}
+/* ---- 轻量 Markdown 渲染：先整体转义防 XSS，再生成安全标签 ---- */
+function e2(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+/* ===== 富媒体渲染辅助：图片/视频/音频/HTML 标签 ===== */
+var ZF_TAG_OK=/^(img|video|audio|source|br|hr|p|div|span|a|strong|em|b|i|u|s|ul|ol|li|table|thead|tbody|tfoot|tr|th|td|blockquote|h[1-6]|code|pre|figure|figcaption|iframe|section|article|header|footer|main|nav|aside|center|small|sub|sup|details|summary|label|input|select|option|button|form)$/i;
+function zfAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+/* 净化单个 HTML 标签：白名单 + 去事件属性 + 禁 javascript: + iframe 强制 sandbox */
+function zfSanTag(t){
+  var m=t.match(/^<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b([\s\S]*?)\/?>$/);
+  if(!m)return e2(t);
+  var close=m[1],name=m[2].toLowerCase(),attrs=m[3];
+  if(!ZF_TAG_OK.test(name))return e2(t);
+  if(close)return '</'+name+'>';
+  attrs=attrs.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi,'');
+  attrs=attrs.replace(/(href|src|formaction|action)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi,'$1="#"');
+  attrs=attrs.replace(/(href|src)\s*=\s*javascript:[^\s>]*/gi,'$1="#"');
+  if(name==='iframe'){
+    attrs=attrs.replace(/\ssandbox\s*=\s*("[^"]*"|'[^']*')/i,'');
+    return '<'+close+name+attrs+' sandbox="allow-scripts" loading="lazy" style="max-width:100%;min-height:240px;border:1px solid var(--bg3);border-radius:8px;margin:6px 0">';
+  }
+  if(name==='a'){if(!/\starget\s*=/i.test(attrs))attrs+=' target="_blank"';if(!/\srel\s*=/i.test(attrs))attrs+=' rel="noopener"';}
+  if(name==='img'&&!/\sloading\s*=/i.test(attrs))attrs+=' loading="lazy"';
+  if(name==='video'&&!/\scontrols\s*=/i.test(attrs))attrs+=' controls playsinline';
+  if(name==='audio'&&!/\scontrols\s*=/i.test(attrs))attrs+=' controls';
+  return '<'+close+name+attrs+'>';
+}
+/* 把 ![](...) 的 url 按类型渲染成富媒体；非白名单协议降级为转义文本 */
+function zfMedia(url,alt){
+  var u=String(url),lu=u.toLowerCase();
+  if(/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/.test(lu)||/^data:video\//.test(lu))
+    return '<video src="'+zfAttr(u)+'" controls playsinline preload="metadata" style="max-width:100%;width:100%;border-radius:8px;margin:6px 0"></video>';
+  if(/\.(mp3|wav|m4a|aac|flac|ogg|opus)(\?|#|$)/.test(lu)||/^data:audio\//.test(lu))
+    return '<audio src="'+zfAttr(u)+'" controls preload="metadata" style="width:100%;margin:6px 0"></audio>';
+  var safe=/^(https?:\/\/|data:image\/|\/sdcard\/|file:\/\/|content:\/\/|\/|\.\.\/)/i.test(u);
+  if(safe){
+    return '<img src="'+zfAttr(u)+'" alt="【图片未能内嵌：'+zfAttr(alt||u)+'】" loading="lazy" onerror="this.outerHTML=this.alt" style="max-width:100%;height:auto;border-radius:8px;margin:6px 0;display:block">';
+  }
+  return zfAttr(alt||u);
+}
+function renderMD(src){
+  /* 【统一渲染层 v1】桌面与手机版共用 public/js/md-render.js 同一实现，
+     下方旧内联解析器保留作极端兜底（ZFMD 未加载时才走）。 */
+  if (typeof ZFMD !== 'undefined') { try { return ZFMD.render(src, { wrap: 'zfmd', media: true, tags: 'rich' }); } catch (e) {} }
+  var blocks=[],text=String(src);
+  /* 【修复 v81】**加粗** 跨行时不渲染：先把段内跨行的 **…** 合并回单行再走逐行解析 */
+  text=text.replace(/\*\*([^*\n](?:[^*]|\*(?!\*))*?)\*\*(?=\s*(?:\r?\n|$))/gs,function(m,inner){return '**'+inner.replace(/\s*\r?\n\s*/g,' ')+'**'});
+  text=text.replace(/\*\*([^*]+)\*\*/g,function(m,inner){return '**'+inner.replace(/\s*\r?\n\s*/g,' ')+'**'});
+  text=text.replace(/```(\w*)\n?([\s\S]*?)(```|$)/g,function(m,lang,code){
+    blocks.push(code.replace(/\n$/,''));
+    return '\u0000B'+(blocks.length-1)+'\u0000';
+  });
+  var lines=text.split(/\r?\n/),html=[],inUl=false,inOl=false;
+  function closeLists(){if(inUl){html.push('</ul>');inUl=false}if(inOl){html.push('</ol>');inOl=false}}
+  function inline(s){
+    var store=[];
+    function stash(html){store.push(html);return '\u0001S'+(store.length-1)+'\u0001';}
+    /* 行内代码（内部转义） */
+    s=s.replace(/`([^`]+)`/g,function(m,c){return stash('<code>'+e2(c)+'</code>');});
+    /* Markdown 图片 ![](url) —— 支持 http/data/本地/sdcard，按类型渲染图/视频/音频 */
+    s=s.replace(/!\[([^\]]*)\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g,function(m,alt,url){return stash(zfMedia(url,alt));});
+    /* Markdown 链接 [](url)（防 javascript:，支持任意安全协议/本地路径；URL 支持一层嵌套括号避免截断） */
+    s=s.replace(/\[([^\]]+)\]\(\s*((?:[^()\s]|\([^)\s]*\))+)(?:\s+"[^"]*")?\s*\)/g,function(m,txt,url){
+      if(/^\s*javascript:/i.test(url))return stash(e2(txt));
+      return stash('<a href="'+zfAttr(url)+'" target="_blank" rel="noopener">'+e2(txt)+'</a>');
+    });
+    /* 原生 HTML 标签（白名单净化后渲染，自闭/普通标签均捕获） */
+    s=s.replace(/<\/?[a-zA-Z][a-zA-Z0-9]*(?:\s[^<>]*)?\/?>/g,function(m){return stash(zfSanTag(m));});
+    /* 剩余纯文本转义 */
+    s=e2(s);
+    s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+    s=s.replace(/(^|[^\w*])\*([^*\s][^*]*)\*(?![\w*])/g,'$1<em>$2</em>');
+    s=s.replace(/\u0001S(\d+)\u0001/g,function(m,i){return store[i]||'';});
+    return s;
+  }
+  for(var i=0;i<lines.length;i++){var L=lines[i];
+    var bm=L.trim().match(/^\u0000B(\d+)\u0000$/);
+    if(bm){closeLists();var code=blocks[parseInt(bm[1])]||'';
+      html.push('<pre><button class="cpy" data-code="'+encodeURIComponent(code)+'">复制</button><code>'+e2(code)+'</code></pre>');continue}
+    var h=L.match(/^(#{1,3})\s+(.*)$/);
+    if(h){closeLists();var hn=h[1].length;html.push('<h'+hn+'>'+inline(h[2])+'</h'+hn+'>');continue}
+    if(/^\s*(---+|\*\*\*+)\s*$/.test(L)){closeLists();html.push('<hr>');continue}
+    var ul=L.match(/^\s*[-*+]\s+(.*)$/);
+    if(ul){if(inOl){html.push('</ol>');inOl=false}if(!inUl){html.push('<ul>');inUl=true}html.push('<li>'+inline(ul[1])+'</li>');continue}
+    var ol=L.match(/^\s*\d+[.、)]\s+(.*)$/);
+    if(ol){if(inUl){html.push('</ul>');inUl=false}if(!inOl){html.push('<ol>');inOl=true}html.push('<li>'+inline(ol[1])+'</li>');continue}
+    var qt=L.match(/^&gt;\s?(.*)$/);
+    if(qt){closeLists();html.push('<blockquote>'+inline(qt[1])+'</blockquote>');continue}
+    if(!L.trim()){closeLists();continue}
+    if(/^\s*\|.*\|\s*$/.test(L)||(/\|/.test(L)&&/^\s*\|/.test(L))){
+      var tbl=[],j=i,_sb=false;
+      while(j<lines.length){
+        var L2=lines[j];
+        if(/^\s*\|.*\|?\s*$/.test(L2)||(/\|/.test(L2)&&/^\s*\|/.test(L2))){tbl.push(L2.trim().replace(/^\||\|$/g,''));j++;_sb=true}
+        else if(_sb&&!L2.trim()&&j+1<lines.length&&(/^\s*\|/.test(lines[j+1]))){j++;continue}
+        else break;
+      }
+      if(tbl.length>=2){
+        function parseRow(r){return r.split('|').map(function(c){return c.trim()})}
+        var isSep=function(cs){return cs.length>0&&cs.every(function(c){return /^:?-{2,}:?$/.test(c)||c===''})};
+        var rows=tbl.map(parseRow);
+        var head=rows[0],k=1;
+        if(rows.length>1&&isSep(rows[1]))k=2;
+        var tHtml='<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">';
+        if(!isSep(head)&&head.some(function(c){return c!==''})){
+          tHtml+='<tr>'+head.map(function(c){return '<th style="border:1px solid var(--bg3);padding:6px 8px;text-align:left;background:var(--bg2)">'+inline(c)+'</th>'}).join('')+'</tr>';
+        }
+        for(var ti=k;ti<rows.length;ti++){
+          if(isSep(rows[ti]))continue;
+          tHtml+='<tr>'+rows[ti].map(function(c){return '<td style="border:1px solid var(--bg3);padding:6px 8px;text-align:left">'+inline(c)+'</td>'}).join('');
+          for(var pj=rows[ti].length;pj<head.length;pj++)tHtml+='<td style="border:1px solid var(--bg3);padding:6px 8px"></td>';
+          tHtml+='</tr>';
+        }
+        tHtml+='</table>';
+        closeLists();html.push(tHtml);i=j-1;continue;
+      }
+    }
+    closeLists();html.push('<p>'+inline(L)+'</p>');
+  }
+  closeLists();
+  return html.join('');
+}
+/* ---- addMsg 升级：AI 消息走 MD 渲染 + 长消息折叠，用户/错误保持纯文本 ---- */
+var FOLD_LEN=1500;
+(function(){
+  var _old=addMsg;
+  addMsg=function(role,text){
+    var b=document.createElement('div');
+    b.className='msg '+(role==='user'?'user':'ai'+(role==='err'?' err':''));
+    if(role==='user'||role==='err'){b.textContent=text}
+    else{
+      var s=String(text);
+      if(s.length>FOLD_LEN){
+        b.innerHTML=renderMD(s.slice(0,FOLD_LEN))+'<div class="fold-tip" style="color:var(--acc);font-size:12px;padding:6px 0;cursor:pointer">⋯ 已折叠，点击展开全部（'+s.length+' 字）</div>';
+        var tip=b.querySelector('.fold-tip');
+        tip.onclick=function(){b.innerHTML=renderMD(s);scrollEnd()};
+      }else{b.innerHTML=renderMD(s)}
+      b._srcText=s; /* 气泡直接持有原文，避免 DOM 顺序与 hist 索引映射错位 */
+    }
+    $('chat').appendChild(b);scrollEnd();return b;
+  };
+})();
+/* ---- 代码块复制按钮（事件委托） ---- */
+$('chat').addEventListener('click',function(ev){
+  var btn=ev.target.closest?ev.target.closest('.cpy'):null;
+  if(!btn)return;
+  ev.stopPropagation();
+  var code='';try{code=decodeURIComponent(btn.getAttribute('data-code')||'')}catch(e){code=btn.getAttribute('data-code')||''}
+  try{
+    if(window.ZFBridge&&ZFBridge.clipboardCopy){ZFBridge.clipboardCopy(code);btn.textContent='已复制';setTimeout(function(){btn.textContent='复制'},1200);pushLog('t','代码块已复制到剪贴板')}
+    else{btn.textContent='桥不可用'}
+  }catch(e){btn.textContent='失败'}
+});
+/* ---- 消息长按菜单（500ms）：复制 / 重新生成 ---- */
+var _msgMenu=document.createElement('div');_msgMenu.style.cssText='position:fixed;z-index:999;display:none;background:var(--bg2);border:1px solid var(--bg3);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);overflow:hidden;font-size:14px';
+_msgMenu.innerHTML='<button style="display:block;width:100%;padding:12px 22px;border:0;background:none;color:var(--fg);text-align:left" data-act="copy">\uD83D\uDCCB 复制</button><button style="display:block;width:100%;padding:12px 22px;border:0;background:none;color:var(--fg);text-align:left;border-top:1px solid var(--bg3)" data-act="select">\uD83E\uDDED 选择本条</button>';
+document.body.appendChild(_msgMenu);
+var _lpTimer=null,_lpMsg=null,_lpMsgEl=null;
+function _hideMenu(){_msgMenu.style.display='none'}
+_msgMenu.addEventListener('click',function(ev){
+  var b=ev.target.closest?ev.target.closest('button'):null;if(!b)return;
+  var act=b.getAttribute('data-act');_hideMenu();
+  if(!_lpMsg)return;
+  if(act==='copy'){
+    try{
+      if(window.ZFBridge&&ZFBridge.clipboardCopy){ZFBridge.clipboardCopy(_lpMsg);pushLog('t','已复制消息')}
+      else{var ta=document.createElement('textarea');ta.value=_lpMsg;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();pushLog('t','已复制消息(execCommand)')}
+    }catch(e){pushLog('e','复制失败:'+e.message)}
+  }else if(act==='select'){
+    /* 程序化选中整条消息，交系统文本选择/复制句柄 */
+    try{
+      var r=document.createRange();r.selectNodeContents(_lpMsgEl);
+      var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+      pushLog('t','已选中整条消息，可用系统菜单复制')
+    }catch(e){pushLog('e','选择失败:'+e.message)}
+  }
+});
+document.addEventListener('click',function(ev){if(!_msgMenu.contains(ev.target))_hideMenu()});
+var _lpSX=0,_lpSY=0,_lpMoved=false;
+$('chat').addEventListener('touchstart',function(ev){
+  var b=ev.target.closest?ev.target.closest('.msg.user'):null;if(!b)return;
+  _lpSX=ev.touches[0].clientX;_lpSY=ev.touches[0].clientY;_lpMoved=false;
+  _lpMsgEl=b;_lpTimer=setTimeout(function(){
+    /* 有系统选区时让位，避免与长按选字冲突 */
+    var _sel=window.getSelection&&window.getSelection();
+    if(_sel&&String(_sel).length>0)return;
+    /* 气泡持有原文 _srcText，直接取用，避免 DOM↔hist 索引错位 */
+    _lpMsg=_lpMsgEl._srcText||'';
+    if(!_lpMsg)return;
+    var t0={clientX:_lpSX,clientY:_lpSY};
+    _msgMenu.style.left=Math.min(t0.clientX,window.innerWidth-130)+'px';
+    _msgMenu.style.top=Math.min(t0.clientY,window.innerHeight-150)+'px';
+    _msgMenu.style.display='block';
+    try{bJson('vibrate',30)}catch(e){}
+  },500);
+},{passive:true});
+$('chat').addEventListener('touchmove',function(ev){
+  if(_lpTimer&&!_lpMoved){
+    var dx=ev.touches[0].clientX-_lpSX,dy=ev.touches[0].clientY-_lpSY;
+    /* 位移超过12px视为滚动，才取消长按；抗手抖 */
+    if(dx*dx+dy*dy>144){clearTimeout(_lpTimer);_lpTimer=null;_lpMoved=true}
+  }
+},{passive:true});
+$('chat').addEventListener('touchend',function(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null}},{passive:true});
+
+/* ---- 工具菜单面板 ---- */
+var TOOL_MENU=[
+  {i:'📄',n:'读取文件',d:'读取 路径',ex:'读取 /sdcard/Download/test.txt'},
+  {i:'✏️',n:'写入文件',d:'写入 路径 => 内容',ex:'写入 /sdcard/Download/note.txt => hello'},
+  {i:'📁',n:'列出目录',d:'列出 路径',ex:'列出 /sdcard/Download'},
+  {i:'🔍',n:'搜索文件',d:'搜索 关键词 在 目录',ex:'搜索 jpg 在 /sdcard'},
+  {i:'🌐',n:'联网搜索',d:'搜索 关键词',ex:'搜索 朱峰社区'},
+  {i:'🌏',n:'抓网页',d:'抓取 网址',ex:'抓取 https://zf.cc'},
+  {i:'🗑',n:'删除文件',d:'删除文件 路径',ex:'删除文件 /sdcard/Download/old.txt'},
+  {i:'📋',n:'设备信息',d:'设备信息',ex:'设备信息'},
+  {i:'📶',n:'网络状态',d:'网络状态',ex:'网络状态'},
+  {i:'⏰',n:'时间',d:'几点/今天日期',ex:'几点'},
+  {i:'🧮',n:'计算',d:'直接输入算式',ex:'1+2*3'},
+  {i:'🔔',n:'通知',d:'提醒我 标题, 内容',ex:'提醒我 喝水, 时间到了'},
+  {i:'💻',n:'命令',d:'命令 xxx（受限shell）',ex:'命令 ls /sdcard'},
+  {i:'📝',n:'记事本',d:'记下 名字=内容 / 查记',ex:'记下 密码=123'}
+];
+/* 手动执行工具列表已按需求移除（renderTools/toolList 相关逻辑同步清理），tools 面板仅保留工具执行记录 */
+/* ---- 面板开关 ---- */
+function openPanel(id){closePanels();$(id).classList.add('on');$('mask').classList.add('on')}
+function closePanels(){$('pnHist').classList.remove('on');$('pnTools').classList.remove('on');$('pnLogs').classList.remove('on');$('mask').classList.remove('on')}
+$('btnTools').onclick=function(){renderToolRec();openPanel('pnTools')};
+$('btnLogs').onclick=function(){renderLogs();openPanel('pnLogs')};
+$('xTools').onclick=closePanels;
+$('xLogs').onclick=closePanels;
+$('mask').onclick=closePanels;
+$('btnCopyLog').onclick=function(){
+  var s='';
+  try{
+    s+='======== 对话记录 ========\n';
+    (SESSIONS||[]).forEach(function(ss){
+      s+='\n【会话】'+(ss.title||'未命名')+'（'+new Date(ss.ts||Date.now()).toLocaleString()+'）\n';
+      (ss.msgs||[]).forEach(function(m){
+        s+=(m.role==='user'?'用户':'AI')+'：'+(m.content==null?'':String(m.content)).slice(0,1500)+'\n';
+      });
+    });
+    if(!(SESSIONS&&SESSIONS.length))s+='（无对话记录）\n';
+  }catch(e){s+='（对话记录读取失败）\n'}
+  s+='\n======== 运行日志 ========\n'+(ZLOGS.join('\n')||'（空）');
+  try{if(window.ZFBridge&&ZFBridge.clipboardCopy){ZFBridge.clipboardCopy(s);this.textContent='已复制全部';var b=this;setTimeout(function(){b.textContent='复制'},1500)}}
+  catch(e){}
+};
+$('btnClearLog').onclick=async function(){
+  if(!await window.zfDialog.confirm('确定清空日志和全部对话记录吗？此操作不可恢复。',{title:'清空记录',icon:'🗑️',danger:true,okText:'清空',cancelText:'取消'}))return;
+  ZLOGS=[];
+  (SESSIONS||[]).forEach(function(s){s.msgs=[]});
+  try{localStorage.removeItem('zf_sessions')}catch(e){}
+  hist=[];CUR='s'+Date.now();
+  SESSIONS=[{id:CUR,title:'新对话',ts:Date.now(),msgs:hist}];
+  persist();$('chat').innerHTML='';renderHist();renderLogs();
+};
+/* ---- 全局错误接入日志面板 ---- */
+pushLog('i','日志面板 v2：对话记录+运行日志合并，一键复制反馈');
+</script>
+<!-- port.js 移植层已下线：与手机版长按菜单/多会话冲突，导致浮动按钮泛滥、confirm 假死、索引错位无法发送（备份 index.html.bak.20261008_port_rollback）
+<link rel="stylesheet" href="chatbox-mobile-port.css?v=32">
+<script src="chatbox-mobile-port.js?v=32"></script>
+-->
+
+<!-- ZFRich v2.1 对话内富媒体引擎（本地化依赖，file:// 离线可用） -->
+<link rel="stylesheet" href="js/highlight-theme.min.css?v=1">
+<script src="js/marked.min.js?v=2"></script>
+<script src="js/md-render.js?v=2"></script>
+<script src="js/highlight.min.js?v=1"></script>
+<script src="js/echarts.min.js?v=1"></script>
+<script src="js/app-zfrich.js?v=4"></script>
+
+</body>
+</html>

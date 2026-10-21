@@ -1,0 +1,161 @@
+/* ============================================================
+   Quiet Series · 大师风四主题 Token 层
+   设计真源: public/项目记录/UI策划-大师风格4套UI方案.md
+   约束: 纯色无渐变 / 默认无边框(仅输入框1px极淡描边)
+   用法: <html data-theme="paper|ink|dawn|clay">
+   ============================================================ */
+
+/* ---------- 默认 = 纸白 paper ---------- */
+:root, [data-theme="paper"] {
+  --q-bg: #FAFAF8;            /* 主背景 暖白 */
+  --q-card: #FFFFFF;          /* 卡片 */
+  --q-elevated: #F2F2F0;      /* 悬浮/次级底 */
+  --q-sunken: #EFEFED;        /* 下沉区(输入框底) */
+  --q-text: #1C1C1E;
+  --q-text-2: #8A8A8E;
+  --q-text-3: #B8B8BC;
+  --q-accent: #3A3A3C;        /* 主按钮 深灰 */
+  --q-accent-hover: #2A2A2C;
+  --q-accent-text: #FAFAF8;
+  --q-blue: #6C8EBF;          /* 点睛1 淡蓝强调 */
+  --q-blue-soft: #DCE9F5;
+  --q-warm: #C08A5E;          /* 点睛2 淡橙(限2处) */
+  --q-warm-soft: #F5E3D2;
+  --q-divider: #E8E8E6;
+  --q-border: transparent;    /* 默认无边框 */
+  --q-input-border: #E0E0DE;  /* 仅输入框保留 */
+  --q-shadow: 0 2px 8px rgba(28,28,30,0.06);
+  --q-shadow-hover: 0 4px 14px rgba(28,28,30,0.09);
+  --q-radius-sm: 6px;
+  --q-radius: 12px;
+  --q-radius-lg: 20px;
+}
+
+/* ---------- 墨黑 ink ---------- */
+[data-theme="ink"] {
+  --q-bg: #1C1C1E;
+  --q-card: #2A2A2C;
+  --q-elevated: #343436;
+  --q-sunken: #232325;
+  --q-text: #F2F2F0;
+  --q-text-2: #8A8A8E;
+  --q-text-3: #5A5A5E;
+  --q-accent: #6C8EBF;
+  --q-accent-hover: #7D9ECC;
+  --q-accent-text: #F2F2F0;
+  --q-blue: #6C8EBF;
+  --q-blue-soft: #2E3B4A;
+  --q-warm: #C08A5E;
+  --q-warm-soft: #43382E;
+  --q-divider: #3A3A3C;
+  --q-border: transparent;
+  --q-input-border: #3A3A3C;
+  --q-shadow: none;           /* 暗色无阴影,靠色阶分层 */
+  --q-shadow-hover: none;
+  --q-radius-sm: 6px;
+  --q-radius: 16px;
+  --q-radius-lg: 20px;
+}
+
+/* ---------- 晨蓝 dawn ---------- */
+[data-theme="dawn"] {
+  --q-bg: #F4F8FC;
+  --q-card: #FFFFFF;
+  --q-elevated: #EDF3F9;
+  --q-sunken: #EDF3F9;
+  --q-text: #2B3A4A;
+  --q-text-2: #7C8B99;
+  --q-text-3: #AAB8C4;
+  --q-accent: #6C8EBF;
+  --q-accent-hover: #5D7FAD;
+  --q-accent-text: #FFFFFF;
+  --q-blue: #6C8EBF;
+  --q-blue-soft: #DCE9F5;
+  --q-warm: #C08A5E;
+  --q-warm-soft: #F5E3D2;
+  --q-divider: #E3EDF6;
+  --q-border: transparent;
+  --q-input-border: #DCE6F0;
+  --q-shadow: 0 2px 8px rgba(108,142,191,0.07);
+  --q-shadow-hover: 0 4px 14px rgba(108,142,191,0.11);
+  --q-radius-sm: 6px;
+  --q-radius: 14px;
+  --q-radius-lg: 20px;
+}
+
+/* ---------- 陶橙 clay ---------- */
+[data-theme="clay"] {
+  --q-bg: #FBF6F0;
+  --q-card: #FFFFFF;
+  --q-elevated: #F5E3D2;
+  --q-sunken: #F3E8DC;
+  --q-text: #3D332B;
+  --q-text-2: #9A8C7E;
+  --q-text-3: #C4B8AB;
+  --q-accent: #C08A5E;
+  --q-accent-hover: #B07A4E;
+  --q-accent-text: #FFFFFF;
+  --q-blue: #6C8EBF;
+  --q-blue-soft: #DCE9F5;
+  --q-warm: #C08A5E;
+  --q-warm-soft: #F5E3D2;
+  --q-divider: #EFE2D4;
+  --q-border: transparent;
+  --q-input-border: #E8DCCC;
+  --q-shadow: 0 2px 8px rgba(192,138,94,0.06);
+  --q-shadow-hover: 0 4px 14px rgba(192,138,94,0.10);
+  --q-radius-sm: 6px;
+  --q-radius: 18px;
+  --q-radius-lg: 22px;
+}
+
+/* ---------- 通用过渡 ---------- */
+body {
+  background: var(--q-bg);
+  color: var(--q-text);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Quiet 通用组件基类(可选类名,逐步推广) */
+.q-card {
+  background: var(--q-card);
+  border-radius: var(--q-radius);
+  border: none;
+  box-shadow: var(--q-shadow);
+  transition: box-shadow 200ms ease, background-color 200ms ease;
+}
+.q-card:hover { box-shadow: var(--q-shadow-hover); }
+
+.q-btn {
+  background: var(--q-accent);
+  color: var(--q-accent-text);
+  border: none;
+  border-radius: var(--q-radius-sm);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+.q-btn:hover { background: var(--q-accent-hover); }
+.q-btn--ghost { background: var(--q-elevated); color: var(--q-text); }
+.q-btn--ghost:hover { filter: brightness(0.96); }
+
+.q-input {
+  background: var(--q-sunken);
+  color: var(--q-text);
+  border: 1px solid var(--q-input-border); /* 唯一保留描边处 */
+  border-radius: var(--q-radius-sm);
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 180ms ease;
+}
+.q-input:focus { border-color: var(--q-accent); }
+
+.q-tag {
+  background: var(--q-blue-soft);
+  color: var(--q-accent);
+  border: none;
+  border-radius: var(--q-radius-sm);
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.q-tag--warm { background: var(--q-warm-soft); color: var(--q-warm); }

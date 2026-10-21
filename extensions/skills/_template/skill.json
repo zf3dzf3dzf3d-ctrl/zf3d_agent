@@ -1,0 +1,24 @@
+{
+  "spec": 1,
+  "id": "改这里_等于文件夹名",
+  "name": "技能显示名",
+  "description": "一句话描述这个技能做什么",
+  "version": "1.0.0",
+  "enabled": true,
+
+  "prompt": "prompt.md",
+  "tools": [],
+  "triggers": ["触发关键词"],
+  "autoInject": false,
+
+  "ui": {
+    "title": "技能自带 UI 面板（可选，删除此字段即无面板）",
+    "type": "form",
+    "fields": [
+      {"name": "text", "type": "text", "label": "示例输入", "placeholder": "在此输入…"}
+    ],
+    "actions": [
+      {"label": "示例按钮", "tool": "改成工具名或 mcp_server__tool", "arguments": {}}
+    ]
+  }
+}

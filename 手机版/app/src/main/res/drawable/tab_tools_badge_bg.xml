@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 工具计数角标背景：胶囊圆角，纯色 #7C6CFF（原直接写 #7C6CFF 是直角矩形，
+     现改用 shape 实现圆角，避免数字贴直角边被视觉裁剪）。radius 取高度一半形成胶囊。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#7C6CFF" />
+    <corners android:radius="10dp" />
+</shape>

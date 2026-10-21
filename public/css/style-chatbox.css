@@ -1,0 +1,4839 @@
+/* ========== style-chatbox.css - //ask_user ========== */
+
+
+
+        /* ==========  ========== */
+
+        .chatbox::before {
+
+            content: "";
+
+            position: absolute;
+
+            inset: 0;
+
+            background: var(--bg-card, #161625);
+
+            z-index: -1;
+
+            border-radius: inherit;
+
+            pointer-events: none;
+
+        }
+
+        .chatbox {
+
+            position: absolute;
+
+            left: 40px;
+
+            top: 40px;
+
+            width: 80%;
+
+            height: 680px;
+
+            min-width: 280px;
+
+            min-height: 320px;
+
+            background: var(--bg-card);
+
+            border: 1px solid var(--border);
+
+            border-radius: 8px !important;
+
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+
+            display: flex;
+
+            flex-direction: column;
+
+            overflow: visible;
+
+            z-index: 50;
+
+            resize: none;
+
+            cursor: default;
+
+            isolation: isolate;
+
+        }
+
+        .chatbox.active { border-color: var(--blue); z-index: 60; }
+
+        /* 銆愯妭鐐规墦寮€閿佸畾路鐐瑰嚮鐗堛€戝彧鎷﹀彂閫?涓婁紶/璇煶鎸夐挳鐨勭偣鍑伙紝
+           杈撳叆妗嗕繚鎸佸畬鍏ㄥ彲鐢紙鍙仛鐒︺€佸彲鎵撳瓧锛夛紝涓嶅啀鐏板寲鏁磋 */
+        body.node-modal-lock .chatbox-inputrow .send-btn,
+        body.node-modal-lock .chatbox-inputrow .upload-btn,
+        body.node-modal-lock .chatbox-inputrow .voice-btn {
+            pointer-events: none;
+            opacity: .5;
+        }
+
+
+
+        /* ===== / ===== */
+
+        .chatbox.task-success {
+
+            border-color: #28a745;
+
+            animation: successBreath 1.2s ease-in-out infinite;
+
+        }
+
+        @keyframes successBreath {
+
+            0%, 100% {
+
+                box-shadow: 0 0 5px rgba(40, 167, 69, 0.4), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(40, 167, 69, 0.6);
+
+            }
+
+            50% {
+
+                box-shadow: 0 0 20px rgba(40, 167, 69, 0.8), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(40, 167, 69, 1);
+
+            }
+
+        }
+
+        .chatbox.task-fail {
+
+            border-color: #e74c3c;
+
+            animation: failFlash 0.6s ease-in-out infinite;
+
+        }
+
+        @keyframes failFlash {
+
+            0%, 100% {
+
+                box-shadow: 0 0 8px rgba(231, 76, 60, 0.7), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(231, 76, 60, 1);
+
+            }
+
+            50% {
+
+                box-shadow: 0 0 2px rgba(231, 76, 60, 0.2), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(231, 76, 60, 0.3);
+
+            }
+
+        }
+
+
+
+        /* =====  ===== */
+
+        .chatbox.task-verify-success {
+
+            border-color: #d4a017;
+
+            animation: verifyBreath 1.2s ease-in-out infinite;
+
+        }
+
+        @keyframes verifyBreath {
+
+            0%, 100% {
+
+                box-shadow: 0 0 5px rgba(212, 160, 23, 0.45), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(212, 160, 23, 0.6);
+
+            }
+
+            50% {
+
+                box-shadow: 0 0 22px rgba(255, 200, 60, 0.85), 0 8px 30px rgba(0,0,0,0.5);
+
+                border-color: rgba(255, 200, 60, 1);
+
+            }
+
+        }
+
+
+
+        /* =====  ===== */
+
+        @keyframes verifyBtnGlow {
+
+            0%, 100% { box-shadow: 0 0 4px rgba(255,190,60,.35); }
+
+            50% { box-shadow: 0 0 14px rgba(255,200,70,.75); }
+
+        }
+
+
+
+        /* =====  ===== */
+
+        .msg.ai-final.ai-verified {
+
+            border-color: rgba(255, 200, 60, 0.55) !important;
+
+            box-shadow: 0 0 10px rgba(212, 160, 23, 0.25) !important;
+
+            background: linear-gradient(135deg, rgba(255,200,60,0.10), rgba(255,200,60,0.03)) !important;
+
+        }
+
+        .msg.ai-final .verify-badge {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 4px;
+
+            margin-bottom: 6px;
+
+            padding: 2px 10px;
+
+            border-radius: 10px;
+
+            font-size: 11px;
+
+            font-weight: 700;
+
+            color: #ffd35c;
+
+            background: rgba(212, 160, 23, 0.15);
+
+            border: 1px solid rgba(255, 200, 60, 0.45);
+
+            letter-spacing: 1px;
+
+        }
+
+
+
+        /* =====  ===== */
+
+        .task-notify--verify {
+
+            border-color: rgba(212, 160, 23, 0.55);
+
+            box-shadow: 0 0 14px rgba(212, 160, 23, 0.35), 0 8px 30px rgba(0,0,0,0.5);
+
+        }
+
+        .task-notify--verify .task-notify__title {
+
+            color: #ffd35c;
+
+        }
+
+
+
+        .chatbox-header {
+
+            position: relative;
+
+            flex-shrink: 0;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 0;
+
+            padding: 0;
+
+            background: var(--bg-card); /* 2026-10-16: 椤舵爮搴曡壊涓庝腑闂磋亰澶╁尯(--bg-card)瀵归綈 */
+
+            border-bottom: 1px solid var(--border);
+
+            border-radius: 8px 8px 0 0;
+
+            cursor: move;
+
+            user-select: none;
+
+        }
+
+        .chatbox.collapsed .chatbox-header { border-radius: 8px; }
+
+        .chatbox-header .title {
+
+            flex-shrink: 1;
+
+            min-width: 0;
+
+            max-width: 140px;
+
+            font-size: 14px;
+
+            font-weight: 600;
+
+            color: var(--text);
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            cursor: move;
+
+
+
+        }
+
+        .chatbox-header .proj-name {
+
+            flex-shrink: 1;
+
+            min-width: 0;
+
+            max-width: 120px;
+
+            font-size: 11px;
+
+            font-weight: 400;
+
+            color: var(--text2);
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            opacity: 0.6;
+
+        }
+
+        .chatbox-header .hd-btn {
+
+            background: none;
+
+            border: none;
+
+            color: var(--text2);
+
+            font-size: 13px;
+
+            cursor: pointer;
+
+            padding: 2px 5px;
+
+            border-radius: 3px;
+
+            flex-shrink: 0;
+
+        }
+
+        .chatbox-header .hd-btn:hover { background: var(--border); color: var(--text); }
+
+
+
+        /* =====  ===== */
+
+        .status-dot {
+
+            display: none;
+
+        }
+
+        .status-dot.status-idle { background: #607080; }
+
+        .status-dot.status-sending { background: #f39c12; animation: dotPulse 1s ease-in-out infinite; }
+
+        .status-dot.status-queued { background: #f1c40f; }
+
+        .status-dot.status-error { background: #e74c3c; }
+
+        .status-dot.status-success { background: #27ae60; }
+
+        .status-dot.status-active { background: var(--blue); }
+
+        .status-dot.status-collapsed { background: #6c5b7b; }
+
+        @keyframes dotPulse {
+
+            0%, 100% { transform: scale(1); opacity: 1; }
+
+            50% { transform: scale(1.4); opacity: 0.6; }
+
+        }
+
+.chatbox-header-row1 {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            min-width: 0;
+
+            overflow: hidden;
+
+            height: 36px;
+
+            padding: 0 8px;
+
+        }
+
+        /* =====  row2 + ===== */
+
+        /* ===== 澶фā鍨嬮摼璺姸鎬佸窘绔狅紙chatbox-link-stats.js锛?===== */
+        .link-stats-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            line-height: 1;
+            padding: 3px 7px;
+            border-radius: 10px;
+            background: rgba(127,127,127,.12);
+            white-space: nowrap;
+            flex-shrink: 0;
+            cursor: default;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .link-stats-badge::before {
+            content: '';
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: #9e9e9e;
+            flex-shrink: 0;
+        }
+        .link-stats-badge.ls-ok::before    { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+        .link-stats-badge.ls-fail::before  { background: #f44336; box-shadow: 0 0 4px #f44336; }
+        .link-stats-badge.ls-unknown::before { background: #9e9e9e; }
+        .link-stats-badge.ls-fail { color: #f44336; }
+        .link-stats-badge.ls-ok   { color: #4caf50; }
+
+        /* ===== 澶фā鍨嬮摼璺姸鎬佽锛堥绛濆ご缁熻闈㈡澘 kho2 鍐咃紝鐢?chatbox-link-stats.js 鍐欏叆锛?===== */
+        .kho2-lstat {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11px; line-height: 1; padding: 3px 10px;
+            border-radius: 10px; background: rgba(127,127,127,.12);
+            white-space: nowrap; cursor: default; margin-top: 6px;
+            min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+        }
+        .kho2-lstat__txt { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .kho2-lstat__dot { width: 7px; height: 7px; border-radius: 50%; background: #9e9e9e; flex-shrink: 0; }
+        .kho2-lstat.ls-ok .kho2-lstat__dot     { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+        .kho2-lstat.ls-fail .kho2-lstat__dot   { background: #f44336; box-shadow: 0 0 4px #f44336; }
+        .kho2-lstat.ls-unknown .kho2-lstat__dot { background: #9e9e9e; }
+        .kho2-lstat.ls-ok   { color: #4caf50; }
+        .kho2-lstat.ls-fail { color: #f44336; }
+
+
+
+        .chatbox-header-row1 .hd-btn.close { }
+
+
+
+        /* ===== ? ? ? ===== */
+
+        .chatbox-header-row1 .header-actions {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 2px;
+
+            margin-left: auto;
+
+            flex-shrink: 0;
+
+        }
+
+        /* ? ? ?娄 wrapper  */
+
+        /* 馃幁娉ㄥ叆瑙掕壊鎸夐挳锛氭妸鏁寸粍宸ュ叿鎸夐挳鎺ㄥ埌鍙充晶锛岎煄笌馃敡绱ф尐鐫€ */
+        .chatbox-header-row1 .hd-btn.role-btn { margin-left: auto; }
+
+        /* ===== 鍥涘ぇ甯堝浘鏍囷細header 绗竴鎺掑彸涓婅缁熶竴瑙嗚锛堭煄擆煣欚煋婐煣狅級锛屾繁鑹查€忔槑搴曡瀺鍏ュ崱鐗?===== */
+        .chatbox-header-row1 .hd-btn.master-icon {
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1;
+            padding: 3px 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+            opacity: 0.55;
+            transition: opacity .15s, transform .15s, background .15s, border-color .15s;
+        }
+        .chatbox-header-row1 .hd-btn.master-icon:hover {
+            opacity: 1;
+            transform: scale(1.12);
+            background: var(--bg-hover);
+            border-color: var(--blue, #3d7eff);
+        }
+
+
+
+        /* =====  +  +  ===== */
+
+        /* // */
+
+        .chatbox-configrow {
+
+            flex-shrink: 0;
+
+            display: none;
+
+            align-items: center;
+
+            gap: 6px;
+
+            height: 30px;
+
+            padding: 0 8px;
+
+            border-top: 1px solid var(--border);
+
+            background: var(--bg-card);
+
+            order: 1;
+
+            overflow: visible; /* 说系懿眉 min-width + flex-shrink  */
+
+            min-width: 0;
+
+        }
+
+        /* chatbox  flex order:0  */
+
+        .chatbox-inputrow { order: 2; }
+
+        /* =====  +  ===== */
+
+        .chatbox-inputopts {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 4px;
+
+            flex-shrink: 0;
+
+            padding-bottom: 2px;
+
+        }
+
+        .chatbox-inputrow .quick-modelid-select {
+
+            max-width: 130px;
+
+            min-width: 72px;
+
+            height: 24px;
+
+            font-size: 11px;
+
+            background: rgba(var(--blue-rgb), 0.10);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            cursor: pointer;
+
+            outline: none;
+
+        }
+
+        .chatbox-inputrow .quick-modelid-select:focus { border-color: var(--blue); }
+
+        .chatbox-inputrow .input-project-btn .proj-label { max-width: 72px; }
+
+        .chatbox.active .chatbox-configrow { display: flex; }
+
+        /* ===== 澶у笀闆嗙兢鎸夐挳锛氫笌鍚屾帓鏈卞嘲搴曞眰/鏋佺畝(.cfg-btn)瑙傛劅鐪嬮綈 ===== */
+        .chatbox-configrow .hd-btn.mastercluster-btn {
+            margin-left: auto; /* 鎺ㄥ埌琛屽熬锛岀揣璐村彸渚х殑妯″瀷閫夋嫨鍣?*/
+            margin-right: 3px; /* 涓庢ā鍨嬮€夋嫨鍣ㄤ箣闂寸暀 3px 闂磋窛 */
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--text);
+            padding: 2px 8px;
+            opacity: 1;
+            transition: opacity .15s, transform .15s, background .15s, border-color .15s;
+        }
+        .chatbox-configrow .hd-btn.mastercluster-btn:hover {
+            transform: scale(1.06);
+            background: rgba(var(--blue-rgb), 0.18);
+            border-color: var(--blue, #3d7eff);
+        }
+        /* ===== 宸ヤ綔鍖烘寜閽細鍚屾牱涓庢湵宄板簳灞?鏋佺畝(.cfg-btn)瑙傛劅鐪嬮綈 ===== */
+        .chatbox-header-row1 .hd-btn.wb-toggle-btn,
+        .chatbox-configrow .hd-btn.wb-toggle-btn {
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+            border-radius: 4px;
+            color: var(--text);
+            padding: 2px 8px;
+            opacity: 1;
+            transition: opacity .15s, transform .15s, background .15s, border-color .15s;
+        }
+        .chatbox-header-row1 .hd-btn.wb-toggle-btn:hover,
+        .chatbox-configrow .hd-btn.wb-toggle-btn:hover,
+        .chatbox-header-row1 .hd-btn.wb-toggle-btn.on,
+        .chatbox-configrow .hd-btn.wb-toggle-btn.on {
+            background: rgba(var(--blue-rgb), 0.18);
+            border-color: var(--blue, #3d7eff);
+        }
+        /* 鍙栨秷妯″瀷閫夋嫨鍣ㄨ嚜韬殑宸﹁嚜鍔ㄨ竟璺濓紝鐢卞ぇ甯堥泦缇ゆ寜閽粺涓€璐熻矗闈犲彸锛屼繚鎸?px闂磋窛 */
+        .chatbox-configrow .model-picker-wrap { margin-left: 0; }
+
+        .chatbox-configrow .cfg-btn {
+
+            background: rgba(var(--blue-rgb), 0.10);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            white-space: nowrap;
+
+            padding: 2px 8px;
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 3px;
+
+            transition: background 0.15s;
+
+            flex-shrink: 1;
+
+            min-width: 0;
+
+            overflow: hidden;
+
+        }
+
+        .chatbox-configrow .cfg-btn:hover {
+
+            background: rgba(var(--blue-rgb), 0.22);
+
+        }
+
+        .chatbox-configrow .cfg-project-btn .proj-label {
+
+            font-size: 11px;
+
+            margin-left: 2px;
+
+            white-space: nowrap;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            max-width: 110px;
+
+            min-width: 0;
+
+        }
+
+        .chatbox-configrow .cfg-project-btn.no-project {
+
+            opacity: 0.6;
+
+        }
+
+        /*  */
+
+        .chatbox-configrow .cfg-project-btn.proj-pinned {
+
+            background: rgba(var(--blue-rgb), 0.35);
+
+            box-shadow: 0 0 0 1px rgba(var(--blue-rgb), 0.6) inset;
+
+        }
+
+        .chatbox.collapsed .chatbox-configrow { display: none; }
+
+
+
+        /* =====  ===== */
+
+        .model-picker-wrap {
+
+            position: relative;
+
+            display: inline-flex;
+
+            align-items: center;
+
+            margin-left: auto;
+
+            flex-shrink: 0;
+
+            min-width: 0;
+
+            max-width: 60%; /*  */
+
+        }
+
+        .model-picker-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 4px;
+
+            max-width: 200px;
+
+            min-width: 0;
+
+            padding: 2px 8px;
+
+            background: rgba(var(--blue-rgb), 0.15);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.35);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            white-space: nowrap;
+
+            transition: background 0.15s;
+
+        }
+
+        .model-picker-btn:hover {
+
+            background: rgba(var(--blue-rgb), 0.30);
+
+        }
+
+        /* 搴曢儴閰嶇疆琛岋細寮曟搸/宸ュ叿鍒嗙被/椤圭洰/鍒嗘敮/妯″瀷鎸夐挳鏂囧瓧缁熶竴涓鸿摑鑹茬郴锛屼笌妯″瀷鍚嶇О棰滆壊涓€鑷?*/
+        .chatbox-configrow .eng-trigger,
+        .chatbox-configrow .tool-cat-trigger,
+        .chatbox-configrow .cfg-btn {
+            color: var(--blue, #3d7eff);
+        }
+
+        /* ===== 鈶犫憽 鎺т欢鏀剁撼鍏煎灞傦紙chatbox-header-relocate.js 鎶婃帶浠舵惉鍑?configrow 鍚庝繚鎸佽兌鍥婅鎰燂級=====
+           鍘熸牱寮忓叏閮ㄥ啓姝?`.chatbox-configrow .X` 绁栧厛閫夋嫨鍣紝鎼埌 inputrow/鈰彍鍗?鍚庡け閰嶏紝杩欓噷鏀圭敤鎺т欢鑷韩绫诲悕琛ラ綈銆?*/
+        /* 閫氱敤鑳跺泭锛氶」鐩?main/鍒嗘敮/寮曟搸/宸ュ叿鍒嗙被鎸夐挳 */
+        .chatbox-inputrow .cfg-btn,
+        .chatbox-header .hd-more-menu .eng-trigger,
+        .chatbox-header .hd-more-menu .tool-cat-trigger {
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+            border-radius: 4px;
+            color: var(--blue, #3d7eff);
+            font-size: 11px;
+            cursor: pointer;
+            white-space: nowrap;
+            padding: 2px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .chatbox-inputrow .cfg-btn:hover { background: rgba(var(--blue-rgb), 0.22); }
+        /* 椤圭洰鏍囩瀹藉害娌跨敤 */
+        .chatbox-inputrow .cfg-project-btn .proj-label { font-size: 11px; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* 澶у笀闆嗙兢 / 宸ヤ綔鍙版寜閽紙鎼叆 鈰彍鍗?/ inputrow锛?*/
+        .chatbox-header .hd-more-menu .hd-btn.mastercluster-btn,
+        .chatbox-inputrow .hd-btn.wb-toggle-btn {
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+            border-radius: 4px;
+            color: var(--text);
+            padding: 2px 8px;
+            opacity: 1;
+            margin-left: 0;
+        }
+        .chatbox-header .hd-more-menu .hd-btn.mastercluster-btn:hover,
+        .chatbox-inputrow .hd-btn.wb-toggle-btn:hover { background: rgba(var(--blue-rgb), 0.18); }
+        /* 馃敡宸ュ叿 / 馃摐鏃ュ織 鏀惰繘 鈰?鑿滃崟锛氳鐩?.header-actions .hd-btn 鐨勫浐瀹?24px 瀹斤紝
+           璁╁甫鏂囧瓧鐨勮彍鍗曢」鍏ㄥ宸﹀榻愶紱tool-badge 瑙掓爣浠嶉殢鑺傜偣瀹氫綅 */
+        .chatbox-header .hd-more-menu .hd-btn.tool-panel-btn,
+        .chatbox-header .hd-more-menu .hd-btn.log-panel-btn {
+            width: auto;
+            height: auto;
+            min-width: 0;
+            padding: 5px 10px;
+            font-size: 12px;
+            justify-content: flex-start;
+            text-align: left;
+            background: transparent;
+            border-radius: 6px;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .chatbox-header .hd-more-menu .hd-btn.tool-panel-btn:hover,
+        .chatbox-header .hd-more-menu .hd-btn.log-panel-btn:hover { background: var(--border); }
+        .chatbox-header .hd-more-menu .hd-btn.tool-panel-btn .tool-badge {
+            top: 0; right: 2px;
+        }
+        /* 寮曟搸/宸ュ叿鍒嗙被鍖呰９灞傦細鎼繘鑿滃崟鍚庢í鎺掞紙璐村悎"涓€鎺?锛夛紝鐩稿瀹氫綅鎵胯浇浜岀骇寮瑰眰 */
+        .chatbox-header .hd-more-menu .eng-picker-wrap,
+        .chatbox-header .hd-more-menu .tool-cat-wrap { position: relative; display: inline-flex; }
+        /* 浜岀骇寮瑰眰鏂瑰悜锛氬悜宸﹀脊鍑猴紙涓昏彍鍗曡创鍙崇紭锛屽悜宸﹀脊涓嶉伄鎸′富鑿滃崟涔熶笉鍑哄睆锛?*/
+        .chatbox-header .hd-more-menu .eng-menu,
+        .chatbox-header .hd-more-menu .tool-cat-menu,
+        .chatbox-header .hd-more-menu .prio-menu {
+            right: calc(100% + 4px); left: auto; top: 0; bottom: auto;
+        }
+        /* Git 鍒嗘敮鎸夐挳鎼繘 鈰?鑿滃崟锛氭部鐢ㄨ兌鍥婂瑙傦紙鍘?.chatbox-inputrow .cfg-btn 澶遍厤锛夛紝
+           宸﹀榻愬叏瀹戒笌宸ュ叿/鏃ュ織鑿滃崟椤逛竴鑷?*/
+        .chatbox-header .hd-more-menu .cfg-btn.cfg-branch-btn {
+            width: auto;
+            height: auto;
+            min-width: 0;
+            justify-content: flex-start;
+            text-align: left;
+            background: rgba(var(--blue-rgb), 0.10);
+            border: 1px solid rgba(var(--blue-rgb), 0.25);
+            border-radius: 4px;
+            color: var(--blue, #3d7eff);
+            font-size: 11px;
+            padding: 4px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .chatbox-header .hd-more-menu .cfg-btn.cfg-branch-btn:hover { background: rgba(var(--blue-rgb), 0.22); }
+
+        .model-picker-name {
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+
+            min-width: 0;
+
+        }
+
+        .model-picker-arrow {
+
+            opacity: 0.75;
+
+            font-size: 10px;
+
+        }
+
+        .model-picker-menu {
+
+            position: absolute;
+
+            bottom: calc(100% + 6px);
+
+            right: 0;
+
+            width: 310px;
+
+            max-width: calc(100vw - 24px); /* / */
+
+            background: var(--panel, #1e1e2e);
+
+            border: 1px solid var(--border);
+
+            border-radius: 6px;
+
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+
+            z-index: 10000;
+
+            padding: 6px 0;
+
+            max-height: 380px;
+
+            overflow-y: auto;
+
+        }
+
+        .model-picker-menu[hidden] { display: none; }
+
+        .model-picker-menu .mp-search {
+
+            padding: 0 8px 6px;
+
+        }
+
+        .model-picker-menu .mp-search-input {
+
+            width: 100%;
+
+            box-sizing: border-box;
+
+            background: rgba(255, 255, 255, 0.045);
+
+            border: 1px solid var(--border);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            font-size: 12px;
+
+            padding: 5px 8px;
+
+            outline: none;
+
+        }
+
+        .model-picker-menu .mp-search-input:focus { border-color: var(--blue); }
+
+        .model-picker-menu .mp-list {
+
+            max-height: 180px;
+
+            overflow-y: auto;
+
+            margin-bottom: 4px;
+
+        }
+
+        .model-picker-menu .mp-item {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            gap: 8px;
+
+            padding: 6px 12px;
+
+            cursor: pointer;
+
+            font-size: 12px;
+
+            color: var(--text);
+
+            transition: background 0.12s;
+
+        }
+
+        .model-picker-menu .mp-item:hover { background: rgba(var(--blue-rgb), 0.1); }
+
+        .model-picker-menu .mp-item.active {
+
+            background: rgba(var(--blue-rgb), 0.2);
+
+            border-left: 2px solid var(--blue);
+
+        }
+
+        .model-picker-menu .mp-item-name {
+
+            font-weight: 500;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+
+        }
+
+        .model-picker-menu .mp-item-id {
+
+            font-size: 10px;
+
+            color: var(--text2);
+
+            opacity: 0.7;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+
+            max-width: 110px;
+
+        }
+
+        .model-picker-menu .mp-empty {
+
+            padding: 14px 12px;
+
+            text-align: center;
+
+            color: var(--text2);
+
+            font-size: 12px;
+
+        }
+
+        .model-picker-menu .mp-section {
+
+            padding: 6px 12px 2px;
+
+            font-size: 10px;
+
+            color: var(--text2);
+
+            border-top: 1px solid var(--border);
+
+            margin-top: 2px;
+
+            letter-spacing: 0.5px;
+
+        }
+
+        .model-picker-menu .mp-modelid-row {
+
+            display: flex;
+
+            gap: 4px;
+
+            padding: 4px 8px 8px;
+
+        }
+
+        .model-picker-menu .mp-modelid-input {
+
+            flex: 1;
+
+            min-width: 0;
+
+            background: rgba(var(--blue-rgb), 0.09);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.28);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            font-size: 12px;
+
+            padding: 5px 8px;
+
+            outline: none;
+
+            cursor: pointer;
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+        }
+
+        .model-picker-menu .mp-modelid-input:focus { border-color: var(--blue); }
+
+        .model-picker-menu .mp-modelid-add,
+
+        .model-picker-menu .mp-modelid-remove {
+
+            width: 28px;
+
+            height: 28px;
+
+            flex: 0 0 28px;
+
+            padding: 0;
+
+            border: 1px solid rgba(var(--blue-rgb), 0.34);
+
+            border-radius: 4px;
+
+            background: rgba(var(--blue-rgb), 0.12);
+
+            color: var(--text);
+
+            font-size: 18px;
+
+            line-height: 1;
+
+            cursor: pointer;
+
+        }
+
+        .model-picker-menu .mp-modelid-remove {
+
+            border-color: rgba(224, 87, 87, 0.42);
+
+            background: rgba(224, 87, 87, 0.12);
+
+        }
+
+        .model-picker-menu .mp-modelid-add:hover,
+
+        .model-picker-menu .mp-modelid-remove:hover { filter: brightness(1.22); }
+
+        .model-picker-menu .mp-modelid-input option {
+
+            background: transparent;
+
+            color: var(--text);
+
+        }
+
+        .model-picker-menu .mp-re-row {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 4px;
+
+            padding: 4px 8px 8px;
+
+        }
+
+        .model-picker-menu .mp-re-input { flex: 1 1 60px; }
+
+        /*  +/?  +  */
+
+        .mp-re-btn, .mi-re-btn {
+
+            width: 24px; height: 24px; line-height: 1;
+
+            padding: 0; margin: 0; flex: 0 0 auto;
+
+            border: 1px solid rgba(var(--blue-rgb), 0.32);
+
+            border-radius: 4px;
+
+            background: rgba(var(--blue-rgb), 0.14);
+
+            color: var(--text);
+
+            font-size: 14px; cursor: pointer;
+
+        }
+
+        .mp-re-btn:hover, .mi-re-btn:hover { filter: brightness(1.25); border-color: var(--blue); }
+
+        .model-picker-menu .mp-re-input {
+
+            flex: 1 1 60px;
+
+            min-width: 0;
+
+            background: rgba(var(--blue-rgb), 0.14);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.32);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            color-scheme: dark;
+
+            font-size: 12px;
+
+            padding: 5px 8px;
+
+            outline: none;
+
+            cursor: pointer;
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+        }
+
+        .model-picker-menu .mp-re-input:focus { border-color: var(--blue); }
+
+        .model-picker-menu .mp-re-input option {
+
+            background: var(--bg-card);
+
+            color: var(--text);
+
+        }
+
+        .model-picker-menu .mp-re-item {
+
+            flex: 1 1 40%;
+
+            background: var(--bg);
+
+            border: 1px solid var(--border);
+
+            border-radius: 4px;
+
+            color: var(--text);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            padding: 5px 6px;
+
+            text-align: center;
+
+            white-space: nowrap;
+
+            transition: background 0.12s;
+
+        }
+
+        .model-picker-menu .mp-re-item:hover { background: rgba(var(--blue-rgb), 0.12); }
+
+        .model-picker-menu .mp-re-item.active {
+
+            background: rgba(var(--blue-rgb), 0.30);
+
+            border-color: rgba(var(--blue-rgb), 0.6);
+
+            font-weight: 600;
+
+        }
+
+
+
+        /* project btn label -  row2 栓 .chatbox-configrow .cfg-project-btn .proj-label */
+
+
+
+        /*  model-select  .model-picker-wrap */
+
+        .model-select { display: none; }
+
+        .model-select:hover { }
+
+        .model-select option {
+
+            background: transparent;
+
+            color: var(--text);
+
+        }
+
+
+
+        .chatbox-body {
+
+            flex: 1;
+
+            overflow-y: auto;
+
+            overscroll-behavior: contain;
+
+            touch-action: pan-y;
+
+            padding: 10px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 8px;
+
+            cursor: default;
+
+        }
+
+
+
+        .msg {
+
+            position: relative;
+
+            align-self: stretch;
+
+            max-width: 100%;
+
+            padding: 8px 12px;
+
+            border-radius: 6px;
+
+            font-size: 14px;
+
+            line-height: 1.7;
+
+            word-break: break-word;
+
+            white-space: pre-wrap;
+
+            animation: msgIn 0.18s ease;
+
+            cursor: default;
+
+            /* 銆?026-09 淇銆戠Щ闄?content-visibility: auto锛堣鍙ｅ娑堟伅鎸変及绠楅珮搴﹀崰浣嶃€?
+               涓嶅弬涓庣湡瀹炲竷灞€锛夛紝璇ヤ紭鍖栧鑷淬€屾煡鐪嬬瓟妗堛€嶇敤 getBoundingClientRect 瀹氫綅
+               鏈€鍚庝竴涓瓟妗堟椂婊氬姩浣嶇疆涓嶅噯銆佹棤娉曞畾浣嶅埌鏈疆绛旀寮€澶淬€?
+               鑻ラ渶闀垮璇濇€ц兘浼樺寲锛岃鍦?.chatbox-body 婊氬姩瀹瑰櫒灞傞潰鍗曠嫭璇勪及銆?*/
+
+        }
+
+        @keyframes msgIn {
+
+            from { opacity: 0; transform: translateY(5px); }
+
+            to { opacity: 1; transform: translateY(0); }
+
+        }
+
+        
+
+        .msg.user {
+
+            /* 鐢ㄦ埛鎻愰棶锛氬井寮辨彁浜紙鐧?7%锛?*/
+            background: rgba(255, 255, 255, 0.07);
+
+            border-left: none;
+
+            color: #ffffff;
+
+        }
+
+        .msg.ai {
+
+            /* AI 鍥炵瓟锛氬井寰豢鑹?*/
+            background: rgba(60, 180, 100, 0.05);
+
+            border-left: none;
+
+            color: #ffffff;
+
+        }
+
+        /* 鐧藉ぉ涓婚锛欰I/鏈€缁堟秷鎭枃瀛楄浆娣辫壊 */
+        [data-theme="light"] .msg.ai,
+        [data-theme="light"] .msg.ai * ,
+        [data-theme="light"] .msg.ai-final,
+        [data-theme="light"] .msg.ai-final *,
+        [data-theme="light"] .msg.user {
+            color: #1f2430;
+        }
+        [data-theme="light"] .msg.ai strong,
+        [data-theme="light"] .msg.ai-final strong {
+            color: #0d2b5c;
+        }
+        [data-theme="light"] .chatbox .msg,
+        [data-theme="light"] .chatbox .msg.md-body p,
+        [data-theme="light"] .chatbox .msg.md-body li {
+            color: #1f2430;
+        }
+
+        .msg.ai-final {
+
+            /* 浠诲姟瀹屾垚锛氬悓娆惧井寰豢鑹?*/
+            background: rgba(60, 180, 100, 0.05);
+
+            border-left: none;
+
+            color: #ffffff;
+
+        }
+
+        .msg.ai.md-body,
+
+        .msg.ai-final.md-body { padding-right: 42px; }
+
+        .msg.ai .msg-ai-copy-btn,
+
+        .msg.ai-final .msg-ai-copy-btn {
+
+            position: absolute; top: 6px; right: 7px;
+
+            display: inline-flex; align-items: center; justify-content: center;
+
+            width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px;
+
+            background: rgba(0,0,0,0.30); color: rgba(255,255,255,0.65);
+
+            font-size: 11px; cursor: pointer; opacity: 0;
+
+            transition: opacity 0.2s ease, background 0.2s ease;
+
+        }
+
+        .msg.ai:hover .msg-ai-copy-btn, .msg.ai-final:hover .msg-ai-copy-btn,
+
+        .msg.ai .msg-ai-copy-btn:focus, .msg.ai-final .msg-ai-copy-btn:focus,
+
+        .msg.ai .msg-ai-copy-btn.copied, .msg.ai-final .msg-ai-copy-btn.copied { opacity: 1; }
+
+        .msg.ai .msg-ai-copy-btn:hover, .msg.ai-final .msg-ai-copy-btn:hover { background: rgba(0,0,0,0.5); color: #fff; }
+
+        .msg.ai .msg-ai-copy-btn.copied, .msg.ai-final .msg-ai-copy-btn.copied { color: #6fbf7f; }
+
+
+
+        .msg.error {
+
+            background: rgba(204, 68, 68, 0.10);
+
+            color: #ff8888;
+
+        }
+
+        .msg.warning {
+
+            background: rgba(255, 165, 0, 0.10);
+
+            border-left: 3px solid #ffa500;
+
+            color: #ffc04d;
+
+        }
+
+        /* 3030/60/90... */
+
+        .msg.notice {
+
+            background: rgba(122, 90, 194, 0.08);
+
+            border-left: 3px solid rgba(122, 90, 194, 0.45);
+
+            color: #a897c9;
+
+            font-size: 12.5px;
+
+            opacity: 0.9;
+
+        }
+
+        .msg.typing {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+            background: linear-gradient(135deg, rgba(126, 87, 194, 0.06) 0%, rgba(94, 70, 158, 0.12) 100%);
+
+            border-left: 3px solid #7a5ac2;
+
+            color: var(--text2);
+
+            font-style: italic;
+
+            font-size: 13px;
+
+            opacity: 0.85;
+
+        }
+
+        .typing-spinner {
+
+            display: inline-block;
+
+            width: 13px;
+
+            height: 13px;
+
+            border: 2px solid rgba(120, 120, 140, 0.2);
+
+            border-top-color: rgba(120, 120, 140, 0.6);
+
+            border-radius: 50%;
+
+            animation: typing-spin 0.8s linear infinite;
+
+            flex-shrink: 0;
+
+        }
+
+        /* ===== 宸ュ叿瀛楀皬鍦嗗湀锛坱hinking 鎸囩ず鍣級锛氭渶杩戜娇鐢ㄥ伐鍏峰悕棣栧瓧锛? 涓竴缁勮疆鍔?===== */
+        .thinking-tools {
+
+            display: inline-flex;
+
+            gap: 4px;
+
+            margin-left: 6px;
+
+            vertical-align: middle;
+
+        }
+
+        .tt-circle {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 18px;
+
+            height: 18px;
+
+            border-radius: 50%;
+
+            background: rgba(100, 130, 255, 0.15);
+
+            border: 1px solid rgba(100, 130, 255, 0.35);
+
+            color: #e8eeff;
+
+            font-size: 11px;
+
+            font-weight: 700;
+
+            line-height: 1;
+
+            animation: tt-pop 0.35s ease both;
+
+            flex-shrink: 0;
+
+        }
+
+        @keyframes tt-pop {
+
+            from { transform: scale(0.4); opacity: 0; }
+
+            to { transform: scale(1); opacity: 1; }
+
+        }
+
+        /* ===== 鍙扮悆寮忔粦鍏ワ細鏂板伐鍏峰渾鍦堜粠鏈€鍙筹紙绉掓暟鏂瑰悜锛夐鍏ュ苟婊氬姩钀藉埌闃熷熬锛屽乏渚у凡鏈夌殑鐞冧笉鍔?===== */
+        .tt-circle.tt-fly-in {
+            position: relative;
+            animation: ttFlyIn 0.55s cubic-bezier(0.18, 0.9, 0.28, 1.05) both;
+        }
+        @keyframes ttFlyIn {
+            0%   { transform: translateX(120px) scale(0.4) rotate(180deg); opacity: 0; }
+            35%  { opacity: 1; }
+            75%  { transform: translateX(-3px) scale(1.06) rotate(-8deg); opacity: 1; }
+            100% { transform: translateX(0) scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* 鏈€鏂颁竴涓伐鍏峰渾鍦堥珮浜?*/
+        .tt-circle.tt-new {
+
+            background: rgba(100, 130, 255, 0.35);
+
+            border-color: rgba(130, 160, 255, 0.75);
+
+            color: #dfe6ff;
+
+            box-shadow: 0 0 6px rgba(100, 130, 255, 0.45);
+
+        }
+
+        /* 鎮诞鎻愮ず锛氭樉绀哄畬鏁村伐鍏峰悕 */
+        .tt-circle[data-tip] { position: relative; cursor: default; }
+
+        .tt-circle[data-tip]:hover::after {
+
+            content: attr(data-tip);
+
+            position: absolute;
+
+            bottom: calc(100% + 6px);
+
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            background: rgba(20, 22, 34, 0.95);
+
+            color: #eef1ff;
+
+            font-size: 11px;
+
+            font-weight: 500;
+
+            padding: 4px 8px;
+
+            border-radius: 5px;
+
+            border: 1px solid rgba(120, 140, 255, 0.4);
+
+            white-space: nowrap;
+
+            pointer-events: none;
+
+            z-index: 99;
+
+            animation: tt-pop 0.12s ease both;
+
+        }
+
+        @keyframes typing-spin {
+
+            to { transform: rotate(360deg); }
+
+        }
+
+        .typing-text {
+
+            opacity: 0.8;
+
+            /* 涓嶅啀鎾戞弧鏁磋锛氶伩鍏嶆妸杞湀/宸ュ叿鐞冩尋鍒版渶鍙宠竟锛涜鏃跺櫒鐢?margin-left:auto 鍗曠嫭闈犲彸 */
+            flex: 0 1 auto;
+
+            min-width: 0;
+
+            overflow: hidden;
+
+            white-space: nowrap;
+
+            text-overflow: ellipsis;
+
+        }
+
+        .thinking-tools {
+            order: 2;
+            flex-shrink: 0;
+        }
+        /* 璁℃椂鍣ㄥ浐瀹氭帓鏈€鍙?*/
+        .typing-timer {
+            order: 3;
+            flex-shrink: 0;
+            margin-left: auto;
+            padding-left: 8px;
+        }
+        /* ===== 绛夊緟杞湀锛氬洖鍒拌棣栵紙杞湀 鈫?鍙扮悆 鈫?绉掓暟锛夛紝鐞冩弧鏃朵綔涓烘缉娑＄悆娲炶鍚?===== */
+        .msg.typing .typing-spinner {
+            position: relative;
+            width: 18px;
+            height: 18px;
+            border-width: 2px;
+            border-color: rgba(100, 130, 255, 0.15);
+            border-top-color: rgba(120, 150, 255, 0.8);
+            box-shadow: inset 0 0 6px rgba(100, 130, 255, 0.35);
+        }
+        /* 姣?10 棰楄繘娲炴椂鐨勪竴娆℃€?+N 娴姩鎻愮ず锛堥棯鐜板悗娑堝け锛屼笉闀挎湡鍋滅暀锛?*/
+        .msg.typing .tt-plus-pop {
+            position: absolute;
+            left: 50%;
+            top: -4px;
+            transform: translateX(-50%);
+            font-size: 11px;
+            font-weight: 800;
+            color: #9fb6ff;
+            text-shadow: 0 0 6px rgba(120, 150, 255, 0.8);
+            pointer-events: none;
+            animation: ttPlusPop 1.1s ease-out both;
+            z-index: 3;
+        }
+        @keyframes ttPlusPop {
+            0%   { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.6); }
+            25%  { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.15); }
+            70%  { opacity: 1; transform: translateX(-50%) translateY(-14px) scale(1); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-22px) scale(0.9); }
+        }
+        /* 婊?10 鐖嗗彂锛氭缉娑℃斁澶у彉浜悶娌′竴鍒囷紝鐒跺悗澶嶅師 */
+        .msg.typing .typing-spinner.tt-burst {
+            animation: ttBurst 0.7s ease both;
+        }
+        @keyframes ttBurst {
+            0%   { box-shadow: 0 0 0 0 rgba(120, 150, 255, 0.6); transform: scale(1); }
+            30%  { transform: scale(1.5); box-shadow: 0 0 22px 10px rgba(120, 150, 255, 0.65); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(120, 150, 255, 0); }
+        }
+        /* 杩涙礊鍔ㄧ敾锛氱悆琚惛杩涘彸渚ф缉娑★紙宸︾Щ娑堝け锛夛紝渚濇閿欏紑 */
+        .msg.typing .thinking-tools.tt-potting .tt-circle {
+            animation: ttRollToHole 0.5s cubic-bezier(0.5, 0, 0.9, 0.4) both;
+        }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(2) { animation-delay: 0.05s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(3) { animation-delay: 0.1s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(4) { animation-delay: 0.15s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(5) { animation-delay: 0.2s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(6) { animation-delay: 0.25s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(7) { animation-delay: 0.3s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(8) { animation-delay: 0.35s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(9) { animation-delay: 0.4s; }
+        .msg.typing .thinking-tools.tt-potting .tt-circle:nth-child(10) { animation-delay: 0.45s; }
+        @keyframes ttRollToHole {
+            to { transform: translateX(-26px) scale(0.15); opacity: 0; }
+        }
+        /* ===== 闉瓙鎸夐挳锛氭彃璇濆偓淇冩敹灏?===== */
+        .whip-hint {
+            order: 4;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            margin-left: 6px;
+            color: rgba(120, 120, 140, 0.55);
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            user-select: none;
+            transition: color 0.15s, background 0.15s;
+        }
+        .whip-hint svg { display: block; }
+        .whip-hint:hover {
+            color: #e8b96a;
+            background: rgba(232, 185, 106, 0.12);
+        }
+        .whip-hint.whip-on {
+            color: #e8b96a;
+            background: rgba(232, 185, 106, 0.18);
+        }
+
+        /* ===== 璁℃椂鍣?===== */
+        .typing-timer {
+            font-size: 11px;
+            color: rgba(120, 120, 140, 0.65);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* =====  ===== */
+
+        .msg.task-duration {
+
+            text-align: center;
+
+            font-size: 11px;
+
+            color: var(--text2);
+
+            background: transparent;
+
+            border: none;
+
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+
+            padding: 6px 0;
+
+            opacity: 0.8;
+
+        }
+
+        .task-duration-icon {
+
+            font-size: 11px;
+
+        }
+
+        .task-duration-value {
+
+            font-weight: 600;
+
+            color: var(--text2);
+
+            font-variant-numeric: tabular-nums;
+
+        }
+
+
+
+        .msg.info {
+
+            text-align: center;
+
+            font-size: 11px;
+
+            color: var(--text2);
+
+            background: transparent;
+
+            border: none;
+
+            padding: 2px 0;
+
+            opacity: 0.6;
+
+        }
+
+        .msg.tool-card {
+
+            align-self: stretch;
+
+            max-width: 100%;
+
+            padding: 0;
+
+            background: transparent;
+
+            border: none;
+
+            animation: msgIn 0.2s ease;
+
+        }
+
+/*  */
+
+        .tool-wrap {
+
+            background: linear-gradient(135deg, #1c1c2e 0%, #181828 100%);
+
+            border: 1px solid rgba(255, 255, 255, 0.06);
+
+            border-radius: 8px;
+
+            margin-bottom: 6px;
+
+            font-size: 11px;
+
+            overflow: hidden;
+
+            flex-shrink: 0; /*  */
+
+            transition: border-color 0.2s, box-shadow 0.2s;
+
+            animation: msgIn 0.2s ease;
+
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+
+            /* 銆愪慨澶?2026-10 闈㈡澘鎾戝銆戝伐鍏峰崱閽冲埌瀹瑰櫒瀹斤紝闀垮唴瀹规姌琛屼笉鎾戠垎闈㈡澘/瀵硅瘽妗?*/
+            min-width: 0;
+
+            max-width: 100%;
+
+            width: auto;
+
+        }
+
+        /* 宸ュ叿鍗″唴鏂囨湰锛堝弬鏁?缁撴灉琛岋級闀垮唴瀹瑰己鍒舵姌琛?*/
+        .tool-wrap, .tool-wrap * {
+
+            overflow-wrap: anywhere;
+
+            word-break: break-word;
+
+        }
+
+        .tool-wrap:hover {
+
+            border-color: rgba(255, 255, 255, 0.12);
+
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+
+        }
+
+        .tool-wrap--success { border-left: 3px solid #4a9; }
+
+        .tool-wrap--fail    { border-left: 3px solid #c44; }
+
+        .tool-wrap__header {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+
+            padding: 8px 12px;
+
+            cursor: pointer;
+
+            user-select: none;
+
+            transition: background 0.15s;
+
+        }
+
+        .tool-wrap__header:hover { background: rgba(255, 255, 255, 0.04); }
+
+        .tool-wrap--nocollapse .tool-wrap__header { cursor: default; }
+
+        .tool-wrap--nocollapse .tool-wrap__header:hover { background: transparent; }
+
+        .tool-wrap__icon   { font-size: 14px; flex-shrink: 0; filter: drop-shadow(0 0 4px rgba(255,255,255,0.1)); }
+
+        .tool-wrap__name   { font-weight: 600; flex-shrink: 0; letter-spacing: 0.3px; }
+
+        .tool-wrap--success .tool-wrap__name { color: #6fbf7f; }
+
+        .tool-wrap--fail    .tool-wrap__name { color: #e88; }
+
+        .tool-wrap__status  {
+
+            font-size: 10px;
+
+            color: var(--text2);
+
+            opacity: 0.6;
+
+            background: rgba(255, 255, 255, 0.04);
+
+            padding: 1px 6px;
+
+            border-radius: 3px;
+
+        }
+
+        .tool-wrap--success .tool-wrap__status { color: #6fbf7f; opacity: 0.8; background: rgba(74,153,136,0.08); }
+
+        .tool-wrap--fail    .tool-wrap__status { color: #e88; opacity: 0.8; background: rgba(204,68,68,0.08); }
+
+        .tool-wrap__status-icon {
+
+            margin-left: auto;
+
+            font-size: 14px;
+
+            flex-shrink: 0;
+
+            filter: drop-shadow(0 0 4px rgba(74,153,136,0.3));
+
+        }
+
+        .tool-wrap--fail .tool-wrap__status-icon { filter: drop-shadow(0 0 4px rgba(204,68,68,0.3)); }
+
+        .tool-wrap__toggle  {
+
+            margin-left: 6px;
+
+            font-size: 10px;
+
+            color: var(--text2);
+
+            opacity: 0.75;
+
+            transition: transform 0.25s ease, opacity 0.15s;
+
+            flex-shrink: 0;
+
+        }
+
+        .tool-wrap__header:hover .tool-wrap__toggle { opacity: 0.8; }
+
+        .tool-wrap--collapsed .tool-wrap__toggle { transform: rotate(-90deg); }
+
+        .tool-wrap--collapsed .tool-wrap__body   { display: none; }
+
+        .tool-wrap__body {
+
+            padding: 2px 12px 10px 12px;
+
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+
+            min-width: 0;
+
+            line-height: 1.7;
+
+        }
+
+        .tool-wrap__section { margin-top: 6px; }
+
+        .tool-wrap__section-label {
+
+            font-size: 10px;
+
+            color: var(--text2);
+
+            opacity: 0.65;
+
+            margin-bottom: 3px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 1px;
+
+            font-weight: 600;
+
+        }
+
+        .tool-wrap__arg     {
+
+            font-size: 11px;
+
+            line-height: 1.7;
+
+            color: var(--text2);
+
+            padding: 2px 0;
+
+            display: flex;
+
+            gap: 2px;
+
+            align-items: baseline;
+
+        }
+
+        .tool-wrap__arg-key { color: #88ccaa; font-weight: 500; flex-shrink: 0; }
+
+        .tool-wrap__arg-sep { color: var(--text2); opacity: 0.5; }
+
+        .tool-wrap__arg-val { color: var(--text); word-break: break-word; }
+
+        .tool-wrap__result  {
+
+            font-size: 11px;
+
+            color: var(--text);
+
+            line-height: 1.6;
+
+            padding: 6px 8px;
+
+            background: rgba(0, 0, 0, 0.15);
+
+            border-radius: 4px;
+
+            border-left: 2px solid rgba(255, 255, 255, 0.06);
+
+            white-space: pre-wrap;
+
+            word-break: break-all;
+
+            overflow-wrap: anywhere;
+
+            overflow-x: auto;
+
+            max-width: 100%;
+
+        }
+
+        /* [fix] 闃叉闀垮唴瀹?闀跨畝杩版妸宸ュ叿鍗＄墖鍜屽璇濇鎾戝 */
+        .tool-wrap { max-width: 100%; min-width: 0; }
+
+        .tool-wrap__header { min-width: 0; flex-wrap: nowrap; }
+
+        .tool-wrap__brief {
+
+            flex: 1 1 auto;
+
+            min-width: 0;
+
+            overflow: hidden;
+
+            text-overflow: ellipsis;
+
+            white-space: nowrap;
+
+            opacity: 0.75;
+
+        }
+
+        .tool-wrap--success .tool-wrap__result { border-left-color: rgba(74,153,136,0.3); }
+
+        .tool-wrap--fail    .tool-wrap__result { border-left-color: rgba(204,68,68,0.3); }
+
+
+
+        /* .tool-wrap--read_file .tool-wrap__result { max-height: 200px; overflow-y: auto; } */
+
+        /* .tool-wrap--search   .tool-wrap__header  { background: rgba(136,204,170,0.05); } */
+
+
+
+        .tool-wrap--ask_user { border-left: 3px solid var(--blue); }
+
+        .tool-wrap--ask_user .tool-wrap__icon { filter: drop-shadow(0 0 4px rgba(var(--blue-rgb), 0.35)); }
+
+        .tool-wrap--ask_user .tool-wrap__status-icon { filter: drop-shadow(0 0 4px rgba(var(--blue-rgb), 0.35)); }
+
+        .tool-wrap--ask_user .tool-wrap__name { color: var(--blue); }
+
+        .tool-wrap--ask_user .tool-wrap__header { cursor: default; }
+
+        .tool-wrap--ask_user .tool-wrap__question {
+
+            font-size: 11px;
+
+            color: var(--text);
+
+            line-height: 1.7;
+
+            padding: 4px 2px 2px 2px;
+
+        }
+
+        .tool-wrap--ask_user .ask-user-input-row {
+
+            display: flex;
+
+            gap: 8px;
+
+            margin-top: 10px;
+
+        }
+
+        .ask-user-input {
+
+            flex: 0 0 auto;
+
+            min-width: 0;
+
+            background: rgba(0, 0, 0, 0.28);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.35);
+
+            border-radius: 6px;
+
+            color: var(--text);
+
+            font-size: 11px;
+
+            padding: 7px 10px;
+
+            outline: none;
+
+            transition: border-color 0.15s, box-shadow 0.15s;
+
+        }
+
+        .ask-user-input:focus {
+
+            border-color: var(--blue);
+
+            box-shadow: 0 0 0 3px rgba(var(--blue-rgb), 0.15);
+
+        }
+
+        .ask-user-submit {
+
+            flex-shrink: 0;
+
+            background: rgba(var(--blue-rgb), 0.15);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.45);
+
+            color: var(--blue);
+
+            font-size: 11px;
+
+            font-weight: 600;
+
+            padding: 7px 16px;
+
+            border-radius: 6px;
+
+            cursor: pointer;
+
+            transition: background 0.15s, color 0.15s;
+
+        }
+
+        .ask-user-submit:hover { background: rgba(var(--blue-rgb), 0.28); color: #cfe6ff; }
+
+        .ask-user-q { color: var(--text); line-height: 1.7; }
+
+        .ask-user-a {
+
+            margin-top: 6px;
+
+            color: #6fbf7f;
+
+            font-size: 11px;
+
+            line-height: 1.7;
+
+            padding: 5px 8px;
+
+            background: rgba(74, 153, 136, 0.1);
+
+            border-left: 2px solid #4a9;
+
+            border-radius: 4px;
+
+        }
+
+
+
+
+
+        /* ===== task_list  ===== */
+
+        .tool-wrap--task_list {
+
+            border-left: 3px solid #a855f7;
+
+        }
+
+        .tool-wrap--task_list .tool-wrap__icon {
+
+            filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.35));
+
+        }
+
+        .tool-wrap--task_list .tool-wrap__status-icon {
+
+            filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.3));
+
+        }
+
+        .tool-wrap--task_list .tool-wrap__name {
+
+            color: #c99bff;
+
+        }
+
+        /* task_list  result  tl-detail  */
+
+        .tool-wrap--task_list .tool-wrap__result {
+
+            background: transparent;
+
+            border-left: none;
+
+            padding: 0;
+
+            width: 100%;
+
+            min-width: 0;
+
+            overflow: visible;
+
+        }
+
+        /* task_list section  */
+
+        .tool-wrap--task_list .tool-wrap__section {
+
+            min-width: 0;
+
+        }
+
+
+
+        /*  */
+
+        .tl-detail {
+
+            padding: 2px 0;
+
+            width: 100%;
+
+            min-width: 0;
+
+            white-space: normal;
+
+        }
+
+        .tl-overview {
+
+            padding: 2px 0;
+
+            width: 100%;
+
+            min-width: 0;
+
+        }
+
+
+
+        /*  */
+
+        .tl-title {
+
+            font-size: 14px;
+
+            font-weight: 700;
+
+            color: #c99bff;
+
+            margin-bottom: 8px;
+
+            text-shadow: 0 0 12px rgba(201, 155, 255, 0.15);
+
+            white-space: normal;
+
+            word-break: normal;
+
+            overflow-wrap: break-word;
+
+        }
+
+
+
+        /*  */
+
+        .tl-progress-bar {
+
+            height: 4px;
+
+            background: rgba(255, 255, 255, 0.08);
+
+            border-radius: 2px;
+
+            overflow: hidden;
+
+            margin: 6px 0 8px 0;
+
+        }
+
+        .tl-progress-fill {
+
+            height: 100%;
+
+            background: linear-gradient(90deg, #a855f7, #c084fc);
+
+            border-radius: 2px;
+
+            transition: width 0.4s ease;
+
+        }
+
+        .tl-progress-fill.tl-complete {
+
+            background: linear-gradient(90deg, #4a9, #6fbf7f);
+
+        }
+
+
+
+        /*  */
+
+        .tl-stats {
+
+            display: flex;
+
+            gap: 10px;
+
+            font-size: 10px;
+
+            margin-bottom: 8px;
+
+            flex-wrap: wrap;
+
+        }
+
+        .tl-stat-item {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 3px;
+
+            padding: 2px 8px;
+
+            border-radius: 3px;
+
+            background: rgba(255, 255, 255, 0.04);
+
+        }
+
+        .tl-stat-completed { color: #6fbf7f; background: rgba(74, 153, 136, 0.1); }
+
+        .tl-stat-pending   { color: var(--text2); }
+
+        .tl-stat-progress  { color: var(--blue); background: rgba(var(--blue-rgb), 0.1); }
+
+        .tl-stat-skipped   { color: #e8a84e; background: rgba(232, 168, 78, 0.1); }
+
+
+
+        /*  */
+
+        .tl-task-list {
+
+            list-style: none;
+
+            padding: 0;
+
+            margin: 0;
+
+        }
+
+        .tl-task-item {
+
+            display: flex;
+
+            align-items: flex-start;
+
+            gap: 6px;
+
+            padding: 2px 0;
+
+            font-size: 11px;
+
+            line-height: 1.6;
+
+            color: var(--text);
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+
+        }
+
+        .tl-task-item:last-child { border-bottom: none; }
+
+        .tl-task-item.tl-status-completed { opacity: 0.55; }
+
+        .tl-task-item.tl-status-completed .tl-task-title {
+
+            text-decoration: line-through;
+
+        }
+
+        .tl-task-item.tl-status-skipped { opacity: 0.4; }
+
+        .tl-task-item.tl-status-skipped .tl-task-title {
+
+            text-decoration: line-through;
+
+        }
+
+
+
+        .tl-task-id {
+
+            color: var(--text2);
+
+            opacity: 0.6;
+
+            flex-shrink: 0;
+
+            min-width: 22px;
+
+            font-size: 10px;
+
+            padding-top: 1px;
+
+        }
+
+        .tl-task-icon {
+
+            flex-shrink: 0;
+
+            font-size: 11px;
+
+            line-height: 1.5;
+
+        }
+
+        /* task content wrapper - div for proper line-clamp */
+
+        .tl-task-content {
+
+            flex: 0 0 auto;
+
+            min-width: 0;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 2px;
+
+        }
+
+        .tl-task-title {
+
+            word-break: break-word;
+
+            display: -webkit-box;
+
+            -webkit-box-orient: vertical;
+
+            -webkit-line-clamp: 3;
+
+            overflow: hidden;
+
+            min-height: 0;
+
+            max-height: 4.8em;
+
+        }
+
+        .tl-task-detail {
+
+            color: var(--text2);
+
+            opacity: 0.6;
+
+            font-size: 10px;
+
+            margin-left: 4px;
+
+            display: -webkit-box;
+
+            -webkit-box-orient: vertical;
+
+            -webkit-line-clamp: 3;
+
+            overflow: hidden;
+
+            min-height: 0;
+
+            max-height: 4.8em;
+
+        }
+
+
+
+        /* 帅 */
+
+        .tl-overview-item {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 6px;
+
+            padding: 5px 0;
+
+            font-size: 11px;
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+
+        }
+
+        .tl-overview-item:last-child { border-bottom: none; }
+
+        .tl-overview-id {
+
+            color: var(--text2);
+
+            opacity: 0.6;
+
+            font-size: 10px;
+
+            background: rgba(168, 85, 247, 0.1);
+
+            padding: 1px 6px;
+
+            border-radius: 3px;
+
+            flex-shrink: 0;
+
+        }
+
+        .tl-overview-title {
+
+            flex: 0 0 auto;
+
+            color: var(--text);
+
+        }
+
+        .tl-overview-progress {
+
+            color: #c99bff;
+
+            font-size: 10px;
+
+            font-weight: 600;
+
+            flex-shrink: 0;
+
+        }
+
+        .tl-overview-progress.tl-all-done { color: #6fbf7f; }
+
+
+
+        /* =====  ===== */
+
+
+
+        /*  */
+
+        .msg.user .msg-user-text {
+
+            display: inline;
+
+        }
+
+
+
+        /*  - hover  */
+
+        .msg.user .msg-copy-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 22px;
+
+            height: 22px;
+
+            margin-left: 8px;
+
+            padding: 0;
+
+            border: none;
+
+            border-radius: 4px;
+
+            background: rgba(0,0,0,0.30);
+
+            color: rgba(255,255,255,0.65);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            opacity: 0;
+
+            transition: opacity 0.2s ease, background 0.2s ease;
+
+            vertical-align: middle;
+
+            flex-shrink: 0;
+
+        }
+
+        .msg.user:hover .msg-copy-btn {
+
+            opacity: 1;
+
+        }
+
+        .msg.user .msg-copy-btn:hover {
+
+            background: rgba(0,0,0,0.5);
+
+            color: #fff;
+
+        }
+
+        .msg.user .msg-copy-btn.copied {
+
+            color: #6fbf7f;
+
+            opacity: 1;
+
+        }
+
+
+
+        /*  - hover  */
+
+        .msg.user .msg-edit-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 22px;
+
+            height: 22px;
+
+            margin-left: 2px;
+
+            padding: 0;
+
+            border: none;
+
+            border-radius: 4px;
+
+            background: rgba(0,0,0,0.30);
+
+            color: rgba(255,255,255,0.65);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            opacity: 0;
+
+            transition: opacity 0.2s ease, background 0.2s ease;
+
+            vertical-align: middle;
+
+            flex-shrink: 0;
+
+        }
+
+        .msg.user:hover .msg-edit-btn {
+
+            opacity: 1;
+
+        }
+
+        .msg.user .msg-edit-btn:hover {
+
+            background: rgba(0,0,0,0.5);
+
+            color: #fff;
+
+        }
+
+
+
+        /* - hover  */
+
+        .msg.user .msg-del-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 22px;
+
+            height: 22px;
+
+            margin-left: 2px;
+
+            padding: 0;
+
+            border: none;
+
+            border-radius: 4px;
+
+            background: rgba(0,0,0,0.30);
+
+            color: rgba(255,255,255,0.65);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            opacity: 0;
+
+            transition: opacity 0.2s ease, background 0.2s ease;
+
+            vertical-align: middle;
+
+            flex-shrink: 0;
+
+        }
+
+        .msg.user:hover .msg-del-btn {
+
+            opacity: 1;
+
+        }
+
+        .msg.user .msg-del-btn:hover {
+
+            background: rgba(244,67,54,0.35);
+
+            color: #ff8a80;
+
+        }
+
+        .msg.user.msg-editing .msg-del-btn {
+
+            display: none;
+
+        }
+
+        [data-theme="light"] .msg.user .msg-del-btn {
+
+            background: rgba(0,0,0,0.06);
+
+            color: rgba(0,0,0,0.4);
+
+        }
+
+        [data-theme="light"] .msg.user .msg-del-btn:hover {
+
+            background: rgba(244,67,54,0.15);
+
+            color: #d32f2f;
+
+        }
+
+
+
+        
+
+        /*  - hover  */
+
+        .msg.user .msg-nav-prev,
+
+        .msg.user .msg-nav-next {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            width: 20px;
+
+            height: 20px;
+
+            margin-left: 2px;
+
+            padding: 0;
+
+            border: none;
+
+            border-radius: 4px;
+
+            background: rgba(0,0,0,0.30);
+
+            color: rgba(255,255,255,0.65);
+
+            font-size: 11px;
+
+            cursor: pointer;
+
+            opacity: 0;
+
+            transition: opacity 0.2s ease, background 0.2s ease;
+
+            vertical-align: middle;
+
+            flex-shrink: 0;
+
+        }
+
+        .msg.user:hover .msg-nav-prev,
+
+        .msg.user:hover .msg-nav-next {
+
+            opacity: 1;
+
+        }
+
+        .msg.user .msg-nav-prev:hover,
+
+        .msg.user .msg-nav-next:hover {
+
+            background: rgba(0,0,0,0.5);
+
+            color: #fff;
+
+        }
+
+        .msg.user .msg-nav-prev:disabled,
+
+        .msg.user .msg-nav-next:disabled {
+
+            opacity: 0.2 !important;
+
+            cursor: default;
+
+        }
+
+
+
+        /*  */
+
+        .msg.user.msg-nav-highlight {
+
+            animation: msgNavHighlight 1.2s ease;
+
+        }
+
+        @keyframes msgNavHighlight {
+
+            0%   { box-shadow: 0 0 0 0 rgba(33,150,243,0.6); }
+
+            30%  { box-shadow: 0 0 0 4px rgba(33,150,243,0.4); }
+
+            100% { box-shadow: 0 0 0 0 rgba(33,150,243,0); }
+
+        }
+
+
+
+/*  */
+
+        .msg.user.msg-editing {
+
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.18) 0%, rgba(0, 100, 180, 0.30) 100%);
+
+            border-left: 3px solid #2196f3;
+
+            padding: 10px 12px;
+
+        }
+
+        .msg.user.msg-editing .msg-edit-btn,
+
+        .msg.user.msg-editing .msg-copy-btn,
+
+        .msg.user.msg-editing .msg-nav-prev,
+
+        .msg.user.msg-editing .msg-nav-next {
+
+            display: none;
+
+        }
+
+
+
+        /*  textarea */
+
+        .msg-edit-textarea {
+
+            width: 100%;
+
+            min-height: 36px;
+
+            max-height: 200px;
+
+            padding: 8px 10px;
+
+            border: 1px solid rgba(33, 150, 243, 0.5);
+
+            border-radius: 6px;
+
+            background: rgba(0, 0, 0, 0.3);
+
+            color: #fff;
+
+            font-size: 14px;
+
+            line-height: 1.6;
+
+            font-family: inherit;
+
+            resize: none;
+
+            outline: none;
+
+            box-sizing: border-box;
+
+            white-space: pre-wrap;
+
+            word-break: break-word;
+
+        }
+
+        .msg-edit-textarea:focus {
+
+            border-color: #2196f3;
+
+            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.15);
+
+        }
+
+
+
+        /*  */
+
+        .msg-edit-btnrow {
+
+            display: flex;
+
+            gap: 8px;
+
+            margin-top: 8px;
+
+            justify-content: flex-end;
+
+        }
+
+        .msg-edit-save, .msg-edit-cancel {
+
+            padding: 4px 16px;
+
+            border: none;
+
+            border-radius: 4px;
+
+            font-size: 13px;
+
+            cursor: pointer;
+
+            transition: opacity 0.2s ease, transform 0.1s ease;
+
+        }
+
+        .msg-edit-save {
+
+            background: #2196f3;
+
+            color: #fff;
+
+        }
+
+        .msg-edit-save:hover {
+
+            background: #1976d2;
+
+        }
+
+        .msg-edit-save:active {
+
+            transform: scale(0.96);
+
+        }
+
+        .msg-edit-cancel {
+
+            background: rgba(255,255,255,0.12);
+
+            color: #ccc;
+
+        }
+
+        .msg-edit-cancel:hover {
+
+            background: rgba(255,255,255,0.2);
+
+        }
+
+
+
+        /* =====  ===== */
+
+        [data-theme="light"] .msg.user .msg-copy-btn {
+
+            background: rgba(0,0,0,0.06);
+
+            color: rgba(0,0,0,0.4);
+
+        }
+
+        [data-theme="light"] .msg.user .msg-copy-btn:hover {
+
+            background: rgba(0,0,0,0.12);
+
+            color: #333;
+
+        }
+
+        [data-theme="light"] .msg.user .msg-edit-btn {
+
+            background: rgba(0,0,0,0.06);
+
+            color: rgba(0,0,0,0.4);
+
+        }
+
+        [data-theme="light"] .msg.user .msg-edit-btn:hover {
+
+            background: rgba(0,0,0,0.12);
+
+            color: #333;
+
+        }
+
+        
+
+        [data-theme="light"] .msg.user .msg-nav-prev,
+
+        [data-theme="light"] .msg.user .msg-nav-next {
+
+            background: rgba(0,0,0,0.06);
+
+            color: rgba(0,0,0,0.4);
+
+        }
+
+        [data-theme="light"] .msg.user .msg-nav-prev:hover,
+
+        [data-theme="light"] .msg.user .msg-nav-next:hover {
+
+            background: rgba(0,0,0,0.12);
+
+            color: #333;
+
+        }
+
+
+
+[data-theme="light"] .msg.user.msg-editing {
+
+            background: linear-gradient(135deg, rgba(var(--blue-rgb), 0.10) 0%, rgba(0,100,180,0.18) 100%);
+
+        }
+
+        [data-theme="light"] .msg-edit-textarea {
+
+            background: rgba(255,255,255,0.9);
+
+            color: #333;
+
+            border-color: rgba(33, 150, 243, 0.4);
+
+        }
+
+        [data-theme="light"] .msg-edit-cancel {
+
+            background: rgba(0,0,0,0.06);
+
+            color: #666;
+
+        }
+
+        [data-theme="light"] .msg-edit-cancel:hover {
+
+            background: rgba(0,0,0,0.12);
+
+        }
+
+
+
+
+
+        /* "" */
+
+        /* ===== "" +  ===== */
+
+        .minimap-review-btn {
+
+            display: none;
+
+            position: fixed;
+
+            left: 50%;
+
+            top: auto;
+
+            bottom: 24px;
+
+            transform: translate(-50%, 0);
+
+            z-index: 99999;
+
+            align-items: center; justify-content: center; gap: 8px;
+
+            min-width: 180px;
+
+            padding: 12px 26px;
+
+            cursor: pointer;
+
+            border-radius: 999px;
+
+            background: linear-gradient(135deg, rgba(22, 163, 74, 0.95), rgba(34, 197, 94, 0.95));
+
+            border: 2px solid rgba(134, 239, 172, 0.95);
+
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 12px rgba(34, 197, 94, 0.6);
+
+            color: #fff;
+
+            font-size: 14px; font-weight: 700;
+
+            letter-spacing: 0.5px;
+
+            white-space: nowrap;
+
+            opacity: 0;
+
+            pointer-events: none;
+
+            animation: reviewBtnRise 0.35s ease forwards, reviewBtnPulse 1.8s ease-in-out 0.35s infinite;
+
+        }
+
+        .minimap-review-btn.show { display: flex; opacity: 1; pointer-events: auto; }
+
+        .minimap-review-btn:hover { box-shadow: 0 4px 22px rgba(0, 0, 0, 0.5), 0 0 22px rgba(34, 197, 94, 0.95); animation: none; filter: brightness(1.12); transform: translate(-50%, 0) translateY(-2px); }
+
+        .minimap-review-btn:active { transform: translate(-50%, 0) scale(0.97); }
+
+        .minimap-review-btn .rv-icon { font-size: 15px; font-weight: bold; }
+
+        @keyframes reviewBtnRise {
+
+            from { opacity: 0; transform: translate(-50%, 0) translateY(24px); }
+
+            to   { opacity: 1; transform: translate(-50%, 0) translateY(0); }
+
+        }
+
+        @keyframes reviewBtnPulse {
+
+            0%, 100% { box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 8px rgba(34, 197, 94, 0.45); }
+
+            50% { box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 20px rgba(34, 197, 94, 0.95); }
+
+        }
+
+        /*  */
+
+
+
+/* =====  ===== */
+
+.chat-status-icon {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    width: 20px;
+
+    height: 20px;
+
+    font-size: 14px;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    transition: color 0.3s ease, text-shadow 0.3s ease;
+
+}
+
+/* idle -  */
+
+.chat-status-icon.status-idle {
+
+    color: rgba(180,180,190,0.8);
+
+}
+
+/* sending -  */
+
+.chat-status-icon.status-sending {
+
+    color: #ffa500;
+
+    text-shadow: 0 0 6px rgba(255,165,0,0.7);
+
+    animation: heartbeat 1s ease-in-out infinite;
+
+}
+
+/* queued -  */
+
+.chat-status-icon.status-queued {
+
+    color: #ffd23c;
+
+    text-shadow: 0 0 6px rgba(255,210,60,0.6);
+
+    animation: heartbeat 1.5s ease-in-out infinite;
+
+}
+
+/* error -  */
+
+.chat-status-icon.status-error {
+
+    color: #e74c3c;
+
+    text-shadow: 0 0 8px rgba(231,76,60,0.7);
+
+    animation: heartbeat 0.5s ease-in-out infinite;
+
+}
+
+/* success -  */
+
+.chat-status-icon.status-success {
+
+    color: #28a745;
+
+    text-shadow: 0 0 6px rgba(40,167,69,0.7);
+
+}
+
+/* active -  */
+
+.chat-status-icon.status-active {
+
+    color: var(--blue);
+
+    text-shadow: 0 0 6px rgba(var(--blue-rgb), 0.6);
+
+}
+
+/* collapsed -  */
+
+.chat-status-icon.status-collapsed {
+
+    color: #787887;
+
+}
+
+/*  */
+
+@keyframes heartbeat {
+
+    0%, 100% { transform: scale(1); }
+
+    50% { transform: scale(1.3); }
+
+}
+
+
+
+
+
+
+
+
+
+/* ======   // +  ====== */
+
+.chatbox-resize {
+
+    position: absolute; inset: 0;
+
+    z-index: 50; pointer-events: none;
+
+    overflow: visible;
+
+}
+
+.chatbox.collapsed .chatbox-resize { display: none; }
+
+
+
+.chatbox .chatbox-resize-handle {
+
+    position: absolute; pointer-events: auto;
+
+    box-sizing: border-box; touch-action: none; user-select: none;
+
+    z-index: 51; background: transparent;
+
+    transition: background-color .12s ease;
+
+}
+
+
+
+/*  hover   */
+
+.chatbox .chatbox-resize-handle.south-east {
+
+    right: 0; bottom: 0; width: 24px; height: 24px;
+
+    cursor: nwse-resize; background: transparent;
+
+    border-bottom-right-radius: 8px; /* 璺熼殢瀵硅瘽妗嗗渾瑙掞紝閬垮厤鎷栨嫿鍥炬鐩栦綇鍦嗚 */
+
+    transition: background .15s ease;
+
+}
+
+.chatbox .chatbox-resize-handle.south-east:hover,
+
+.chatbox .chatbox-resize-handle.south-east:active {
+
+    background: linear-gradient(135deg, transparent 0 45%, rgba(140,140,150,.5) 46% 54%, transparent 55% 65%, rgba(140,140,150,.5) 66% 74%, transparent 75%);
+
+}
+
+/*  hover   */
+
+.chatbox .chatbox-resize-handle.south-west {
+
+    left: 0; bottom: 0; width: 24px; height: 24px;
+
+    cursor: nesw-resize; background: transparent;
+
+    border-bottom-left-radius: 8px; /* 璺熼殢瀵硅瘽妗嗗渾瑙掞紝閬垮厤鎷栨嫿鍥炬鐩栦綇鍦嗚 */
+
+    transition: background .15s ease;
+
+}
+
+.chatbox .chatbox-resize-handle.south-west:hover,
+
+.chatbox .chatbox-resize-handle.south-west:active {
+
+    background: linear-gradient(225deg, transparent 0 45%, rgba(140,140,150,.5) 46% 54%, transparent 55% 65%, rgba(140,140,150,.5) 66% 74%, transparent 75%);
+
+}
+
+/*    */
+
+.chatbox .chatbox-resize-handle.south {
+
+    left: 24px; right: 24px; bottom: 0; height: 7px;
+
+    cursor: ns-resize;
+
+}
+
+/*    */
+
+.chatbox .chatbox-resize-handle.east {
+
+    top: 0; right: 0; bottom: 24px; width: 7px;
+
+    cursor: ew-resize;
+
+}
+
+/*    */
+
+.chatbox .chatbox-resize-handle.west {
+
+    top: 0; left: 0; bottom: 24px; width: 7px;
+
+    cursor: ew-resize;
+
+}
+
+
+
+/*   hover / active   */
+
+/* 淇锛氬彸渚ф粴鍔ㄦ潯琚缉鏀剧儹鍖洪伄鎸℃棤娉曟嫋鎷?
+   1) 鍙崇紭缂╂斁鐑尯浠?7px 鏀剁獎鍒?4px锛屽彧鍗犳粴鍔ㄦ潯鏈€澶栦晶涓€鍗婏紱
+   2) 瀵硅瘽妗嗗唴婊氬姩鏉″姞瀹藉埌 12px锛屾粦鍧楀ぇ閮ㄥ垎鍖哄煙闇插湪鐑尯涔嬪鍙甯告嫋鍔ㄣ€?*/
+.chatbox .chatbox-resize-handle.east { width: 4px; }
+
+.chatbox ::-webkit-scrollbar { width: 12px; height: 12px; }
+.chatbox ::-webkit-scrollbar-thumb { background: rgba(140,140,150,.35); border-radius: 6px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; }
+.chatbox ::-webkit-scrollbar-thumb:hover { background-color: rgba(140,140,150,.6); }
+.chatbox [data-theme="light"] ::-webkit-scrollbar-thumb { background-color: rgba(33,102,209,.35); }
+
+.chatbox .chatbox-resize-handle.south:hover,
+
+.chatbox .chatbox-resize-handle.east:hover,
+
+.chatbox .chatbox-resize-handle.west:hover,
+
+.chatbox .chatbox-resize-handle.south:active,
+
+.chatbox .chatbox-resize-handle.east:active,
+
+.chatbox .chatbox-resize-handle.west:active {
+
+    background: rgba(140,140,150,.2);
+
+}
+
+
+
+
+
+/* ============================================================
+
+   [data-theme="light"] 
+
+   ///
+
+   ============================================================ */
+
+[data-theme="light"] .chatbox {
+
+    background: #ffffff !important;
+
+    color: #1a1a1a !important;
+
+    border-color: rgba(60,100,160,.18) !important;
+
+    box-shadow: 0 8px 32px rgba(33,102,209,.12), 0 2px 8px rgba(33,102,209,.08) !important;
+
+}
+
+[data-theme="light"] .chatbox::before {
+
+    background: #ffffff !important;
+
+}
+
+[data-theme="light"] .chatbox-header {
+    background: inherit !important;
+    border-bottom: 1px solid rgba(60,100,160,.15) !important;
+
+    color: #1a1a1a !important;
+
+}
+
+[data-theme="light"] .chatbox-title { color: #1a1a1a !important; }
+
+[data-theme="light"] .chatbox-title .badge { color: #2166d1 !important; }
+
+
+
+[data-theme="light"] .chatbox-messages,
+
+[data-theme="light"] .chatbox-body,
+
+[data-theme="light"] .msg-list,
+
+[data-theme="light"] .chat-messages {
+
+    background: #ffffff !important;
+
+    color: #1a1a1a !important;
+
+}
+
+[data-theme="light"] .msg,
+
+[data-theme="light"] .message {
+
+    color: #1a1a1a !important;
+
+}
+
+[data-theme="light"] .msg-user,
+
+[data-theme="light"] .message.user {
+
+    background: #e8f1ff !important;
+
+    color: #0d2b5c !important;
+
+    border-color: rgba(33,102,209,.2) !important;
+
+}
+
+[data-theme="light"] .msg-ai,
+
+[data-theme="light"] .message.assistant,
+
+[data-theme="light"] .message.ai {
+
+    background: var(--bg-card) !important;
+
+    color: #1a1a1a !important;
+
+    border-color: rgba(60,100,160,.15) !important;
+
+}
+
+[data-theme="light"] .msg-meta,
+
+[data-theme="light"] .message-meta {
+
+    color: #5a6b85 !important;
+
+}
+
+[data-theme="light"] .msg-content pre,
+
+[data-theme="light"] .message-content pre,
+
+[data-theme="light"] .msg-content code,
+
+[data-theme="light"] .message-content code {
+
+    background: #f0f4fa !important;
+
+    color: #0d2b5c !important;
+
+    border-color: rgba(60,100,160,.18) !important;
+
+}
+
+[data-theme="light"] .msg-content blockquote,
+
+[data-theme="light"] .message-content blockquote {
+
+    background: #f0f4fa !important;
+
+    color: #2a3f5f !important;
+
+    border-left-color: #2166d1 !important;
+
+}
+
+
+
+[data-theme="light"] .chatbox-input,
+
+[data-theme="light"] .chat-input,
+
+[data-theme="light"] .input-area {
+
+    background: var(--bg-card) !important;
+
+    border-top: 1px solid rgba(60,100,160,.15) !important;
+
+}
+
+[data-theme="light"] .chatbox-input textarea,
+
+[data-theme="light"] .chatbox-input input,
+
+[data-theme="light"] .chat-input textarea,
+
+[data-theme="light"] .chat-input input {
+
+    background: #ffffff !important;
+
+    color: #1a1a1a !important;
+
+    border: 1px solid rgba(60,100,160,.25) !important;
+
+}
+
+[data-theme="light"] .chatbox-input textarea::placeholder,
+
+[data-theme="light"] .chat-input textarea::placeholder { color: #8a9bb5 !important; }
+
+
+
+[data-theme="light"] .chatbox-close,
+
+[data-theme="light"] .chatbox-btn,
+
+[data-theme="light"] .chatbox-header button {
+
+    color: #2a3f5f !important;
+
+}
+
+[data-theme="light"] .chatbox-close:hover { color: #d63b3b !important; background: rgba(214,59,59,.1) !important; }
+
+
+
+[data-theme="light"] .chatbox-send,
+
+[data-theme="light"] .send-btn,
+
+[data-theme="light"] .chatbox-input button[type="submit"] {
+
+    background: #2166d1 !important;
+
+    color: #ffffff !important;
+
+}
+
+
+
+[data-theme="light"] .chatbox-toolbar,
+
+[data-theme="light"] .toolbar {
+
+    background: var(--bg-card) !important;
+
+    border-bottom: 1px solid rgba(60,100,160,.12) !important;
+
+}
+
+
+
+[data-theme="light"] .chatbox-msg::-webkit-scrollbar-track { background: #f0f4fa !important; }
+
+[data-theme="light"] .chatbox-msg::-webkit-scrollbar-thumb { background: rgba(33,102,209,.35) !important; }
+
+[data-theme="light"] .chatbox-msg::-webkit-scrollbar-thumb:hover { background: rgba(33,102,209,.6) !important; }
+
+
+
+/* 銆愯緭鍏ユ澶栧３路宸茬粺涓€鎺ョ銆慶hatbox-inputrow 鐨勫渾瑙?瑁佸壀鐢辨湰鏂囦欢鏈熬銆岃緭鍏ユ澶栧３銆嶆
+   锛?chatbox .chatbox-inputrow { overflow:hidden !important; border-radius:8px !important }锛?
+   缁熶竴璐熻矗銆備笅鏂规棫鐨勩€屽簳閮ㄥ渾瑙掗槻閬尅銆嶈鍒欙紙閲嶅 border-radius / 闈?important 鐨?
+   overflow:hidden / upload-voice-send 鍗曡搴曢儴鍦嗚锛夊睘浜庛€屾寜閽创瀹瑰櫒搴曡竟銆嶆椂浠ｇ殑姝昏鍒欙紝
+   鐜?+ / 褰曢煶 / 鍙戦€?宸叉姌鍏ュ澹冲唴閮ㄧ浜屾帓銆佷笉鍐嶈创杈癸紝鏁呮暣娈电Щ闄わ紝閬垮厤璇箟婕傜Щ涓庢棤璋撹鍓€?*/
+
+
+
+/* =====  ===== */
+
+.chatbox .pending-images-bar { display:none; }
+
+.pending-image-item {
+
+    position: relative;
+
+    display: inline-flex;
+
+    align-items: center;
+
+}
+
+.pending-image-item img {
+
+    width: 52px; height: 52px;
+
+    object-fit: cover;
+
+    border-radius: 6px;
+
+    border: 1px solid var(--border, #3a3a4a);
+
+}
+
+.pending-image-del {
+
+    position: absolute; top: -6px; right: -6px;
+
+    width: 18px; height: 18px; line-height: 16px;
+
+    border-radius: 50%;
+
+    border: none; cursor: pointer;
+
+    background: #e74c3c; color: #fff;
+
+    font-size: 12px; font-weight: 700;
+
+    padding: 0;
+
+}
+
+.pending-image-del:hover { background: #c0392b; }
+
+
+
+/* =====   2026 銞?===== */
+
+        .model-picker-menu.mp-horizontal {
+
+            width: auto;
+
+            max-width: calc(100vw - 24px);
+
+            max-height: none;
+
+            overflow: visible;
+
+            padding: 10px;
+
+            background: var(--panel, #1e1e2e);
+
+
+            border: 1px solid rgba(var(--blue-rgb), 0.45);
+
+            border-radius: 10px;
+
+            box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select {
+
+            flex: 1 1 auto;
+
+            min-width: 96px;
+
+            max-width: 180px;
+
+            height: 32px;
+
+            padding: 0 26px 0 10px;
+
+            background: rgba(var(--blue-rgb), 0.14);
+
+            border: 1px solid rgba(var(--blue-rgb), 0.38);
+
+            border-radius: 6px;
+
+            color: var(--text);
+
+            color-scheme: dark;
+
+            font-size: 12.5px;
+
+            font-weight: 500;
+
+            outline: none;
+
+            cursor: pointer;
+
+            appearance: none;
+
+            -webkit-appearance: none;
+
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%230984e3' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+
+            background-repeat: no-repeat;
+
+            background-position: right 9px center;
+
+            transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+
+            white-space: nowrap;
+
+            text-overflow: ellipsis;
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select:hover {
+
+            background-color: rgba(var(--blue-rgb), 0.24);
+
+            border-color: rgba(var(--blue-rgb), 0.6);
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select:focus {
+
+            border-color: var(--blue);
+
+            box-shadow: 0 0 0 2px rgba(var(--blue-rgb), 0.22);
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select option {
+
+            background: var(--bg-card, #161625);
+
+            color: var(--text);
+
+            font-size: 12.5px;
+
+            padding: 6px;
+
+        }
+
+        /* 娴呰壊涓婚涓嬶細寮瑰嚭鑿滃崟涓?option 鍒楄〃璺熼殢娴呰壊鍙橀噺锛岄伩鍏嶅嚭鐜扮郴缁熺櫧搴曢粦瀛椾笌鍏ㄥ眬椋庢牸鍓茶 */
+        [data-theme="light"] .model-picker-menu.mp-horizontal {
+
+            color-scheme: light;
+
+            background: var(--panel, #ffffff);
+
+            box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+        }
+
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select option,
+
+                [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select option:hover,
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select option:focus {
+
+            background: rgba(var(--blue-rgb, 90, 130, 255), 0.18);
+
+            color: #1f2430;
+
+        }
+
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select option:checked {
+
+            background: color-mix(in srgb, var(--blue) 26%, #ffffff);
+
+            color: #1f2430;
+
+        }
+
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select optgroup {
+
+            background: #f2f4f8;
+
+            color: #5a6472;
+
+        }
+
+[data-theme="light"] .model-picker-menu .mp-re-input option {
+
+            background: #ffffff;
+
+            color: #1f2430;
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select option:hover,
+
+        .model-picker-menu.mp-horizontal .mp-row select option:focus {
+
+            background: rgba(var(--blue-rgb, 90, 130, 255), 0.22);
+
+            color: var(--text);
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select option:checked {
+
+            background: color-mix(in srgb, var(--blue) 28%, var(--bg-card, #161625));
+
+            color: var(--text);
+
+        }
+
+        .model-picker-menu.mp-horizontal .mp-row select optgroup {
+
+            background: #161625;
+
+            background-color: #161625;
+
+            color: var(--text2, #6a7381);
+
+            font-weight: 600;
+
+            font-style: normal;
+
+        }
+
+        /* optgroup 鍐呴儴鐨?label 鍏冪礌鍚屾牱鍘嬫垚娣辫壊锛岄伩鍏?UA 榛樿鐧藉簳涓庢暣浣撻鏍煎壊瑁?*/
+        .model-picker-menu.mp-horizontal .mp-row select optgroup label,
+
+        .model-picker-menu.mp-horizontal .mp-row select optgroup::before {
+
+            background: #161625;
+
+            background-color: #161625;
+
+            color: var(--text2, #6a7381);
+
+        }
+
+        /* 娴呰壊涓婚涓嬭鐩栦笂鏂圭‖缂栫爜娣辫壊鍏滃簳锛屼繚璇佹祬鑹茬晫闈㈠垎缁勬爣棰樹负娴呰壊 */
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select optgroup {
+
+            background: #f2f4f8;
+
+            background-color: #f2f4f8;
+
+            color: #5a6472;
+
+        }
+
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select optgroup label,
+
+        [data-theme="light"] .model-picker-menu.mp-horizontal .mp-row select optgroup::before {
+
+            background: #f2f4f8;
+
+            background-color: #f2f4f8;
+
+            color: #5a6472;
+
+        }
+
+        /* ============================================================
+           銆?.1.2 娓呮櫚搴︿慨澶嶃€戝璇濇涓棿鍖哄煙鏂囧瓧娓呮櫚鍙
+           1) 鍏抽棴鏃ф秷鎭殑 content-visibility 璺宠繃娓叉煋锛堣浼樺寲浼氬紩鍙?
+              Windows 楂?DPI 涓嬫枃瀛楁爡鏍煎寲鍙戣櫄銆佸垵娆℃粴鍔ㄩ棯妯＄硦锛?
+           2) 娆¤鏂囧瓧缁熶竴鎻愪寒鎻愭潈锛氬彇娑堜綆閫忔槑搴︺€佸姞娣卞瓧鑹插姣?
+           3) 鏂囧瓧鍙嶉敮榻夸紭鍏堝彲璇绘€э紝鍘绘帀妯＄硦绫?text-shadow 鍏夋檿
+           ============================================================ */
+        .chatbox .msg {
+            content-visibility: visible;
+            contain-intrinsic-size: none;
+        }
+
+        /* 娑堟伅姝ｆ枃锛氱函鐧?+ 鏇寸矖鎺掔増锛屽噺灏戠伆搴曚笂鍙戣櫄 */
+        .chatbox .msg,
+        .chatbox .msg.md-body p,
+        .chatbox .msg.md-body li {
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 娆¤鏂囧瓧锛堟椂闂存埑/鐘舵€?鎻愮ず锛夛細鎻愪寒 + 鎻愰珮涓嶉€忔槑搴?*/
+        .chatbox .msg.notice,
+        .chatbox .msg .msg-time,
+        .chatbox .msg .msg-meta,
+        .chatbox .typing-text {
+            opacity: 1;
+            color: #c8d2e8;
+        }
+
+        /* 宸ュ叿璋冪敤鎶樺彔鏉★細澶撮儴鏂囧瓧涓嶅啀鍘嬫殫 */
+        .chatbox .tool-wrap__header,
+        .chatbox .tool-wrap__summary,
+        .chatbox .tool-wrap__toggle {
+            color: #d5dcec;
+            opacity: 1;
+        }
+
+        /* AI/鏈€缁堝洖绛旀皵娉★細鍘绘帀妯＄硦鍏夋檿锛屽姞寮烘爣棰樺彲璇绘€?*/
+        .chatbox .tl-title {
+            text-shadow: none;
+            color: #d9b8ff;
+        }
+
+        /* Markdown 寮曠敤鍧椾笌浠ｇ爜娉ㄩ噴锛氱伆瀛楁彁浜?*/
+        .chatbox .msg.md-body blockquote {
+            color: #c3cbe0;
+        }
+        .chatbox .msg.md-body h6 {
+            color: #c3cbe0;
+        }
+
+        /* AI 鍥炵瓟鏂囧瓧鍔犱竴灞傛瀬杞绘姇褰辨彁鍗囪竟缂樺姣旓紙闈炴ā绯婏級 */
+        .chatbox .msg.ai,
+        .chatbox .msg.ai-final {
+            text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
+        }
+
+
+/*
+ * 銆愬瓧浣撶缉鏀炬敮鎸併€慍trl+鍔?鍑?绛夊彿/0锛堣 chatbox-font-zoom.js锛夛細
+ * 娑堟伅姝ｆ枃銆佽緭鍏ユ銆佹椂闂存埑绛夊瓧鍙峰叏閮ㄨ蛋 calc(鍩虹px * var(--chatbox-font-scale, 1))
+ */
+.chatbox .msg,
+.chatbox .msg.md-body p,
+.chatbox .msg.md-body li {
+    font-size: calc(14px * var(--chatbox-font-scale, 1));
+}
+
+/* 杈撳叆妗嗐€佹椂闂存埑绛夋瑕佹枃瀛楄仈鍔ㄧ缉鏀?*/
+.chatbox .chatbox-inputrow textarea {
+    font-size: calc(13px * var(--chatbox-font-scale, 1));
+}
+.chatbox .msg .msg-time,
+.chatbox .msg .msg-meta,
+.chatbox .typing-text {
+    font-size: calc(11px * var(--chatbox-font-scale, 1));
+}
+
+/* ===== 鏈€灏忓寲鎸夐挳锛坴5.2.0 琛ュ洖锛?===== */
+.chatbox .hd-btn.min-btn {
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 6px;
+}
+/* ===== 绫?macOS 鏈€灏忓寲锛氭暣涓璇濇闅愯棌锛屽簳閮?dock 鍗＄墖鎭㈠ ===== */
+.chatbox.is-minimized {
+    display: none !important;
+}
+/* 搴曢儴娴┖ dock 鍗＄墖鏍?*/
+#cb-dock-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    z-index: 99999;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    pointer-events: auto;
+}
+.cb-dock-item {
+    padding: 6px 16px;
+    border-radius: 12px;
+    background: rgba(40,44,54,.92);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #dfe3ea;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    transition: transform .18s ease, background .18s ease, opacity .2s ease;
+    animation: cbDockIn .22s ease;
+    white-space: nowrap;
+}
+.cb-dock-item:hover {
+    transform: translateY(-3px) scale(1.06);
+    background: rgba(58,62,74,.95);
+    border-color: var(--accent, #5a8cff);
+}
+.cb-dock-item.cb-dock-out {
+    opacity: 0;
+    transform: translateY(20px) scale(.8);
+    pointer-events: none;
+}
+@keyframes cbDockIn {
+    from { opacity: 0; transform: translateY(20px) scale(.85); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+[data-theme="light"] .cb-dock-item {
+    background: rgba(255,255,255,.95);
+    color: #333;
+    border-color: rgba(0,0,0,.12);
+}
+
+
+/* ===== meteor minimize/restore animation (fast, linear) ===== */
+.chatbox.cb-meteor-out { animation: cbMeteorOut .24s linear forwards; pointer-events: none; }
+@keyframes cbMeteorOut {
+  0% { transform: translate(0,0) scale(1); opacity: 1; }
+  55% { transform: translate(calc(var(--cb-fly-x) * .5), calc(var(--cb-fly-y) * .5)) scale(.55); opacity: 1; }
+  100% { transform: translate(var(--cb-fly-x), var(--cb-fly-y)) scale(.04); opacity: 1; }
+}
+.chatbox.cb-meteor-out::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; filter: blur(6px); background: linear-gradient(160deg, rgba(120,200,255,0) 55%, rgba(120,200,255,.28) 78%, rgba(200,235,255,.55) 100%); animation: cbTailFade .24s linear forwards; }
+@keyframes cbTailFade { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.chatbox.cb-meteor-in { animation: cbMeteorIn .33s linear forwards; pointer-events: none; }
+@keyframes cbMeteorIn {
+  0% { transform: translate(var(--cb-fly-x), var(--cb-fly-y)) scale(.04); opacity: 1; }
+  45% { transform: translate(calc(var(--cb-fly-x) * .5), calc(var(--cb-fly-y) * .5)) scale(.55); opacity: 1; }
+  100% { transform: translate(0,0) scale(1); opacity: 1; }
+}
+.chatbox.cb-meteor-in::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; filter: blur(6px); background: linear-gradient(340deg, rgba(120,200,255,0) 55%, rgba(120,200,255,.28) 78%, rgba(200,235,255,.55) 100%); animation: cbTailFade .33s linear forwards; }
+
+/* ===== self-check inline merge ===== */
+.msg.ai-final .self-check-inline { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(128,128,128,.35); font-size: 12px; opacity: .85; white-space: pre-wrap; word-break: break-word; }
+
+/* ===== configrow buttons unified: eng/tools/project/master/model-picker ===== */
+.chatbox-configrow .eng-trigger,
+.chatbox-configrow .tool-cat-trigger,
+.chatbox-configrow .cfg-btn,
+.chatbox-configrow .model-picker-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 26px;
+    min-height: 26px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    vertical-align: middle;
+}
+.chatbox-configrow .eng-trigger .eng-name,
+.chatbox-configrow .tool-cat-name,
+.chatbox-configrow .cfg-btn .proj-label,
+.chatbox-configrow .model-picker-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 140px;
+}
+.chatbox-configrow .eng-trigger .eng-arrow,
+.chatbox-configrow .model-picker-arrow {
+    flex-shrink: 0;
+}
+/* ===== 閰嶈壊缁熶竴锛氬乏鍙充袱鎺掓寜閽悓涓€濂楀簳鑹?杈规/hover锛屾ā鍨嬮€夋嫨鍣ㄤ笉鍐嶆槸瑁告枃瀛?===== */
+.chatbox-configrow .eng-trigger,
+.chatbox-configrow .tool-cat-trigger,
+.chatbox-configrow .cfg-btn,
+.chatbox-configrow .model-picker-btn {
+    background: rgba(120, 160, 255, 0.12);
+    border: 1px solid rgba(120, 160, 255, 0.28);
+    transition: background .12s ease;
+    transform: none !important;
+}
+.chatbox-configrow .eng-trigger:hover,
+.chatbox-configrow .tool-cat-trigger:hover,
+.chatbox-configrow .cfg-btn:hover,
+.chatbox-configrow .model-picker-btn:hover {
+    background: rgba(120, 160, 255, 0.22);
+    transform: none !important;
+}
+
+
+/* ===== 澶у笀闆嗙兢锛氱缉灏忓璇濇鏃朵繚鎸佸崟琛岋紝涓嶆崲鎺?===== */
+.chatbox-header-row1, .chatbox-configrow { flex-wrap: nowrap !important; }
+.chatbox-header-row1 .hd-btn.mastercluster-btn, .chatbox-configrow .hd-btn.mastercluster-btn,
+.chatbox-header-row1 .hd-btn.wb-toggle-btn, .chatbox-configrow .hd-btn.wb-toggle-btn {
+    flex: 0 0 auto; white-space: nowrap; flex-shrink: 0;
+}
+.chatbox-header-row1 .header-actions { flex-wrap: nowrap; }
+
+/* ===== 銆愬渾瑙掍慨澶嶃€戣緭鍏ヨ/澶撮儴棣栧熬鍏冪礌璺熼殢瀵硅瘽妗嗗渾瑙掞紝闃叉鏂瑰舰鑳屾櫙鐩栨帀宸﹀彸鍦嗚 ===== */
+/* ===== 銆愯緭鍏ユ澶栧３銆慶hatbox-inputrow 鐜颁负鐙珛鍏ㄥ渾瑙掕緭鍏ユ锛屾妸 + / 褰曢煶 / 鍙戦€?鏁翠綋鍖呭湪鍐?===== */
+.chatbox .chatbox-inputrow {
+    overflow: hidden !important;
+    border-radius: 8px !important;
+}
+.chatbox .chatbox-inputrow > *:first-child { border-radius: 4px !important; }
+.chatbox .chatbox-inputrow > *:last-child { border-radius: 4px !important; }
+/* [fix-鏇村鑿滃崟] 鍘熶负 overflow:hidden !important 鈥斺€?瀹冧細鎶娿€屸嫰鏇村銆嶄笅鎷夎彍鍗?
+   (.hd-more-menu 缁濆瀹氫綅鍦?header 涓嬫柟) 鏁村潡瑁佹帀锛岃〃鐜颁负"鐐瑰嚮娌″弽搴斻€佹病鏈夊垪鍑哄唴瀹?銆?
+   鏀逛负 visible锛氳彍鍗曞緱浠ユ孩鍑烘樉绀猴紱header 鍦嗚瑁佸垏瑙嗚鐢卞悇琛岃嚜韬?border-radius 缁存寔锛?
+   涓旀爣棰?鎸夐挳瓒呴暱鐪佺暐鍙烽潬鐨勬槸琛屽唴 flex + text-overflow锛?392 琛岃眮鍏嶈鍒欏凡瑕嗙洊锛夛紝涓嶄緷璧?overflow:hidden銆?*/
+.chatbox .chatbox-header {
+    overflow: visible !important;
+    border-radius: 8px 8px 0 0 !important;
+}
+.chatbox .chatbox-header > *:first-child { border-top-left-radius: 8px !important; }
+.chatbox .chatbox-header > *:last-child { border-top-right-radius: 8px !important; }
+
+        /* 妯″瀷閫夋嫨鍣細椤堕儴鍒嗙被 Tab */
+        .model-picker-menu .mp-cats { display: flex; flex-wrap: nowrap; gap: 3px; padding: 6px 8px 4px; border-bottom: 1px solid rgba(0,0,0,.06); overflow-x: auto; scrollbar-width: none; }
+        .model-picker-menu .mp-cats::-webkit-scrollbar { display: none; }
+        .model-picker-menu .mp-cat { border: 1px solid rgba(0,0,0,.10); background: rgba(0,0,0,.03); border-radius: 9px; font-size: 10.5px; line-height: 1.5; padding: 0 6px; white-space: nowrap; flex: 0 0 auto; cursor: pointer; color: var(--text2, #6a7381); transition: background .15s, border-color .15s, color .15s; }
+        .model-picker-menu .mp-cat:hover { border-color: rgba(0,0,0,.2); color: var(--text, #333); background: rgba(0,0,0,.05); }
+        .model-picker-menu .mp-cat.active { background: color-mix(in srgb, var(--blue) 14%, transparent); border-color: color-mix(in srgb, var(--blue) 45%, transparent); color: var(--blue); font-weight: 600; }
+/* ===== 澶撮儴鍙充笂瑙掓寜閽粺涓€瑙勬牸锛坴5.2.5 瑙嗚淇锛夛細绛夊绛夐珮銆佸浘鏍囧眳涓?===== */
+.chatbox-header .header-actions .hd-btn {
+    width: 24px;
+    height: 22px;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.chatbox-header .header-actions .hd-btn.min-btn { font-size: 13px; }
+.chatbox-header .header-actions .hd-btn.tool-panel-btn,
+.chatbox-header .header-actions .hd-btn.log-panel-btn {
+    position: relative;
+}
+.chatbox-header .header-actions .hd-btn .tool-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    transform: scale(0.85);
+}
+
+        /* ===== tt-circle tooltip & newest highlight ===== */
+        .tt-circle.tt-new { background: rgba(100,130,255,0.35); border-color: rgba(120,150,255,0.7); }
+        .tt-circle { position: relative; }
+        .tt-circle::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: rgba(20,22,30,0.95); color: #fff; font-size: 11px; font-weight: 400; line-height: 1.4; padding: 4px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.12s ease; z-index: 9999; }
+        .tt-circle:hover::after { opacity: 1; }
+        /* ===== 鍙扮悆寮忔粦鍏ュ姩鐢伙細鏂板渾鍦堜粠鍙充晶寮瑰叆锛屾尐鐫€鍓嶉潰鐨勬帓闃?===== */
+        .tt-circle.tt-slide-in { animation: ttFlyIn 0.55s cubic-bezier(0.18, 0.9, 0.28, 1.05) both; }
+        @keyframes ttSlideIn {
+            from { transform: translateX(24px) scale(0.6); opacity: 0; }
+            60%  { opacity: 1; }
+            to   { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        /* ===== 鏂扮悆鍏ュ満鍙戝厜锛氭渶鏂板渾鍦堜粠鍙充晶椋炲叆鏃跺甫鏌斿拰鍏夋檿鑴夊啿 ===== */
+        .tt-circle.tt-fly-in.tt-new {
+            animation: ttFlyIn 0.55s cubic-bezier(0.18, 0.9, 0.28, 1.05) both,
+                       ttGlow 1.1s ease-out 0.05s both;
+        }
+        @keyframes ttGlow {
+            0%   { box-shadow: 0 0 0 0 rgba(120, 150, 255, 0.0); }
+            35%  { box-shadow: 0 0 12px 3px rgba(120, 150, 255, 0.55); }
+            100% { box-shadow: 0 0 6px rgba(100, 130, 255, 0.35); }
+        }
+        /* ===== 鏂扮悆鑳屽悗纰版挒鍐插嚮娉細婊氬叆鍒颁綅鐬棿鍚戝洓鍛ㄦ墿鏁ｄ竴鍦堝厜鐜?===== */
+        .tt-circle.tt-new::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            border: 2px solid rgba(130, 160, 255, 0.8);
+            opacity: 0;
+            pointer-events: none;
+            animation: ttImpact 0.55s ease-out 0.08s both;
+        }
+        @keyframes ttImpact {
+            0%   { transform: scale(0.8); opacity: 0.85; }
+            100% { transform: scale(2.4); opacity: 0; }
+        }
+        /* ===== 鎾炵悆鏁堟灉锛氭柊鐞冩粴鍏ユ椂锛屽乏杈硅鎾炵殑鐞冨脊涓€涓?浜竴涓?===== */
+        .tt-circle.tt-hit {
+            animation: ttHit 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+        }
+        @keyframes ttHit {
+            0%   { transform: translateX(0) scale(1); box-shadow: 0 0 0 rgba(120,150,255,0); }
+            18%  { transform: translateX(-4px) scale(1.18); box-shadow: 0 0 14px 4px rgba(120,150,255,0.65); }
+            55%  { transform: translateX(2px) scale(0.96); box-shadow: 0 0 8px 2px rgba(120,150,255,0.35); }
+            100% { transform: translateX(0) scale(1); box-shadow: 0 0 0 rgba(120,150,255,0); }
+        }
+
+
+/* ============================================================
+   馃尶 Git 鍒嗘敮鎸夐挳 + 閫夊崟锛坈hatbox-branch-menu.js 閰嶅鏍峰紡锛?
+   ============================================================ */
+.chatbox-configrow .cfg-branch-btn {
+    color: #8fb8d3;
+}
+.chatbox-configrow .cfg-branch-btn .branch-label {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
+}
+
+/* ============ 鍒嗘敮寮瑰眰锛堥噸鏋勭増锛?============ */
+.bm-menu {
+    position: fixed;
+    z-index: 100005; /* 【修复·Git面板看不到】原 99999 低于「⋯更多」下拉(100000)，
+        🌿分支按钮收纳进下拉后，面板从下拉区域弹出被菜单压住 → 看不见。
+        现抬到高于 hd-more-menu(100000)/eng-menu(100001)/model-picker(100002)，
+        仍低于 .branch-confirm-mask(100010) 以保证确认弹层覆盖面板。 */
+    min-width: 280px;
+    max-width: 340px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: #1e2126;
+    color: #d8dce2;
+    border: 1px solid #353b44;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.55);
+    font-size: 13px;
+    user-select: none;
+    animation: bm-pop .14s ease-out;
+}
+@keyframes bm-pop {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.bm-menu .bm-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #24422f, #1e2c26);
+    border-bottom: 1px solid #353b44;
+}
+.bm-menu .bm-head-icon { font-size: 15px; }
+.bm-menu .bm-head-close {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #8fa89a;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s;
+}
+.bm-menu .bm-head-close:hover {
+    background: rgba(255,90,90,.14);
+    color: #ff7a7a;
+}
+.bm-menu .bm-head-title { font-weight: 600; color: #a8e6bd; }
+.bm-menu .bm-head-cur {
+    margin-left: auto;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    color: #d8dce2;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(143,211,160,.35);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+.bm-menu .bm-body { padding: 6px; max-height: 320px; overflow-y: auto; }
+.bm-menu .bm-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px;
+    color: #9aa2ad;
+}
+.bm-menu .bm-spin {
+    width: 12px; height: 12px;
+    border: 2px solid #3a3f47;
+    border-top-color: #8fb8d3;
+    border-radius: 50%;
+    animation: bm-rot .7s linear infinite;
+}
+@keyframes bm-rot { to { transform: rotate(360deg); } }
+.bm-menu .bm-section-title {
+    padding: 8px 8px 4px;
+    font-size: 11px;
+    letter-spacing: .5px;
+    color: #7d8590;
+}
+.bm-menu .bm-section-title:not(:first-child) {
+    margin-top: 4px;
+    border-top: 1px solid #2b3038;
+}
+.bm-menu .bm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s;
+}
+.bm-menu .bm-item:hover { background: #2c323b; }
+.bm-menu .bm-check {
+    width: 14px;
+    text-align: center;
+    font-size: 11px;
+    color: #6b7480;
+    flex: none;
+}
+.bm-menu .bm-bname { overflow: hidden; text-overflow: ellipsis; }
+.bm-menu .bm-item.bm-current { background: #26402f; color: #a8e6bd; }
+.bm-menu .bm-item.bm-current .bm-check { color: #8fb8d3; }
+.bm-menu .bm-item.bm-current:hover { background: #2b4a36; }
+.bm-menu .bm-main-tag {
+    flex: none;
+    font-size: 10px;
+    color: #e8c268;
+    border: 1px solid #5a4c28;
+    border-radius: 4px;
+    padding: 0 5px;
+    line-height: 16px;
+}
+.bm-menu .bm-name-input {
+    flex: 1;
+    min-width: 0;
+    background: #14161a;
+    color: #d8dce2;
+    border: 1px solid #3a3f47;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+.bm-menu .bm-name-input:focus { outline: none; border-color: #5a8f6d; }
+.bm-menu .bm-go {
+    flex: none;
+    background: #2f6e46;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background .12s;
+}
+.bm-menu .bm-go:hover { background: #3a8757; }
+.bm-menu .bm-merge { color: #d8b06a; }
+.bm-menu .bm-merge:hover { background: #3a3226; }
+.bm-menu .bm-merge-icon { color: #e8c268; flex: none; }
+.bm-menu .bm-merge b { color: #f0d9a8; }
+.bm-menu .bm-del {
+    margin-left: auto;
+    flex: none;
+    background: transparent;
+    border: none;
+    color: #8a8f98;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity .12s ease, color .12s ease;
+}
+.bm-menu .bm-item:hover .bm-del { opacity: 1; }
+.bm-menu .bm-del:hover { color: #ff7a7a; background: rgba(255,90,90,.12); }
+
+/* 鑷埗纭寮瑰眰锛堟浛浠?window.confirm锛?*/
+.branch-confirm-mask{position:fixed;inset:0;z-index:100010;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;}/* 【配套】抬到 100010，高于 .bm-menu(100005)，确保「确认操作」弹层始终盖在分支面板之上 */
+.branch-confirm-box{background:#22252a;color:#d8dce2;border:1px solid #3a3f47;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.5);padding:18px 20px;max-width:360px;font-size:13px;}
+.branch-confirm-title{font-weight:bold;color:#8fb8d3;margin-bottom:10px;}
+.branch-confirm-text{line-height:1.6;margin-bottom:16px;word-break:break-all;}
+.branch-confirm-btns{display:flex;gap:10px;justify-content:flex-end;}
+.branch-confirm-cancel{background:#2b2f36;color:#d8dce2;border:1px solid #3a3f47;border-radius:6px;padding:5px 16px;cursor:pointer;}
+.branch-confirm-cancel:hover{background:#353a42;}
+.branch-confirm-ok{background:#2f6e46;color:#fff;border:none;border-radius:6px;padding:5px 16px;cursor:pointer;}
+.branch-confirm-ok:hover{background:#3a8757;}
+
+/* ===== configrow v2 閰嶈壊缁熶竴娈碉細鍏寜閽?bg/border/hover/鏂囧瓧 鍏ㄥ榻愶紙瑁佸喅鐗堬級 ===== */
+/* 閲囩撼涓ょ瓥鍒掓鍏卞悓缁撹锛歜g 0.12 / border 0.28 / hover 0.22+杈规鍔犳繁 0.40 / 鏂囧瓧缁熶竴钃?/ 鍘荤缉鏀?*/
+/* 閲囩撼绛栧垝甯?2 渚嬪锛氬垎鏀寜閽繚鐣欑豢瀛?git 璇箟锛沺roj-pinned / .on 鐘舵€侀珮浜笉瑕嗙洊 */
+.chatbox-configrow .eng-trigger,
+.chatbox-configrow .tool-cat-trigger,
+.chatbox-configrow .cfg-btn,
+.chatbox-configrow .model-picker-btn,
+.chatbox-configrow .hd-btn.mastercluster-btn,
+.chatbox-configrow .hd-btn.wb-toggle-btn {
+    background: rgba(90,140,255,.12) !important;
+    border: 1px solid rgba(90,140,255,.28) !important;
+    color: #6ea0ff;
+}
+.chatbox-configrow .eng-trigger:hover,
+.chatbox-configrow .tool-cat-trigger:hover,
+.chatbox-configrow .cfg-btn:hover,
+.chatbox-configrow .model-picker-btn:hover,
+.chatbox-configrow .hd-btn.mastercluster-btn:hover,
+.chatbox-configrow .hd-btn.wb-toggle-btn:hover {
+    background: rgba(90,140,255,.22) !important;
+    border-color: rgba(90,140,255,.40) !important;
+    transform: none !important; /* 鍘嬫帀澶у笀闆嗙兢 scale(1.06)锛屾暣鎺掍笉璺冲姩 */
+}
+/* 鐘舵€侀珮浜緥澶栵紙鐗瑰紓鎬ф洿楂橈紝澶╃劧闅旂锛夛細閽変綇椤圭洰 / 宸ヤ綔鍖哄紑鍚?*/
+.chatbox-configrow .cfg-project-btn.proj-pinned,
+.chatbox-configrow .hd-btn.wb-toggle-btn.on { background: rgba(90,140,255,.25) !important; }
+/* 鍒嗘敮鎸夐挳淇濈暀缁垮瓧 git 璇箟锛堢瓥鍒掑笀#2 閲囩撼椤癸級 */
+.chatbox-configrow .cfg-btn.cfg-branch-btn { color: #8fb8d3 !important; }
+
+/* [fix] chatbox title nowrap guard */
+.chatbox-header .title, .chatbox-header-row1 .title { white-space: nowrap !important; word-break: keep-all !important; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* [fix] header row1 鏁磋绂佹鎹㈣锛氳鑹插悕/瀹℃牳鍛?鎬荤粨甯堢瓑浠讳綍 span 鍙渷鐣ュ彿涓嶆崲琛?
+   [fix-鏇村鑿滃崟鍙鎬?2026-10-14] row1 鏈綋鍘熶负 overflow:hidden锛屼細鎶娿€屸嫰鏇村銆嶄笅鎷夎彍鍗?
+   (.hd-more-menu 缁濆瀹氫綅鍦?hd-more-wrap 涓嬫柟銆佸嵆婧㈠嚭 row1 搴曡竟) 鏁村潡瑁佹帀锛?
+   琛ㄧ幇涓?z-index 鍐嶉珮涔熴€岀湅涓嶅埌涓嬫媺鍐呭銆嶃€傛敼涓?visible锛?
+   路 琛屽唴鏂囨湰鐪佺暐鍙蜂粛鐢卞悇瀛愬厓绱?`> *` 鐨?overflow:hidden+text-overflow(涓嬩竴琛?4417) 缁存寔锛屼笉渚濊禆 row1 鏈綋瑁佸垏锛?
+   路 header-actions / hd-more-wrap 宸插湪 4418 鏄惧紡璞佸厤 visible锛屾湰琛屽彧鏄妸鐖剁骇瑁佸垏涓€骞惰В闄ゃ€?*/
+.chatbox-header-row1 { flex-wrap: nowrap !important; overflow: visible !important; }
+.chatbox-header-row1 > * { white-space: nowrap !important; word-break: keep-all !important; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+.chatbox-header-row1 > .header-actions, .chatbox-header-row1 > .hd-more-wrap { flex-shrink: 0; overflow: visible; }
+.chatbox-header-row1 > .header-actions > *, .chatbox-header-row1 > .hd-more-wrap > * { white-space: nowrap !important; overflow: visible; }
+/* 鍥炬爣鎸夐挳璞佸厤锛氭瀬绐勬椂鍙帇缂╂枃鏈紝涓嶈鍒囧浘鏍?*/
+.chatbox-header-row1 .hd-btn, .chatbox-header-row1 .master-icon { flex-shrink: 0 !important; min-width: fit-content; overflow: visible !important; }
+
+/* ============================================================
+ * 澶撮儴銆屸嫰鏇村銆嶄笅鎷夎彍鍗曪紙chatbox-header-template.js v2锛?
+ * ============================================================ */
+.chatbox-header .hd-more-wrap { position: relative; display: inline-flex; }
+/* 鏄庨潰宸ュ叿璁℃暟寰界珷锛氳创鍦ㄣ€屸嫰銆嶅彸涓婅锛屼笉鐐瑰紑鑿滃崟鍗冲彲鐪嬪埌宸ュ叿鎵ц杩囩▼鏁伴噺
+   [2026 璋冩暣] 鏁板瓧鏀惧ぇ涓€妗ｏ紙鍩哄噯瀛楀彿/鑳跺泭灏哄涓婅皟锛夛紝涓嶅啀鐢?scale 缂╁皬锛?
+   浣裤€屾洿澶氥€嶈鏍囨暟瀛楁槑鏄惧彲璇伙紱鑴夊啿鍔ㄧ敾骞呭害鐣ュ銆?*/
+.chatbox-header .hd-more-wrap > .tool-badge--hd {
+    position: absolute; top: -6px; right: -4px; transform: scale(1);
+    min-width: 16px; height: 16px; line-height: 16px; padding: 0 4px;
+    font-size: 11px; font-weight: 700; border-radius: 8px;
+    z-index: 6; pointer-events: none;
+}
+.chatbox-header .more-btn.tool-panel-btn--pulse { animation: zfhdBgPulse .7s ease; }
+@keyframes zfhdBgPulse { 0%,100% { transform: scale(1); } 30% { transform: scale(1.35); } }
+.chatbox-header .hd-more-wrap .hd-more-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 100000; /* 楂樹簬鏂囦欢鏍?缂╃暐鍥鹃潰鏉匡紝閬垮厤琚洊浣?*/
+    display: flex;
+    flex-direction: column; /* 绔栨帓涓€鍒?*/
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px;
+    background: var(--panel, #1c1c28);
+    border: 1px solid var(--border, rgba(255,255,255,.14));
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.chatbox-header .hd-more-wrap .hd-more-menu .hd-btn { position: relative; }
+
+/* ============================================================
+   瀵硅瘽妗嗘墎骞虫竻鐖藉寲锛圕odex 椋庢牸锛夎鐩栧潡 鈥?椤堕儴 configrow
+   鐩爣锛氭弿杈瑰～鍏呰兌鍥?鈫?娣＄伆鎵佸钩灏忓瓧锛宧over 鎵嶆诞鏋佹贰搴曘€?
+   鍏抽敭锛歴tudio-skin 鐨偆娈碉紙杩愯鏃舵敞鍏?<style>锛屾櫄浜庢墍鏈?link锛?
+         鐢?`html.studio-skin .chatbox-configrow .X { ...!important }`
+         缁存姢鑳跺泭锛堢壒寮傛€?0,3,1锛夈€?important 涔嬮棿姣旂殑鏄壒寮傛€ц€岄潪
+         椤哄簭锛屾晠姝ゅ鐢ㄩ噸澶嶇被 .chatbox-configrow.chatbox-configrow
+         鎻愬埌 0,4,1锛坵b-toggle 鍥?.hd-btn 鍙岀被鎻愬埌 0,5,1锛夊嵆鍙眰鍙犺儨鍑猴紝
+         鏃犻渶鏀瑰姩閭ｆ瓒呴暱杞箟鐨偆瀛楃涓诧紙鏇村畨鍏級銆?
+   浠呭鐞?configrow锛泃extarea 涓夋帓楂樺害瑙?split-02-layout.css + chatbox-03 JS銆?
+   ============================================================ */
+html.studio-skin .chatbox-configrow.chatbox-configrow .model-picker-btn,
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-btn,
+html.studio-skin .chatbox-configrow.chatbox-configrow .hd-btn.wb-toggle-btn,
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-project-btn,
+html.studio-skin .chatbox-configrow.chatbox-configrow .eng-trigger,
+html.studio-skin .chatbox-configrow.chatbox-configrow .tool-cat-trigger {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;        /* 鑳跺泭 鈫?鐩磋锛屾墎骞虫秷澶辨弿杈规劅 */
+    color: var(--st-text2, #6b7280) !important;
+    padding: 3px 6px !important;
+}
+html.studio-skin .chatbox-configrow.chatbox-configrow .model-picker-btn:hover,
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-btn:hover,
+html.studio-skin .chatbox-configrow.chatbox-configrow .hd-btn.wb-toggle-btn:hover,
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-project-btn:hover,
+html.studio-skin .chatbox-configrow.chatbox-configrow .eng-trigger:hover,
+html.studio-skin .chatbox-configrow.chatbox-configrow .tool-cat-trigger:hover {
+    background: var(--st-hover, rgba(128, 128, 128, .10)) !important;
+    color: var(--st-text, #d6dae0) !important;
+}
+
+/* 鏀跺彛琛ユ紡锛堣渹缇ゅ鏍?51a9cb17锛夛細
+   A) 鍒嗘敮鎸夐挳淇濈豢锛氬鏍稿憳#1 鍙戠幇涓诲潡鐏板瓧 !important(0,4,1) 浼氬帇鎺?
+      L4323 `.cfg-btn.cfg-branch-btn{color:#8fb8d3!important}`(0,3,0)銆?
+      杩欓噷鐢?.cfg-btn.cfg-branch-btn 鎻愬埌 0,5,1锛屽湪鐏板瓧鍧椾箣鍚庨噸澹版槑缁胯壊锛屼繚 git 璇箟銆?*/
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-btn.cfg-branch-btn {
+    color: #8fb8d3 !important;
+}
+html.studio-skin .chatbox-configrow.chatbox-configrow .cfg-btn.cfg-branch-btn:hover {
+    color: #a9d0e8 !important;
+}
+/* mastercluster 涔熺撼鍏ユ墎骞筹紙鍩虹灞?L569 鑳跺泭锛屽師涓诲潡婕忓垪锛屽鏍稿憳#2 鍏冲垏锛夈€?*/
+html.studio-skin .chatbox-configrow.chatbox-configrow .hd-btn.mastercluster-btn {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: var(--st-text2, #6b7280) !important;
+    padding: 3px 6px !important;
+}
+html.studio-skin .chatbox-configrow.chatbox-configrow .hd-btn.mastercluster-btn:hover {
+    background: var(--st-hover, rgba(128, 128, 128, .10)) !important;
+    color: var(--st-text, #d6dae0) !important;
+}
+
+/* B) skin-off 鍏滃簳锛歭ayout-skin.js:142 浼?classList.remove('studio-skin')銆?
+      鎽樻帀鍚庝笂闈㈡墍鏈?`html.studio-skin` 鍓嶇紑鍧椾笉鍐嶅尮閰嶏紝configrow 鍥為€€鍩虹灞?
+      (L569/L607/L3985) 鑳跺泭銆備笅闈竴缁勩€愭棤 skin 鍓嶇紑銆戦€夋嫨鍣?.chatbox-configrow.chatbox-configrow
+      (鐗瑰紓鎬?0,3,0锛屼笉甯?!important)锛?
+        路 skin-on 鎬侊細琚毊鑲?!important(0,3,1) 鍘嬩綇涓嶇敓鏁堬紙姝ゆ椂鐢变笂闈富鍧楄礋璐ｆ墎骞筹級锛屼笌涓诲潡浜掕ˉ涓嶅啿绐侊紱
+        路 skin-off 鎬侊細鍘嬭繃鍩虹鑳跺泭(0,2,0)锛屾墎骞崇収甯哥敓鏁堛€?
+      鍒嗘敮淇濈豢鍚屾牱缁欎竴鏉?skin-off 鐗堟湰锛堜笉甯﹀墠缂€锛?,3,1 > 鍩虹 0,2,0锛夈€?*/
+.chatbox-configrow.chatbox-configrow .model-picker-btn,
+.chatbox-configrow.chatbox-configrow .cfg-btn,
+.chatbox-configrow.chatbox-configrow .hd-btn.wb-toggle-btn,
+.chatbox-configrow.chatbox-configrow .hd-btn.mastercluster-btn,
+.chatbox-configrow.chatbox-configrow .cfg-project-btn,
+.chatbox-configrow.chatbox-configrow .eng-trigger,
+.chatbox-configrow.chatbox-configrow .tool-cat-trigger {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+    color: var(--st-text2, #6b7280);
+    padding: 3px 6px;
+}
+.chatbox-configrow.chatbox-configrow .model-picker-btn:hover,
+.chatbox-configrow.chatbox-configrow .cfg-btn:hover,
+.chatbox-configrow.chatbox-configrow .hd-btn.wb-toggle-btn:hover,
+.chatbox-configrow.chatbox-configrow .hd-btn.mastercluster-btn:hover,
+.chatbox-configrow.chatbox-configrow .cfg-project-btn:hover,
+.chatbox-configrow.chatbox-configrow .eng-trigger:hover,
+.chatbox-configrow.chatbox-configrow .tool-cat-trigger:hover {
+    background: rgba(128, 128, 128, .10);
+    color: var(--st-text, #d6dae0);
+}
+.chatbox-configrow.chatbox-configrow .cfg-btn.cfg-branch-btn { color: #8fb8d3; } /* 鈶?鍘熺豢鑹?8fb8d3鏀瑰悓鑹茬郴娴呰摑锛屽幓鎺夋姠瑙嗙嚎鐨勭豢 */
+.chatbox-configrow.chatbox-configrow .cfg-btn.cfg-branch-btn:hover { color: #a9d0e8; }
+
+/* ============================================================
+   [fix 5.5.5] 瀵硅瘽涓嬫帓鎸夐挳鍖呰９ + 妯″瀷涓嬫媺閬尅淇
+   闂1锛氬皢杈撳叆妗嗕笅鏂逛竴鎺掓寜閽紙搴曞眰寮曟搸/宸ュ叿鍒嗙被/椤圭洰/鍒嗘敮/妯″瀷閫夋嫨锛?
+         鐢ㄤ竴涓渾瑙掕竟妗嗗鍣ㄥ寘璧锋潵锛屼笌涓婃柟鍦嗚杈撳叆妗嗗懠搴旀垚缁勩€?
+   闂2锛氭ā鍨嬮€夋嫨涓嬫媺鍚戜笂寮瑰嚭鏃惰娑堟伅鍖哄唴瀹归伄鎸♀€斺€旂粰 configrow 寤虹珛
+         楂樹簬 .chatbox-body 鐨勫眰鍙犱笂涓嬫枃锛坧osition:relative + z-index锛夛紝
+         浣垮叾鍐呴儴 .model-picker-menu锛坺-index:10000锛夋暣浣撴诞浜庢秷鎭尯涔嬩笂銆?
+   閫夋嫨鍣ㄧ敤鍙岀被鍚嶆彁楂樼壒寮傚害锛岀‘淇濆帇杩囨枃浠跺唴鏃㈡湁鐨?configrow 瑙勫垯銆?
+   ============================================================ */
+.chatbox .chatbox-configrow.chatbox-configrow {
+    position: relative;        /* 寤虹珛灞傚彔涓婁笅鏂囷紝鎵胯浇鍐呴儴楂?z-index 涓嬫媺 */
+    z-index: 50;               /* 楂樹簬 .chatbox-body 鍐呭锛堟秷鎭?鍥剧墖锛夛紝瑙ｅ喅閬尅 */
+    margin: 0 8px 8px;         /* 鍐呯缉锛岃杈规鍛堢幇涓虹嫭绔嬪寘瑁规潯 */
+    padding: 0 8px;
+    height: 34px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;       /* 鍦嗚锛屽寘浣忔暣鎺掓寜閽?*/
+    box-sizing: border-box;
+}
+/* 娴呰壊涓婚涓嬭竟妗嗘洿鏄庢樉 */
+[data-theme="light"] .chatbox .chatbox-configrow.chatbox-configrow {
+    border-color: rgba(0,0,0,.12);
+}
+
+/* ============================================================
+   椤舵爮銆學indows 鑿滃崟鏍忓紡銆嶆枃瀛楄彍鍗曢」 (v3)
+   .hd-menubar 妯帓锛氬伐鍏?/ 鏃ュ織 / 鏇村鈻?
+   鐩爣锛氱函鏂囧瓧銆佺瓑璺濄€乭over 楂樹寒锛岀偣鍑?toggle锛涜鐩栨棫鐨?
+   .header-actions .hd-btn{width:24px} 鍥哄畾瀹斤紝璁╂枃瀛楅」鑷€傚簲銆?
+   绐勭獥闃茶鍓細menubar 鏁翠綋 flex-shrink:0 + 鍚勬枃瀛楅」 nowrap銆?
+   ============================================================ */
+.chatbox-header .hd-menubar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    overflow: visible;
+}
+/* 鏂囧瓧鑿滃崟椤癸細鍘绘帀鏃?24px 鏂瑰潡锛屾敼鑷€傚簲鏂囧瓧鑳跺泭 */
+.chatbox-header .hd-menubar .menu-btn,
+.chatbox-header .hd-menubar .more-btn {
+    width: auto;
+    min-width: 0;
+    height: 20px;
+    padding: 0 8px;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+    overflow: visible;
+    flex: 0 0 auto;
+    color: var(--text, #e6e6f0);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.chatbox-header .hd-menubar .menu-btn:hover,
+.chatbox-header .hd-menubar .more-btn:hover,
+.chatbox-header .hd-menubar .hd-more-wrap.open .more-btn {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.14);
+    border-color: rgba(var(--blue-rgb, 80,120,220), 0.30);
+    color: var(--blue, #7aa2ff);
+}
+/* 闈㈡澘宸插睍寮€鏃舵枃瀛楅」楂樹寒锛坥n 鎬侊紝鐢?JS toggle锛?*/
+.chatbox-header .hd-menubar .menu-btn.on {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.18);
+    border-color: rgba(var(--blue-rgb, 80,120,220), 0.36);
+    color: var(--blue, #7aa2ff);
+    font-weight: 600;
+}
+/* 宸ュ叿璁℃暟寰界珷锛氳创鍦ㄣ€屽伐鍏枫€嶆枃瀛楀彸涓婅 */
+.chatbox-header .hd-menubar .tool-panel-btn .tool-badge {
+    position: absolute; top: -5px; right: -3px; transform: scale(0.78);
+    pointer-events: none;
+}
+/* 銆屾洿澶氣柧銆嶄笅鎷夊鍣ㄤ粛鐩稿瀹氫綅鎵胯浇瀛愯彍鍗?*/
+.chatbox-header .hd-menubar .hd-more-wrap { position: relative; display: inline-flex; }
+
+/* 鏋佺獎绐楀厹搴曪細鏍囬浼樺厛鐪佺暐锛宮enubar/鎸夐挳缁勪笉鍘嬬缉銆佷笉瑁佸垏 */
+.chatbox-header-row1 > .header-actions { overflow: visible; }
+.chatbox-header-row1 .hd-menubar .menu-btn,
+.chatbox-header-row1 .hd-menubar .more-btn {
+    flex-shrink: 0 !important; min-width: fit-content; overflow: visible !important;
+}
+
+/* ============================================================
+   椤舵爮鏋佺畝鍗曞叆鍙?(v4)锛氬彧鐣欎竴涓€屸嫰銆嶏紝宸ュ叿/鏃ュ織/浼樺厛绾х瓑鍏ㄨ繘瀹冪殑涓嬫媺銆?
+   璁℃暟寰界珷 + 1 椋樺瓧閿氬畾鍦ㄣ€屸嫰銆?more-btn) 涓婏紱more-btn 闇€ position:relative
+   鎵胯浇 absolute 鐨?.tool-badge銆備笅鎷夋枃瀛楅」鍏ㄥ宸﹀榻愭部鐢ㄤ笂鏂?
+   .hd-more-menu .hd-btn.tool-panel-btn/log-panel-btn 瑙勫垯锛?on 楂樹寒娌跨敤
+   .hd-menubar .menu-btn.on銆?
+   ============================================================ */
+.chatbox-header .hd-menubar .more-btn {
+    position: relative;
+    /* [2026-11 去空格] 去掉与文字菜单项共享的 padding:0 8px 右侧占位，
+       让「⋯」图标紧凑、数字徽章直接贴右上角，不再有一段空白隔开 */
+    padding: 0 2px !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+.chatbox-header .hd-menubar .more-btn .tool-badge {
+    top: -6px; right: 0px; /* [璋冩暣] 鏁板瓧瑙掓爣鍐嶅線宸?5px锛坮ight -5px 鈫?0px锛?*/
+    min-width: 15px; height: 15px; line-height: 15px;
+    font-size: 10px; font-weight: 700; border-radius: 8px;
+    transform: none; /* 瑕嗙洊鍩虹 scale锛屼娇銆屸嫰銆嶄笂鐨勬暟瀛楁斁澶у彲璇?*/
+}
+/* 涓嬫媺閲岀殑鏂囧瓧椤逛繚鎸佺函鏂囧瓧銆佸乏瀵归綈鍏ㄥ锛堜笌銆屾洿澶氣柧銆嶅巻鍙茶彍鍗曢」缁熶竴锛?*/
+.chatbox-header .hd-more-menu .menu-btn.tool-panel-btn,
+.chatbox-header .hd-more-menu .menu-btn.log-panel-btn {
+    width: auto; height: auto; justify-content: flex-start; text-align: left;
+    font-size: 12px; padding: 5px 12px; color: var(--text, #e6e6f0);
+    background: transparent; border: 0; white-space: nowrap;
+}
+.chatbox-header .hd-more-menu .menu-btn.tool-panel-btn:hover,
+.chatbox-header .hd-more-menu .menu-btn.log-panel-btn:hover {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.14);
+}
+/* 闈㈡澘灞曞紑鏃朵笅鎷夐」楂樹寒锛堢偣鍑诲悗鑿滃崟铏芥敹璧凤紝閲嶅紑鏃朵粛鍙湅鍒板綋鍓嶆墦寮€鐨勯潰鏉块」锛?*/
+.chatbox-header .hd-more-menu .menu-btn.tool-panel-btn.on,
+.chatbox-header .hd-more-menu .menu-btn.log-panel-btn.on {
+    color: var(--blue, #7aa2ff); font-weight: 600;
+}
+
+/* ============================================================
+   鈰?涓嬫媺銆岀粺涓€绾枃瀛楄彍鍗曡銆?v5) 鈥斺€?鐢ㄦ埛璇夋眰锛氱畝娲侊紝涓€涓€屸嫰銆?甯︽暟瀛?+1)锛?
+   鍏朵綑鍏ㄩ儴浠ユ枃瀛楀舰寮忚繘涓嬫媺锛岀偣鏂囧瓧鍐嶅睍寮€瀵瑰簲鑿滃崟/闈㈡澘锛涘唴閮ㄩ€昏緫涓嶅姩锛屽彧閲嶆帓瑙嗚銆?
+   闂鏍瑰洜锛歳elocate.js 鎶婂紩鎿?宸ュ叿鍒嗙被/Git鍒嗘敮/澶у笀闆嗙兢杩愯鏃舵惉杩?.hd-more-menu 鍚庯紝
+   瀹冧滑浠嶅鐫€涓婃柟 L753/L775/L819 鐨勮摑鑹茶兌鍥婃牱寮忥紝涓庢ā鏉胯嚜甯︾殑绾枃瀛椼€屽伐鍏?鏃ュ織銆嶅苟鎺?
+   鈫?涓€涓彍鍗曚袱绉嶉鏍?= 銆屼贡銆嶃€傛湰鍧楀皢鑿滃崟鍐呫€愭墍鏈夎Е鍙戦」銆戠粺涓€涓哄悓娆剧函鏂囧瓧琛屻€?
+   路 鍙敼銆岃Е鍙戝櫒澶栬銆嶏紝涓嶅姩浜岀骇寮瑰眰瀹瑰櫒(.eng-menu/.tool-cat-menu/.prio-menu 浠嶅悜涓嬪脊)锛?
+   路 涓嶅姩浠讳綍 JS锛歞ata-act 濮旀墭銆乺elocate 鎼Щ銆乼oggle 闈㈡澘銆佸窘绔?椋樺瓧鍏ㄩ儴鍘熸牱锛?
+   路 鐢?!important 鍏滃簳鍘嬭繃鎼叆鑳跺泭灞?鐗瑰紓鎬х浉杩戙€侀潬鍚庤儨鍑?锛屽苟鏄惧紡澶嶄綅 border/鑳屾櫙銆?
+   ============================================================ */
+/* 鑿滃崟鍐呮墍鏈夊彲鐐瑰嚮琛岋細缁熶竴宸﹀榻愬叏瀹姐€侀€忔槑銆佹棤杈规銆佸悓瀛楀彿銆佸悓鍐呰竟璺?*/
+.chatbox-header .hd-more-menu > .hd-btn,
+.chatbox-header .hd-more-menu > .prio-btn,
+.chatbox-header .hd-more-menu > .cfg-branch-btn,
+.chatbox-header .hd-more-menu > .eng-picker-wrap > .eng-trigger,
+.chatbox-header .hd-more-menu > .tool-cat-wrap > .tool-cat-trigger,
+.chatbox-header .hd-more-menu > .mastercluster-btn {
+    display: flex !important;
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    color: var(--text, #e6e6f0) !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    opacity: 1 !important;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+}
+/* 鎼叆鎺т欢鐨勫寘瑁瑰眰鎾戞弧鏁磋锛屼娇鍏跺唴閮ㄨЕ鍙戝櫒涓庢枃瀛楄瀵归綈涓€鑷?*/
+.chatbox-header .hd-more-menu > .eng-picker-wrap,
+.chatbox-header .hd-more-menu > .tool-cat-wrap {
+    display: block !important;
+    width: 100% !important;
+    position: relative;
+}
+/* hover / on(楂樹寒) / 褰撳墠閫変腑鎬侊細缁熶竴娣¤摑搴?*/
+.chatbox-header .hd-more-menu > .hd-btn:hover,
+.chatbox-header .hd-more-menu > .prio-btn:hover,
+.chatbox-header .hd-more-menu > .cfg-branch-btn:hover,
+.chatbox-header .hd-more-menu > .eng-picker-wrap > .eng-trigger:hover,
+.chatbox-header .hd-more-menu > .tool-cat-wrap > .tool-cat-trigger:hover,
+.chatbox-header .hd-more-menu > .mastercluster-btn:hover,
+.chatbox-header .hd-more-menu > .hd-btn.on {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.14) !important;
+    color: var(--text, #e6e6f0) !important;
+}
+/* 浼樺厛绾ф寜閽。浣嶆枃瀛楋紙鍚€屸殹銆嶄箣绫伙級鍚屾牱寮忕函鏂囧瓧琛岋紱鍏?data-tier 棰滆壊鐢?JS 鎺у埗涓嶅己鏀?*/
+.chatbox-header .hd-more-menu > .prio-btn { color: var(--text, #e6e6f0) !important; }
+/* Git 鍒嗘敮鍚?寮曟搸鍚?鍒嗙被鍚嶇瓑瑙﹀彂鍣ㄥ唴鏂囧瓧淇濇寔宸﹀榻愩€佹甯歌壊锛堝幓鎺夊師钃濊壊鑳跺泭寮鸿皟锛岀粺涓€鎴愯彍鍗曢」瑙傛劅锛?*/
+.chatbox-header .hd-more-menu .cfg-branch-btn .branch-name,
+.chatbox-header .hd-more-menu .eng-trigger,
+.chatbox-header .hd-more-menu .tool-cat-trigger {
+    font-size: 12px !important;
+}
+/* 銆愭枃瀛楀浐瀹氥€戔嫰 鑿滃崟鍐呫€屽紩鎿?/ 鍒嗙被 / git銆嶄笁椤逛笉鍐嶉殢鐘舵€佸彉鍖栵紝缁熶竴鏄剧ず鍥哄畾鏂囧瓧锛?
+   闅愯棌浼氬姩鎬佹洿鏂?鍐椾綑鐨勫唴閮?span锛堝綋鍓嶅紩鎿庡悕 eng-name / 褰撳墠鍒嗙被鍚?tool-cat-name銆佸浘鏍?tool-cat-icon銆佸浐瀹氬墠缂€ tool-cat-label / 褰撳墠鍒嗘敮鍚?
+   branch-label锛夛紝鏀圭敤 ::before 杈撳嚭鍥哄畾鏂囧瓧銆俫it 鎸夐挳妯℃澘瑁告枃瀛楀凡鏄€実it銆嶏紝浠呴渶闅愯棌 branch-label銆?
+   鍒囨崲鍔熻兘涓嶅彈褰卞搷锛堜簨浠剁粦瀹?data-act 濮旀墭闅忚妭鐐硅蛋锛夈€?*/
+.chatbox-header .hd-more-menu .eng-trigger .eng-name,
+.chatbox-header .hd-more-menu .tool-cat-trigger .tool-cat-name,
+.chatbox-header .hd-more-menu .tool-cat-trigger .tool-cat-icon,
+.chatbox-header .hd-more-menu .tool-cat-trigger .tool-cat-label,
+.chatbox-header .hd-more-menu .cfg-branch-btn .branch-label,
+.chatbox-header .hd-more-menu .eng-trigger .eng-arrow,
+.chatbox-header .hd-more-menu .tool-cat-trigger .tool-cat-arrow {
+    display: none !important;
+}
+.chatbox-header .hd-more-menu .eng-trigger::before { content: '寮曟搸'; }
+.chatbox-header .hd-more-menu .tool-cat-trigger::before { content: '鍒嗙被'; }
+/* 銆恌ix 2026-11 鍚戝乏寮广€戝紩鎿?宸ュ叿鍒嗙被浜岀骇闈㈡澘寮瑰埌 鈰?涓昏彍鍗曟宸︿晶锛?
+   .eng-picker-wrap/.tool-cat-wrap 鏀?static锛堟柇閿氾級锛屼娇 .eng-menu/.tool-cat-menu
+   浠ユ暣涓?鈰?涓昏彍鍗曪紙.hd-more-menu锛宺elative锛変负瀹氫綅鐖剁骇锛岀粺涓€鍚戝乏椋炲嚭锛?
+   榧犳爣浠庤彍鍗曢」妯悜鎼繃鍘诲嵆鍙洿鎺ョ偣閫夛紝涓嶅啀鍚戜笅寮广€佷篃涓嶉伄鎸′富鑿滃崟浠讳綍鏉＄洰銆?
+   z-index 100001锛? 涓昏彍鍗?100000锛夛紝閬垮厤閲嶅彔鍖哄懡涓炕杞鑷撮棯鐑併€?*/
+.chatbox-header .hd-more-menu { position: relative; }
+.chatbox-header .hd-more-menu .eng-picker-wrap,
+.chatbox-header .hd-more-menu .tool-cat-wrap { position: static; }
+.chatbox-header .hd-more-menu .eng-menu,
+.chatbox-header .hd-more-menu .tool-cat-menu {
+    position: absolute;
+    right: calc(100% + 8px) !important; left: auto !important;
+    top: 0 !important; bottom: auto !important;
+    margin: 0 !important;
+    z-index: 100001 !important;
+    /* 闃叉孩鍑猴細鍒楄〃杩囬暱鏃堕檺楂樻粴鍔紙瀹℃牳寤鸿閲囩撼锛?*/
+    max-height: calc(100vh - 48px) !important;
+    overflow-y: auto !important;
+}
+/* 宸ュ叿鍒嗙被浜岀骇闈㈡澘琚?JS 涓存椂绉绘寕鍒?body 鏃讹紙fixed 瀹氫綅璺熼殢锛夛紝涓嶅彈涓婇潰瑙勫垯褰卞搷锛屾甯告樉绀?*/
+.chatbox-header .hd-more-menu .prio-menu {
+    left: 0 !important; right: auto !important;
+}
+
+
+/* ============================================================
+   【5.6.0 修复】对话框「选择模型」下拉列表被对话区截断
+   ------------------------------------------------------------
+   现象：点底部「选择模型」，向上弹出的面板被输入行外壳上边缘切掉
+        一截，剩余部分又被消息列表（.chatbox-body）压住。
+   根因：① .chatbox-inputrow 圆角外壳带 overflow:hidden !important
+          （5.5.5 修滚动条溢出时加的），菜单 bottom:100% 向上弹出
+          正好撞在这条裁剪线上被切；
+        ② 5.5.5 的层叠修复只抬了 .chatbox-configrow（z-index:50），
+          底部合并后选择器已迁进 inputrow 拿不到该层级，而
+          .chatbox-body 有 z-index:5，于是菜单被对话内容盖住；
+        ③ .chatbox 自身 overflow:hidden，菜单高于对话框可用空间时
+          再从顶部切第二刀。
+   解法：JS（chatbox-01-model-selector.js）打开菜单时把它临时挂到
+        document.body 并 fixed 跟随按钮（沿用本项目 hd-more-menu
+        浮层的既有做法）；下面两条 CSS 负责层级与挂载失败时兜底。
+   ============================================================ */
+
+/* 浮层态：脱离外壳后 fixed 定位，层级必须高于对话内容与对话框本体 */
+.chatbox .model-picker-menu.mp-floating,
+body > .model-picker-menu.mp-floating {
+    position: fixed !important;
+    z-index: 100002 !important;   /* 高于 .chatbox(22) 与头部弹层(100001) */
+    margin: 0 !important;
+    bottom: auto !important;      /* left/top/高度由 JS 按视口计算写入 */
+    /* overflow 交给 JS 按需设置：内容真超高才内部滚动，
+       否则保持 visible，避免裁掉横向皮肤向上弹出的子面板(.mp-re-panel) */
+}
+
+/* 兜底（挂载失败/极端环境）：菜单展开时放开所在外壳的裁剪，
+   让菜单至少能完整透出 inputrow / configrow 边界 */
+.chatbox .chatbox-inputrow:has(.model-picker-menu:not([hidden])),
+.chatbox .chatbox-configrow:has(.model-picker-menu:not([hidden])) {
+    overflow: visible !important;
+}

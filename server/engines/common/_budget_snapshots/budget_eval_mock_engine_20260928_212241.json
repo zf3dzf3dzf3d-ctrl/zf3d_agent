@@ -1,0 +1,1 @@
+{"engine_id": "eval_mock_engine", "spent_tokens": 111, "budget": 222, "saved_at": "2026-09-28 21:22:41", "resume_hint": "Resume by passing resume_messages as request messages", "resume_messages": [{"role": "user", "content": "评测快照"}]}

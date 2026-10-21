@@ -1,0 +1,4 @@
+{
+    "_说明": "示例配置：复制为 config.json 使用。data_dir 相对路径锚定项目根（推荐，指向 private/ 隐私目录，登录态不入 git）；也可用绝对路径。",
+    "data_dir": "private/浏览器数据"
+}

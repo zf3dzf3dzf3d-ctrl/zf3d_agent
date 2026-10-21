@@ -1,0 +1,97 @@
+/* ============================================================
+   v17：顶栏/底栏常显模式（取消自动隐藏）
+   两栏仍为 fixed 定位，但默认就显示，不再滑出屏幕。
+   原 edge-hot 热区/显隐脚本保留但不再生效。
+   ============================================================ */
+
+/* 清掉两条上可能存在的伪元素装饰 */
+.topbar::before,
+.topbar::after,
+.statusbar::before,
+.statusbar::after {
+    content: none !important;
+    background: none !important;
+}
+
+/* 全局完全透明（所有主题） */
+.topbar[style], .statusbar[style], .tp-fab-group[style], [class*=dock][style] { background: transparent !important; background-color: transparent !important; backdrop-filter: none !important; box-shadow: none !important; }
+/* 指示灯(.tk-dot)不在透明范围内：否则风筝/守卫/急速的小灯永远不亮 */
+.statusbar *:not(.tk-dot), .tp-fab-group, [class*=dock] { background-image: none !important; }
+
+.topbar,
+.statusbar,
+[data-theme="light"] .topbar,
+[data-theme="light"] .statusbar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .statusbar {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 内联样式兜底：清掉 JS 写入的 background */
+.topbar[style], .statusbar[style], .tp-fab-group[style] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+ 
+/* ====== 顶栏/底栏改浮层化：脱离文档流，画布全屏通透 ====== */
+.topbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    pointer-events: none; /* 整条不拦截点击，空白处穿透到画布 */
+}
+.statusbar {
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    z-index: 900;
+    pointer-events: none;
+}
+/* 顶/底栏内的可交互子元素单独恢复可点击 */
+.topbar > *, .topbar button, .topbar a, .topbar input,
+.statusbar > *, .statusbar button, .statusbar a, .statusbar input {
+    pointer-events: auto;
+}
+/* 画布延伸到全屏高度（顶/底栏已浮层化，不再占据文档流） */
+.canvas-area { 
+    height: 100vh !important; 
+} 
+/* ===== canvas-overview integration (app-canvas-overview.js v1) ===== */
+body.zf-overview-mode .ov-selected { outline: 2px solid #4f8cff !important; outline-offset: 3px; box-shadow: 0 0 0 5px rgba(79,140,255,.25) !important; }
+body.zf-overview-mode .chatbox { user-select: none; }
+/* ===== 缩小整理模式（总览态）鼠标形状跟随 =====
+   左键：空白处=框选(crosshair)、节点=拖动(move)；右键：平移(grabbing)。
+   正常模式不受影响（右键=创建快捷对话框、左键=平移）。 */
+body.zf-overview-mode #canvasArea { cursor: crosshair; }
+body.zf-overview-mode .chatbox,
+body.zf-overview-mode .kite-node,
+body.zf-overview-mode .browser-node,
+body.zf-overview-mode .engine-node,
+body.zf-overview-mode .video-node,
+body.zf-overview-mode .fg-node,
+body.zf-overview-mode .pres-node { cursor: move; }
+/* 右键平移进行中：抓取手光标（类由 app-canvas.js 加到 body，限定总览模式内，退出总览不影响正常模式） */
+body.zf-overview-mode.zf-ov-pan, body.zf-overview-mode.zf-ov-pan * { cursor: grabbing !important; }
+/* 左键框选进行中：十字光标（类由 app-canvas-overview.js 加到 body） */
+body.zf-overview-mode.zf-ov-marquee, body.zf-overview-mode.zf-ov-marquee * { cursor: crosshair !important; }
+/* ===== M1 颜色移植：总览态按对话状态染色（真源 app-minimap-organize STATUS_COLORS），
+   仅 .zf-overview-mode 作用域生效；退出总览 data-ov-st 移除即恢复原色 ===== */
+body.zf-overview-mode .chatbox[data-ov-st]::before {
+  content: attr(data-ov-mark); position: absolute; top: -7px; left: -7px;
+  z-index: 5; min-width: 16px; height: 16px; line-height: 16px; text-align: center;
+  border-radius: 8px; font-size: 11px; font-weight: 700; color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.4); pointer-events: none;
+}
+body.zf-overview-mode .chatbox.ov-st-sending  { outline: 2px solid rgba(140,170,255,.85) !important; box-shadow: 0 0 0 4px rgba(100,140,255,.22) !important; }
+body.zf-overview-mode .chatbox.ov-st-sending::before  { content: '↻'; background: #4a6cf0; }
+body.zf-overview-mode .chatbox.ov-st-queued   { outline: 2px solid rgba(255,175,70,.85) !important; box-shadow: 0 0 0 4px rgba(255,160,60,.2) !important; }
+body.zf-overview-mode .chatbox.ov-st-queued::before   { content: '…'; background: #e08a2b; }
+body.zf-overview-mode .chatbox.ov-st-answered { outline: 2px solid rgba(90,210,140,.85) !important; box-shadow: 0 0 0 4px rgba(70,200,130,.18) !important; }
+body.zf-overview-mode .chatbox.ov-st-answered::before { content: '✓'; background: #2fa564; }
+body.zf-overview-mode .chatbox.ov-st-error    { outline: 2px solid rgba(255,110,110,.85) !important; box-shadow: 0 0 0 4px rgba(240,80,80,.2) !important; }
+body.zf-overview-mode .chatbox.ov-st-error::before    { content: '✕'; background: #d64545; }
+body.zf-overview-mode .chatbox.ov-st-active   { outline: 2px solid rgba(80,150,240,.6) !important; }
+body.zf-overview-mode .chatbox.ov-st-idle     { outline: 1px solid rgba(100,160,220,.32) !important; }
+body.zf-overview-mode .chatbox.ov-st-idle::before     { content: ''; width: 12px; height: 12px; min-width: 12px; background: rgba(100,160,220,.55); }

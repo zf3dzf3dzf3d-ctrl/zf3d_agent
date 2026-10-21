@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>流场寻路演示 - 2D 游戏引擎</title>
+<style>
+  body{margin:0;background:#111;color:#ccc;font-family:monospace;overflow:hidden}
+  canvas{display:block}
+  #hud{position:fixed;top:8px;left:8px;background:rgba(0,0,0,.6);padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.7;pointer-events:none}
+  #hud b{color:#6cf}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud">加载中...</div>
+<script src="engine.js"></script>
+<script src="pathfinding.js"></script>
+<script>
+"use strict";
+(() => {
+  const CELL = 24;
+  const field = new FlowField(80, 45, CELL);   // 1920x1080 逻辑网格
+  const renderer = new Renderer(document.getElementById("cv"));
+  const hud = document.getElementById("hud");
+
+  // ---- 单位（SoA + 简单分离）----
+  const MAX_UNITS = 4000;
+  const ux = new Float32Array(MAX_UNITS), uy = new Float32Array(MAX_UNITS);
+  const spd = new Float32Array(MAX_UNITS);
+  let unitCount = 0;
+  const dir = { x: 0, y: 0 };
+
+  function spawnUnit(x, y) {
+    if (unitCount >= MAX_UNITS) return;
+    ux[unitCount] = x; uy[unitCount] = y;
+    spd[unitCount] = 80 + Math.random() * 70;
+    unitCount++;
+  }
+
+  // ---- 初始场景：随机障碍块 + 随机单位 ----
+  for (let k = 0; k < 60; k++) {
+    const bx = 4 + Math.floor(Math.random() * (field.cols - 12));
+    const by = 2 + Math.floor(Math.random() * (field.rows - 8));
+    const w = 1 + Math.floor(Math.random() * 4);
+    const h = 1 + Math.floor(Math.random() * 4);
+    for (let cy = by; cy < Math.min(by + h, field.rows); cy++)
+      for (let cx = bx; cx < Math.min(bx + w, field.cols); cx++)
+        field.setObstacle(cx, cy, true);
+  }
+  field.setTargetWorld(field.w * 0.7, field.h * 0.5);
+  field.bake();
+  for (let i = 0; i < 800; i++)
+    spawnUnit(Math.random() * field.w, Math.random() * field.h);
+
+  // ---- 相机：滚轮缩放（朝鼠标点）+ 中键平移 ----
+  const cam = { x: field.w / 2, y: field.h / 2, zoom: 0.5, shakeX: 0, shakeY: 0, update(){} };
+  renderer.camera = cam;
+
+  // ---- 输入 ----
+  let bakeDirty = false;
+  const cv = renderer.canvas;
+  // 屏幕坐标 → 世界坐标（考虑画布 DPR 缩放 + 相机）
+  function toWorld(e) {
+    const r = cv.getBoundingClientRect();
+    const dpr = cv.width / r.width;
+    const sx = (e.clientX - r.left) * dpr;
+    const sy = (e.clientY - r.top) * dpr;
+    return [(sx - cv.width / 2) / cam.zoom + cam.x, (sy - cv.height / 2) / cam.zoom + cam.y];
+  }
+  // 兼容旧调用（画障碍/设目标用世界坐标）
+  const toFieldXY = toWorld;
+  cv.addEventListener("contextmenu", e => e.preventDefault());
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [wx, wy] = toWorld(e);
+    const oldZ = cam.zoom;
+    cam.zoom = Math.max(0.15, Math.min(4, cam.zoom * Math.exp(-e.deltaY * 0.0012)));
+    // 缩放后保持鼠标下的世界点不动
+    const k = oldZ / cam.zoom;
+    cam.x = wx - (wx - cam.x) * k;
+    cam.y = wy - (wy - cam.y) * k;
+    cv._painted = true; // 缩放不触发设目标
+  }, { passive: false });
+  let panLast = null;
+  cv.addEventListener("pointerdown", (e) => {
+    cv.setPointerCapture(e.pointerId);
+    if (e.button === 1) { panLast = [e.clientX, e.clientY]; e.preventDefault(); return; }
+    cv._paint = true;
+  });
+  cv.addEventListener("pointerup", e => { cv._paint = false; cv._painted = false; panLast = null; });
+  cv.addEventListener("pointermove", (e) => {
+    // 中键平移
+    if (e.buttons & 4 && panLast) {
+      const r = cv.getBoundingClientRect();
+      const dpr = cv.width / r.width;
+      cam.x -= (e.clientX - panLast[0]) * dpr / cam.zoom;
+      cam.y -= (e.clientY - panLast[1]) * dpr / cam.zoom;
+      panLast = [e.clientX, e.clientY];
+      cv._painted = true;
+      return;
+    }
+    if (!e.buttons) return;
+    const [x, y] = toFieldXY(e);
+    const [cx, cy] = field.worldToCell(x, y);
+    if (e.buttons & 2) { if (field.setObstacle(cx, cy, false)) bakeDirty = true; }   // 右键擦除
+    else { if (field.setObstacle(cx, cy, true)) bakeDirty = true; }                   // 左键刷障碍
+  });
+  cv.addEventListener("click", (e) => {
+    if (cv._painted) return;  // 拖拽刷障碍结束的 click 不设目标
+    const [x, y] = toFieldXY(e);
+    if (field.setTargetWorld(x, y)) bakeDirty = true;
+  });
+
+  // ---- 主循环 ----
+  let last = performance.now(), bakeTimer = 0;
+  let totalBakeMs = 0, bakeCount = 0, frames = 0, fpsShown = 0;
+  let hudT = 0;
+
+  function frame(now) {
+    const dt = Math.min((now - last) / 1000, 0.05); last = now;
+    frames++;
+
+    // 障碍/目标变化后 100ms 去抖重算流场
+    if (bakeDirty) {
+      bakeTimer += dt;
+      if (bakeTimer >= 0.1) {
+        field.bake(); bakeDirty = false; bakeTimer = 0;
+        totalBakeMs += field.lastBakeMs; bakeCount++;
+      }
+    }
+
+    // ---- 单位更新：O(1) 采样流场 + 简单分离 ----
+    for (let i = 0; i < unitCount; i++) {
+      field.sample(ux[i], uy[i], dir);
+      let sx = 0, sy = 0;
+      for (let j = i + 1, c = 0; j < unitCount && c < 5; j++, c++) {
+        const dx = ux[i] - ux[j], dy = uy[i] - uy[j];
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 120 && d2 > 0.01) { const inv = 1 / d2; sx += dx * inv * 8; sy += dy * inv * 8; }
+      }
+      let vx = dir.x * spd[i] + sx, vy = dir.y * spd[i] + sy;
+      // 碰障碍就贴边滑动（简单投影）
+      ux[i] = Math.max(2, Math.min(field.w - 2, ux[i] + vx * dt));
+      uy[i] = Math.max(2, Math.min(field.h - 2, uy[i] + vy * dt));
+    }
+
+    // ---- 组装实例并渲染 ----
+    const data = renderer.instanceData, F = renderer.INSTANCE_FLOATS;
+    let n = 0;
+    const put = (x, y, s, r, g, b) => {
+      const o = n * F; data[o] = x; data[o+1] = y; data[o+2] = s; data[o+3] = s;
+      data[o+4] = r; data[o+5] = g; data[o+6] = b; n++;
+    };
+    if (field.target >= 0) {
+      const tx = (field.target % field.cols) * CELL + CELL / 2;
+      const ty = ((field.target / field.cols) | 0) * CELL + CELL / 2;
+      put(tx, ty, 20, 0.2, 1, 0.3);
+    }
+    for (let cy = 0; cy < field.rows; cy++)
+      for (let cx = 0; cx < field.cols; cx++)
+        if (field.obstacle[field.idx(cx, cy)])
+          put(cx * CELL + CELL/2, cy * CELL + CELL/2, CELL, 0.45, 0.45, 0.5);
+    for (let i = 0; i < unitCount; i++) put(ux[i], uy[i], 7, 0.2, 0.9, 1);
+
+    renderer.render(n);
+
+    // HUD（每 0.5s 刷一次，避免每帧写 DOM）
+    hudT += dt;
+    if (hudT >= 0.5) {
+      fpsShown = Math.round(frames / hudT); frames = 0; hudT = 0;
+      hud.innerHTML =
+        `<b>流场寻路（气体扩散式）</b><br>` +
+        `单位: ${unitCount} | FPS: ${fpsShown} | 单次流场重算: ${field.lastBakeMs.toFixed(2)} ms` +
+        `<br>滚轮 = 缩放 · 中键拖 = 平移 · 左键拖 = 刷障碍 · 右键拖 = 擦除 · 左键点 = 设目标`;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
