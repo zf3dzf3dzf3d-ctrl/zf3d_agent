@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": 3,
-    "updated_at": "2026-10-22T07:13:01"
+    "updated_at": "2026-10-22T07:18:56"
   },
   "models": [
     {
@@ -1515,9 +1515,9 @@
       "modelType": "types_vision",
       "id": "本地千问识图",
       "keyRef": "user",
-      "reasoningEffort": "disable",
+      "reasoningEffort": "",
       "createdAt": "2026-10-14T12:52:27.584Z",
-      "updatedAt": "2026-10-18T12:52:57.144Z",
+      "updatedAt": "2026-10-21T23:18:56.908Z",
       "modelIdOptions": []
     },
     {
