@@ -283,7 +283,7 @@ def _proxy_port():
             return _v
     except Exception:
         pass
-    return 8564  # 兜底默认=本版本端口段末（5.6.x=8560-8564，唯一事实来源是 private/port.json）
+    return 8574  # 兜底默认=本版本端口段末（5.7.x=8570-8574，唯一事实来源是 private/port.json）
 
 PROXY_PORT = _proxy_port()
 

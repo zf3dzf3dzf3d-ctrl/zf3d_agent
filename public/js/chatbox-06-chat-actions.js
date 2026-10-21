@@ -356,7 +356,7 @@ Object.assign(App, {
                 chat._cleanup.listeners.forEach(function(item) {
                     item.target.removeEventListener(item.event, item.handler);
                 });
-                // 【5.6.0】执行各模块登记的自定义清理钩子（如模型选择器浮层需从
+                // 【5.7.0】执行各模块登记的自定义清理钩子（如模型选择器浮层需从
                 // document.body 搬回原位、断开 MutationObserver），避免节点残留
                 if (Array.isArray(chat._cleanup.hooks)) {
                     chat._cleanup.hooks.forEach(function(fn) {

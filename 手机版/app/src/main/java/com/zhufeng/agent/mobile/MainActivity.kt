@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // 默认服务器地址：PC 版本机调试；正式版可改为社区云端地址
-    private val defaultServer = "http://192.168.31.49:8560" // 局域网内网直连（5.6.x 端口段 8560，与 5.5.x 的 8555 区分；PC 服务已绑 0.0.0.0 可局域网直连）
+    private val defaultServer = "http://192.168.31.49:8570" // 局域网内网直连（5.7.x 端口段 8570，与 5.5.x 的 8555 区分；PC 服务已绑 0.0.0.0 可局域网直连）
     private val serverUrl: String
         get() = prefs.serverUrl.ifBlank { defaultServer }
 
@@ -385,7 +385,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showServerDialog() {
         val input = android.widget.EditText(this)
-        input.hint = "http://192.168.31.49:8560"
+        input.hint = "http://192.168.31.49:8570"
         input.setText(prefs.serverUrl.ifBlank { defaultServer })
         android.app.AlertDialog.Builder(this)
             .setTitle("服务器地址")

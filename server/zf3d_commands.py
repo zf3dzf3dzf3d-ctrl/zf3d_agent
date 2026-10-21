@@ -35,7 +35,7 @@ def _load_zf_proxy_port():
         from config import get_ai_proxy_port
         return get_ai_proxy_port()
     except Exception:
-        return 8564
+        return 8574
 
 _ZF_PROXY_PORT = _load_zf_proxy_port()
 

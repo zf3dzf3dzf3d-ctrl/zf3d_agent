@@ -9,9 +9,9 @@ cd /d "%~dp0"
 cls
 
 REM ===== Read port from private/port.json (must match server/config.py) =====
-set "PORT=8560"
+set "PORT=8570"
 if exist "private\port.json" (
-    for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "try { (Get-Content 'private\port.json' -Raw | ConvertFrom-Json).api_port } catch { '8560' }"`) do set "PORT=%%P"
+    for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "try { (Get-Content 'private\port.json' -Raw | ConvertFrom-Json).api_port } catch { '8570' }"`) do set "PORT=%%P"
 )
 
 REM Do NOT kill the old server by pid file here: a stale pid may point to an

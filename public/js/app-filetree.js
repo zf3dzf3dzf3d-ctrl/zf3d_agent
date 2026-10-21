@@ -204,7 +204,7 @@ Object.assign(App, {
         var pins = self._getPins();
         var idx = -1;
         for (var i = 0; i < pins.length; i++) if (self._norm(pins[i]) === cwd) { idx = i; break; }
-        // 【5.6.x 修复】当当前浏览目录是钉住项的【子目录】时，按钮显示"取消钉住"，
+        // 【5.7.x 修复】当当前浏览目录是钉住项的【子目录】时，按钮显示"取消钉住"，
         // 但旧逻辑只用 cwd 精确匹配 pins，匹配不到 → 什么也没删却提示"已取消钉住"。
         // 修复：回退到 _currentPinOf()（最长前缀匹配的生效钉住项）来取消。
         if (idx < 0) {
@@ -245,7 +245,7 @@ Object.assign(App, {
         var btn = document.getElementById('ftPinBtn');
         if (!btn) return;
         var pins = this._getPins(), pinned = false;
-        // 【5.6.x 修复】只用"cwd 是否等于钉住项或在其之内"判断；此前用
+        // 【5.7.x 修复】只用"cwd 是否等于钉住项或在其之内"判断；此前用
         // _isUnderDir(pins[i], this._ftCwd)（钉住项在 cwd 之下）方向反了：
         // 浏览到钉住项目的【子目录】时按钮不显示已钉住。
         for (var i = 0; i < pins.length; i++) if (this._isUnderDir(this._ftCwd, pins[i]) || this._isUnderDir(pins[i], this._ftCwd)) { pinned = true; break; }
@@ -305,7 +305,7 @@ Object.assign(App, {
             DB.linkFolder(pid, cur).catch(function() {});
         }
     },
-    // 【5.6.0 反馈修复】检测目录是否仍存在。
+    // 【5.7.0 反馈修复】检测目录是否仍存在。
     // 【卡死修复】原实现用同步 XHR（xhr.open(..., false)），会冻结整个页面：
     // 若钉住路径指向慢盘/网络盘/已断开的路径，请求期间 UI 全部无响应（点击没反应、箭头展不开）。
     // 现改为异步 fetch + 回调，绝不再阻塞主线程。
@@ -356,7 +356,7 @@ Object.assign(App, {
     _activatePinProject: function(p) {
         var self = this;
         p = self._norm(p);
-        // 【5.6.0 反馈修复】无论后续是否发生实际切换，点击钉住项必须有立即视觉反馈，
+        // 【5.7.0 反馈修复】无论后续是否发生实际切换，点击钉住项必须有立即视觉反馈，
         // 否则 cwd 已在项目内时树内容无变化，用户会误以为"点了没反应/卡死"
         try {
             var flashNode = null;
@@ -996,7 +996,7 @@ _bindSidebar: function(tree) {
 
     // ===== 树展开/收起 =====
     _expandAncestors: function(dirPath) {
-        // 逐级展开祖先（【5.6.0 修复】止步于文件树根 _ftRoot，不再一路预取到盘符根：
+        // 逐级展开祖先（【5.7.0 修复】止步于文件树根 _ftRoot，不再一路预取到盘符根：
         // 之前浏览深层目录会逐级请求 /api/fs/browse 一直打到 F:\ 根目录（文件巨多），是面板巨卡的主因之一）
         var self = this;
         var key = self._norm(dirPath);

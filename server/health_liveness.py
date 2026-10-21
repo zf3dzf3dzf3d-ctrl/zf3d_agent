@@ -13,7 +13,7 @@
   - 存活端口通   → 进程活着（哪怕业务暂时繁忙/DB 锁）→ 不判死，绝不重启；
   - 存活端口也不通 → 进程真死/僵死 → 才计入失败并在达阈值时重启。
 
-端口约定：liveness_port = api_port + 5（默认 8560 → 8565），与 5.6.x 段内其余端口不冲突。
+端口约定：liveness_port = api_port + 5（默认 8570 → 8565），与 5.7.x 段内其余端口不冲突。
 """
 import os
 import sys
@@ -36,7 +36,7 @@ def _api_port():
         return 8558
 
 
-LIVENESS_PORT = _api_port() + 5  # 默认 8560 -> 8565
+LIVENESS_PORT = _api_port() + 5  # 默认 8570 -> 8565
 
 _server = None
 _running = False  # 仅当本模块确实成功 bind + 起线程后置 True

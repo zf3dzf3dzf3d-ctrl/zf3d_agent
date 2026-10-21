@@ -57,7 +57,7 @@ def _load_version():
         try:
             os.makedirs(os.path.dirname(VERSION_JSON_PATH), exist_ok=True)
             with open(VERSION_JSON_PATH, 'w', encoding='utf-8') as f:
-                json.dump({'version': '5.6.0'}, f, ensure_ascii=False, indent=4)
+                json.dump({'version': '5.7.0'}, f, ensure_ascii=False, indent=4)
             print('[配置] 已自动生成默认版本配置: %s' % VERSION_JSON_PATH, flush=True)
         except Exception as e:
             raise SystemExit('[配置错误] 无法创建版本配置文件 %s: %s' % (VERSION_JSON_PATH, e))
@@ -76,13 +76,13 @@ def _load_port():
     if not os.path.exists(PORT_JSON_PATH):
         _default = {
             "host": "127.0.0.1",
-            "_comment": "【端口段约定】5.6.x 用 8560-8564 段，与 5.5.x（8555-8559）互不冲突",
-            "api_port": 8560,
-            "ws_port": 8561,
-            "tts_stream": {"enabled": True, "port": 8562},
-            "remote_ws_port": 8563,
+            "_comment": "【端口段约定】5.7.x 用 8570-8574 段，与 5.5.x（8555-8559）互不冲突",
+            "api_port": 8570,
+            "ws_port": 8571,
+            "tts_stream": {"enabled": True, "port": 8572},
+            "remote_ws_port": 8573,
             "auth_token": "",
-            "ai_proxy_port": 8564,
+            "ai_proxy_port": 8574,
         }
         try:
             os.makedirs(os.path.dirname(PORT_JSON_PATH), exist_ok=True)
@@ -135,7 +135,7 @@ def get_ai_proxy_port():
     """AI 代理网关(ai_proxy.py)端口统一解析，与代理侧/服务端 _proxy_port 逐字等价：
       1) 环境变量 AI_PROXY_PORT
       2) private/port.json 的 ai_proxy_port 字段（唯一真源）
-      3) 本版本端口段末 8564 兜底（5.6.x=8560-8564）
+      3) 本版本端口段末 8574 兜底（5.7.x=8570-8574）
 
     所有『需要连本机 AI 网关』的调用方（zf_billing / zf_proxy_billing /
     mixin_zf3d / zf3d_commands）都必须走本函数，使『连网关的端口』与
@@ -156,7 +156,7 @@ def get_ai_proxy_port():
             return _v
     except Exception:
         pass
-    return 8564
+    return 8574
 
 
 def _load_app_config():

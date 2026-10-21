@@ -88,16 +88,16 @@ v91 与 v90 **签名 SHA-256 完全一致**，可正常覆盖升级。若用户�
 | APK 内 `.bak` 文件 | 0 个（已剔除） |
 | minSdk / targetSdk | 24 / 34（Android 7.0+ 均可装） |
 | 原生库 | arm64-v8a（仅 64 位机） |
-| PC 端 8560 端口 | LISTENING（PID 16948）正常 |
+| PC 端 8570 端口 | LISTENING（PID 16948）正常 |
 
 ### 遗留（需真机）
 - **adb devices 输出为空，仍无真机接入**，无法代为安装
-- 手机端硬编码 `http://192.168.31.49:8560` 连 PC 端，PC 端 IP 变了必须重打包
+- 手机端硬编码 `http://192.168.31.49:8570` 连 PC 端，PC 端 IP 变了必须重打包
 - APK 只含 arm64-v8a，若手机是 32 位需补 abiFilters
 
 ### 安装指引（用户手动）
 ```
-C:\Programs\scrcpy\scrcpy-win64-v5.0\adb.exe install -r -d "F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.6.0\手机版\zf-fengkong-v92.apk"
+C:\Programs\scrcpy\scrcpy-win64-v5.0\adb.exe install -r -d "F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\手机版\zf-fengkong-v92.apk"
 ```
 `-r` 覆盖安装、`-d` 允许降级；若报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`（签名不一致），先 `adb uninstall com.zhufeng.agent.mobile` 再装。
 

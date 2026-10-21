@@ -2,7 +2,7 @@
  * mc-quick-nav.js - 设置面板「模型配置」右侧快速滚动导航条
  * 需求：模型列表条目很多时，列表右侧出现一列快速定位按钮（首字缩写），
  *       hover 显示完整模型名，点击平滑滚动到对应模型卡片，滚动时自动高亮。
- * 适配（v5.6.0 修正）：实际生效面板为 V2 ModelConfigRewrite（#modelPanelMount
+ * 适配（v5.7.0 修正）：实际生效面板为 V2 ModelConfigRewrite（#modelPanelMount
  *       内的 [data-mc-wrap] / #mc-model-list / .mc-item / .mc-item-name）。
  *       同时兼容旧版 V1（#modelList / .model-item / .mi-name-input），自动探测。
  * 方案 v3（当前）：导航条 position:fixed 钉视口右缘（right:6px、垂直居中、

@@ -4,7 +4,7 @@
 不再 fetch（因此双击/ file:// 也能离线打开）。只需在 </head> 前注入数据脚本。"""
 import json, io, os, re
 
-BASE = r"F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.6.0\public\canvas\进化树"
+BASE = r"F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\public\canvas\进化树"
 viewer_path = os.path.join(BASE, "viewer.html")
 data_path = os.path.join(BASE, "maps", "project.tree.json")
 out_path = os.path.join(BASE, "项目进化树-独立版.html")

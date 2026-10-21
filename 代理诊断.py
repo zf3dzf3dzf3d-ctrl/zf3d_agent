@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""朱峰智能体 · AI 代理(8564)专项诊断
+"""朱峰智能体 · AI 代理(8574)专项诊断
 定位 proxy_unavailable 真因：ai_proxy 子进程为何没在端口上跑起来。
 用法：把本文件 + 同目录 代理诊断.bat 拷到远程机安装目录下双击运行，回传控制台输出。
 """
@@ -17,7 +17,7 @@ print("=" * 60)
 print("朱峰 AI 代理专项诊断  目录:", BASE)
 print("=" * 60)
 
-# 1) 解析端口（与 server 同逻辑：env > private/port.json > public/config/ai_proxy.json > 8564）
+# 1) 解析端口（与 server 同逻辑：env > private/port.json > public/config/ai_proxy.json > 8574）
 def get_port():
     try:
         p = int(os.environ.get("AI_PROXY_PORT", "0"))
@@ -37,7 +37,7 @@ def get_port():
                     return v, os.path.relpath(fn, BASE)
         except Exception:
             pass
-    return 8564, "默认值(未找到配置文件!)"
+    return 8574, "默认值(未找到配置文件!)"
 
 PORT, SRC = get_port()
 print("\n[1] 代理端口 = %s   (来源: %s)" % (PORT, SRC))

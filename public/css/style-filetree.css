@@ -155,7 +155,7 @@
 }
 .ft-node:hover { background: var(--bg-hover, #2a2b31); }
 .ft-node.ft-active { background: var(--accent-weak, rgba(90,140,255,.15)); }
-/* 【5.6.0 反馈修复】钉住项点击闪烁反馈 */
+/* 【5.7.0 反馈修复】钉住项点击闪烁反馈 */
 .ft-node.ft-flash { animation: ftPinFlash .9s ease; }
 @keyframes ftPinFlash {
   0% { background: var(--accent-weak, rgba(90,140,255,.15)); }

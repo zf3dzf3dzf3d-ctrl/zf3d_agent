@@ -32,12 +32,12 @@ _PROXY_PORT_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 
 def _proxy_port():
     """本机 AI 网关端口。统一走 config.get_ai_proxy_port()：
-    env AI_PROXY_PORT > private/port.json.ai_proxy_port > 8564。与代理实际监听同源。"""
+    env AI_PROXY_PORT > private/port.json.ai_proxy_port > 8574。与代理实际监听同源。"""
     try:
         from config import get_ai_proxy_port
         return get_ai_proxy_port()
     except Exception:
-        return 8564
+        return 8574
 
 
 _lock = threading.Lock()

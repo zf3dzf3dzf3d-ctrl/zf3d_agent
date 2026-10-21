@@ -209,7 +209,7 @@ class Slot:
         【2026-10-17 死锁修复】本方法体内严禁再 `with self.cond:`：
         Slot.cond 包的是普通 Lock（不可重入），调用方 _append/emit 合并窗口/
         flush_coalesce 都已持锁，这里再加一次 = 自我死锁且握着槽位锁不放，
-        全池 submit/status/active/events 连锁挂死（5.6.0 对话卡死不发字的根因）。
+        全池 submit/status/active/events 连锁挂死（5.7.0 对话卡死不发字的根因）。
         """
         now = time.time()
         ev = {'seq': self.next_seq, 'gen': self.gen, 'kind': kind,

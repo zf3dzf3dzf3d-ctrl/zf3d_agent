@@ -33,15 +33,15 @@ def _get_combo():
 
 
 def _get_port():
-    """从 private/port.json 读取实际 api_port，失败兜底 8560"""
+    """从 private/port.json 读取实际 api_port，失败兜底 8570"""
     for cand in (os.path.join(_ROOT, 'server', 'private', 'port.json'),
                  os.path.join(_HERE, 'private', 'port.json')):
         try:
             with open(cand, encoding='utf-8') as f:
-                return int(json.load(f).get('api_port', 8560))
+                return int(json.load(f).get('api_port', 8570))
         except Exception:
             continue
-    return 8560
+    return 8570
 
 
 def _health_ok():
