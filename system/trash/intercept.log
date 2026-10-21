@@ -4,3 +4,4 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.6.0_发布版\\server\\_selftest_tmp", "source": "shell", "moved": ["victim(4).txt"], "total": 1, "ts": "2026-10-20 16:41:31"}
 {"action": "intercept", "cmd": "del _patch_fullscreen.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_patch_fullscreen.py"], "skipped": [], "ts": "2026-10-22 07:19:14"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_patch_fullscreen.py"], "total": 1, "ts": "2026-10-22 07:19:14"}
+{"action": "passthrough_complex", "cmd": "(if exist public\\_tmp_probe.txt (echo EXISTS & del public\\_tmp_probe.txt) else echo NONE)", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 07:33:47"}
