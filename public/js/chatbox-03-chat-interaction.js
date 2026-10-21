@@ -407,9 +407,16 @@ Object.assign(App, {
                         }
                     } else if (act === 'branch') {
                         // 【5.2.5 新增】🌿 Git 分支选单：新建 / 选择 / 合并到主分支
-                        if (typeof self.toggleBranchMenu === 'function') {
-                            self.toggleBranchMenu(box, chat);
-                        }
+                        // 【修复·点不开】toggleBranchMenu 只挂在 App（chatbox-branch-menu.js 末尾
+                        // App.toggleBranchMenu = toggleBranchMenu），self（bindChatBox 的 this）上
+                        // 并没有该方法。旧代码 if(typeof self.toggleBranchMenu==='function') 恒为
+                        // false → 静默跳过，面板不弹、菜单又不关（带 data-keepopen），表现为"点了
+                        // 完全没反应"。改为优先 App、回退 self，与悬停路径(chatbox-header-more.js)
+                        // 统一，确保点击必定触发。
+                        var _tbm = (typeof App !== 'undefined' && typeof App.toggleBranchMenu === 'function')
+                            ? App.toggleBranchMenu
+                            : (typeof self.toggleBranchMenu === 'function' ? self.toggleBranchMenu : null);
+                        if (_tbm) { _tbm(box, chat); }
                     }
                 });
             });

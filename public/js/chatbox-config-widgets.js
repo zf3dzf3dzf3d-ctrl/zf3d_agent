@@ -58,6 +58,19 @@
         opts = opts || {};
         var engineId = opts.engineId || '';
         var catName = opts.categoryName || '极简';
+        // 【修复·⋯下拉两项乱码·源头治理】引擎名/分类名由本函数写入 textContent，传入的
+        // catName / 缓存的 cur.name 若编码损坏（持久化对话记录时字节序异常）会直接显示乱码。
+        // 旧方案仅靠 chatbox-header-relocate.js 的 5 秒周期兜底，存在"先乱码、后修正"的时序
+        // 空窗。改为在写入源头即时检测：命中乱码特征（U+FFFD 替换符 / 锟斤拷 / UTF-8 被按
+        // Latin1 误解产生的 Â Ã 高位组合）即回退默认值，杜绝把乱码写进 DOM。
+        function _garbled(s) {
+            s = String(s == null ? '' : s);
+            if (!s.trim()) return true;                       // 空/纯空白 → 视为异常
+            if (/\uFFFD/.test(s)) return true;                 // Unicode 替换符
+            if (s.indexOf('锟斤拷') >= 0) return true;          // 经典 GBK<->UTF8 互转乱码
+            if (/[\u00C2\u00C3][\u0080-\u00BF]/.test(s)) return true; // UTF-8 字节被按 Latin1 误解
+            return false;
+        }
         try {
             var engMenu = box.querySelector('.eng-menu');
             if (engMenu) engMenu.innerHTML = App.buildEngMenuHtml(engineId);
@@ -67,7 +80,9 @@
                 var engs = (typeof DB !== 'undefined' && DB.getEngines) ? DB.getEngines() : [];
                 var cur = engineId ? engs.filter(function (x) { return x.id === engineId; })[0] : null;
                 if (!cur) cur = engs.filter(function (x) { return x.default; })[0] || engs[0] || null;
-                engNameSpan.textContent = cur ? ((cur.icon ? cur.icon + ' ' : '') + cur.name) : '默认';
+                var engText = cur ? ((cur.icon ? cur.icon + ' ' : '') + cur.name) : '默认';
+                if (_garbled(engText)) engText = '默认'; // 引擎名乱码 → 回退默认
+                engNameSpan.textContent = engText;
             }
         } catch (e) {}
         try {
@@ -77,7 +92,8 @@
             var iconSpan = box.querySelector('.tool-cat-trigger .tool-cat-icon');
             var nameSpan = box.querySelector('.tool-cat-trigger .tool-cat-name');
             if (iconSpan) iconSpan.textContent = (catDef && catDef.icon) ? catDef.icon : '📄';
-            if (nameSpan) nameSpan.textContent = catName;
+            // 分类名乱码 → 回退「极简」（即使 catDef 查不到也按默认显示，避免写乱码进 DOM）
+            nameSpan && (nameSpan.textContent = _garbled(catName) ? '极简' : catName);
         } catch (e) {}
     };
 })();
