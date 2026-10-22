@@ -566,6 +566,7 @@
   }
 
   // 双击画布空白处：直接弹出「创建对话框」双栏面板（左=文本模型，右=视觉功能），不再显示三按钮工具条
+  var _panelMo = null;
   function openDualPanels(clientX, clientY) {
     const host = document.getElementById('canvasContent') || document.body;
     // 双击弹出创建面板时立即隐藏画布中央的引导提示（不等真正创建对话框后才消失）
@@ -626,6 +627,20 @@
           if (App.store && typeof App.store === 'object' && 'zCounter' in App.store) App.store.zCounter = App.zCounter;
         }
       } catch (e) {}
+      /* 【层级修复】面板与 #zfEmptyOverlay 不在同一层叠上下文（容器 transform 隔离），
+         面板打开时给 body 加类让反应屏幕漂浮字让位；面板移除时恢复，避免空态引导被误隐藏。 */
+      try {
+        document.body.classList.add('zf-dual-panel-open');
+        if (_panelMo) { try { _panelMo.disconnect(); } catch (e0) {} }
+        _panelMo = new MutationObserver(function () {
+          if (!document.querySelector('.kite-dual-create-panel')) {
+            document.body.classList.remove('zf-dual-panel-open');
+            try { _panelMo.disconnect(); } catch (e1) {}
+            _panelMo = null;
+          }
+        });
+        _panelMo.observe(host, { childList: true, subtree: true });
+      } catch (e2) {}
     }
     return { toolbar: null };
 

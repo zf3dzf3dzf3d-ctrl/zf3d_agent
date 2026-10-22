@@ -891,6 +891,11 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
 
 /* 【改造】空态提示文字移出太空舱：改为 body 级全屏层 #zfEmptyOverlay（fixed inset:0），
    flex 居中显示在屏幕正中心；层穿透（pointer-events:none）不挡画布拖拽/双击，仅 chip 可点。 */
+/* 【层级修复】创建面板挂在 #canvasContent（带 transform，独立层叠上下文），
+   面板内部 z-index 不外溢到 body 层叠上下文，导致 body 级 fixed 的反应屏幕漂浮字
+   (#zfEmptyOverlay) 反而盖在面板之上。面板打开时给 body 加 .zf-dual-panel-open，
+   让引导文字临时让位；面板关闭时由 JS 移除该类恢复。 */
+body.zf-dual-panel-open #zfEmptyOverlay { display: none !important; }
 #zfEmptyOverlay { position: fixed; inset: 0; z-index: 0; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 14px; color: rgba(150,195,240,.6); text-align: center; padding: 0 40px;
