@@ -625,25 +625,37 @@ function zfAsyncCall(ns,method,args,timeoutMs){return new Promise(function(res){
    旧包/反射不回调时异步桥会先干等 15s(ZFMobile)+15s(ZFBridge)=30s 才超时回退，
    表现为 vibrate/list_files/read_file 等"奇慢"。它们不会真阻塞主线程，直接同步化根治。 */
 var _zfSyncFast={deviceInfo:1,netInfo:1,a11yReady:1,getBrightness:1,getVolume:1,clipboardRead:1,clipboardWrite:1,vibrate:1,listFiles:1,readFile:1,writeFile:1,appendFile:1,deleteFile:1,searchFiles:1};
+/* 【提速 v2·命名空间亲和】修复"工具奇慢"：旧逻辑每次先空等 ZFMobile 30s 再回退 ZFBridge，
+   而 httpGet 等只在 ZFBridge、screenshot/readScreen 等只在 ZFMobile，导致 fetch_url 50s、
+   web_search 124s（3 引擎各踩双桥坑）。新逻辑：探测/记住方法所在桥直连，超时不再重复请求另一桥。 */
+var _zfNsAffinity={};/* method -> 'ZFMobile'|'ZFBridge' 上次成功所在桥 */
+function _zfHasFn(ns,method){try{var o=window[ns];return !!(o&&typeof o[method]==='function')}catch(e){return false}}
+var _zfToMap={httpGet:30000,screenshot:15000,readScreen:15000};/* 网络给足30s；截图/读屏正常1-3s，15s足够 */
 async function bJsonA(method){var args=[].slice.call(arguments,1);
-  if(!window.ZFAsync||!window.ZFAsync.call)return bJson.apply(null,arguments);/*回退同步*/
+  if(!window.ZFAsync||!window.ZFAsync.call)return bJson.apply(null,arguments);/*无异步桥：回退同步*/
   if(_zfSyncFast[method])return bJson.apply(null,arguments);/*轻量方法直接同步，防异步桥悬挂干等超时*/
-  /* 【双命名空间回退·关键修复】方法可能定义在 ZFMobile 或 ZFBridge 任一桥内。
-     原生对「对象在但方法不在」(反射 NoSuchMethod) 现返回 bridge-missing；
-     旧包可能仍返回 bridge-error:...method not found...，两者都需触发回退，
-     否则 httpGet/listFiles/readFile/writeFile/deviceInfo/netInfo 等仅在 ZFBridge
-     定义的工具会被误判失败，导致 web_search/文件读写/设备信息全体"获取失败"。 */
-  function _zfNeedFallback(r){return r===null||r===undefined||r==='bridge-missing'||(typeof r==='string'&&r.indexOf('bridge-error:')===0&&/method not found/i.test(r));}
-  var raw=await zfAsyncCall('ZFMobile',method,args,30000);
-  /* 双命名空间回退：第二次用更短超时(20s)，避免 60s+60s 叠加成长达 2 分钟的悬挂 */
-  if(_zfNeedFallback(raw))raw=await zfAsyncCall('ZFBridge',method,args,20000);
-  /* 【悬挂兜底】异步桥两命名空间都没结果（原生未回调/反射异常）→ 回退同步 bCall，
-     避免 deviceInfo 这类本可同步秒回的方法因异步桥悬挂干等 180s×2=360s 后返回 null。 */
-  if(raw===null||raw===undefined||raw===''||raw==='bridge-missing'||_zfNeedFallback(raw)){
-    var sres=bCall.apply(null,arguments);
-    if(sres!==null&&sres!==undefined){try{return JSON.parse(sres)}catch(e){return sres}}
+  function isMissing(r){return r==='bridge-missing'||(typeof r==='string'&&r.indexOf('bridge-error:')===0&&/method not found/i.test(r));}
+  var _to=_zfToMap[method]||20000;
+  /* 决定尝试顺序：上次成功缓存 > 同步探测 typeof > 默认 ZFMobile→ZFBridge */
+  var order=[];
+  if(_zfNsAffinity[method])order.push(_zfNsAffinity[method]);
+  else{var hm=_zfHasFn('ZFMobile',method),hb=_zfHasFn('ZFBridge',method);
+    if(hm&&!hb)order.push('ZFMobile');
+    else if(hb&&!hm)order.push('ZFBridge');
+    else{order.push('ZFMobile');order.push('ZFBridge');}}
+  if(order.length===1)order.push(order[0]==='ZFMobile'?'ZFBridge':'ZFMobile');/*单桥也兜底再试另一个*/
+  var raw,idx=-1;
+  for(var i=0;i<order.length;i++){idx=i;raw=await zfAsyncCall(order[i],method,args,_to);
+    if(isMissing(raw))continue;/*方法不在此桥→换下一个*/
+    break;/*成功或超时(null)都停止，不再重复请求另一桥（避免 httpGet 二次发起）*/
+  }
+  /* 超时/无回调：仅轻量非网络方法做同步兜底；httpGet/截图/读屏超时绝不同步重发（防卡主线程+重复请求） */
+  if(raw===null||raw===undefined||raw===''){
+    if(!_zfToMap[method]){var sres=bCall.apply(null,arguments);if(sres!==null&&sres!==undefined){try{return JSON.parse(sres)}catch(e){return sres}}}
     return null;
   }
+  if(isMissing(raw))return null;
+  _zfNsAffinity[method]=order[idx];/*记住该方法的桥，下次直连，省掉一次空等*/
   try{return JSON.parse(raw)}catch(e){return raw}}
 /* 异步等价：把 window.ZFTerm/ZFTermux/ZFBrowser 等直接同步调用转后台线程，返回原始字符串 */
 async function bRaw(ns,method,args){if(!window.ZFAsync||!window.ZFAsync.call){try{var Br=window[ns];return Br&&Br[method]?String(Br[method].apply(Br,args||[])):null}catch(e){return null}}
