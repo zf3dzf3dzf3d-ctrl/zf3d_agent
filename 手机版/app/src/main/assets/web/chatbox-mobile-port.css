@@ -1,21 +1,21 @@
-/* 峰控助手：移植 PC 对话系统消息交互样式 v1 */
+/* 峰控助手：移植 PC 对话系统消息交互样式 v1（大师墨黑配色） */
 .msg{position:relative}
 /* 查看答案按钮 */
-.va-btn{display:inline-block;margin-top:6px;padding:4px 10px;font-size:12px;border-radius:12px;background:#2b6cb0;color:#fff;border:none;cursor:pointer}
+.va-btn{display:inline-block;margin-top:6px;padding:4px 10px;font-size:12px;border-radius:6px;background:#1f1f24;color:#c8c8cc;border:1px solid #2a2a30;cursor:pointer}
 /* 消息操作条（复制/编辑/删除/重新生成） */
 .msg-ops{display:flex;gap:10px;margin-top:6px;font-size:12px;opacity:.85}
-.msg-ops button{background:transparent;border:none;color:#7ab8ff;font-size:12px;padding:2px 4px;cursor:pointer}
+.msg-ops button{background:transparent;border:none;color:#9a9aa2;font-size:12px;padding:2px 4px;cursor:pointer}
 .msg-ops button:active{opacity:.6}
 /* 上下箭头导航（问题间跳转） */
 .flip-nav{position:fixed;right:10px;bottom:120px;display:flex;flex-direction:column;gap:8px;z-index:60}
-.flip-nav button{width:38px;height:38px;border-radius:50%;border:none;background:rgba(43,108,176,.9);color:#fff;font-size:16px}
+.flip-nav button{width:38px;height:38px;border-radius:50%;border:1px solid #2a2a30;background:rgba(26,26,31,.92);color:#c8c8cc;font-size:16px}
 .flip-nav button:disabled{opacity:.3}
 /* 一键到最下面：悬浮于输入栏上方聊天区右下，PC 对话同款 */
-#scrollBottomBtn{position:fixed;right:16px;bottom:84px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(43,108,176,.92);color:#fff;font-size:18px;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:70}
+#scrollBottomBtn{position:fixed;right:16px;bottom:84px;width:42px;height:42px;border-radius:50%;border:1px solid #2a2a30;background:rgba(26,26,31,.94);color:#c8c8cc;font-size:18px;display:none;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:70}
 /* 排队消息卡片 */
-.queue-list{margin:6px 0;padding:6px;border-radius:8px;background:rgba(43,108,176,.12);font-size:12px}
-.queue-item{display:flex;justify-content:space-between;gap:6px;padding:3px 2px;border-bottom:1px dashed rgba(255,255,255,.15)}
+.queue-list{margin:6px 0;padding:6px;border-radius:6px;background:rgba(26,26,31,.6);font-size:12px}
+.queue-item{display:flex;justify-content:space-between;gap:6px;padding:3px 2px;border-bottom:1px dashed rgba(255,255,255,.12)}
 .queue-item:last-child{border-bottom:none}
-.queue-item .qx{color:#ff7b7b;cursor:pointer;padding:0 4px}
+.queue-item .qx{color:#c06b6b;cursor:pointer;padding:0 4px}
 /* 粘贴卡片（长文本折叠提示） */
-.paste-card{margin:6px 0;padding:6px 8px;border-radius:8px;background:rgba(255,200,0,.12);font-size:12px;color:#ffd66b}
+.paste-card{margin:6px 0;padding:6px 8px;border-radius:6px;background:rgba(42,42,34,.5);font-size:12px;color:#c8c8cc}
