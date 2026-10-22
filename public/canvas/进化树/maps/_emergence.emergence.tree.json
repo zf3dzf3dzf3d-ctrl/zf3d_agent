@@ -242,6 +242,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 28,
+          "parent_id": 26,
+          "text": "蜂群「审核收口」全员通过（88/95 双审核员达",
+          "path": "涌现能力总树/蜂群「审核收口」全员通过（88/95 双审核员达",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
