@@ -227,6 +227,11 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
             self._handle_approval_list()
             return
 
+        # ===== 可编排后台流水线·Jobs（状态/列表/transcript）=====
+        if path == '/api/jobs' or path.startswith('/api/jobs/'):
+            self._handle_jobs_get(path)
+            return
+
         if path == '/api/cleanup/speed':
             from routes.mixin_cleanup import handle_cleanup_speed
             handle_cleanup_speed(self, do_run=False)

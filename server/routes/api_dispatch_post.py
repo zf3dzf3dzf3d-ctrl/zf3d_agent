@@ -698,6 +698,10 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
         if path.startswith('/api/approval/'):
             self._handle_approval_resolve(path[len('/api/approval/'):])
             return
+        # ===== 可编排后台流水线·Jobs（提交异步任务）=====
+        if path == '/api/jobs/submit':
+            self._handle_jobs_submit()
+            return
         if path.startswith('/api/chat-pool/slot/') and path.endswith('/cancel'):
             self._handle_chat_pool_cancel()
             return
