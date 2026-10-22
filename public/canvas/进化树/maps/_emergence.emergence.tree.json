@@ -85,8 +85,8 @@
           "status": "sprout",
           "icon": "",
           "kind": "capability",
-          "x": 581.19,
-          "y": -743.37,
+          "x": 431.3,
+          "y": 88.47,
           "children": []
         },
         {
@@ -99,8 +99,8 @@
           "status": "sprout",
           "icon": "",
           "kind": "capability",
-          "x": 782.7,
-          "y": -496.56,
+          "x": 450.21,
+          "y": 150.13,
           "children": []
         },
         {
@@ -113,8 +113,8 @@
           "status": "sprout",
           "icon": "",
           "kind": "capability",
-          "x": 418.79,
-          "y": 19.99,
+          "x": 241.98,
+          "y": 158.01,
           "children": []
         },
         {
@@ -276,6 +276,20 @@
           "parent_id": 26,
           "text": "【结果】任务：从「后台工作无人值守好使不了」出发",
           "path": "涌现能力总树/【结果】任务：从「后台工作无人值守好使不了」出发",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
+        },
+        {
+          "id": 31,
+          "parent_id": 26,
+          "text": "✅ 返工完成（采纳两位审核员全部意见，无\"不采纳",
+          "path": "涌现能力总树/✅ 返工完成（采纳两位审核员全部意见，无\"不采纳",
           "depth": 1,
           "clarity": 0.1,
           "status": "sprout",

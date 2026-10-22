@@ -23,3 +23,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_migrate_emerge.py"], "total": 1, "ts": "2026-10-22 11:33:01"}
 {"action": "intercept", "cmd": "del _c.txt 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_c.txt"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 12:35:06"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_c.txt"], "total": 1, "ts": "2026-10-22 12:35:06"}
+{"action": "intercept", "cmd": "del /q _review_check.py 2>", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_review_check.py"], "skipped": ["2>(not_found)"], "ts": "2026-10-22 12:43:55"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_review_check.py"], "total": 1, "ts": "2026-10-22 12:43:55"}
