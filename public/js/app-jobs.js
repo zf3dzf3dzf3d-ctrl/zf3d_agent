@@ -507,9 +507,9 @@
       // 【2026-10-22 精简】策划者/审核者由用户选；施工者固定1名；通过分固定80；轮数自动(8)
       var payload = {
         goal: g || '(见任务附件)',
-        planners: parseInt(document.getElementById('jPlanners').value, 10) || 0,
+        planners: Math.min(8, parseInt(document.getElementById('jPlanners').value, 10) || 0),
         builders: 1,
-        reviewers: parseInt(document.getElementById('jReviewers').value, 10) || 0,
+        reviewers: Math.min(8, parseInt(document.getElementById('jReviewers').value, 10) || 0),
         summarize: document.getElementById('jSummarize').checked,
         decision_gate: document.getElementById('jGate').checked,
         review_pass_score: 80,

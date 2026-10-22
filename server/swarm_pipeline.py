@@ -95,11 +95,11 @@ def _build_stage(stage_cfg, n_default):
         # bool 是 int 子类，显式区分：True=走默认，False=关闭，避免误判成 1/0
         return (n_default if stage_cfg else 0), ''
     if isinstance(stage_cfg, int):
-        return max(0, stage_cfg), ''
+        return min(max(0, stage_cfg), 8), ''
     if isinstance(stage_cfg, dict):
         if stage_cfg.get('enabled') is False:
             return 0, str(stage_cfg.get('model', '') or '')
-        return max(0, int(stage_cfg.get('count', n_default))), str(stage_cfg.get('model', '') or '')
+        return min(max(0, int(stage_cfg.get('count', n_default))), 8), str(stage_cfg.get('model', '') or '')
     return n_default, ''
 
 
