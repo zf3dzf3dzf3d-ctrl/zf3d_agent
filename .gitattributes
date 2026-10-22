@@ -1,0 +1,15 @@
+# 换行符策略：防止 core.autocrlf=true 把脚本/配置在工作区污染成 CRLF，
+# 导致拷到 Android/Termux 后 shebang 变成 `bash\r` 报 bad interpreter、脚本静默失效。
+# 手机侧 Shell 脚本与 crontab 一律强制 LF（内容与索引库均用 LF）。
+*.sh            text eol=lf
+crontab.txt     text eol=lf
+
+# 通用文本统一进库用 LF，检出由 eol 规则细化；二进制不转换。
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.apk           binary
+*.zip           binary

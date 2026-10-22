@@ -3,7 +3,9 @@
 0 7 * * * bash $HOME/scripts/morning_report.sh >> $HOME/scripts/cron.log 2>&1
 # 记忆备份：每天 23:30 推到 PC
 30 23 * * * bash $HOME/scripts/sync_memory.sh push >> $HOME/scripts/cron.log 2>&1
-# 桥看门狗：每 10 分钟探活一次，掉线则自动报警 + 拉起（自愈）
-*/10 * * * * bash $HOME/scripts/watchdog_bridge.sh >> $HOME/scripts/cron.log 2>&1
-# 桥看门狗：每 5 分钟检查一次，桥死了自动重拉（解决「桥不开机自启、死了没人管」）
+# 桥看门狗：每 5 分钟检查心跳，桥死了自动重拉（解决「桥不开机自启、死了没人管」）
+# 注意：boot_bridge.sh 与 watchdog_bridge.sh 功能重叠（都会拉起桥），二选一启用，
+#       否则同一掉线窗口可能被两个脚本各拉一次，互相误判/重复拉桥。
 */5 * * * * bash $HOME/scripts/boot_bridge.sh >> $HOME/scripts/cron.log 2>&1
+# 备选看门狗（ntfy 掉线报警版）：如更看重报警可启用下面这行并注释上面 boot_bridge 行
+# */10 * * * * bash $HOME/scripts/watchdog_bridge.sh >> $HOME/scripts/cron.log 2>&1

@@ -55,3 +55,6 @@
 {"action": "db_error", "path": "C:\\Users\\Public\\rev_check.py", "trash_path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\system\\trash\\20261022\\rev_check.py", "error": "database is locked", "ts": "2026-10-22 17:35:57"}
 {"action": "intercept", "cmd": "del C:\\Users\\Public\\rev_check.py C:\\Users\\Public\\rev_out.txt", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["rev_check.py"], "skipped": ["rev_out.txt(not_found)"], "ts": "2026-10-22 17:35:57"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["rev_check.py"], "total": 1, "ts": "2026-10-22 17:35:57"}
+{"action": "db_error", "path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\server\\server", "trash_path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\system\\trash\\20261022\\server", "error": "database is locked", "ts": "2026-10-22 17:44:18"}
+{"action": "intercept", "cmd": "rmdir \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\server\\server\"", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["server"], "skipped": [], "ts": "2026-10-22 17:44:18"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["server"], "total": 1, "ts": "2026-10-22 17:44:18"}
