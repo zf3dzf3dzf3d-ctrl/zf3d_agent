@@ -547,8 +547,11 @@ document.getElementById('emergeBtn').onclick=async ()=>{
   if(!r||!r.ok) list.innerHTML='<small>读取失败：'+(r&&r.error||'需服务端')+'</small>';
   else if(!r.count) list.innerHTML='<small>（暂无待确认候选）</small>';
   else list.innerHTML=r.items.map(it=>'<div class="emrow"><span>'+(it.text||('#'+it.cap_id))+' <small>+'+(+it.delta_clarity).toFixed(2)+'</small><br><small>'+(it.detail||'')+'</small></span><span><button data-c="'+it.id+'" data-cap="'+(it.cap_id||0)+'">✓</button> <button data-r="'+it.id+'">✕</button></span></div>').join('');
-  list.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await api({action:'confirm', event_id:+b.dataset.c, cap_id:+b.dataset.cap, ...sel()}); await renderNow(); document.getElementById('emergeBtn').click(); reloadTree(); });
-  list.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{ await api({action:'reject', event_id:+b.dataset.r, ...sel()}); document.getElementById('emergeBtn').click(); });
+  // 方案A：确认/驳回后，后端已落盘全局涌现树；前端即时 reloadTree 拉新 + 通知父窗口刷角标，
+  //        不再等 20s 轮询或依赖 renderNow（embed 下 subject 可能与落盘文件错位）。
+  function _notifyHostEmerge(){ try{ parent.postMessage({__tree:1,type:'emergeChanged'},'*'); }catch(_){} }
+  list.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await api({action:'confirm', event_id:+b.dataset.c, cap_id:+b.dataset.cap, ...sel()}); await reloadTree(); _notifyHostEmerge(); flash('✓ 已确认，画布已长出该能力球'); document.getElementById('emergeBtn').click(); });
+  list.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{ await api({action:'reject', event_id:+b.dataset.r, ...sel()}); await reloadTree(); _notifyHostEmerge(); flash('✕ 已驳回'); document.getElementById('emergeBtn').click(); });
   document.getElementById('toggleSw').onclick=async()=>{ const s=await api({action:'switch', state:'toggle'}); flash('侦测开关：'+(s&&s.emerge_enabled||'?')); };
 };
 

@@ -16,7 +16,10 @@
   }
   window.addEventListener('message', function (e) {
     var d = e.data || {};
-    if (d.__tree !== 1 || d.type !== 'zfFillChat') return;          // R2：来源标记校验
+    if (d.__tree !== 1) return;
+    // 方案A：viewer iframe 确认/驳回后即时通知，立刻刷角标（不等 20s 轮询）
+    if (d.type === 'emergeChanged') { try { tick(); } catch (e2) {} return; }
+    if (d.type !== 'zfFillChat') return;          // R2：来源标记校验
     if (typeof d.text !== 'string' || !d.text) return;
     var inp = activeInput();
     if (!inp) { say('⚠️ 未找到可用的对话框输入框'); return; }

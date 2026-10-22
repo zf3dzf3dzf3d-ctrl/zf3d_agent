@@ -391,6 +391,7 @@ def handle(body, ctx):
                     c.execute('UPDATE capability SET clarity=?,updated_at=? WHERE id=?', (new_cl, _now(), cid))
             c.execute('UPDATE emergence_event SET notified=1 WHERE id=?', (eid,))
             c.commit()
+            _render_emerge(c, ctx)   # 方案A：确认即落盘，画布经 liveTick 自动刷新
             ctx.send_json({'ok': True, 'action': 'confirm', 'event_id': eid, 'cap_id': cid, 'clarity': new_cl})
             return
 
@@ -400,6 +401,7 @@ def handle(body, ctx):
                 ctx.send_json({'ok': False, 'error': 'reject 需要 event_id'}); return
             c.execute('UPDATE emergence_event SET notified=1 WHERE id=?', (eid,))
             c.commit()
+            _render_emerge(c, ctx)   # 方案A：驳回即落盘（节点已删，画布同步移除）
             ctx.send_json({'ok': True, 'action': 'reject', 'event_id': eid})
             return
 
