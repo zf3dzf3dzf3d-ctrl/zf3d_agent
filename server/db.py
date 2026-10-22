@@ -337,6 +337,109 @@ def get_agent_turns(session_id, turn_no=None):
         return []
 
 
+# ============================================================================
+# Jobs：后台流水线任务表（可编排后台流水线 P0）
+# 仿 agent_turns 惰性建表范式；report_json 只存摘要，正文经 session_id 关联 agent_turns。
+# 写库走 get_db()+commit（与 agent_turns 同，依赖 WAL/busy_timeout），读走 SELECT。
+# ============================================================================
+_JOBS_READY = False
+
+
+def _ensure_jobs(conn):
+    """惰性建表：保证 jobs 表存在（即便服务启动早于本函数上线）。"""
+    global _JOBS_READY
+    if _JOBS_READY:
+        return
+    try:
+        conn.execute('''CREATE TABLE IF NOT EXISTS jobs (
+            id TEXT PRIMARY KEY,
+            goal TEXT,
+            status TEXT DEFAULT 'queued',
+            session_id TEXT,
+            cfg_json TEXT,
+            report_json TEXT,
+            error TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+        )''')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)')
+        conn.commit()
+        _JOBS_READY = True
+    except Exception as e:
+        _dbg(f'[jobs] 惰性建表失败(忽略): {e}')
+
+
+def create_job(job_id, goal, session_id, cfg_json):
+    """落一条 queued 任务。返回是否成功。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        now = int(time.time())
+        conn.execute(
+            '''INSERT OR REPLACE INTO jobs
+               (id, goal, status, session_id, cfg_json, created_at, updated_at)
+               VALUES (?, ?, 'queued', ?, ?, ?, ?)''',
+            (str(job_id), str(goal or ''), str(session_id or ''),
+             str(cfg_json or '{}'), now, now))
+        conn.commit()
+        return True
+    except Exception as e:
+        _dbg(f'[jobs] create 失败: {e}')
+        return False
+
+
+def update_job(job_id, status=None, report_json=None, error=None, session_id=None):
+    """更新任务状态/报告/错误。仅传入字段参与 SET。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        sets = ['updated_at=?']
+        vals = [int(time.time())]
+        if status is not None:
+            sets.append('status=?'); vals.append(str(status))
+        if report_json is not None:
+            sets.append('report_json=?'); vals.append(str(report_json))
+        if error is not None:
+            sets.append('error=?'); vals.append(str(error))
+        if session_id is not None:
+            sets.append('session_id=?'); vals.append(str(session_id))
+        vals.append(str(job_id))
+        conn.execute('UPDATE jobs SET ' + ','.join(sets) + ' WHERE id=?', vals)
+        conn.commit()
+        return True
+    except Exception as e:
+        _dbg(f'[jobs] update 失败: {e}')
+        return False
+
+
+def get_job(job_id):
+    """按 id 读单个任务（dict）；不存在返回 None。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM jobs WHERE id=?', (str(job_id),))
+        r = cur.fetchone()
+        return dict(r) if r else None
+    except Exception as e:
+        _dbg(f'[jobs] get 失败: {e}')
+        return None
+
+
+def list_jobs(limit=50):
+    """最近任务列表（按创建时间倒序），每项 dict。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT id, goal, status, session_id, created_at, updated_at '
+                    'FROM jobs ORDER BY created_at DESC LIMIT ?', (int(limit),))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        _dbg(f'[jobs] list 失败: {e}')
+        return []
+
+
 _local = threading.local()
 _WAL_SET = False
 

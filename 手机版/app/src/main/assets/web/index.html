@@ -613,7 +613,7 @@ function zfAsyncCall(ns,method,args,timeoutMs){return new Promise(function(res){
   if(!window.ZFAsync||!window.ZFAsync.call){/*无异步桥：本帧后同步执行，至少让点击/触摸事件先排空*/
     setTimeout(function(){try{var Br=window[ns];res(Br&&Br[method]?Br[method].apply(Br,args||[]):null)}catch(e){res(null)}},0);return;}
   var id='c'+(++_zfAsyncSeq);_zfAsyncMap[id]=res;
-  var _to=(typeof timeoutMs==='number'&&timeoutMs>0)?timeoutMs:30000;/*单次兜底 30s（用户要求：所有工具超时锁死不超过30秒，到点直接报错跳过返回null，绝不让对话干等；轻量工具走同步白名单不受影响）*/
+  var _to=(typeof timeoutMs==='number'&&timeoutMs>0)?timeoutMs:10000;/*单次兜底 10s（用户要求：所有工具超时收缩到极致，最多等10秒，到点直接报错跳过返回null，绝不让对话干等；轻量工具走同步白名单不受影响）*/
   var _t=setTimeout(function(){if(_zfAsyncMap[id]){delete _zfAsyncMap[id];res(null)}},_to);
   try{window.ZFAsync.call(ns,method,JSON.stringify(args||[]),id)}catch(e){clearTimeout(_t);delete _zfAsyncMap[id];res(null)}
 })}
@@ -630,12 +630,12 @@ var _zfSyncFast={deviceInfo:1,netInfo:1,a11yReady:1,getBrightness:1,getVolume:1,
    web_search 124s（3 引擎各踩双桥坑）。新逻辑：探测/记住方法所在桥直连，超时不再重复请求另一桥。 */
 var _zfNsAffinity={};/* method -> 'ZFMobile'|'ZFBridge' 上次成功所在桥 */
 function _zfHasFn(ns,method){try{var o=window[ns];return !!(o&&typeof o[method]==='function')}catch(e){return false}}
-var _zfToMap={httpGet:30000,screenshot:15000,readScreen:15000};/* 网络给足30s；截图/读屏正常1-3s，15s足够 */
+var _zfToMap={httpGet:10000,screenshot:10000,readScreen:10000};/* 用户要求全部收缩到极致：最多10秒（网络/截图/读屏统一封顶10s，正常1-3s本就够用，慢网络宁可报错跳过也别干等） */
 async function bJsonA(method){var args=[].slice.call(arguments,1);
   if(!window.ZFAsync||!window.ZFAsync.call)return bJson.apply(null,arguments);/*无异步桥：回退同步*/
   if(_zfSyncFast[method])return bJson.apply(null,arguments);/*轻量方法直接同步，防异步桥悬挂干等超时*/
   function isMissing(r){return r==='bridge-missing'||(typeof r==='string'&&r.indexOf('bridge-error:')===0&&/method not found/i.test(r));}
-  var _to=_zfToMap[method]||20000;
+  var _to=_zfToMap[method]||10000;
   /* 决定尝试顺序：上次成功缓存 > 同步探测 typeof > 默认 ZFMobile→ZFBridge */
   var order=[];
   if(_zfNsAffinity[method])order.push(_zfNsAffinity[method]);
@@ -798,8 +798,9 @@ async function agentExecTool(fn,args){
     case 'delete_file':{var r5=await bJsonA('deleteFile',normPath(args.path));return (r5&&r5.ok)?'已删除 '+args.path:('错误:'+((r5&&r5.error)||'失败'));}
     case 'web_search':{
       var engines=['https://html.duckduckgo.com/html/?q=','https://cn.bing.com/search?q=','https://www.baidu.com/s?wd='];
-      var r6=null,lines=[];
+      var r6=null,lines=[],_wsT0=Date.now();
       for(var ei=0;ei<engines.length;ei++){
+        if(Date.now()-_wsT0>10000)break;/* 总预算≤10秒：防止多引擎各自超时累加（旧版 3×10s=30s，现封顶10s） */
         r6=await bJsonA('httpGet',engines[ei]+encodeURIComponent(args.query||''));
         if(!(r6&&r6.ok))continue;
         var html=r6.text||'';
