@@ -246,5 +246,90 @@ def run_panel(root=None, topmost=False):
     return root
 
 
+# ---------------- PowerShell WinForms 兜底（捆绑 Python 无 tkinter 时） ----------------
+_PS_PANEL = r'''
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$port = __PORT__
+$f = New-Object System.Windows.Forms.Form
+$f.Text = '朱峰智能体 · 任务监控'; $f.TopMost = $false
+$f.BackColor = [Drawing.Color]::FromArgb(30,30,46); $f.Size = New-Object Drawing.Size(480,440)
+$f.StartPosition = 'Manual'
+$wa = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$f.Location = New-Object Drawing.Point(($wa.Width - 500), ($wa.Height - 460))
+$top = New-Object System.Windows.Forms.Panel; $top.Dock='Top'; $top.Height=34
+$top.BackColor = [Drawing.Color]::FromArgb(24,24,37)
+$lbl = New-Object System.Windows.Forms.Label; $lbl.Text='📋 任务监控'; $lbl.ForeColor=[Drawing.Color]::FromArgb(205,214,244)
+$lbl.Font = New-Object Drawing.Font('Microsoft YaHei UI',10,[Drawing.FontStyle]::Bold)
+$lbl.Dock='Fill'; $lbl.TextAlign='MiddleLeft'
+$pin = New-Object System.Windows.Forms.CheckBox; $pin.Text='前台置顶'; $pin.Dock='Right'; $pin.Width=80
+$pin.ForeColor=[Drawing.Color]::FromArgb(166,173,200)
+$pin.Add_CheckedChanged({ $f.TopMost = $pin.Checked })
+$top.Controls.Add($lbl); $top.Controls.Add($pin)
+$list = New-Object System.Windows.Forms.ListView
+$list.Dock='Fill'; $list.View='Details'; $list.FullRowSelect=$true; $list.GridLines=$false
+$list.BackColor=[Drawing.Color]::FromArgb(30,30,46); $list.ForeColor=[Drawing.Color]::FromArgb(205,214,244)
+$list.Columns.Add('任务',260) | Out-Null
+$list.Columns.Add('状态',56) | Out-Null
+$list.Columns.Add('🔧',44) | Out-Null
+$list.Columns.Add('时间',88) | Out-Null
+$f.Controls.Add($list); $f.Controls.Add($top)
+$script:cache = @{}
+function Refresh {
+  try {
+    $jobs = Invoke-RestMethod -Uri ("http://127.0.0.1:" + $port + "/api/jobs") -TimeoutSec 6
+    $list.BeginUpdate(); $list.Items.Clear()
+    foreach ($j in $jobs.jobs) {
+      $st = switch ($j.status) { 'done' {'✓'} 'ok' {'✓'} 'failed' {'✗'} 'error' {'✗'} 'running' {'▶'} default {'…'} }
+      $col = switch ($j.status) { 'done' {[Drawing.Color]::FromArgb(166,227,161)} 'ok' {[Drawing.Color]::FromArgb(166,227,161)} 'failed' {[Drawing.Color]::FromArgb(243,139,168)} 'error' {[Drawing.Color]::FromArgb(243,139,168)} 'running' {[Drawing.Color]::FromArgb(137,180,250)} default {[Drawing.Color]::FromArgb(166,173,200)} }
+      $goal = ('' + $j.goal) -replace "`n",' '
+      if ($goal.Length -gt 30) { $goal = $goal.Substring(0,30) + '…' }
+      $tm = ''
+      try { $tm = (Get-Date '1970-01-01').AddSeconds($j.created_at).ToLocalTime().ToString('MM-dd HH:mm') } catch {}
+      $it = New-Object System.Windows.Forms.ListViewItem($goal)
+      $it.SubItems.Add($st) | Out-Null; $it.SubItems.Add('') | Out-Null; $it.SubItems.Add($tm) | Out-Null
+      $it.ForeColor = $col; $it.Tag = $j.id
+      $list.Items.Add($it) | Out-Null
+      $script:cache[$j.id] = $j
+    }
+    $list.EndUpdate()
+  } catch {}
+}
+$list.Add_DoubleClick({
+  if ($list.SelectedItems.Count -gt 0) {
+    $jid = $list.SelectedItems[0].Tag
+    try {
+      $t = Invoke-RestMethod -Uri ("http://127.0.0.1:" + $port + "/api/jobs/" + $jid + "/transcript") -TimeoutSec 6
+      $n = 0; $txt = ''
+      foreach ($x in $t.turns) { if ($x.role -eq 'tool') { $n++ }; $txt += ("[" + $x.role + "] " + (('' + $x.content) -replace "`r?`n",' ') + "`n") }
+      if ($txt.Length -gt 1200) { $txt = $txt.Substring(0,1200) + ' …' }
+      [System.Windows.Forms.MessageBox]::Show($f, $txt, ("🔧 " + $n + " 次工具 · " + $jid)) | Out-Null
+    } catch {}
+  }
+})
+$f.Add_Shown({ Refresh; $script:timer = New-Object System.Windows.Forms.Timer; $script:timer.Interval = 3000; $script:timer.Add_Tick({ Refresh }); $script:timer.Start() })
+$f.Add_FormClosed({ if ($script:timer) { $script:timer.Stop() } })
+[void]$f.ShowDialog()
+'''
+
+
+def _ps_panel_fallback(port):
+    import subprocess
+    script = _PS_PANEL.replace('__PORT__', str(port))
+    tf = os.path.join(os.environ.get('TEMP', _HERE), 'zf_panel.ps1')
+    try:
+        with open(tf, 'w', encoding='utf-8-sig') as f:
+            f.write(script)
+        subprocess.Popen(['powershell', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
+                          '-File', tf], creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except Exception as e:
+        print('PS 监控面板失败:', e)
+
+
 if __name__ == '__main__':
-    run_panel()
+    try:
+        import tkinter  # noqa: F401
+    except ImportError:
+        _ps_panel_fallback(_api_port())
+    else:
+        run_panel()

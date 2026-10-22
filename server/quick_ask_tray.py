@@ -235,11 +235,16 @@ def _tk_ask_loop():
             _monitor_evt = None
             try:
                 import tray_monitor
-                w = _monitor_win[0]
-                if w is not None and w.winfo_exists():
-                    w.deiconify(); w.lift()
-                else:
-                    _monitor_win[0] = tray_monitor.run_panel(root=root, topmost=False)
+                try:
+                    import tkinter  # noqa: F401
+                    w = _monitor_win[0]
+                    if w is not None and w.winfo_exists():
+                        w.deiconify(); w.lift()
+                    else:
+                        _monitor_win[0] = tray_monitor.run_panel(root=root, topmost=False)
+                except ImportError:
+                    # 捆绑 Python 无 tkinter → PowerShell 面板兜底
+                    tray_monitor._ps_panel_fallback(tray_monitor._api_port())
             except Exception as e:
                 log('监控面板失败: %s' % e)
         root.after(60, pump)
