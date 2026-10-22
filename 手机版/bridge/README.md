@@ -10,7 +10,8 @@ bridge/
 │   ├── boot_bridge.sh       # 桥开机自启 + 看门狗自愈（检查心跳，死了自动重拉）
 │   ├── morning_report.sh    # 定时晨报（天气+待办+追剧）经 ntfy 推送
 │   ├── sync_memory.sh       # 记忆/待办打包备份到 PC、可拉回
-│   └── crontab.txt          # 定时任务表（晨报 7:00、备份 23:30）
+│   ├── watchdog_bridge.sh   # 桥看门狗：每10分钟探活，掉线自动 ntfy 报警+拉起自愈
+│   └── crontab.txt          # 定时任务表（晨报 7:00、备份 23:30、看门狗 每10分钟）
 └── pc/                      # PC 侧接收端
     ├── bridge_server.py     # HTTP 服务：备份上传/下载 + 白名单远程命令
     ├── 启动峰控桥.bat       # 一键后台启动（端口 8765）
