@@ -83,3 +83,58 @@
 .zf-jobs-resume .rz-acts { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .zf-jobs-resume .rz-hint { font-size: 12px; color: #8a8a92; }
 .zf-jobs-resume button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ===================== [P2 增强样式] ===================== */
+/* ① 筛选 + ② 搜索 工具条 */
+.zf-jobs-filter { display: flex; gap: 8px; padding: 8px 14px;
+  border-bottom: 1px solid var(--zf-border, #1a1a1f); flex-wrap: wrap; }
+.zf-jobs-select, .zf-jobs-search {
+  background: var(--zf-card, #111114); color: var(--zf-text, #c8c8cc);
+  border: 1px solid var(--zf-border, #1a1a1f); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; font-family: inherit; }
+.zf-jobs-select { flex: 0 0 auto; }
+.zf-jobs-search { flex: 1 1 140px; min-width: 120px; }
+.zf-jobs-select:focus, .zf-jobs-search:focus { outline: none; border-color: var(--zf-acc, #8a8a92); }
+
+/* ③ 失败重跑区 */
+.zf-jobs-retry { margin-top: 12px; padding: 12px; border: 1px solid #8a3a3a;
+  border-radius: 8px; background: rgba(138,58,58,.08);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.zf-jobs-retry .rz-hint { font-size: 12px; color: #8a8a92; }
+.zf-jobs-retry button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ④ 详情阶段进度条 */
+.zf-jobs-stage { margin-bottom: 10px; }
+.zf-jobs-stage .sg-track { height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f); }
+.zf-jobs-stage .sg-fill { height: 100%; background: var(--zf-acc, #8a8a92);
+  transition: width .3s ease; }
+.zf-jobs-stage .sg-cells { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.zf-jobs-stage .sg { font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  border: 1px solid var(--zf-border, #2a2a30); color: var(--zf-text, #6a6a72); }
+.zf-jobs-stage .sg.on { border-color: #4a7a4a; color: #6fae6f; background: rgba(74,122,74,.12); }
+.zf-jobs-stage .sg-note { font-size: 11px; color: var(--zf-text, #6a6a72); margin-top: 4px; }
+
+/* ⑤ transcript 角色配色（按 tr-row 左色条区分） */
+.tr-row { border-left: 3px solid transparent; }
+.tr-row.r-user   { border-left-color: #3a7d5c; background: rgba(58,125,92,.06); }
+.tr-row.r-build  { border-left-color: #4a6a8a; background: rgba(74,106,138,.06); }
+.tr-row.r-review { border-left-color: #8a6d2b; background: rgba(138,109,43,.06); }
+.tr-row.r-system { border-left-color: #5a5a62; background: rgba(90,90,98,.06); }
+.tr-row.r-unknown{ border-left-color: #2a2a30; }
+.tr-row.r-user   .tr-role { color: #6fae8f; }
+.tr-row.r-build  .tr-role { color: #7fa0c0; }
+.tr-row.r-review .tr-role { color: #c2a24a; }
+.tr-row.r-system .tr-role { color: #9a9aa2; }
+
+/* ⑥ 移动端适配 */
+@media (max-width: 600px) {
+  #zfJobsDrawer { width: 100vw; max-width: 100vw; }
+  #zfJobsFab { right: 12px; bottom: 86px; width: 42px; height: 42px; line-height: 42px; font-size: 18px; }
+  .zf-jobs-bar { flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .zf-jobs-bar h3 { flex: 1 1 100%; }
+  .zf-jobs-filter { padding: 8px 10px; }
+  .zf-jobs-search { flex: 1 1 100%; }
+  .zf-jobs-detail { padding: 10px; }
+  .zf-jobs-stage .sg-cells { gap: 4px; }
+}

@@ -20,6 +20,40 @@
     });
   }
   function stInfo(st) { return STATUS_UI[st] || { t: st || '未知', c: '#666' }; }
+
+  // [P2] 流水线阶段序列（与 swarm_pipeline note_stage 名对齐；planning 不单独记录故不计）
+  var STAGE_SEQ = [
+    { key: 'converge', t: '收口' },
+    { key: 'decision_gate', t: '决策门' },
+    { key: 'build', t: '施工' },
+    { key: 'review', t: '审核' },
+    { key: 'summary', t: '总结' }
+  ];
+  // 依 cfg 推算本次「预期会跑的阶段」（关策划→无 gate/summary 视 cfg 而定）
+  function expectedStages(cfg) {
+    cfg = cfg || {};
+    return STAGE_SEQ.filter(function (s) {
+      if (s.key === 'decision_gate') return !!cfg.decision_gate;
+      if (s.key === 'summary') return !!cfg.summarize;
+      return true;
+    });
+  }
+  function renderStageBar(cfg, doneArr, status) {
+    var doneSet = {}; (doneArr || []).forEach(function (k) { doneSet[k] = 1; });
+    var exp = expectedStages(cfg);
+    var total = exp.length, hit = exp.filter(function (s) { return doneSet[s.key]; }).length;
+    var pct = total ? Math.round(hit / total * 100) : 0;
+    var live = (status === 'running' || status === 'queued');
+    var cells = exp.map(function (s) {
+      var on = doneSet[s.key] ? ' on' : '';
+      return '<span class="sg' + on + '" title="' + esc(s.t) + '">' + esc(s.t) + '</span>';
+    }).join('');
+    return '<div class="zf-jobs-stage">' +
+      '<div class="sg-track"><div class="sg-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="sg-cells">' + cells + '</div>' +
+      '<div class="sg-note">' + (live ? '进行中 · 阶段明细将在结束时产生' : ('完成 ' + hit + '/' + total + ' 阶段（' + pct + '%）')) + '</div>' +
+      '</div>';
+  }
   function fmtTime(ts) {
     if (!ts) return '-';
     try { return new Date(ts * 1000).toLocaleString('zh-CN', { hour12: false }); }
@@ -258,6 +292,7 @@
             '<span class="k">创建</span><span>' + fmtTime(job.created_at) + '</span>' +
             '<span class="k">更新</span><span>' + fmtTime(job.updated_at) + '</span>' +
           '</div>' +
+          (typeof renderStageBar === 'function' ? renderStageBar(job.cfg, (rep && rep.stages_done) || [], job.status) : '') +
           (job.error ? '<div style="color:#8a3a3a;margin-bottom:8px">错误：' + esc(job.error) + '</div>' : '') +
           (rep ? '<pre style="white-space:pre-wrap;font-size:12px;background:#111;border:1px solid #1a1a1f;border-radius:6px;padding:8px">' + esc(JSON.stringify(rep, null, 2)) + '</pre>' : '<div class="zf-jobs-empty">无总结产出</div>');
       } else {
@@ -272,6 +307,12 @@
             '<div class="rz-acts"><button class="zf-jobs-btn primary" id="jResumeBtn">▶ 提交裁决并续跑</button>' +
             '<span class="rz-hint" id="jResumeHint"></span></div>' +
           '</div>';
+      }
+      // [P2 失败重跑] failed 状态：复用原 cfg 一键重跑（新 job_id + 新 session，避免污染旧对话流）
+      if (this.tab === 'overview' && job.status === 'failed') {
+        body += '<div class="zf-jobs-retry">' +
+          '<button class="zf-jobs-btn primary" id="jRetryBtn">↻ 按原配置重跑</button>' +
+          '<span class="rz-hint" id="jRetryHint"></span></div>';
       }
       box.innerHTML = head + body;
       // 续跑按钮绑定
@@ -294,6 +335,27 @@
           }).catch(function (e) {
             rb.disabled = false; if (hint) hint.textContent = '✕ 异常：' + e.message;
           });
+        });
+      }
+      // 失败重跑按钮绑定：复用 job.cfg（后端 detail 已透出）提交新任务
+      var rbtn = box.querySelector('#jRetryBtn');
+      if (rbtn) {
+        rbtn.addEventListener('click', function () {
+          var cfg = job.cfg || {};
+          var hint = document.getElementById('jRetryHint');
+          var payload = {
+            goal: cfg.goal || job.goal || '',
+            planners: cfg.planners || 0, builders: cfg.builders || 0, reviewers: cfg.reviewers || 0,
+            summarize: !!cfg.summarize, decision_gate: !!cfg.decision_gate,
+            max_review_rounds: cfg.max_review_rounds || 2, review_pass_score: cfg.review_pass_score || 80
+          };
+          if (cfg.context) payload.context = cfg.context;
+          if (!payload.goal) { if (hint) hint.textContent = '✕ 缺目标无法重跑'; return; }
+          rbtn.disabled = true; if (hint) hint.textContent = '重跑提交中…';
+          API.submit(payload).then(function (r) {
+            if (r && r.ok) { if (hint) hint.textContent = '✓ 已重跑（新任务 #' + (r.job_id || '') + '）'; Poll.start(); if (r.job_id) self.select(r.job_id); }
+            else { rbtn.disabled = false; if (hint) hint.textContent = '✕ ' + (r && r.error || '重跑失败'); }
+          }).catch(function (e) { rbtn.disabled = false; if (hint) hint.textContent = '✕ 异常：' + e.message; });
         });
       }
       Array.prototype.forEach.call(box.querySelectorAll('.zf-jobs-tab'), function (t) {
