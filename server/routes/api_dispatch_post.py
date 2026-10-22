@@ -43,6 +43,31 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             self._send_json(memory_import.auto_collect())
             return
 
+    # ===== 🔑 密码大师：跨版本浏览器 profile/密码库导入 =====
+    def _handle_profile_import(self):
+        import browser_profile_import
+        try:
+            body = self._read_body()
+        except Exception:
+            body = {}
+        path = self.path.split('?')[0]
+        if path == '/api/browser/profile/import/candidates':
+            self._send_json(browser_profile_import.list_candidates())
+            return
+        if path == '/api/browser/profile/import/scan':
+            src = str(body.get('src') or '')
+            pp = str(body.get('profile_path') or '') or None
+            self._send_json(browser_profile_import.scan_import(src, profile_path=pp))
+            return
+        if path == '/api/browser/profile/import/run':
+            src = str(body.get('src') or '')
+            pp = str(body.get('profile_path') or '') or None
+            self._send_json(browser_profile_import.run_import(src, profile_path=pp))
+            return
+        if path == '/api/browser/profile/import/auto':
+            self._send_json(browser_profile_import.auto_collect())
+            return
+
     # ===== 多线程下载器 =====
     def _route_download_post(self):
         path = self.path.split('?')[0]
@@ -573,6 +598,11 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             self._handle_memory_import()
             return
 
+        # ===== 🔑 密码大师：跨版本浏览器 profile/密码库导入（/api/browser/profile/import/*） =====
+        if path in ('/api/browser/profile/import/candidates', '/api/browser/profile/import/scan', '/api/browser/profile/import/run', '/api/browser/profile/import/auto'):
+            self._handle_profile_import()
+            return
+
         # ===== 多线程下载器（/api/download/*） =====
         if self._route_download_post():
             return
@@ -701,6 +731,10 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
         # ===== 可编排后台流水线·Jobs（提交异步任务）=====
         if path == '/api/jobs/submit':
             self._handle_jobs_submit()
+            return
+        # ===== Jobs 附件上传（新建任务粘贴图片落盘）=====
+        if path == '/api/jobs/upload':
+            self._handle_jobs_upload()
             return
         # ===== Jobs·手动审核续跑（复用内核 resume_verdict）=====
         if path.startswith('/api/jobs/') and path.endswith('/resume'):

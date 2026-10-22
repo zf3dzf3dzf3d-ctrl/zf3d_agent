@@ -14,6 +14,7 @@
         { icon: '🔗', label: '对话接力大师', cls: 'mc-relaymaster', title: '把问答清单发给新对话，并附上最后一个问题的完整工具结果，让 AI 接着最后的任务继续做（旧轮次工具结果丢弃）' },
         { icon: '🧹', label: '文件资源管理师', cls: 'mc-filemaster', title: '项目文件体检：垃圾文件扫描、bak 收容、陈旧 bak 清理（二次确认）、git 卫生检查' },
         { icon: '🧬', label: '记忆大师', cls: 'mc-memmaster', title: '跨版本记忆导入：自动探测兄弟版本目录的记忆库，保守导入（永不覆盖/删除，重名改名保留），导入前后各打一次 git 快照' },
+        { icon: '🔑', label: '密码大师', cls: 'mc-passmaster', title: '跨版本密码库/登录态导入：自动探测老版本浏览器 profile（Login Data/Cookies/Local State），保守导入（永不覆盖），导入前后各打一次 git 快照。注意：不解密不展示任何明文密码；换电脑/换 Windows 账户后 DPAPI 加密的旧密码会失效' },
         { icon: '🕶️', label: '无痕模式', cls: 'mc-incognitomaster', title: '无痕模式：开启后本对话所有内容不写入记忆/数据库，关闭页面即全部丢失' }
     ];
 
@@ -69,6 +70,7 @@
                     if (it.cls === 'mc-logmaster') App.logMaster(box);
                     else if (it.cls === 'mc-filemaster') { if (typeof App.fileMaster === 'function') App.fileMaster(box); else if (App._logMasterToast) App._logMasterToast('文件资源管理师脚本未加载'); }
                     else if (it.cls === 'mc-memmaster') { if (typeof App.memoryImportMaster === 'function') App.memoryImportMaster(box); else if (App._logMasterToast) App._logMasterToast('记忆大师脚本未加载'); }
+                    else if (it.cls === 'mc-passmaster') { if (typeof App.profileImportMaster === 'function') App.profileImportMaster(box); else if (App._logMasterToast) App._logMasterToast('密码大师脚本未加载'); }
                     else if (it.cls === 'mc-contextmaster') App.contextMaster(box);
                     else if (it.cls === 'mc-toolmaster') App.toolMaster(box);
                     else if (it.cls === 'mc-synthmaster') App.synthMaster(box);
@@ -143,11 +145,12 @@
             // 【修复#6·菜单跑到左侧】旧逻辑右对齐按钮并整体右移 30px，
             // 在「⋯更多」下拉内表现为菜单偏到按钮左侧一大截、远离鼠标。
             // 改为菜单左边缘紧挨按钮左边缘出现（鼠标搭上即在原位弹出）。
-            // 【诉求4·大师下拉应在左侧】菜单在触发按钮的左侧弹出
-            // （菜单右边缘紧贴按钮左边缘），与优先级菜单方向一致；左侧放不下才回退到右侧。
+            // 【修复·大师下拉应在左侧】改为在触发按钮「左侧」弹出（右边缘贴按钮左边缘），
+            // 与优先级/上下文菜单一致，不再与按钮重叠铺开。
             var left = r.left - mw - 4;
-            if (left < margin) left = Math.min(window.innerWidth - margin - mw, r.right + 4);
+            if (left < margin) left = Math.max(margin, r.right + 4); // 左侧放不下则贴右
             if (left < margin) left = margin;
+            if (left + mw > window.innerWidth - margin) left = window.innerWidth - margin - mw;
             menu.style.right = 'auto';
             menu.style.left = left + 'px';
             if (wasHidden) { menu.style.display = 'none'; menu.style.visibility = ''; }
@@ -359,6 +362,134 @@
         function bindClose() {
             var c = dlg.querySelector('.mi-close');
             if (c) c.addEventListener('click', function () { overlay.remove(); });
+        }
+
+        stepCandidates();
+    };
+
+    // ==================================================================
+    // 🔑 密码大师：跨版本浏览器 profile/密码库导入向导
+    // （candidates → scan 预览 → run 导入；不解密不展示任何明文密码）
+    // ==================================================================
+    App.profileImportMaster = function () {
+        var toast = App._logMasterToast || function (m) { alert(m); };
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;';
+        var dlg = document.createElement('div');
+        dlg.style.cssText = 'width:560px;max-width:92vw;max-height:80vh;overflow:auto;background:#1e2430;border:1px solid #3a4356;border-radius:10px;padding:18px;color:#dfe5ef;font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.6);';
+        overlay.appendChild(dlg);
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+        function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        function html(t) { dlg.innerHTML = t; }
+        function post(url, body) {
+            return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+                .then(function (r) { return r.json(); });
+        }
+        function bindClose() {
+            var c = dlg.querySelector('.mi-close');
+            if (c) c.addEventListener('click', function () { overlay.remove(); });
+        }
+        function bindBack(fn) {
+            var b = dlg.querySelector('.mi-back');
+            if (b) b.addEventListener('click', fn);
+        }
+
+        // ⚡ 一键自动收集
+        function stepAuto() {
+            html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 密码大师 · ⚡ 一键自动收集</div><div>正在全盘智能扫描所有老版本的浏览器密码库/登录态（可能需要十几秒）…<br><span style="color:#8b95a7;">提示：导入前请关闭浏览器会话，防止数据库文件占用</span></div>');
+            post('/api/browser/profile/import/auto').then(function (res) {
+                if (!res.ok) { html('<div style="color:#e74c3c;">自动收集失败：' + esc(res.err || '未知错误') + '</div><br><button class="mi-close" style="padding:6px 14px;cursor:pointer;">关闭</button><button class="mi-back" style="padding:6px 14px;margin-left:8px;cursor:pointer;">返回手动选择</button>'); bindClose(); bindBack(stepCandidates); return; }
+                var rows = res.results.map(function (r) {
+                    if (!r.ok) return '<div style="padding:6px 10px;border:1px solid #3a4356;border-radius:6px;margin-bottom:6px;color:#e74c3c;">❌ ' + esc(r.name) + '：' + esc(r.err || '') + '</div>';
+                    return '<div style="padding:6px 10px;border:1px solid #3a4356;border-radius:6px;margin-bottom:6px;"><b>' + esc(r.name) + '</b>：✅ 新增 ' + r.added + ' 个关键文件，✏️ 重名改名保留 ' + r.renamed + ' 个</div>';
+                }).join('');
+                html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">⚡ 密码库收集完成 ✅</div>' +
+                    '<div>全新导入 <b style="color:#2ecc71;">' + res.total_add + '</b> 个关键文件，重名改名保留 <b style="color:#f39c12;">' + res.total_rename + '</b> 个（永不覆盖）</div><br>' + rows +
+                    '<div style="color:#8b95a7;margin-top:8px;font-size:12px;">⚠️ 换电脑/换 Windows 账户后，DPAPI 加密的旧密码会失效（登录态 Cookie 一般仍有效）。建议重启软件或关闭浏览器会话后重新打开使导入生效。</div>' +
+                    '<br><div style="text-align:right;"><button class="mi-close" style="padding:6px 14px;cursor:pointer;background:#27ae60;color:#fff;border:none;border-radius:6px;">完成</button></div>');
+                bindClose();
+            }).catch(function (e) { toast('🔑 自动收集请求失败：' + e); overlay.remove(); });
+        }
+
+        // 第 1 步：候选列表（每个 profile 单元 = 一条）
+        function stepCandidates() {
+            html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 密码大师 · 跨版本密码库导入</div><div>正在全盘智能探测老版本浏览器 profile（Login Data/Cookies/Local State）…</div>');
+            post('/api/browser/profile/import/candidates').then(function (res) {
+                if (!res.ok) { html('<div style="color:#e74c3c;">探测失败：' + esc(res.err || '未知错误') + '</div><br><button class="mi-close" style="padding:6px 14px;cursor:pointer;">关闭</button>'); bindClose(); return; }
+                if (!res.candidates.length) {
+                    html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 密码大师</div>' +
+                        '<div>全盘智能扫描未检测到含浏览器密码库/登录态的老版本目录。<br>当前版本：' + esc(res.current) + '</div><br>' +
+                        '<button class="mi-close" style="padding:6px 14px;cursor:pointer;">关闭</button>');
+                    bindClose(); return;
+                }
+                var autoBtn = '<div style="background:#232b3a;border:1px solid #3498db;border-radius:8px;padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">' +
+                    '<div style="flex:1;"><b>⚡ 一键自动收集全部</b><br><span style="color:#8b95a7;font-size:12px;">自动扫描全部 ' + res.candidates.length + ' 个 profile 单元，保守导入所有密码库/登录态（永不覆盖，前后 git 快照）</span></div>' +
+                    '<button class="mi-auto" style="padding:6px 14px;cursor:pointer;background:#3498db;color:#fff;border:none;border-radius:6px;white-space:nowrap;">⚡ 自动收集</button></div>';
+                var rows = res.candidates.map(function (c, i) {
+                    var d = new Date(c.mtime * 1000);
+                    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #3a4356;border-radius:6px;margin-bottom:6px;">' +
+                        '<input type="radio" name="pi-src" value="' + esc(c.dir) + '" data-pp="' + esc(c.profile_path) + '"' + (i === 0 ? ' checked' : '') + ' style="cursor:pointer;">' +
+                        '<div style="flex:1;"><b>' + esc(c.name) + '</b><br><span style="color:#8b95a7;font-size:12px;">' + c.count + ' 个关键文件 · ' + c.total_mb + ' MB · ' + d.toLocaleString() + '</span></div></div>';
+                }).join('');
+                html('<div style="font-size:15px;font-weight:bold;margin-bottom:4px;">🔑 密码大师 · 选择来源 profile</div>' +
+                    '<div style="color:#8b95a7;margin-bottom:10px;">当前版本：' + esc(res.current) + ' · 策略：保守导入，永不覆盖/删除，重名自动改名保留 · 只迁移文件，不解密不展示明文密码</div>' +
+                    autoBtn + rows +
+                    '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">' +
+                    '<button class="mi-close" style="padding:6px 14px;cursor:pointer;background:#2c3444;color:#dfe5ef;border:none;border-radius:6px;">取消</button>' +
+                    '<button class="mi-next" style="padding:6px 14px;cursor:pointer;background:#3498db;color:#fff;border:none;border-radius:6px;">下一步：预览差异 →</button></div>');
+                bindClose();
+                var a = dlg.querySelector('.mi-auto');
+                if (a) a.addEventListener('click', stepAuto);
+                var n = dlg.querySelector('.mi-next');
+                if (n) n.addEventListener('click', function () {
+                    var sel = dlg.querySelector('input[name="pi-src"]:checked');
+                    if (!sel) { toast('请先选择一个来源'); return; }
+                    stepScan(sel.value, sel.getAttribute('data-pp'));
+                });
+            }).catch(function (e) { toast('🔑 探测请求失败：' + e); overlay.remove(); });
+        }
+
+        // 第 2 步：scan 预览 → 确认后 run
+        function stepScan(src, pp) {
+            html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 密码大师 · 差异预览</div><div>正在对比关键文件（Local State / Login Data / Cookies…）…</div>');
+            post('/api/browser/profile/import/scan', { src: src, profile_path: pp }).then(function (res) {
+                if (!res.ok) { html('<div style="color:#e74c3c;">预览失败：' + esc(res.err || '未知错误') + '</div><br><button class="mi-close" style="padding:6px 14px;cursor:pointer;">关闭</button>'); bindClose(); return; }
+                function fmt(arr, icon, label) {
+                    if (!arr.length) return '';
+                    return '<div style="margin:8px 0 4px;font-weight:bold;">' + icon + ' ' + label + '（' + arr.length + '）</div>' +
+                        arr.slice(0, 30).map(function (x) {
+                            var t = x.file ? x.file : x;
+                            return '<div style="color:#8b95a7;font-size:12px;padding:2px 0 2px 14px;">' + esc(typeof t === 'string' ? t : (t.file + (x.as ? ' → ' + x.as : ''))) + '</div>';
+                        }).join('') + (arr.length > 30 ? '<div style="color:#8b95a7;font-size:12px;padding-left:14px;">…等 ' + arr.length + ' 个</div>' : '');
+                }
+                html('<div style="font-size:15px;font-weight:bold;margin-bottom:4px;">🔑 密码大师 · 确认导入</div>' +
+                    '<div style="color:#8b95a7;margin-bottom:8px;">来源：' + esc(src) + '<br>目标：' + esc(res.dst_profile) + '</div>' +
+                    '<div>✅ 全新导入：<b style="color:#2ecc71;">' + res.add.length + '</b> 个 · ✏️ 重名改名保留：<b style="color:#f39c12;">' + res.rename.length + '</b> 个（永不覆盖/删除）</div>' +
+                    fmt(res.add, '✅', '全新导入') + fmt(res.rename, '✏️', '重名改名') +
+                    '<div style="color:#f39c12;margin-top:10px;font-size:12px;">⚠️ 导入前请确保浏览器会话已关闭（防止 SQLite 占用）。导入前后各打一次 git 快照。</div>' +
+                    '<br><div style="display:flex;gap:8px;justify-content:flex-end;">' +
+                    '<button class="mi-back" style="padding:6px 14px;cursor:pointer;background:#2c3444;color:#dfe5ef;border:none;border-radius:6px;">← 返回</button>' +
+                    '<button class="mi-run" style="padding:6px 14px;cursor:pointer;background:#e67e22;color:#fff;border:none;border-radius:6px;">开始导入</button></div>');
+                bindClose();
+                bindBack(function () { stepCandidates(); });
+                var r = dlg.querySelector('.mi-run');
+                if (r) r.addEventListener('click', function () { stepRun(src, pp); });
+            }).catch(function (e) { toast('🔑 预览请求失败：' + e); overlay.remove(); });
+        }
+
+        // 第 3 步：执行导入
+        function stepRun(src, pp) {
+            html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 密码大师 · 导入中…</div><div>正在保守导入关键文件（不会覆盖任何现有文件）…</div>');
+            post('/api/browser/profile/import/run', { src: src, profile_path: pp }).then(function (res) {
+                if (!res.ok) { html('<div style="color:#e74c3c;">导入失败：' + esc(res.err || '未知错误') + '</div><br><button class="mi-close" style="padding:6px 14px;cursor:pointer;">关闭</button>'); bindClose(); return; }
+                html('<div style="font-size:15px;font-weight:bold;margin-bottom:10px;">🔑 导入完成 ✅</div>' +
+                    '<div>✅ 全新导入：<b>' + res.added + '</b> 个关键文件<br>✏️ 重名改名保留：<b>' + res.renamed + '</b> 个</div>' +
+                    '<div style="color:#2ecc71;margin-top:8px;">' + esc(res.hint || '完成') + '</div>' +
+                    '<br><div style="text-align:right;"><button class="mi-close" style="padding:6px 14px;cursor:pointer;background:#27ae60;color:#fff;border:none;border-radius:6px;">完成</button></div>');
+                bindClose();
+            }).catch(function (e) { toast('🔑 导入请求失败：' + e); overlay.remove(); });
         }
 
         stepCandidates();

@@ -80,3 +80,4 @@ Thumbs.db
 
 # 历史脱敏示例保留说明：ai_keys.json / ai_upstreams.json 中 key 均为空占位符（无真实密钥），
 # 作为配置模板保留入库；真实密钥仅存于本地 private/api_keys.json（已被上方 private/ 忽略，不入库）。
+"server/data/browser_profile/"  

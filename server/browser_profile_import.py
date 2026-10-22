@@ -117,8 +117,12 @@ def _collect_key_files(prof):
     return out
 
 
-def _probe_dir(cand_root, out):
+def _probe_dir(cand_root, out, seen_units):
     for unit_key, unit_path in _iter_profile_units(cand_root):
+        rp = os.path.realpath(unit_path)
+        if rp in seen_units:
+            continue
+        seen_units.add(rp)
         files = _collect_key_files(unit_path)
         if not files:
             continue
@@ -155,7 +159,7 @@ def list_candidates():
     root = _project_root()
     cur_real = os.path.realpath(root)
     cur_ver = os.path.basename(root)
-    out, seen = [], set()
+    out, seen, seen_units = [], set(), set()
     try:
         for base in _search_roots():
             try:
@@ -181,7 +185,7 @@ def list_candidates():
                                 sub_p = os.path.join(cand, sub)
                                 if os.path.isdir(sub_p) and not sub.startswith(('.', '$')) \
                                         and sub not in ('node_modules', '_垃圾箱'):
-                                    _probe_dir(sub_p, out)
+                                    _probe_dir(sub_p, out, seen_units)
                         except Exception:
                             pass
                         continue
@@ -197,12 +201,21 @@ def list_candidates():
     return {'ok': True, 'current': cur_ver, 'candidates': out, 'scan_mode': '全盘智能扫描'}
 
 
-def scan_import(src_root):
-    """差异预览：关键文件粒度的新增 / 重名改名 两类（永不覆盖）"""
+def scan_import(src_root, profile_path=None):
+    """差异预览：关键文件粒度的新增 / 重名改名 两类（永不覆盖）
+    src_root: 老版本根目录；profile_path: 可选，直接指定 profile 单元目录（来自 candidates）"""
     try:
+        if profile_path:
+            src_prof = profile_path
+            if not (os.path.realpath(src_prof).startswith(os.path.realpath(src_root)) and _has_profile_data(src_prof)):
+                return {'ok': False, 'err': 'profile_path 非法'}
+        else:
+            units = _iter_profile_units(src_root)
+            if not units:
+                return {'ok': False, 'err': '该目录下未发现浏览器 profile 数据'}
+            src_prof = units[0][1]
         if not _is_source_safe(src_root):
             return {'ok': False, 'err': '路径不在允许范围（仅限含浏览器 profile 的版本目录）'}
-        src_prof = _profile_dir(src_root)
         dst_prof = _profile_dir(_project_root())
         if not dst_prof:
             dst_prof = os.path.join(_project_root(), PROFILE_CANDIDATES[0])
@@ -240,9 +253,9 @@ def _snap(reason):
         pass
 
 
-def run_import(src_root):
+def run_import(src_root, profile_path=None):
     """执行保守导入 + 前后各一次快照。返回导入明细。"""
-    pre = scan_import(src_root)
+    pre = scan_import(src_root, profile_path=profile_path)
     if not pre.get('ok'):
         return pre
     try:
