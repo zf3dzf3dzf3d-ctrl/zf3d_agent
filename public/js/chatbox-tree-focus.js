@@ -67,7 +67,19 @@
       }).then(function (r) { return r.json(); }).then(function (j) {
         var n = (j && j.ok) ? (j.count || 0) : 0;
         var b = ensureBadge();
-        if (n > 0) { b.style.display = 'block'; b.textContent = '🌱 涌现 ' + n + ' 待确认'; }
+        if (n > 0) {
+          // 自动确认模式：候选出现即逐条采纳（confirm 会加 clarity 并置 notified=1），
+          // 角标只作短暂提示，下一轮 tick 自动消失，无需手动点。
+          b.style.display = 'block'; b.textContent = '🌱 涌现 ' + n + ' 已自动采纳';
+          var items = (j.items || []).map(function (it) { return it.id; });
+          (function autoConfirm(ids) {
+            if (!ids.length) { setTimeout(function () { b.style.display = 'none'; }, 2500); return; }
+            fetch('/api/tools/capability_tree', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'confirm', event_id: ids.shift() })
+            }).then(function () { autoConfirm(ids); }).catch(function () { b.style.display = 'none'; });
+          })(items);
+        }
         else { b.style.display = 'none'; }
       }).catch(function () {});
     } catch (e) {}
