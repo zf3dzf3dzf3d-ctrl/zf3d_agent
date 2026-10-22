@@ -724,9 +724,11 @@ function aiModify(){
   const cmd='【进化树·修改节点】subject_type='+(m.subject_type||'project')+' subject_id='+(m.subject_id||'')+' 节点id='+selected.id+' 名称="'+selected.text+'"'+(binds?(' 挂接文件binds='+binds):'（该节点未挂接文件）')+'\n请调用 capability_tree(action=context, id='+selected.id+', subject_type='+(m.subject_type||'project')+', subject_id='+(m.subject_id||'')+') 读回祖先/兄弟/binds，定位到对应文件后修改这个部件（不要全项目盲搜）。';
   openPanel('🛠 让AI修改这里 · '+selected.text);
   const bd=document.getElementById('panelBody');
-  bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea><button id="aiCopy" style="margin-top:6px;background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">📋 复制指令</button>';
+  bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea><button id="aiCopy" style="margin-top:6px;background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">📋 复制指令</button><button id=\"aiFill\" style=\"margin-top:6px;margin-left:6px;background:#21262d;border:1px solid #58a6ff;color:#58a6ff;border-radius:6px;padding:6px 12px;cursor:pointer\">🎯 送入对话框</button>';
   document.getElementById('aiCmd').value=cmd;
   document.getElementById('aiCopy').onclick=()=>{ const ta=document.getElementById('aiCmd'); ta.select(); try{ document.execCommand('copy'); flash('📋 已复制，去新对话粘贴'); }catch(e){ flash('⚠️ 复制失败，请手动全选'); } };
+  const fillBtn=document.getElementById('aiFill');
+  if(fillBtn) fillBtn.onclick=()=>{ try{ parent.postMessage({__tree:1,type:'zfFillChat',text:cmd,autoSend:false},'*'); flash('🎯 已送入主界面对话框（按回车开工）'); }catch(e){ flash('⚠️ 送入失败：'+e); } };
 }
 function useTree(t){
   tree=t; buildIndex(); layout(); focusSet=null;
@@ -735,6 +737,8 @@ function useTree(t){
   fit();
   startFloat();
 }
+// P1：接收宿主（主界面角标）指令，自动打开涌现侦测面板
+addEventListener('message', e=>{ const d=e.data||{}; if(d.__fromHost===1 && d.type==='openEmerge'){ const b=document.getElementById('emergeBtn'); if(b) b.click(); } });
 (async function init(){
   resize();
   const q=new URLSearchParams(location.search).get('file');
