@@ -466,6 +466,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 44,
+          "parent_id": 26,
+          "text": "✅ GitHub 和 Gitee 的仓库 Abo",
+          "path": "涌现能力总树/✅ GitHub 和 Gitee 的仓库 Abo",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }

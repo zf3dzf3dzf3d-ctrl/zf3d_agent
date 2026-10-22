@@ -88,3 +88,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_trip.py", "_tmp_trip.py.bak.20261022_184656_658434", "_tmp_bk.sh"], "total": 3, "ts": "2026-10-22 18:49:45"}
 {"action": "intercept", "cmd": "del \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\_tmp_scan.py\"", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_scan(2).py"], "skipped": [], "ts": "2026-10-22 19:05:44"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_scan(2).py"], "total": 1, "ts": "2026-10-22 19:05:44"}
+{"action": "intercept", "cmd": "del README_copy_test.md README_test.txt 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["README_copy_test.md", "README_test.txt"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 19:20:30"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["README_copy_test.md", "README_test.txt"], "total": 2, "ts": "2026-10-22 19:20:30"}
