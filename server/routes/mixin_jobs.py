@@ -177,6 +177,11 @@ class MixinJobs(MixinBase):
             self._send_json({'ok': True, 'job_id': job_id, 'session_id': sid,
                              'status': job.get('status'), 'count': len(flow), 'turns': flow})
             return
-        # 默认返回单任务状态（剥离 cfg_json 大字段，摘要够用）
-        job.pop('cfg_json', None)
+        # 默认返回单任务状态：解析 cfg_json 为 cfg 字段透出（供前端「失败重跑」复用原配置），
+        # 同时移除原始 cfg_json 大字符串，向后兼容（不消费 cfg 的旧前端无影响）。
+        raw_cfg = job.pop('cfg_json', None)
+        try:
+            job['cfg'] = json.loads(raw_cfg or '{}')
+        except Exception:
+            job['cfg'] = {}
         self._send_json({'ok': True, 'job': job})

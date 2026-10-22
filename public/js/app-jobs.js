@@ -84,6 +84,7 @@
   var Jobs = {
     visible: false, list: [], selId: null, tab: 'overview',
     _trCache: {}, _openTr: {},
+    filterStatus: 'all', keyword: '',   // [P2] 列表筛选 + 搜索
 
     init: function () {
       this._injectFab();
@@ -115,6 +116,17 @@
           '<button class="zf-jobs-btn primary" id="zfJobsNew">+ 新建</button>' +
           '<button class="zf-jobs-btn" id="zfJobsClose">✕</button>' +
         '</div>' +
+        '<div class="zf-jobs-filter">' +
+          '<select id="zfJobsFilter" class="zf-jobs-select">' +
+            '<option value="all">全部状态</option>' +
+            '<option value="queued">排队中</option>' +
+            '<option value="running">运行中</option>' +
+            '<option value="await_review">待审核</option>' +
+            '<option value="done">已完成</option>' +
+            '<option value="failed">失败</option>' +
+          '</select>' +
+          '<input type="text" id="zfJobsSearch" class="zf-jobs-search" placeholder="搜索目标/ID…">' +
+        '</div>' +
         '<div class="zf-jobs-list" id="zfJobsList"><div class="zf-jobs-empty">加载中…</div></div>' +
         '<div class="zf-jobs-detail" id="zfJobsDetail"></div>';
       document.body.appendChild(d);
@@ -124,6 +136,13 @@
       document.getElementById('zfJobsNew').addEventListener('click', function () { self.openModal(); });
       document.getElementById('zfJobsAuto').addEventListener('change', function (e) {
         Poll.enabled = e.target.checked; if (Poll.enabled) Poll.start();
+      });
+      // [P2] 筛选 + 搜索：改条件即本地重渲染当前列表（不额外打后端）
+      document.getElementById('zfJobsFilter').addEventListener('change', function (e) {
+        Jobs.filterStatus = e.target.value; Jobs.renderList(Jobs.list);
+      });
+      document.getElementById('zfJobsSearch').addEventListener('input', function (e) {
+        Jobs.keyword = (e.target.value || '').trim().toLowerCase(); Jobs.renderList(Jobs.list);
       });
     },
 
