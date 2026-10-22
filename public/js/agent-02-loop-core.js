@@ -2293,8 +2293,17 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                     if (!chat._sendCompleteCalled) {
                         self._onSendComplete(box, chat);
                     }
+                } else if (err && err._poolCancelled) {
+                    // 【2026-10 修复】pool 权威取消（服务端已把本 Turn 判为 cancelled）：
+                    // 等同用户停止语义——安静收尾，绝不重试。旧 bug：排队续发复位 chat._stopped 后，
+                    // 该 AbortError 落入下面的「意外中止→自动重试」分支，重投同一个已死的 _poolTurnId，
+                    // 命中 cancelled 终态再次秒抛 AbortError → abort-unexpected 每 3s 刷一次、depth 固定的空转死循环。
+                    Store.addLog('info', chat.id, 'pool-cancelled-quiet', 'pool 权威取消，安静收尾（不重试死 Turn）| depth=' + depth);
+                    if (!chat._sendCompleteCalled) {
+                        self._onSendComplete(box, chat);
+                    }
                 } else if (err && err.name === 'AbortError' && !chat._stopped) {
-                    // 非用户触发的 AbortError（内部超时等）：明确提示并走重试
+                    // 非用户触发的 AbortError（本地内部超时等）：明确提示并走重试
                     try { err.message = '请求被中断（疑似超时），将自动重试'; } catch(e) {}
                     Store.addLog('error', chat.id, 'abort-unexpected', 'AbortError without user stop | depth=' + depth + ' | ' + _catchErrorMsg);
                     self.addMsg(box, '⚠ ' + _catchErrorMsg + '，将自动重试…', 'warning');
