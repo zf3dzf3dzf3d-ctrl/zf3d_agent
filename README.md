@@ -1,4 +1,8 @@
+<!-- Language: 中文 | [English](#zf3d-agent-infinite--introduction) -->
+
 # 朱峰智能体无限 —— 介绍
+
+![智能体界面 5.6.0](https://img.zf3d.com/agent/screenshots/%E6%99%BA%E8%83%BD%E4%BD%93%E7%95%8C%E9%9D%A2_5.6.0.jpg)
 
 ## 这是什么
 
@@ -7,6 +11,7 @@
 普通智能体是单兵作战，我们是**多角色集团作战**。
 
 平均每日几百个对话任务。效率高、不卡顿，用户有想法立刻开做，不需要等待窗口计算。
+
 
 ## 多角色流水线
 
@@ -26,6 +31,9 @@
 - AIMD 自适应调节（像网络拥塞控制一样，慢启动、遇阻退让、恢复加速）；
 - 优先级调度 + 网络退避，单个渠道被限流时自动换道，拒绝的请求可强制恢复；
 - 全程监控记录，随时查看每条车道的实时快照。
+
+
+![风筝和车道统计 5.6.0](https://img.zf3d.com/agent/screenshots/%E9%A3%8E%E7%AD%9D%E5%92%8C%E8%BD%A6%E9%81%93%E7%BB%9F%E8%AE%A1_5.6.0.jpg)
 
 ### 对话池系统（chat_pool）
 随时保持和大模型的握手。请求的所有权在服务器手里：
@@ -96,3 +104,107 @@
 ## 我们的追求
 
 我们一直在研究更先进的智能体，我们不对标任何智能体。我们追求的是把用户的所有问题快速解决，我们争取做到让每个人的任务都成功实现。
+
+
+---
+
+<!-- English version below -->
+
+# ZF3D Agent Infinite - Introduction
+
+## What Is It
+
+Agents are laid out flat on an infinite canvas workbench: multi-role collaboration, multi-round iteration, and high completion across many simultaneous tasks. Dozens of windows can run at the same time without lag.
+
+Ordinary agents work alone; we operate as a **multi-role task force**.
+
+Hundreds of conversation tasks per day on average. Efficient, smooth - the moment you have an idea, you start working; no waiting for the window to compute.
+
+## Multi-Role Pipeline
+
+- **Multiple Planners**: Your single goal is brainstormed across multiple windows, diverging into many angles, then refined over multiple rounds to make the task more complete and reliable.
+- **Multiple Reviewers**: Multi-round review can lift task completion from under 60 points at the start to 90+ points before it passes.
+- **Summarizer**: Every task preserves its accumulated work. Over time, none of your ideas get lost, and every modification process is remembered.
+
+A user question goes through **Multi-Planning > Multi-Role Kickoff (optional) > Self-Check (self-refutation) > Multi-Review > Summarizer Wrap-up**, completing one full workflow.
+
+On this infinite canvas, you can have a dozen questions open at once. With planners and reviewers, you can keep thirty-plus windows running - no conflicts, no lag, network stays smooth.
+
+## Elegant Design
+
+### Lane System (chat_gate v4)
+Untangles multi-session traffic. Each lane is an independent send channel managing communication with each LLM:
+- Automatic lane selection and on-demand scaling - dozens of concurrent sessions without stutter;
+- AIMD adaptive control (like network congestion control: slow start, back off on blockage, speed up on recovery);
+- Priority scheduling + network backoff; auto lane switch when one channel is rate-limited; rejected requests can be force-recovered;
+- Full monitoring, with real-time snapshots of every lane available at any time.
+
+### Conversation Pool (chat_pool)
+Keeps a persistent handshake with the LLM. Request ownership lives on the server:
+- Slot-based hosting: each conversation occupies a resident slot in the pool - erasable and reusable;
+- Resumable streaming: reply events buffer into slot storage first; after a browser disconnect, reconnect with a cursor and pick up right where you left off - no re-reads when switching conversations;
+- Idempotent requests: a brief Wi-Fi drop and resend will not cause double billing;
+- Built-in connection pool reuse reduces repeated handshake overhead.
+
+### Guardian System (watchdog + supervisor)
+Multiple layers of guardianship, fully unattended operation.
+
+### Swarm Dispatch (dispatch_swarm)
+Tasks are distributed like a swarm across windows for coordinated execution, supporting large-scale window concurrency and resumable runs.
+
+## Clean Conversations, No Clutter
+
+Your questions, the AI answers, and intermediate replies - you see the cleanest possible interface, free of complex tooling content.
+
+## Simple to Operate
+
+One question, a few clicks on the review and planning arrows - no intermediate typing required - and the question gets completed beautifully. In fact, far more thoroughly than most humans would consider.
+
+## Advantages of the Infinite Canvas
+
+- A question never disappears as long as it stays open; quick titles help you remember what it is.
+- Search any conversation window at any time; the zoomed-out organizing mode lets you see the big picture and tidy up fast.
+- Box-select to add reviewers, add planners, or close windows - super fast workflow.
+- The canvas is not just chat: browser, 3D engine, video, and PPT nodes are all part of the conversation workbench.
+- Mini-map + one-click auto-layout + command palette - stay organized no matter how many windows you have.
+
+## What You Can Build with ZF3D Agent
+
+If you normally complete tasks with a single-agent, multi-turn conversation -
+
+Try ZF3D Agent and you can:
+- Quickly add multiple planners for more ideas and multiple reviewers for repeated reviews, leaving your plan airtight;
+- A bug that used to take forever to fix? Click review on it a few times in ZF3D Agent and it is solved.
+
+## Mobile Version
+
+Not just for desktops - it works on phones too. ZF3D Agent Infinite supports mobile access:
+- Dual systems: mobile agent + remote-desktop agent;
+- Open the remote control in a phone browser; the desktop UI auto-adapts to small screens with a portrait-optimized layout;
+- Conversation pool + resumable streaming: switching Wi-Fi or signal on the go is fine - replies are not lost and are not double-billed;
+- Multi-role tasks started on your PC can be checked on your phone anytime for progress and results - tasks keep running while you are away;
+- Take your canvas ideas anywhere - dispatch tasks and read replies whenever, wherever.
+
+## In Development: Capability Evolution Tree (Our Next Step)
+
+> Note: The following is a capability currently in development. The design is finalized but not yet fully implemented; it will ship officially in a future version.
+
+Today workbench remembers what you said and what the AI answered. What we are building makes it see what you actually accomplished and what capabilities you grew.
+
+Ordinary AI assistants are **memory-based** - they faithfully record every question and every conversation you have had (Karpathy-style context notes). But the thicker the record, the more it reads like a running log, and the further it drifts from what this person can actually do.
+
+What we are building is **emergence-based** - it does not start from what you said, but automatically crystallizes your capabilities from the tasks you repeatedly and genuinely complete:
+
+- While the AI executes a task, it identifies which capability this step used and proposes growing it onto a capability tree;
+- You confirm it - it takes root, grows, and becomes clearer; ignore it - it naturally decays and fades;
+- What you end up with is not a pile of chat logs, but a **capability evolution tree grown from your real behavior**.
+
+In one sentence: **We do not record what you said - we grow what you did.**
+
+This closed loop - automatically crystallize capabilities from real behavior, human confirmation, natural forgetting - has no fully comparable product in the open-source ecosystem today: engineers building memory graphs do not do self-cognition, and capability-tree tools rely on manual entry rather than automatic emergence. We aim to fill that intersection.
+
+Its significance is not that everyone must use it, but rather: when someone wants to see their growth trajectory clearly over the long term - instead of drowning in chat logs - this is currently one of the few solutions available.
+
+## Our Pursuit
+
+We keep researching more advanced agents, and we benchmark against no one. We pursue rapidly solving every user problem, and we strive to make every user task succeed.
