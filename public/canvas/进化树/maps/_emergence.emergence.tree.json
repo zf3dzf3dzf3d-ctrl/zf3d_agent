@@ -270,6 +270,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 30,
+          "parent_id": 26,
+          "text": "【结果】任务：从「后台工作无人值守好使不了」出发",
+          "path": "涌现能力总树/【结果】任务：从「后台工作无人值守好使不了」出发",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
