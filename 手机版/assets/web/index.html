@@ -3,38 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0b0e1a">
+<meta name="theme-color" content="#060607">
 <title>朱峰智能体</title>
 <style>
-:root{--bg:#0b0e1a;--bg2:#141a2e;--bg3:#1e2745;--fg:#f2f5ff;--fg2:#93a0c4;--acc:#7c6cff;--acc2:#4da3ff;--ok:#3fbf7f;--err:#ff6b6b;--rad:16px}
+:root{--bg:#060607;--bg2:#111114;--bg3:#1a1a1f;--fg:#c8c8cc;--fg2:#6a6a72;--acc:#8a8a92;--acc2:#9a9aa2;--ok:#6f9c82;--err:#c06b6b;--rad:6px}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 800px at 85% -10%,rgba(124,108,255,.16),transparent 60%),radial-gradient(900px 700px at -10% 110%,rgba(77,163,255,.12),transparent 55%),var(--bg);color:var(--fg);font-size:15px;overflow:hidden}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg);font-size:15px;overflow:hidden}
 .page{position:absolute;inset:0;display:none;flex-direction:column}
 .page.on{display:flex}
 /* ---------- 登录页（品牌化·深空科技风） ---------- */
 #pgLogin{justify-content:center;padding:32px 28px;position:relative;overflow:hidden}
-.brand-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 120% 70% at 50% -10%,rgba(77,128,255,.28),transparent 60%),radial-gradient(ellipse 80% 50% at 85% 105%,rgba(122,92,255,.16),transparent 60%)}
+.brand-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 120% 70% at 50% -10%,rgba(140,140,152,.28),transparent 60%),radial-gradient(ellipse 80% 50% at 85% 105%,rgba(120,120,130,.16),transparent 60%)}
 .brand-orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.5;pointer-events:none}
-.orb1{width:220px;height:220px;background:#2f6bff;top:-60px;left:-70px;animation:orbFloat 11s ease-in-out infinite}
-.orb2{width:180px;height:180px;background:#7a5cff;bottom:-50px;right:-50px;animation:orbFloat 13s ease-in-out infinite reverse}
-.orb3{width:120px;height:120px;background:#19b8d8;top:40%;right:-40px;animation:orbFloat 15s ease-in-out infinite;opacity:.35}
+.orb1{width:220px;height:220px;background:#9a9aa2;top:-60px;left:-70px;animation:orbFloat 11s ease-in-out infinite}
+.orb2{width:180px;height:180px;background:#7a7a82;bottom:-50px;right:-50px;animation:orbFloat 13s ease-in-out infinite reverse}
+.orb3{width:120px;height:120px;background:#2a2a32;top:40%;right:-40px;animation:orbFloat 15s ease-in-out infinite;opacity:.35}
 @keyframes orbFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,26px)}}
 #pgLogin>*:not(.brand-bg):not(.brand-orb){position:relative;z-index:1}
 .logo{width:84px;height:84px;margin:0 auto 14px;animation:logoIn .7s cubic-bezier(.2,.9,.3,1.3) both,logoBreath 3.2s ease-in-out .8s infinite}
-.logo img{width:100%;height:100%;display:block;border-radius:22px;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 8px 30px rgba(47,107,255,.45),0 0 46px rgba(122,92,255,.35)}
+.logo img{width:100%;height:100%;display:block;border-radius:18px;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.5)}
 @keyframes logoIn{from{opacity:0;transform:scale(.6) translateY(14px)}to{opacity:1;transform:scale(1) translateY(0)}}
-@keyframes logoBreath{0%,100%{filter:drop-shadow(0 0 6px rgba(77,128,255,.45))}50%{filter:drop-shadow(0 0 20px rgba(122,92,255,.8))}}
-h1{text-align:center;font-size:22px;margin-bottom:4px;background:linear-gradient(90deg,#e8edf2,#9dc0ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+@keyframes logoBreath{0%,100%{filter:drop-shadow(0 0 6px rgba(140,140,152,.45))}50%{filter:drop-shadow(0 0 20px rgba(120,120,130,.8))}}
+h1{text-align:center;font-size:22px;margin-bottom:4px;background:linear-gradient(90deg,#e8edf2,#8a8a92);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .sub{text-align:center;color:var(--fg2);font-size:13px;margin-bottom:28px}
-.sub b{color:#9dc0ff;font-weight:600}
+.sub b{color:#8a8a92;font-weight:600}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--fg2);margin-bottom:6px}
-.field input{width:100%;padding:13px 14px;border:1px solid var(--bg3);border-radius:var(--rad);background:rgba(26,32,39,.72);color:var(--fg);font-size:15px;outline:none;transition:border-color .25s,box-shadow .25s}
-.field input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,108,255,.25)}
-.btn{width:100%;padding:14px;border:0;border-radius:var(--rad);background:linear-gradient(135deg,#4da3ff,#7c6cff);color:#fff;font-size:16px;font-weight:600;margin-top:6px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .25s;box-shadow:0 6px 24px rgba(124,108,255,.45)}
-.btn:active{transform:scale(.98);box-shadow:0 3px 12px rgba(61,110,255,.35)}
-.btn::after{content:'';position:absolute;top:0;left:-80%;width:50%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.35),transparent);animation:btnShine 3.4s ease-in-out infinite}
+.field input{width:100%;padding:13px 14px;border:1px solid var(--bg3);border-radius:var(--rad);background:rgba(17,17,20,.72);color:var(--fg);font-size:15px;outline:none;transition:border-color .25s,box-shadow .25s}
+.field input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(138,138,146,.25)}
+.btn{width:100%;padding:14px;border:1px solid #2a2a30;border-radius:var(--rad);background:#1a1a1f;color:#d8d8dc;font-size:16px;font-weight:600;margin-top:6px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .25s;box-shadow:none}
+.btn:active{transform:scale(.98);box-shadow:none}
+.btn::after{content:'';position:absolute;top:0;left:-80%;width:50%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.06),transparent);animation:btnShine 3.4s ease-in-out infinite}
 @keyframes btnShine{0%,55%{left:-80%}75%,100%{left:130%}}
 .btn[disabled]{opacity:.5}
 #loginMsg{color:var(--err);font-size:13px;text-align:center;min-height:18px;margin-top:10px}
@@ -47,7 +47,7 @@ h1{text-align:center;font-size:22px;margin-bottom:4px;background:linear-gradient
 .tcount.tbadge.on{display:inline-block}
 .tcount{display:inline-block;min-width:20px;padding:2px 7px;margin-left:8px;border-radius:999px;background:var(--acc);color:#fff;font-size:12px;font-weight:700;text-align:center;transition:transform .15s}
 .tcount.pop{animation:tpop .45s ease}
-@keyframes tpop{0%{transform:scale(1)}40%{transform:scale(1.7);background:#7a5cff}100%{transform:scale(1)}}
+@keyframes tpop{0%{transform:scale(1)}40%{transform:scale(1.7);background:#7a7a82}100%{transform:scale(1)}}
 .titem.run{outline:1px solid var(--acc);border-radius:10px}
 .toastplus{position:fixed;right:18px;top:70px;z-index:99;background:var(--acc);color:#fff;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:all .4s}
 .toastplus.on{opacity:1;transform:translateY(-8px)}
@@ -63,8 +63,8 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 .msg .md p:last-child{margin-bottom:0}
 .msg .md h1,.msg .md h2,.msg .md h3{margin:10px 0 6px;line-height:1.3}
 .msg .md h1{font-size:19px}.msg .md h2{font-size:17px}.msg .md h3{font-size:15px}
-.msg .md code{background:#0d1117;border:1px solid var(--bg3);border-radius:5px;padding:1px 5px;font-family:Menlo,Consolas,monospace;font-size:13px;color:#a5d6ff}
-.msg .md pre{background:#0d1117;border:1px solid var(--bg3);border-radius:10px;padding:10px 12px;overflow-x:auto;margin:8px 0;position:relative;touch-action:pan-x pan-y}
+.msg .md code{background:#0e0e11;border:1px solid var(--bg3);border-radius:5px;padding:1px 5px;font-family:Menlo,Consolas,monospace;font-size:13px;color:#aeb0b6}
+.msg .md pre{background:#0e0e11;border:1px solid var(--bg3);border-radius:6px;padding:10px 12px;overflow-x:auto;margin:8px 0;position:relative;touch-action:pan-x pan-y}
 .msg .md pre code{background:none;border:0;padding:0;color:#e8edf2;white-space:pre;display:block}
 .msg .md .cpy{position:absolute;top:6px;right:6px;border:1px solid var(--bg3);border-radius:6px;background:var(--bg3);color:var(--fg2);font-size:11px;padding:3px 8px}
 .msg .md ul,.msg .md ol{padding-left:22px;margin:6px 0}
@@ -95,7 +95,7 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 .logline{font-family:Menlo,Consolas,monospace;font-size:11px;padding:5px 8px;border-bottom:1px solid var(--bg3);word-break:break-all;white-space:pre-wrap}
 /* ---- 问题反馈面板（全屏版式） ---- */
 #pnLogs .pc{padding:0}
-.log-sec{padding:12px 14px 4px;font-size:13px;font-weight:700;color:#7ab0ff;display:flex;align-items:center;gap:8px}
+.log-sec{padding:12px 14px 4px;font-size:13px;font-weight:700;color:#9a9aa2;display:flex;align-items:center;gap:8px}
 .log-sec::after{content:'';flex:1;height:1px;background:var(--bg3)}
 .log-card{margin:8px 12px;padding:10px 12px;border:1px solid var(--bg3);border-radius:12px;background:var(--bg3);font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .log-card .lc-head{font-size:11px;color:var(--fg2);margin-bottom:4px;display:flex;gap:8px;align-items:center}
@@ -111,7 +111,7 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 .logline.w{color:#e0b050}
 #mask{position:absolute;inset:0;background:rgba(0,0,0,.45);display:none;z-index:15}
 #mask.on{display:block}
-.msg.user{margin-left:auto;background:#2b5cad;color:#fff;border-bottom-right-radius:4px}
+.msg.user{margin-left:auto;background:#17171b;color:#d8d8dc;border:1px solid #26262c;border-bottom-right-radius:4px}
 .msg.ai{background:var(--bg2);border:1px solid var(--bg3);border-bottom-left-radius:4px}
 .msg.err{color:var(--err);border-color:var(--err)}
 .msg .cursor{display:none}/*去掉流式回复气泡顶部闪烁小方块（原紫色光标动画）*/
@@ -166,19 +166,19 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 .tt-row.tt-done{opacity:0}
 .tt-hole{position:relative;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 50% 45%,#0a0f1f 0%,#060a16 70%);box-shadow:inset 0 1px 2px rgba(0,0,0,.8);flex-shrink:0}
 /* 旋转的是左边的"洞"（袋口光环），不是文字球：对齐 PC 端，球静止逐个累积、洞转起来 */
-.tt-hole::after{content:'';position:absolute;left:-2px;top:-2px;right:-2px;bottom:-2px;border-radius:50%;border:2px solid rgba(100,130,255,.75);border-top-color:transparent;border-bottom-color:transparent;animation:typing-spin 1s linear infinite}
+.tt-hole::after{content:'';position:absolute;left:-2px;top:-2px;right:-2px;bottom:-2px;border-radius:50%;border:2px solid rgba(150,150,158,.75);border-top-color:transparent;border-bottom-color:transparent;animation:typing-spin 1s linear infinite}
 .thinking-tools{display:inline-flex;gap:5px;flex-shrink:0}
-.tt-circle{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:rgba(100,130,255,.15);border:1.5px solid rgba(100,130,255,.35);color:#e8eeff;font-size:16px;font-weight:700;line-height:1;animation:tt-pop .35s ease both;flex-shrink:0}
+.tt-circle{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;border-radius:50%;background:rgba(150,150,158,.15);border:1.5px solid rgba(150,150,158,.35);color:#e8eeff;font-size:16px;font-weight:700;line-height:1;animation:tt-pop .35s ease both;flex-shrink:0}
 @keyframes tt-pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
 .tt-circle.tt-fly-in{animation:ttFlyIn .55s cubic-bezier(.18,.9,.28,1.05) both}
 @keyframes ttFlyIn{0%{transform:translateX(105px) scale(.4) rotate(180deg);opacity:0}35%{opacity:1}75%{transform:translateX(-5px) scale(1.06) rotate(-8deg);opacity:1}100%{transform:translateX(0) scale(1) rotate(0deg);opacity:1}}
-.tt-circle.tt-new{background:rgba(100,130,255,.35);border-color:rgba(130,160,255,.75);color:#dfe6ff;box-shadow:0 0 6px rgba(100,130,255,.45)}
+.tt-circle.tt-new{background:rgba(150,150,158,.35);border-color:rgba(170,170,178,.75);color:#d8d8dc;box-shadow:0 0 6px rgba(150,150,158,.45)}
 .tt-circle.tt-hit{animation:ttHit .5s cubic-bezier(.34,1.56,.64,1) both}
-@keyframes ttHit{0%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(120,150,255,0)}18%{transform:translateX(-3px) scale(1.18);box-shadow:0 0 10px 3px rgba(120,150,255,.65)}55%{transform:translateX(2px) scale(.96);box-shadow:0 0 6px 2px rgba(120,150,255,.35)}100%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(120,150,255,0)}}
-.tt-plus-pop{position:absolute;left:6px;top:-14px;font-size:11px;font-weight:800;color:#9fb6ff;text-shadow:0 0 6px rgba(120,150,255,.8);pointer-events:none;animation:ttPlusPop 1.1s ease-out both;z-index:3}
+@keyframes ttHit{0%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(160,160,168,0)}18%{transform:translateX(-3px) scale(1.18);box-shadow:0 0 10px 3px rgba(160,160,168,.65)}55%{transform:translateX(2px) scale(.96);box-shadow:0 0 6px 2px rgba(160,160,168,.35)}100%{transform:translateX(0) scale(1);box-shadow:0 0 0 rgba(160,160,168,0)}}
+.tt-plus-pop{position:absolute;left:6px;top:-14px;font-size:11px;font-weight:800;color:#c8c8cc;text-shadow:0 0 6px rgba(160,160,168,.8);pointer-events:none;animation:ttPlusPop 1.1s ease-out both;z-index:3}
 @keyframes ttPlusPop{0%{opacity:0;transform:translateY(4px) scale(.6)}25%{opacity:1;transform:translateY(-6px) scale(1.15)}70%{opacity:1;transform:translateY(-14px) scale(1)}100%{opacity:0;transform:translateY(-22px) scale(.9)}}
 .tt-hole.tt-burst{animation:ttBurst .7s ease both}
-@keyframes ttBurst{0%{box-shadow:0 0 0 0 rgba(120,150,255,.6);transform:scale(1)}30%{transform:scale(1.5);box-shadow:0 0 18px 8px rgba(120,150,255,.65)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(120,150,255,0)}}
+@keyframes ttBurst{0%{box-shadow:0 0 0 0 rgba(160,160,168,.6);transform:scale(1)}30%{transform:scale(1.5);box-shadow:0 0 18px 8px rgba(160,160,168,.65)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(160,160,168,0)}}
 .thinking-tools.tt-potting .tt-circle{animation:ttRollToHole .5s cubic-bezier(.5,0,.9,.4) both}
 .thinking-tools.tt-potting .tt-circle:nth-child(2){animation-delay:.05s}
 .thinking-tools.tt-potting .tt-circle:nth-child(3){animation-delay:.1s}
@@ -204,8 +204,8 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 .msg hr{border:0;border-top:1px solid var(--bg3);margin:8px 0}
 .msg h1,.msg h2,.msg h3{margin:8px 0 4px;-webkit-text-fill-color:currentColor;background:none}
 
-.logbtn{background:#1c2740;border:1px solid #33415e;color:#a9c4ef;border-radius:10px;padding:5px 14px;font-size:12px}
-.logbtn:active{background:#28375a}
+.logbtn{background:#111114;border:1px solid #2a2a30;color:#b0b0b6;border-radius:10px;padding:5px 14px;font-size:12px}
+.logbtn:active{background:#17171b}
 
 /* 手机峰控面板全屏修复：工具/历史/日志侧滑面板铺满全屏，内部弹性滚动，防中间截断 */
 .panel{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;max-width:none;transform:translateY(100%)}
@@ -214,20 +214,20 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
 /* ---------- 自研全局弹窗（替代原生 confirm/alert/prompt，统一深空科技风） ---------- */
 .zf-dlg-overlay{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;background:rgba(6,9,20,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);padding:26px;opacity:0;transition:opacity .2s ease}
 .zf-dlg-overlay.on{display:flex;opacity:1}
-.zf-dlg{width:100%;max-width:340px;background:linear-gradient(180deg,var(--bg2),#10162a);border:1px solid var(--bg3);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(124,108,255,.12);padding:0;overflow:hidden;transform:scale(.9) translateY(10px);transition:transform .24s cubic-bezier(.2,.9,.3,1.25)}
+.zf-dlg{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--bg3);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.55),0 0 0 1px rgba(138,138,146,.12);padding:0;overflow:hidden;transform:scale(.9) translateY(10px);transition:transform .24s cubic-bezier(.2,.9,.3,1.25)}
 .zf-dlg-overlay.on .zf-dlg{transform:scale(1) translateY(0)}
 .zf-dlg-head{display:flex;align-items:center;gap:8px;padding:18px 20px 0}
 .zf-dlg-icon{font-size:20px;line-height:1}
 .zf-dlg-title{font-size:16px;font-weight:700;color:var(--fg);letter-spacing:.3px}
 .zf-dlg-msg{padding:10px 20px 4px;font-size:14px;line-height:1.6;color:var(--fg2);word-break:break-word;white-space:pre-wrap}
 .zf-dlg-input{margin:12px 20px 2px;width:calc(100% - 40px);padding:11px 13px;border:1px solid var(--bg3);border-radius:12px;background:rgba(11,14,26,.7);color:var(--fg);font-size:15px;outline:none;transition:border-color .2s,box-shadow .2s}
-.zf-dlg-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,108,255,.22)}
+.zf-dlg-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(138,138,146,.22)}
 .zf-dlg-actions{display:flex;gap:10px;padding:16px 20px 18px}
 .zf-dlg-btn{flex:1;padding:11px 0;border:0;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:transform .12s,filter .2s;-webkit-tap-highlight-color:transparent}
 .zf-dlg-btn:active{transform:scale(.97)}
 .zf-dlg-btn.cancel{background:var(--bg3);color:var(--fg2)}
-.zf-dlg-btn.ok{background:linear-gradient(135deg,#4da3ff,#7c6cff);color:#fff;box-shadow:0 4px 14px rgba(124,108,255,.4)}
-.zf-dlg-btn.danger{background:linear-gradient(135deg,#ff7a7a,#e0464f);color:#fff;box-shadow:0 4px 14px rgba(255,107,107,.4)}
+.zf-dlg-btn.ok{background:#1a1a1f;border:1px solid #2a2a30;color:#d8d8dc;box-shadow:none}
+.zf-dlg-btn.danger{background:#3a1e1e;border:1px solid #5a3030;color:#e0b0b0;box-shadow:none}
 </style>
 <link rel="stylesheet" href="css/md-render.css?v=2">
 </head>
@@ -246,7 +246,7 @@ header .ib{width:34px;height:34px;border:0;border-radius:10px;background:var(--b
   <div class="field"><label>密码</label><div style="position:relative"><input id="pass" type="password" placeholder="密码" style="padding-right:44px"><button type="button" id="eye" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;font-size:20px;padding:6px;color:var(--fg2)">👁</button></div></div>
   <button class="btn" id="btnLogin">登 录</button>
   <div id="loginMsg"></div>
-  <div class="hint" style="margin-top:4px"><a id="btnReg" href="https://www.zf3d.com/" target="_blank" rel="noopener" style="color:#7c6cff;text-decoration:underline;font-weight:600">还没有账号？前往朱峰社区注册 ›</a></div>
+  <div class="hint" style="margin-top:4px"><a id="btnReg" href="https://www.zf3d.com/" target="_blank" rel="noopener" style="color:#7c7c86;text-decoration:underline;font-weight:600">还没有账号？前往朱峰社区注册 ›</a></div>
   <div class="hint">无需电脑开机 · 手机独立运行</div>
 </div>
 
@@ -1171,6 +1171,8 @@ async function agentLoop(msgs,onStep,ctx){
   ctx=ctx||{};
   var _sig=ctx.signal||null;
   var _stop=function(){return (_sig&&_sig.aborted)||(ctx.isStop?ctx.isStop():false)};
+  /* 【会话隔离】前台判断：仅当发起会话仍是当前前台时才渲染 DOM（气泡/工具行/思考卡/提示音），防止后台生成串台到别的对话 */
+  var _fg=function(){return !ctx.sessId||ctx.sessId===CUR};
   for(var round=0;round<AGENT_MAX_ROUNDS;round++){
     if(_stop())throw new DOMException('Aborted','AbortError');
     var payload={model:MODEL.chat,messages:msgs,stream:false,temperature:0.7,max_tokens:32768};
@@ -1206,7 +1208,7 @@ async function agentLoop(msgs,onStep,ctx){
       if(j.error)throw new Error(j.error.message||j.error);
     }
     var msg=(j.choices&&j.choices[0]&&j.choices[0].message)||{};
-    if(msg.reasoning_content){var _th=String(msg.reasoning_content).trim();if(_th){loopThink+=(_th+'\n');try{addThinkCard(_th)}catch(_eT){}}}
+    if(msg.reasoning_content){var _th=String(msg.reasoning_content).trim();if(_th){loopThink+=(_th+'\n');if(_fg())try{addThinkCard(_th)}catch(_eT){}}}
     var tcs=msg.tool_calls||[];
     var content=String(msg.content||'').trim();
     if(!tcs.length){
@@ -1214,7 +1216,7 @@ async function agentLoop(msgs,onStep,ctx){
       return {out:content,toolLog:toolLog,think:loopThink};
     }
     /* 回放 assistant（含 tool_calls），逐个本地执行，再回填 role=tool —— 与底层完全一致 */
-    if(content){try{addMsg('ai',content)}catch(_eM){}if(AUTO_VOICE)ttsSpeak(content)} /* 中途 AI 正文（工具调用前模型说的话）渲染成气泡并念出；去掉「中途消息：」前缀，使朗读与屏幕气泡文本完全一致 */
+    if(content){if(_fg()){try{addMsg('ai',content)}catch(_eM){}if(AUTO_VOICE)ttsSpeak(content)}} /* 中途 AI 正文（工具调用前模型说的话）仅前台会话渲染；去掉「中途消息：」前缀，使朗读与屏幕气泡文本完全一致 */
     msgs.push({role:'assistant',content:content,tool_calls:tcs});
     for(var i=0;i<tcs.length;i++){
       var tc=tcs[i],fn=((tc.function||{}).name)||'',fargs={};
@@ -1223,8 +1225,8 @@ async function agentLoop(msgs,onStep,ctx){
         try{var _a=String((tc.function||{}).arguments||'');var _c=_a.slice(0,_a.lastIndexOf('}},')+3);if(_c.indexOf('{')===0){fargs=JSON.parse(_c+'}')||{}}}catch(e2){}
       }
       var _argsP=JSON.stringify(fargs).slice(0,120);
-      toolBump(fn);
-      var _sl1=addSysLine('🔧 '+fn+' '+_argsP);
+      if(_fg())toolBump(fn);
+      if(_fg())addSysLine('🔧 '+fn+' '+_argsP);
       /* 不再播报"调用工具 xxx"，改为只播报工具执行结果（见下方 _rLine 播报） */
       var result;
       if(_stop())throw new DOMException('Aborted','AbortError');
@@ -1232,12 +1234,12 @@ async function agentLoop(msgs,onStep,ctx){
       await new Promise(function(rs){setTimeout(rs,0)});
       if(_stop())throw new DOMException('Aborted','AbortError');
       try{result=await agentExecTool(fn,fargs,ctx&&ctx.sessId)}catch(eT){result='工具执行失败:'+eT.message}
-      archRegister(fn,fargs,result); /* 【阶段D】登记已执行工具，供压缩索引防重复调用 */
+      archRegister(fn,fargs,result,ctx&&ctx.sessId); /* 【阶段D】登记已执行工具到发起会话，供压缩索引防重复调用；切走也不串台 */
       pushLog('t','R'+(round+1)+' '+fn+'('+JSON.stringify(fargs).slice(0,120)+') => '+String(result).slice(0,200));
       toolLog.push(fn+' -> '+String(result).slice(0,120));
       var _rs;try{_rs=typeof result==='object'?JSON.stringify(result):String(result)}catch(_re){_rs=String(result)}
       var _rLine=(String(_rs).indexOf('失败')>=0||String(_rs).indexOf('⚠️')>=0?'⚠️ ':'✅ ')+fn+' → '+String(_rs).slice(0,200);
-      addSysLine(_rLine);
+      if(_fg())addSysLine(_rLine);
       /* 【朗读对齐屏幕】工具结果行屏幕已不显示（addSysLine 内部禁用），故此处不再朗读，避免「听到工具播报但屏幕看不到」的不一致 */
       msgs.push({role:'tool',tool_call_id:tc.id||'',content:String(result).slice(0,4000)});
     }
@@ -1248,9 +1250,9 @@ async function agentLoop(msgs,onStep,ctx){
 /* ===== 上下文管理员：历史过长时压缩早期内容为摘要，存入当前会话 ===== */
 /* 【阶段D·峰控对齐】工具执行登记 + 压缩时生成「已执行工具索引」注入摘要，防止 AI 失忆后重复调用已执行过的工具 */
 var _archSeq=0;
-function archRegister(fn,fargs,result){
+function archRegister(fn,fargs,result,sessId){
   try{
-    var s=curSess();
+    var s=(sessId&&_sessOf(sessId))||curSess();if(!s)return;
     if(!s.archIdx)s.archIdx=[];
     /* 按 id 查重：同一会话同一序号只登记一次 */
     var brief=fn+'('+(function(a){try{return JSON.stringify(a)}catch(e){return ''}})(fargs).slice(0,60)+')';
@@ -1393,6 +1395,7 @@ async function send(){
   var _sendSessId=CUR;
   var _sess=curSess();
   var _h=_sess.msgs;
+  var hist=_h; /* 【会话隔离】局部 hist 遮蔽全局：后台生成期间用户切走/新建，switchSess 重绑全局 hist 也不影响本会话上下文拼装 */
   var _sameSess=function(){return CUR===_sendSessId};
   $('inp').value='';$('inp').style.height='auto';
   /* 快捷指令：并行赛道/池托管 开关与配置 */
@@ -1727,16 +1730,16 @@ async function send(){
     }
   }catch(_eC){}
   var msgs=[{role:'system',content:_sys}];
-  /* 上下文管理员：早期历史超限时压缩为摘要并持久化到会话 */
+  /* 上下文管理员：早期历史超限时压缩为摘要并持久化到会话（始终落发起会话 _sess，切走不串台） */
   var _pre='';
-  if(curSess().summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+curSess().summary+'\n';
-  if(hist.length>36&&!curSess().compressOff){
+  if(_sess.summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+_sess.summary+'\n';
+  if(hist.length>36&&!_sess.compressOff){
     span.textContent='🗂 上下文管理员：压缩早期历史…';scrollEnd();
-    try{var _c=await ctxCompress(hist,(curSess().summary||''));
+    try{var _c=await ctxCompress(hist,(_sess.summary||''));
       if(_c&&_c.summary){ if(!_sameSess())throw Object.assign(new Error('switched'),{name:'AbortError'});
-        curSess().summary=_c.summary;hist=curSess().msgs=_c.recent;persist();}
+        _sess.summary=_c.summary;hist=_sess.msgs=_c.recent;persist();}
     }catch(_eC){}
-    if(curSess().summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+curSess().summary+'\n';
+    if(_sess.summary)_pre='【早期上下文摘要（上下文管理员维护）】\n'+_sess.summary+'\n';
   }
   if(_pre)msgs=[{role:'system',content:_sys+'\n'+_pre}];
   msgs=msgs.concat(hist.slice(-30),[{role:'user',content:tAll||t}]);
