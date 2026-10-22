@@ -340,6 +340,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 35,
+          "parent_id": 26,
+          "text": "任务已完成并通过蜂群复审（2位审核员均通过）。最",
+          "path": "涌现能力总树/任务已完成并通过蜂群复审（2位审核员均通过）。最",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
