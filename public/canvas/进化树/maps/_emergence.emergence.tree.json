@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "进化树-_emergence",
+    "title": "涌现能力树",
     "subject_type": "project",
     "subject_id": "_emergence",
     "created": "2026-10-22"
@@ -220,6 +220,20 @@
           "parent_id": 26,
           "text": "✅ 已修复「新建对话框」面板层级低于画布中央空态",
           "path": "涌现能力总树/✅ 已修复「新建对话框」面板层级低于画布中央空态",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
+        },
+        {
+          "id": 27,
+          "parent_id": 26,
+          "text": "✅ 已完成（按你选的方案A：统一为一棵全局涌现树",
+          "path": "涌现能力总树/✅ 已完成（按你选的方案A：统一为一棵全局涌现树",
           "depth": 1,
           "clarity": 0.1,
           "status": "sprout",

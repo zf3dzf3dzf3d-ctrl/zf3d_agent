@@ -19,3 +19,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["P1T-1792635116681.md", "P1T-1792635178102.md", "P1T-1792635178103.md", "P1T-1792635178109.md", "P1T-1792635178110.md", "P1T-1792635116681.review.jsonl", "P1T-1792635178102.review.jsonl", "P1T-1792635178103.review.jsonl", "P1T-1792635178110.review.jsonl"], "total": 9, "ts": "2026-10-22 10:14:33"}
 {"action": "intercept", "cmd": "del E:\\work\\web\\_audit_scan.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_audit_scan.py"], "skipped": [], "ts": "2026-10-22 10:45:46"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_audit_scan.py"], "total": 1, "ts": "2026-10-22 10:45:46"}
+{"action": "intercept", "cmd": "del _migrate_emerge.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_migrate_emerge.py"], "skipped": [], "ts": "2026-10-22 11:33:01"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_migrate_emerge.py"], "total": 1, "ts": "2026-10-22 11:33:01"}
