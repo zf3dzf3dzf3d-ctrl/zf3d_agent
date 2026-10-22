@@ -109,6 +109,11 @@ class MixinJobs(MixinBase):
         if len(blob) > 8 * 1024 * 1024:
             self._send_json({'ok': False, 'error': '附件超过8MB'}, code=413)
             return
+        # [R-1 健壮性] 扩展名白名单：防上传 .svg/.html 等可被静态服务直接访问并执行的类型（存储型 XSS）
+        _ext = ('.' + name.rsplit('.', 1)[-1].lower()) if '.' in name else ''
+        if _ext not in ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'):
+            self._send_json({'ok': False, 'error': '仅支持图片格式(png/jpg/gif/webp/bmp)'}, code=400)
+            return
         safe = _re.sub(r'[^A-Za-z0-9._-]', '_', name)[:60] or 'attach.png'
         fn = '%d_%s' % (int(time.time() * 1000), safe)
         d = os.path.join(PUBLIC_DIR, 'uploads', 'jobs')

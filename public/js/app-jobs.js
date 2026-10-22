@@ -502,6 +502,8 @@
       var g = document.getElementById('jGoal').value.trim();
       // 目标可留空，但必须有附件
       if (!g && !(this._atts && this._atts.length)) { alert('请填写任务目标，或粘贴/选择附件'); return; }
+      // [R-2 健壮性] 图片异步上传未完成前禁止提交，避免 context 里 url 为空导致附件丢失
+      if ((this._atts || []).some(function (a) { return a.status === '上传中…'; })) { alert('有附件正在上传，请稍候…'); return; }
       // 【2026-10-22 精简】策划者/审核者由用户选；施工者固定1名；通过分固定80；轮数自动(8)
       var payload = {
         goal: g || '(见任务附件)',
