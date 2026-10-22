@@ -1,0 +1,218 @@
+commit 51a56cb70a1088e1ac4f994330ed1edb8a467c33
+Author: 朱峰社区 <10887082+zf3d@user.noreply.gitee.com>
+Date:   Thu Oct 22 10:14:33 2026 +0800
+
+    P1阶段开关+审核续跑(step8): _build_stage支持count=0/enabled关闭、内核接线resume_verdict死变量(续跑跳过策划/收口/决策门防return3死循环)、阶段4审核count=0跳过且空审核不加分; 修dispatch_swarm提到分支外防关策划路径UnboundLocal
+
+diff --git a/server/swarm_pipeline.py b/server/swarm_pipeline.py
+index 40bd7f9..74e46e1 100644
+--- a/server/swarm_pipeline.py
++++ b/server/swarm_pipeline.py
+@@ -200,6 +200,7 @@ def run_pipeline(cfg, cwd=None, log=print):
+     # 续跑(resume_verdict 非空) 时跳过策划/收口/决策门；verdict 取续跑裁决或退化为 goal。
+     # 红线：_skip_planning 恒 False 时走 else 分支，与旧代码逐行等价 → cli --pipeline 零回归。
+     plans = []
++    import dispatch_swarm  # [P1] 提到分支外：关策划/续跑路径下阶段4审核仍需此模块
+     _skip_planning = bool(resume_verdict) or n_pl <= 0
+     if _skip_planning:
+         if resume_verdict:
+
+commit 2ae54b176cf4c94685274d0d5ce4d1917918593c
+Author: 朱峰社区 <10887082+zf3d@user.noreply.gitee.com>
+Date:   Thu Oct 22 09:59:51 2026 +0800
+
+    chore: 会话结束快照（修改 swarm_pipeline.py, viewer.html, index.html, mixin_jobs.py 等5个） @ 2026-10-22 09:59:51
+
+diff --git a/server/swarm_pipeline.py b/server/swarm_pipeline.py
+index 332964d..40bd7f9 100644
+--- a/server/swarm_pipeline.py
++++ b/server/swarm_pipeline.py
+@@ -84,13 +84,22 @@ def _light_chat(prompt, model_name=''):
+ 
+ 
+ def _build_stage(stage_cfg, n_default):
+-    """阶段配置归一化：允许数字（并发份数）或 {count, model} 形式。"""
++    """阶段配置归一化：允许数字（并发份数）、{count, model} 或 {enabled:false} 关闭该阶段。
++
++    [P1 阶段开关] count/enabled 尊重显式 0（=关闭该阶段，返回 0）；但 stage_cfg 为
++    None 时仍走 n_default 旧逻辑——这是 cli --pipeline 零回归红线：不传 stages/planners
++    等键的旧配置行为完全不变（默认 2/1/2）。"""
+     if stage_cfg is None:
+         return n_default, ''
++    if isinstance(stage_cfg, bool):
++        # bool 是 int 子类，显式区分：True=走默认，False=关闭，避免误判成 1/0
++        return (n_default if stage_cfg else 0), ''
+     if isinstance(stage_cfg, int):
+-        return max(1, stage_cfg), ''
++        return max(0, stage_cfg), ''
+     if isinstance(stage_cfg, dict):
+-        return max(1, int(stage_cfg.get('count', n_default))), str(stage_cfg.get('model', '') or '')
++        if stage_cfg.get('enabled') is False:
++            return 0, str(stage_cfg.get('model', '') or '')
++        return max(0, int(stage_cfg.get('count', n_default))), str(stage_cfg.get('model', '') or '')
+     return n_default, ''
+ 
+ 
+@@ -186,47 +195,64 @@ def run_pipeline(cfg, cwd=None, log=print):
+     def note_stage(name, data):
+         report['stages'][name] = data
+ 
+-    # ---------- 阶段1：策划（N 份并行 dispatch_swarm 批次） ----------
+-    log('[pipeline] 阶段1/5 策划 ×%d' % n_pl)
+-    import dispatch_swarm
+-    ctx_hint = ('项目根目录: %s\n附加上下文: %s' % (cwd, extra_ctx)) if extra_ctx else ('项目根目录: %s' % cwd)
+-    plan_tasks = [{'goal': _pack('planner', '后台流水线', (
+-        '总任务：%s\n请独立调查代码并产出策划案（目标/涉及文件/风险/结论）。只调查不改代码。\n%s%s' % (goal, ctx_hint, _planner_format())))}
+-        for _ in range(n_pl)]
+-    bid = dispatch_swarm.submit(plan_tasks, model_name=m_pl or None)
+-    res = _collect_strict(dispatch_swarm, bid, n_pl, '策划', log)
+-    # [2026-10-08 修复] plans 从收集结果提取（原直接引用未定义的 plans 变量）
+-    plans = [t.get('output') or '' for t in (res.get('tasks') or [])]
+-    for i, p in enumerate(plans, 1):
+-        log('  策划案%d：%d 字' % (i, len(p)))
+-        persist('assistant', '【流水线·策划案%d】\n%s' % (i, p))
+-
+-    # ---------- 阶段2：收口裁决（内置，轻量对话） ----------
+-    log('[pipeline] 阶段2/5 收口裁决')
+-    merged = '\n\n'.join('▶ 策划案%d：\n%s' % (i, p[:_STAGE_CTX_LIMIT]) for i, p in enumerate(plans, 1))
+-    converge_prompt = _pack('planner', '收口', (
+-        '这是多个策划窗对同一任务的方案，请逐条对比、说明采纳/不采纳及理由，'
+-        '各策划案中含【反驳项】小节的，最终清单必须对被采纳方案的反驳项逐条回应（成立则列入改动要点，不成立则说明理由），'
+-        '输出一份最终执行清单（只列要改的文件与做法，不要真的改代码）。总任务：%s\n\n%s' % (goal, merged)))
+-    # [2026-09-30] 收口裁决：无限重试直到成功，绝不降级兜底
+-    verdict = ''
+-    while not verdict:
+-        try:
+-            verdict = (_light_chat(converge_prompt, m_pl) or '').strip()
+-        except Exception as e:
+-            log('[pipeline] 收口失败，挂起重试直到成功: %s' % e)
+-            verdict = ''
+-        if not verdict:
+-            time.sleep(5)
+-    verdict = verdict.strip()
+-    note_stage('converge', {'len': len(verdict)})
+-    persist('assistant', '【流水线·收口裁决】\n' + verdict)
+-    # [强化A1修正] 收口裁决不再固定加 task_review_pass：原 amount=50 是「收口即加分」
+-    # 口径错误（与审核质量无关），且会与阶段4审核的「分数驱动」加分重复计分。
+-    # 质量信号统一由阶段4审核（swarm_pipeline:318 分数驱动）计入，避免一笔任务落两笔。
+-
+-    # ---------- 决策断点（decision_gate，默认关） ----------
+-    if decision_gate:
++    # ---------- 阶段1-2：策划 + 收口裁决 ----------
++    # [P1 阶段开关 & 审核续跑] _skip_planning：关闭策划(count=0/enabled=False) 或
++    # 续跑(resume_verdict 非空) 时跳过策划/收口/决策门；verdict 取续跑裁决或退化为 goal。
++    # 红线：_skip_planning 恒 False 时走 else 分支，与旧代码逐行等价 → cli --pipeline 零回归。
++    plans = []
++    _skip_planning = bool(resume_verdict) or n_pl <= 0
++    if _skip_planning:
++        if resume_verdict:
++            verdict = resume_verdict
++            log('[pipeline] 续跑模式：跳过策划/收口，以注入裁决为执行清单施工')
++            persist('assistant', '【流水线·续跑·执行清单】\n' + verdict)
++        else:
++            verdict = goal
++            log('[pipeline] 策划阶段已关闭(count=0)，无策划案可裁决，以目标为执行清单')
++            persist('assistant', '【流水线·策划已关闭·直接施工】\n执行清单=目标：' + goal)
++        note_stage('converge', {'len': len(verdict),
++                                'resumed': bool(resume_verdict), 'skipped': True})
++    else:
++        log('[pipeline] 阶段1/5 策划 ×%d' % n_pl)
++        import dispatch_swarm
++        ctx_hint = ('项目根目录: %s\n附加上下文: %s' % (cwd, extra_ctx)) if extra_ctx else ('项目根目录: %s' % cwd)
++        plan_tasks = [{'goal': _pack('planner', '后台流水线', (
++            '总任务：%s\n请独立调查代码并产出策划案（目标/涉及文件/风险/结论）。只调查不改代码。\n%s%s' % (goal, ctx_hint, _planner_format())))}
++            for _ in range(n_pl)]
++        bid = dispatch_swarm.submit(plan_tasks, model_name=m_pl or None)
++        res = _collect_strict(dispatch_swarm, bid, n_pl, '策划', log)
++        # [2026-10-08 修复] plans 从收集结果提取（原直接引用未定义的 plans 变量）
++        plans = [t.get('output') or '' for t in (res.get('tasks') or [])]
++        for i, p in enumerate(plans, 1):
++            log('  策划案%d：%d 字' % (i, len(p)))
++            persist('assistant', '【流水线·策划案%d】\n%s' % (i, p))
++
++        # ---------- 阶段2：收口裁决（内置，轻量对话） ----------
++        log('[pipeline] 阶段2/5 收口裁决')
++        merged = '\n\n'.join('▶ 策划案%d：\n%s' % (i, p[:_STAGE_CTX_LIMIT]) for i, p in enumerate(plans, 1))
++        converge_prompt = _pack('planner', '收口', (
++            '这是多个策划窗对同一任务的方案，请逐条对比、说明采纳/不采纳及理由，'
++            '各策划案中含【反驳项】小节的，最终清单必须对被采纳方案的反驳项逐条回应（成立则列入改动要点，不成立则说明理由），'
++            '输出一份最终执行清单（只列要改的文件与做法，不要真的改代码）。总任务：%s\n\n%s' % (goal, merged)))
++        # [2026-09-30] 收口裁决：无限重试直到成功，绝不降级兜底
++        verdict = ''
++        while not verdict:
++            try:
++                verdict = (_light_chat(converge_prompt, m_pl) or '').strip()
++            except Exception as e:
++                log('[pipeline] 收口失败，挂起重试直到成功: %s' % e)
++                verdict = ''
++            if not verdict:
++                time.sleep(5)
++        verdict = verdict.strip()
++        note_stage('converge', {'len': len(verdict)})
++        persist('assistant', '【流水线·收口裁决】\n' + verdict)
++        # [强化A1修正] 收口裁决不再固定加 task_review_pass：原 amount=50 是「收口即加分」
++        # 口径错误（与审核质量无关），且会与阶段4审核的「分数驱动」加分重复计分。
++        # 质量信号统一由阶段4审核（swarm_pipeline:318 分数驱动）计入，避免一笔任务落两笔。
++
++    # ---------- 决策断点（decision_gate，默认关；续跑/关策划时不触发，防 return3 死循环） ----------
++    if decision_gate and not _skip_planning:
+         log('[pipeline] 决策断点：收口裁决已陈列，等待用户裁决')
+         persist('assistant', '【决策断点】收口裁决如下，请在主对话回复裁决'
+                              '（如"按清单开工"或修改意见）。未回复则按清单施工。')
+@@ -301,7 +327,8 @@ def run_pipeline(cfg, cwd=None, log=print):
+     review_rounds = []
+     _reject_reasons = ''
+     round_no = 0
+-    while True:
++    # [P1 阶段开关] n_rv<=0 时整段审核循环不进入（reviews 保持空，下方埋点亦跳过）
++    while n_rv > 0:
+         round_no += 1
+         _goal_extra = ('\n\n【上一轮审核打回意见（必须逐条整改后重做）】\n' + _reject_reasons) if _reject_reasons else ''
+         if round_no > 1:
+@@ -370,25 +397,27 @@ def run_pipeline(cfg, cwd=None, log=print):
+         note_stage('review_round%d' % round_no, {'scores': _scores, 'reject': True})
+     note_stage('review', {'rounds': review_rounds, 'ok': len(reviews), 'total': n_rv})
+     # [成长埋点] 蜂群审核通过（多审核员独立核验通过=高质量任务）
+-    try:
+-        import growth_engine
+-        # [强化A1b] 原 amount=50+10*份数 与审核质量无关，改为「审核分数驱动」：
+-        # 取各份审核里解析到的最大数字分数（0-100），无分数则回退按份数兜底。
+-        _best = 0
+-        for _r in reviews:
+-            try:
+-                _m = re.search(r'(?:得分|score|评分|分数)[^\d]{0,4}(\d{1,3})', str(_r), re.I)
+-                if _m:
+-                    _best = max(_best, max(0, min(100, int(_m.group(1)))))
+-            except Exception as e:
+-                # [强化A2] 审核分解析失败不再静默吞，记录后走份数兜底
+-                log('[pipeline] 审核分数解析失败(走份数兜底): %s' % e)
+-        _amt = _best if _best > 0 else min(100, 50 + 10 * len(reviews))
+-        growth_engine.add_exp('task_review_pass', amount=_amt,
+-                              note='蜂群审核通过 ×%d score=%d' % (len(reviews), _amt))
+-    except Exception as e:
+-        # [强化A2] 去静默吞，断线可见
+-        log('[pipeline] 审核成长埋点失败: %s' % e)
++    # [P1 阶段开关] reviews 为空（审核已关闭 count=0）时不加经验，避免「没审核还加分」
++    if reviews:
++        try:
++            import growth_engine
++            # [强化A1b] 原 amount=50+10*份数 与审核质量无关，改为「审核分数驱动」：
++            # 取各份审核里解析到的最大数字分数（0-100），无分数则回退按份数兜底。
++            _best = 0
++            for _r in reviews:
++                try:
++                    _m = re.search(r'(?:得分|score|评分|分数)[^\d]{0,4}(\d{1,3})', str(_r), re.I)
++                    if _m:
++                        _best = max(_best, max(0, min(100, int(_m.group(1)))))
++                except Exception as e:
++                    # [强化A2] 审核分解析失败不再静默吞，记录后走份数兜底
++                    log('[pipeline] 审核分数解析失败(走份数兜底): %s' % e)
++            _amt = _best if _best > 0 else min(100, 50 + 10 * len(reviews))
++            growth_engine.add_exp('task_review_pass', amount=_amt,
++                                  note='蜂群审核通过 ×%d score=%d' % (len(reviews), _amt))
++        except Exception as e:
++            # [强化A2] 去静默吞，断线可见
++            log('[pipeline] 审核成长埋点失败: %s' % e)
+     for i, r in enumerate(reviews, 1):
+         log('  审核%d：%d 字' % (i, len(r)))
+         persist('assistant', '【流水线·审核%d】\n%s' % (i, r))

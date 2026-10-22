@@ -39,3 +39,7 @@
 {"action": "intercept", "cmd": "del \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\_tmp_check.py\" 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_check(2).py"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 16:15:50"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_check(2).py"], "total": 1, "ts": "2026-10-22 16:15:50"}
 {"action": "passthrough_complex", "cmd": "git rm -r --cached server/data/browser_profile -q", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 16:15:56"}
+{"action": "intercept", "cmd": "del /q _probe.py _probe2.py _jobs_probe.txt _submit_probe.py _jobs_now.json 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_probe.py", "_probe2.py", "_jobs_probe.txt", "_submit_probe.py", "_jobs_now.json"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 16:19:11"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_probe.py", "_probe2.py", "_jobs_probe.txt", "_submit_probe.py", "_jobs_now.json"], "total": 5, "ts": "2026-10-22 16:19:11"}
+{"action": "intercept", "cmd": "del /q _rev_swarm.diff 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_rev_swarm.diff"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 16:44:07"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_rev_swarm.diff"], "total": 1, "ts": "2026-10-22 16:44:07"}
