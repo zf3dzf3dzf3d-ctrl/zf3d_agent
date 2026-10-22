@@ -36,6 +36,7 @@ MAX_FAIL="${ZF_BRIDGE_MAX_FAIL:-3}"
 LOG="${BRIDGE_HOME}/watchdog.log"
 STATE_DIR="${BRIDGE_HOME}/.wd_state"
 FAIL_FILE="${STATE_DIR}/fail_count"
+TRIP_FILE="${STATE_DIR}/tripped"
 
 # ntfy topic 兜底：cron 环境不读 ~/.bashrc，若 .env_bridge 没配则从 ~/.bashrc 提取
 if [ -z "${NTFY_TOPIC:-}" ] && [ -f "$HOME/.bashrc" ]; then
@@ -87,9 +88,10 @@ fi
 
 # 2. 桥活着 → 清零熔断计数（若之前熔断过，恢复后补一条恢复通知）
 if [ "$alive" -eq 1 ]; then
-  prev_fail=$(cat "$FAIL_FILE" 2>/dev/null || echo 0)
-  if [ "$prev_fail" -ge "$MAX_FAIL" ] 2>/dev/null; then
-    notify "✅峰控桥已恢复" "心跳恢复正常，熔断已解除（此前连续 ${prev_fail} 次拉起失败）。" low
+  # 桥恢复 -> 清熔断告警位，使下次真正再熔断时重新发通知（而非永久静默）
+  if [ -f "$TRIP_FILE" ]; then
+    notify "✅峰控桥已恢复" "心跳恢复正常，熔断已解除（此前已停止自动重拉）。" low
+    rm -f "$TRIP_FILE" 2>/dev/null || true
   fi
   echo 0 > "$FAIL_FILE" 2>/dev/null || true
   exit 0
@@ -101,7 +103,11 @@ case "$fail" in ''|*[!0-9]*) fail=0;; esac
 
 if [ "$fail" -ge "$MAX_FAIL" ]; then
   say "已熔断（连续 ${fail} 次拉起后心跳仍异常）→ 停止重拉。请人工排查桥为何启动即崩/不写心跳。"
-  notify "🛑峰控桥熔断停手" "连续 ${fail} 次拉起心跳仍超时，已停止自动重拉（防僵尸进程堆叠）。多为桥启动即崩或不写 heartbeat.txt，需人工检查 bridge.out。" high
+  # 去重告警：仅首次熔断发 high，之后静默只写日志，防桥永久死时每 5 分钟刷屏轰炸手机
+  if [ ! -f "$TRIP_FILE" ]; then
+    notify "🛑峰控桥熔断停手" "连续 ${fail} 次拉起心跳仍超时，已停止自动重拉（防僵尸进程堆叠）。多为桥启动即崩或不写 heartbeat.txt，需人工检查 bridge.out。" high
+    touch "$TRIP_FILE" 2>/dev/null || true
+  fi
   exit 0
 fi
 
