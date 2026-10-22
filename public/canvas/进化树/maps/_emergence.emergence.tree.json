@@ -368,6 +368,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 37,
+          "parent_id": 26,
+          "text": "任务性质：纯讨论（无代码/文件改动），验收标准即",
+          "path": "涌现能力总树/任务性质：纯讨论（无代码/文件改动），验收标准即",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
