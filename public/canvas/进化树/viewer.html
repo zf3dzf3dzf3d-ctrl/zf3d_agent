@@ -187,6 +187,7 @@ function toScreen(n){ return {x:(n.wx-cam.x)*cam.zoom+vcx(), y:(n.wy-cam.y)*cam.
 function inFocus(n){ return focusSet===null || focusSet.has(n.id); }
 
 function draw(){
+  _animT=performance.now();
   ctx.clearRect(0,0,innerWidth,innerHeight);
   // 舱体几何：圆形模式下若未初始化则默认居中
   if(pod.cx==null){ pod.cx=innerWidth/2; pod.cy=innerHeight/2; }
@@ -208,8 +209,17 @@ function draw(){
     if(!inFocus(n)) continue;
     const p=toScreen(n); const st=styleByClarity(n);
     ctx.globalAlpha=st.alpha;
-    const _sp=(n.spawn==null?1:n.spawn); ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp,0,Math.PI*2);
+    const _sp=(n.spawn==null?1:n.spawn);
+    // 微动效①：节点柔和呼吸（半径随时间正弦微缩放，相位按 id 错开，像微微发光的星）
+    const _br=1+0.06*Math.sin(_animT*0.0016+(n.id%10)*0.63);
+    ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp*_br,0,Math.PI*2);
     ctx.fillStyle=st.color; ctx.fill();
+    // 微动效②：左上高光点，随呼吸微微移动，出"玻璃珠"质感
+    const _hr=Math.max(1.2,st.r*cam.zoom*_sp*0.28);
+    ctx.globalAlpha=st.alpha*0.35;
+    ctx.beginPath(); ctx.arc(p.x-_hr*0.8,p.y-_hr*0.9,_hr,0,Math.PI*2);
+    ctx.fillStyle='#ffffff'; ctx.fill();
+    ctx.globalAlpha=st.alpha;
     ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.stroke();
     ctx.globalAlpha=1;
     // 文字 + ✓ —— ① 按层级隐藏：缩小只看主干(depth浅)文字，放大才显示分支(depth深)文字；② 再叠加鼠标屏幕距离渐显
@@ -220,15 +230,25 @@ function draw(){
       if(mouse.in){ const NEAR=300, FAR=760; _a=1-Math.min(1,Math.max(0,(_d-NEAR)/(FAR-NEAR))); }   // 文字显示距离调为原2倍
     }
     if(_a>0.03){
-      const _ft=Math.max(11, 13*cam.zoom)*(0.9+0.45*_a);   // 近大远小
+      // —— 文字瘦身：小字号 + 截断 + 半透明胶囊底，减少杂乱感 ——
+      const _ft=Math.max(9.5, 10.5*cam.zoom);              // 字号整体调小，近处也不放大太多
+      const _maxCh=Math.round(14/Math.max(0.55,cam.zoom)); // 文字最长约14字，超出截断加省略号
+      let _txt=n.text||'';
+      if(_txt.length>_maxCh) _txt=_txt.slice(0,_maxCh-1)+'…';
+      const _tx=_txt+(n.clarity>=0.8?' ✓':'');
       ctx.font=`${_ft}px "Microsoft YaHei"`;
       ctx.textAlign='center'; ctx.textBaseline='top';
-      const _tx=n.text+(n.clarity>=0.8?' ✓':'');
-      const _ty=p.y+st.r*cam.zoom+4;
-      ctx.lineWidth=Math.max(2,_ft*0.22); ctx.lineJoin='round'; ctx.strokeStyle='rgba(6,10,16,.92)';
-      ctx.globalAlpha=_a;                                   // 远→透明，近→清晰
-      ctx.strokeText(_tx, p.x, _ty);
-      ctx.fillStyle='#e6edf3'; ctx.fillText(_tx, p.x, _ty);
+      const _ty=p.y+st.r*cam.zoom*_sp+4;
+      const _tw=ctx.measureText(_tx).width, _padX=4, _padY=2;
+      ctx.globalAlpha=_a*0.55;                             // 胶囊底：半透明深色圆角矩形，衬清文字
+      ctx.fillStyle='rgba(6,10,16,.75)';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(p.x-_tw/2-_padX,_ty-_padY,_tw+_padX*2,_ft+_padY*2,_ft*0.5);
+      else ctx.rect(p.x-_tw/2-_padX,_ty-_padY,_tw+_padX*2,_ft+_padY*2);
+      ctx.fill();
+      ctx.globalAlpha=_a*0.92;
+      ctx.fillStyle='#d7e2ec';
+      ctx.fillText(_tx, p.x, _ty);
       ctx.globalAlpha=1;
     }
   }
@@ -248,6 +268,7 @@ function draw(){
 }
 // 舱外宇宙背景：深色渐变 + 星点
 let _stars=null;
+let _animT=0;
 function drawSpaceBackdrop(){
   const g=ctx.createRadialGradient(innerWidth/2,innerHeight/2,0, innerWidth/2,innerHeight/2, Math.max(innerWidth,innerHeight));
   g.addColorStop(0,'#0a1020'); g.addColorStop(1,'#05070d');
@@ -605,6 +626,10 @@ function springStep(){
   return maxV;
 }
 function springLoop(){ if(!springOn) return; const maxV=springStep(); /* 纯 home 临界回弹：收敛后 maxV→0 自动停绘，杜绝微颤与空耗；拖拽/新节点偏离 _home 时下一帧 maxV 回升自动恢复 */ if(maxV>REST_V) draw(); springRAF=requestAnimationFrame(springLoop); }
+// 微动效③：呼吸常驻循环（低频持续重绘，让节点"活着"但不晃位置）
+let _breathRAF=null;
+function breathLoop(){ draw(); _breathRAF=requestAnimationFrame(breathLoop); }
+function startBreath(){ if(_breathRAF==null) _breathRAF=requestAnimationFrame(breathLoop); }
 // P0 圆形盆景：常驻漂浮启动器 + 圆形/全屏切换
 function startFloat(){
   const sb=document.getElementById('spring'); if(sb) sb.style.background='#3a6ea5';
@@ -713,6 +738,7 @@ async function load(file){
   document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
   fit();
   startFloat();
+  startBreath();
 }
 function _togPhys(btnId, get, set){ const b=document.getElementById(btnId); if(!b) return; b.onclick=()=>{ const v=!get(); set(v); b.style.background=v?'#3a6ea5':'#21262d'; }; }
 // P2 实时热重载：按 id diff 增量套用，新点发芽、旧点不跳（保留运行时 wx/wy/v/spawn）
@@ -751,6 +777,7 @@ function useTree(t){
   document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
   fit();
   startFloat();
+  startBreath();
 }
 // P1：接收宿主（主界面角标）指令，自动打开涌现侦测面板
 addEventListener('message', e=>{ const d=e.data||{}; if(d.__fromHost===1 && d.type==='openEmerge'){ const b=document.getElementById('emergeBtn'); if(b) b.click(); } });
