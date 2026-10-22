@@ -88,9 +88,10 @@ let pod = {cx:null, cy:null, r:0};   // 舱体屏幕中心与半径；null=未�
 if(!IS_EMBED){ try{ const _s=JSON.parse(localStorage.getItem('tree_pod_pos')||'null'); if(_s && _s.cx!=null){ pod.cx=_s.cx; pod.cy=_s.cy; } }catch(e){} }
 function savePod(){ if(IS_EMBED) return; try{ localStorage.setItem('tree_pod_pos', JSON.stringify({cx:Math.round(pod.cx), cy:Math.round(pod.cy)})); }catch(e){} }
 if(IS_EMBED){ var _tip=document.getElementById('tip'); if(_tip) _tip.style.display='none';
-  // embed：整页透明，圆形舱之外透出外层画布（无边框无背景的太空舱观感）
-  document.documentElement.style.background='transparent';
-  document.body.style.background='transparent';
+  // embed：舱内背景不透明（深色实心）。外层容器用 clip-path 裁成正圆，
+  //   圆舱之外仍透出画布，圆舱之内为实心深色，文字/连线不再透出背景。
+  document.documentElement.style.background='#0d1117';
+  document.body.style.background='#0d1117';
 }
 // 视图中心：圆形舱模式下=舱体中心，全屏模式=屏幕中心。所有屏幕↔世界换算以此为锚。
 function vcx(){ return roundFrame && pod.cx!=null ? pod.cx : innerWidth/2; }
@@ -328,9 +329,18 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 // P0 悬停文字提示：圆点=内容，鼠标搭上出 hovercard（名称/路径/清晰度/状态/挂接）
 function hoverCard(e){
   const hc=document.getElementById('hovercard');
-  if(e.target!==cv){ hc.style.display='none'; return; }
+  if(e.target!==cv){ hc.style.display='none'; if(IS_EMBED){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); }catch(_){} } return; }
   const n=hitTest(e.clientX,e.clientY);
-  if(!n){ hc.style.display='none'; return; }
+  if(!n){ hc.style.display='none'; if(IS_EMBED){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); }catch(_){} } return; }
+  // embed：卡片渲染委托给父窗口（外层容器 clip-path:circle 会裁掉 iframe 内超出圆的元素，
+  //   故不能在 iframe 内显示，须 postMessage 让父窗口在 body 上渲染，突破圆形裁剪）。
+  if(IS_EMBED){
+    hc.style.display='none';
+    try{ parent.postMessage({__tree:1,type:'hovercard',mx:e.clientX,my:e.clientY,
+      node:{text:n.text,path:(n.path||('id:'+n.id)),clarity:(+n.clarity||0),status:(n.status||'-'),
+        kind:(n.kind||'capability'),binds:(n.binds||n._binds||'')}},'*'); }catch(_){}
+    return;
+  }
   hc.innerHTML='<b>'+esc(n.text)+'</b>'
     +'<div class="hc-path">'+esc(n.path||('id:'+n.id))+'</div>'
     +'清晰度 '+Number(n.clarity||0).toFixed(2)+' · 状态 '+(n.status||'-')+' · '+esc(n.kind||'capability')

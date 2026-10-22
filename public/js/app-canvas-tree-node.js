@@ -167,8 +167,38 @@
     }
     /* ---- 接收 iframe 内右键拖拽 postMessage：移动整个球 ----
        （embed 舱内右键不再移动内部圆形取景框，避免画面偏移被外层 clip 圆裁切）---- */
+    /* ---- hovercard 委托渲染：iframe 内卡片会被外层 clip-path:circle 裁掉，
+       故由 viewer postMessage 把节点信息发上来，在父窗口 body 上渲染，突破圆形裁剪。---- */
+    var _hcEl = null;
+    function _esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+    function _showHC(d) {
+      if (!_hcEl) {
+        _hcEl = document.createElement('div');
+        _hcEl.style.cssText = 'position:fixed;z-index:100000;pointer-events:none;display:none;' +
+          'background:rgba(13,17,23,.96);border:1px solid #58d68d;border-radius:7px;padding:7px 10px;' +
+          'color:#e6edf3;font-size:12px;line-height:1.5;max-width:260px;box-shadow:0 4px 14px rgba(0,0,0,.5);' +
+          'font-family:"Microsoft YaHei",sans-serif;';
+        document.body.appendChild(_hcEl);
+      }
+      if (!d || !d.node) { _hcEl.style.display = 'none'; return; }
+      var n = d.node;
+      _hcEl.innerHTML = '<b style="color:#58d68d">' + _esc(n.text) + '</b>' +
+        '<div style="color:#8b949e">' + _esc(n.path) + '</div>' +
+        '清晰度 ' + (Number(n.clarity || 0).toFixed(2)) + ' · 状态 ' + _esc(n.status) + ' · ' + _esc(n.kind) +
+        '<div style="color:' + (n.binds ? '#f0b450' : '#8b949e') + '">' + (n.binds ? ('🔗挂接：' + _esc(n.binds)) : '（未挂接文件）') + '</div>';
+      _hcEl.style.display = 'block';
+      // iframe 视口坐标 → 父窗口屏幕坐标
+      var rect = view.getBoundingClientRect();
+      var px = rect.left + (d.mx || 0) + 30, py = rect.top + (d.my || 0) + 30;
+      var w = _hcEl.offsetWidth, h = _hcEl.offsetHeight, M = 6;
+      if (px + w > innerWidth - M) px = rect.left + (d.mx || 0) - w - 30;
+      if (py + h > innerHeight - M) py = rect.top + (d.my || 0) - h - 30;
+      if (px < M) px = M; if (py < M) py = M;
+      _hcEl.style.left = Math.round(px) + 'px'; _hcEl.style.top = Math.round(py) + 'px';
+    }
     function _onTreeMsg(ev) {
       var d = ev.data; if (!d || d.__tree !== 1) return;
+      if (d.type === 'hovercard') { _showHC(d); return; }
       if (d.type === 'podDragStart') { rdrag = true; sx = d.x; sy = d.y; ox = x; oy = y; }
       else if (d.type === 'podDragMove') {
         if (!rdrag) return;
