@@ -227,10 +227,21 @@ def _tk_ask_loop():
         ent.focus_set()
 
     def pump():
-        global _box_evt
+        global _box_evt, _monitor_evt
         if _box_evt is not None:
             _box_evt = None
             show()
+        if _monitor_evt is not None:
+            _monitor_evt = None
+            try:
+                import tray_monitor
+                w = _monitor_win[0]
+                if w is not None and w.winfo_exists():
+                    w.deiconify(); w.lift()
+                else:
+                    _monitor_win[0] = tray_monitor.run_panel(root=root, topmost=False)
+            except Exception as e:
+                log('监控面板失败: %s' % e)
         root.after(60, pump)
 
     pump()
@@ -274,6 +285,18 @@ def _hotkey_loop(combo):
         notify('朱峰智能体', '热键监听失败：%s（可用托盘菜单兜底）' % str(e)[:40])
 
 
+# ---------------- 监控面板 ----------------
+def _open_monitor():
+    """从托盘线程拉起监控面板（需在 tkinter 主线程创建控件，走事件泵）。"""
+    global _monitor_evt
+    _monitor_evt = time.time()
+    log('托盘菜单：监控面板')
+
+
+_monitor_evt = None
+_monitor_win = [None]
+
+
 def main():
     # 单实例锁
     try:
@@ -298,6 +321,7 @@ def main():
     _tray = pystray.Icon('zf_quick_ask', img, '朱峰智能体 · 一句话 (Alt+Space)',
                          Menu(
                              Item('打开工作台', lambda *_: _open_workbench(), default=True),
+                             Item('监控面板', lambda *_: _open_monitor()),
                              Item('退出', lambda *_: _tray.stop()),
                          ))
 
