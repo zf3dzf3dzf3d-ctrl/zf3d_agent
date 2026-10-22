@@ -5,3 +5,5 @@
 {"action": "intercept", "cmd": "del _patch_fullscreen.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_patch_fullscreen.py"], "skipped": [], "ts": "2026-10-22 07:19:14"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_patch_fullscreen.py"], "total": 1, "ts": "2026-10-22 07:19:14"}
 {"action": "passthrough_complex", "cmd": "(if exist public\\_tmp_probe.txt (echo EXISTS & del public\\_tmp_probe.txt) else echo NONE)", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 07:33:47"}
+{"action": "intercept", "cmd": "del \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\_tmp_scan.py\"", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_scan.py"], "skipped": [], "ts": "2026-10-22 08:04:53"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_scan.py"], "total": 1, "ts": "2026-10-22 08:04:53"}
