@@ -904,18 +904,24 @@ function zfApiBase(){try{if(location.protocol==='http:'||location.protocol==='ht
     }
   }
 }
-/* ===== 工具执行记录（移植自 PC 端 toolpanel）：内存数组，上限50条，仅面板打开时渲染 ===== */
-var TOOL_EXEC_LOG=[];
-function toolRecPush(fn,args,result,ms,ok){
+/* ===== 工具执行记录（移植自 PC 端 toolpanel）：按发起会话存进 sess.recs，随 zf_sessions 落 localStorage+原生 Prefs 双备份，切会话/重启不丢 ===== */
+var TOOL_EXEC_LOG=[]; /* 兼容旧引用：仅作占位，真实数据落在 sess.recs */
+function _sessOf(id){for(var i=0;i<SESSIONS.length;i++)if(SESSIONS[i].id===id)return SESSIONS[i];return null}
+function curRecs(){var s=curSess();return (s&&s.recs)||[]}
+function toolRecPush(fn,args,result,ms,ok,sessId){
   try{
-    TOOL_EXEC_LOG.push({fn:fn,args:JSON.stringify(args||{}),result:String(result||'').slice(0,600),ms:Math.round(ms),ok:!!ok,t:new Date()});
-    if(TOOL_EXEC_LOG.length>100)TOOL_EXEC_LOG.shift();
-    var tlEl=document.getElementById('toolRecList');if(tlEl)renderToolRec();
+    var s=(sessId&&_sessOf(sessId))||curSess();if(!s)return;
+    var recs=s.recs||(s.recs=[]);
+    recs.push({fn:fn,args:JSON.stringify(args||{}),result:String(result||'').slice(0,600),ms:Math.round(ms),ok:!!ok,t:Date.now()});
+    if(recs.length>100)recs.splice(0,recs.length-100); /* 每会话上限100条，防 localStorage 膨胀 */
+    /* 仅当面板正显示「该会话」时才刷新，避免切到别的会话时把别的会话记录渲染进来 */
+    if(s.id===CUR){var tlEl=document.getElementById('toolRecList');if(tlEl&&tlEl.offsetParent!==null)renderToolRec()}
+    persist(); /* 落 localStorage（原生层每5秒再同步一份 Prefs，重装/杀进程可恢复） */
   }catch(e){}
 }
 function renderToolRec(){
   var box=document.getElementById('toolRecList');if(!box)return;
-  var list=TOOL_EXEC_LOG.slice(-100).reverse(); /* 默认渲染最近100条（上限100），方便排错 */
+  var list=curRecs().slice(-100).reverse(); /* 默认渲染当前会话最近100条（上限100），方便排错 */
   box.textContent='';
   if(!list.length){var e0=document.createElement('div');e0.className='trc-empty';e0.textContent='（本会话暂无工具执行记录）';box.appendChild(e0);return;}
   list.forEach(function(rec){
@@ -945,8 +951,8 @@ function renderToolRec(){
   var btn=document.getElementById('btnTrcCopy');if(!btn)return;
   btn.addEventListener('click',function(){
     try{
-      var lines=TOOL_EXEC_LOG.slice().reverse().map(function(r){
-        return '['+(r.ok?'成功':'失败')+'] '+r.fn+' ('+r.ms+'ms) '+r.t.toLocaleTimeString()+'\n入参: '+r.args+'\n出参: '+r.result+'\n';
+      var lines=curRecs().slice().reverse().map(function(r){
+        return '['+(r.ok?'成功':'失败')+'] '+r.fn+' ('+r.ms+'ms) '+new Date(r.t).toLocaleTimeString()+'\n入参: '+r.args+'\n出参: '+r.result+'\n';
       });
       var text=lines.length?('共 '+lines.length+' 条工具执行记录：\n\n'+lines.join('\n')):'（本会话暂无工具执行记录）';
       var done=function(){var o=btn.textContent;btn.textContent='✅ 已复制';setTimeout(function(){btn.textContent=o},1200)};
@@ -1012,12 +1018,12 @@ function usageText(j){
 })();
 /* 包装 agentExecTool：首尾埋点 + try/finally 兜底失败路径 */
 var _agentExecToolRaw=agentExecTool;
-agentExecTool=async function(fn,args){
+agentExecTool=async function(fn,args,sessId){
   var t0=Date.now(),r;
   try{r=await _agentExecToolRaw(fn,args);}
-  catch(e){r='工具执行失败:'+e.message;toolRecPush(fn,args,r,Date.now()-t0,false);throw e;}
+  catch(e){r='工具执行失败:'+e.message;toolRecPush(fn,args,r,Date.now()-t0,false,sessId);throw e;}
   var ok=!/^错误:|^失败|工具执行失败|未知工具/.test(String(r).slice(0,12));
-  toolRecPush(fn,args,r,Date.now()-t0,ok);
+  toolRecPush(fn,args,r,Date.now()-t0,ok,sessId);
   return r;
 }
 /* ===== 工具执行计数 + 动画 + 声音 ===== */
@@ -1224,7 +1230,7 @@ async function agentLoop(msgs,onStep,ctx){
       /* 让出主线程一拍：先让停止按钮的点击事件被处理（abort 生效），再执行同步工具，否则工具执行期间UI卡死点停止无反应 */
       await new Promise(function(rs){setTimeout(rs,0)});
       if(_stop())throw new DOMException('Aborted','AbortError');
-      try{result=await agentExecTool(fn,fargs)}catch(eT){result='工具执行失败:'+eT.message}
+      try{result=await agentExecTool(fn,fargs,ctx&&ctx.sessId)}catch(eT){result='工具执行失败:'+eT.message}
       archRegister(fn,fargs,result); /* 【阶段D】登记已执行工具，供压缩索引防重复调用 */
       pushLog('t','R'+(round+1)+' '+fn+'('+JSON.stringify(fargs).slice(0,120)+') => '+String(result).slice(0,200));
       toolLog.push(fn+' -> '+String(result).slice(0,120));
@@ -1780,7 +1786,7 @@ async function send(){
       delete RUNNING[_sendSessId];syncSendBtn();
       return;
     }
-    var res=await agentLoop(msgs,function(stepTxt){if(_sameSess()){span.textContent=stepTxt;scrollEnd()}},{signal:_ctl.signal,isStop:function(){return RUNNING[_sendSessId]?RUNNING[_sendSessId].stopped:false}});
+    var res=await agentLoop(msgs,function(stepTxt){if(_sameSess()){span.textContent=stepTxt;scrollEnd()}},{signal:_ctl.signal,sessId:_sendSessId,isStop:function(){return RUNNING[_sendSessId]?RUNNING[_sendSessId].stopped:false}});
     res.out=res.out||'';
     var out=res.out;
     _lastAI=out;
