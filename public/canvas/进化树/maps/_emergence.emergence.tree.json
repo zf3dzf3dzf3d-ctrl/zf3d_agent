@@ -424,6 +424,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 41,
+          "parent_id": 26,
+          "text": "✅ 手机峰控·蜂群收口第3轮整改完成 ## 一、",
+          "path": "涌现能力总树/✅ 手机峰控·蜂群收口第3轮整改完成 ## 一、",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
