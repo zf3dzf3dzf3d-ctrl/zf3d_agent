@@ -382,6 +382,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 38,
+          "parent_id": 26,
+          "text": "调查分析与建议已完成（纯讨论，未改任何文件）。 ",
+          "path": "涌现能力总树/调查分析与建议已完成（纯讨论，未改任何文件）。 ",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
