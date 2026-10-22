@@ -71,3 +71,15 @@
 .zf-jobs-form .adv { margin-top: 6px; border-top: 1px dashed var(--zf-border, #1a1a1f); padding-top: 8px; }
 .zf-jobs-form .sw { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
 .zf-jobs-form .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* [P1 审核续跑回路] await_review 裁决续跑区 */
+.zf-jobs-resume { margin-top: 12px; padding: 12px; border: 1px solid #8a6d2b;
+  border-radius: 8px; background: rgba(138,109,43,.08); }
+.zf-jobs-resume .rz-title { font-size: 12px; color: #c2a24a; margin-bottom: 8px; line-height: 1.5; }
+.zf-jobs-resume textarea { width: 100%; box-sizing: border-box; resize: vertical;
+  background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f);
+  color: var(--zf-text, #c8c8cc); border-radius: 6px; padding: 7px 9px;
+  font-size: 13px; font-family: inherit; }
+.zf-jobs-resume .rz-acts { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.zf-jobs-resume .rz-hint { font-size: 12px; color: #8a8a92; }
+.zf-jobs-resume button:disabled { opacity: .5; cursor: not-allowed; }

@@ -44,6 +44,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).then(function (r) { return r.json(); });
+    },
+    resume: function (id, verdict) {
+      return fetch('/api/jobs/' + id + '/resume', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verdict: verdict })
+      }).then(function (r) { return r.json(); });
     }
   };
 
@@ -58,6 +65,8 @@
       API.list().then(function (d) {
         Poll.failCount = 0;
         Jobs.renderList((d && d.jobs) || []);
+        // [P1] 选中任务且停在对话流 Tab 时，随轮询增量刷新 transcript（复用列表节奏，三铁律已兜底并发/退避）
+        if (Jobs.tab === 'transcript' && Jobs.selId) Jobs.loadTranscript(Jobs.selId);
       }).catch(function () {
         Poll.failCount++;                                   // 失败退避：连错拉长到8s
       }).then(function () {
@@ -215,7 +224,39 @@
       } else {
         body = '<div class="zf-jobs-transcript" id="zfTrBox">加载中…</div>';
       }
+      // [P1 审核续跑回路] await_review 状态：在概要先追加裁决续跑区
+      if (this.tab === 'overview' && job.status === 'await_review') {
+        body +=
+          '<div class="zf-jobs-resume">' +
+            '<div class="rz-title">⏸ 任务停在审核门，填写你的裁决后点「续跑」，后台将跳过策划/收口直接施工→审核→总结。</div>' +
+            '<textarea id="jVerdict" rows="3" placeholder="例如：方向可以，但请补充错误处理；或：按 A 方案继续"></textarea>' +
+            '<div class="rz-acts"><button class="zf-jobs-btn primary" id="jResumeBtn">▶ 提交裁决并续跑</button>' +
+            '<span class="rz-hint" id="jResumeHint"></span></div>' +
+          '</div>';
+      }
       box.innerHTML = head + body;
+      // 续跑按钮绑定
+      var rb = box.querySelector('#jResumeBtn');
+      if (rb) {
+        rb.addEventListener('click', function () {
+          var v = (document.getElementById('jVerdict') || {}).value || '';
+          v = v.trim();
+          var hint = document.getElementById('jResumeHint');
+          if (!v) { if (hint) hint.textContent = '请先填写裁决'; return; }
+          rb.disabled = true; if (hint) hint.textContent = '提交中…';
+          API.resume(job.id, v).then(function (r) {
+            if (r && r.ok) {
+              if (hint) hint.textContent = '✓ 已续跑，状态转 queued';
+              Poll.start(); self.renderList(self.list); self.select(job.id);
+            } else {
+              rb.disabled = false;
+              if (hint) hint.textContent = '✕ ' + (r && r.error || '续跑失败');
+            }
+          }).catch(function (e) {
+            rb.disabled = false; if (hint) hint.textContent = '✕ 异常：' + e.message;
+          });
+        });
+      }
       Array.prototype.forEach.call(box.querySelectorAll('.zf-jobs-tab'), function (t) {
         t.addEventListener('click', function () { self.tab = t.getAttribute('data-tab'); self.renderDetail(job, box); if (self.tab === 'transcript') self.loadTranscript(job.id); });
       });
