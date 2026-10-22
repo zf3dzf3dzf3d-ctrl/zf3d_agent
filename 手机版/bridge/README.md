@@ -7,11 +7,10 @@
 bridge/
 ├── termux/                  # 手机侧（拷到手机 /sdcard/bridge 后执行 install.sh）
 │   ├── install.sh           # 一键安装：pkg 依赖 + cron + ntfy 配置 + 桥开机自启/看门狗
-│   ├── boot_bridge.sh       # 桥开机自启 + 看门狗自愈（检查心跳，死了自动重拉）
+│   ├── boot_bridge.sh       # 唯一看门狗：开机自启 + 探活心跳 + 死则 ntfy 报警 + 自愈重拉
 │   ├── morning_report.sh    # 定时晨报（天气+待办+追剧）经 ntfy 推送
 │   ├── sync_memory.sh       # 记忆/待办打包备份到 PC、可拉回
-│   ├── watchdog_bridge.sh   # 桥看门狗：每10分钟探活，掉线自动 ntfy 报警+拉起自愈
-│   └── crontab.txt          # 定时任务表（晨报 7:00、备份 23:30、看门狗 每10分钟）
+│   └── crontab.txt          # 定时任务表（晨报 7:00、备份 23:30、看门狗 每5分钟）
 └── pc/                      # PC 侧接收端
     ├── bridge_server.py     # HTTP 服务：备份上传/下载 + 白名单远程命令
     ├── 启动峰控桥.bat       # 一键后台启动（端口 8765）
@@ -38,7 +37,7 @@ bridge/
 `install.sh` 现已自动完成两件事，桥不再依赖手点：
 - **开机自启**：安装 `termux-boot` 并写入 `~/.termux/boot/zf_bridge.sh`，重启手机后 Termux 自动拉起桥。
   ⚠️ 需在手机系统设置里允许 Termux「自启动 + 后台运行 + 关闭电池优化」，否则厂商 ROM 仍会杀进程。
-- **看门狗**：`crontab.txt` 每 5 分钟跑一次 `boot_bridge.sh`，检查桥心跳，超时就后台重拉（`nohup`，绕开 120s 桥超时）。
+- **看门狗**：`crontab.txt` 每 5 分钟跑一次 `boot_bridge.sh`，检查桥心跳（统一文件名 `heartbeat.txt`），超时就**推送 ntfy 报警 + 后台重拉**（`nohup`，绕开 120s 桥超时）。这是唯一看门狗，不再有第二个脚本与之争抢（曾有 `watchdog_bridge.sh` 因心跳文件名/阈值与 boot 不一致、功能重叠已废弃删除）。
 
 可调项写进 `~/.env_bridge`（均有默认值，见 `boot_bridge.sh` 顶部）：
 ```bash

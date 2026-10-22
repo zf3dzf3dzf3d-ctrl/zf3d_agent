@@ -61,3 +61,7 @@
 {"action": "intercept", "cmd": "del _chk_watchdog.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_chk_watchdog.py"], "skipped": [], "ts": "2026-10-22 17:50:58"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_chk_watchdog.py"], "total": 1, "ts": "2026-10-22 17:50:58"}
 {"action": "db_error", "path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\_audit_check.py", "trash_path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\system\\trash\\20261022\\_audit_check.py", "error": "database is locked", "ts": "2026-10-22 17:52:01"}
+{"action": "passthrough_complex", "cmd": "git rm --cached 手机版/bridge/termux/watchdog_bridge.sh 2>", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 18:01:15"}
+{"action": "db_error", "path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\手机版\\bridge\\termux\\watchdog_bridge.sh", "trash_path": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\system\\trash\\20261022\\watchdog_bridge.sh", "error": "database is locked", "ts": "2026-10-22 18:01:48"}
+{"action": "intercept", "cmd": "del /q 手机版\\bridge\\termux\\watchdog_bridge.sh 2>", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["watchdog_bridge.sh"], "skipped": ["2>(not_found)"], "ts": "2026-10-22 18:01:48"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["watchdog_bridge.sh"], "total": 1, "ts": "2026-10-22 18:01:48"}
