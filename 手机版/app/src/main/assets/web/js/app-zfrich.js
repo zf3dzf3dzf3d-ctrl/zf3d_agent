@@ -264,7 +264,9 @@
     }
   };
   // PPT 页内轻量 markdown（不递归 zfrich，防复杂化）
+  // 统一渲染层 ZFMD（zfrich 块内允许富媒体标签 img/video/table 等）
   function markedParse(s) {
+    if (typeof ZFMD !== 'undefined') return ZFMD.render(s, { tags: 'rich', media: true });
     if (typeof marked !== 'undefined') { try { return marked.parse(s); } catch (e) {} }
     return '<p>' + esc(s).replace(/\n/g, '<br>') + '</p>';
   }
