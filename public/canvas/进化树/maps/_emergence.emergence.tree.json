@@ -326,6 +326,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 34,
+          "parent_id": 26,
+          "text": "✅ 涌现待确认已改为「出现即自动采纳，无需手动确",
+          "path": "涌现能力总树/✅ 涌现待确认已改为「出现即自动采纳，无需手动确",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
