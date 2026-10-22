@@ -97,9 +97,10 @@ class MixinJobs(MixinBase):
         if not isinstance(data, dict):
             data = {}
         goal = str(data.get('goal') or '').strip()
+        # 【2026-10-22 调整】允许无 goal 提交：只要粘贴了附件卡片（文本/图片）即可，
+        # 正文拼进 goal（后端 swarm_pipeline 只消费 goal，附件走 extra_ctx 需 goal 非空）
         if not goal:
-            self._send_json({'ok': False, 'error': '缺少 goal'}, code=400)
-            return
+            goal = str(data.get('context') or '').strip()[:200] or '(未填写目标，见任务附件)'
         cfg = dict(data)            # 透传 planners/builders/reviewers/summarize/decision_gate 等
         cfg['goal'] = goal
         job_id = _gen_job_id()

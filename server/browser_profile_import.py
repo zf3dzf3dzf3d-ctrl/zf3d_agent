@@ -41,7 +41,7 @@ KEY_DIR_PREFIXES = ['Default\\Sessions', 'Default/Session Storage', 'Default/Loc
 
 
 def _project_root():
-    return os.path.dirname(os.path.abspath(__file__)) and os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _profile_dir(root):
@@ -53,6 +53,30 @@ def _profile_dir(root):
     return None
 
 
+def _legacy_profiles_dir(root):
+    return os.path.join(root, LEGACY_PRIVATE_PROFILES)
+
+
+def _iter_profile_units(root):
+    """枚举某版本根下的全部「profile 单元」：返回 [(unit_key, unit_path)]
+    - 新布局：browser_profile 根本身是一个单元（key='主 profile'）
+    - 老布局：private/浏览器数据/profiles/ 下每个含 Local State 的子目录是一个单元（key=子目录名）"""
+    units = []
+    prof = _profile_dir(root)
+    if prof and _has_profile_data(prof):
+        units.append(('主 profile', prof))
+    legacy = _legacy_profiles_dir(root)
+    if os.path.isdir(legacy):
+        try:
+            for name in sorted(os.listdir(legacy)):
+                sub = os.path.join(legacy, name)
+                if os.path.isdir(sub) and _has_profile_data(sub):
+                    units.append((name, sub))
+        except Exception:
+            pass
+    return units
+
+
 def _is_source_safe(path):
     real = os.path.realpath(path)
     name = os.path.basename(real)
@@ -60,7 +84,7 @@ def _is_source_safe(path):
         return False
     if real == os.path.realpath(_project_root()):
         return False
-    return _profile_dir(real) is not None
+    return (_profile_dir(real) is not None) or os.path.isdir(_legacy_profiles_dir(real))
 
 
 def _has_profile_data(prof):
@@ -94,18 +118,18 @@ def _collect_key_files(prof):
 
 
 def _probe_dir(cand_root, out):
-    prof = _profile_dir(cand_root)
-    if not prof or not _has_profile_data(prof):
-        return
-    files = _collect_key_files(prof)
-    out.append({
-        'dir': cand_root,
-        'name': os.path.basename(cand_root.rstrip('\\/')),
-        'profile_path': prof,
-        'count': len(files),
-        'total_mb': round(sum(f['size'] for f in files) / 1048576, 1),
-        'mtime': int(os.path.getmtime(prof)),
-    })
+    for unit_key, unit_path in _iter_profile_units(cand_root):
+        files = _collect_key_files(unit_path)
+        if not files:
+            continue
+        out.append({
+            'dir': cand_root,
+            'name': os.path.basename(cand_root.rstrip('\\/')) + ('' if unit_key == '主 profile' else ' · ' + unit_key),
+            'profile_path': unit_path,
+            'count': len(files),
+            'total_mb': round(sum(f['size'] for f in files) / 1048576, 1),
+            'mtime': int(os.path.getmtime(unit_path)),
+        })
 
 
 def _search_roots():
@@ -117,7 +141,7 @@ def _search_roots():
         if os.path.isdir(drv):
             roots.append(drv)
     roots += [os.path.expanduser('~'), os.path.expanduser('~\\Desktop')]
-    seen, uniq = set(), []
+    seen, uniq, seen_units = set(), [], set()
     for r in roots:
         rr = os.path.realpath(r)
         if rr not in seen and os.path.isdir(rr):
@@ -151,7 +175,7 @@ def list_candidates():
                                 'System Volume Information', 'node_modules', '.git', '_垃圾箱'):
                         continue
                     if ('朱峰' in name or '智能体' in name):
-                        _probe_dir(cand, out)
+                        _probe_dir(cand, out, seen_units)
                         try:
                             for sub in sorted(os.listdir(cand)):
                                 sub_p = os.path.join(cand, sub)
@@ -162,12 +186,14 @@ def list_candidates():
                             pass
                         continue
                     if ('朱峰' in base or '智能体' in base) and not name.startswith(('.', '$')):
-                        _probe_dir(cand, out)
+                        _probe_dir(cand, out, seen_units)
                 except Exception:
                     continue
     except Exception as e:
         return {'ok': False, 'err': str(e)}
-    out.sort(key=lambda x: -x['mtime'])
+        out.sort(key=lambda x: -x['mtime'])
+    # 同版本多单元按名字稳定排序（老版本在前），避免列表抖动
+    out.sort(key=lambda x: (x['name'], -x['mtime']))
     return {'ok': True, 'current': cur_ver, 'candidates': out, 'scan_mode': '全盘智能扫描'}
 
 
