@@ -13,3 +13,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_verify_tmp.py"], "total": 1, "ts": "2026-10-22 08:39:52"}
 {"action": "intercept", "cmd": "del /q \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\_audit_tmp.py\" 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_audit_tmp.py"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 08:43:08"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_audit_tmp.py"], "total": 1, "ts": "2026-10-22 08:43:08"}
+{"action": "intercept", "cmd": "del /q _tmp_probe.py _tmp_showbat.py _tmp_probe.py.bak* _tmp_showbat.py.bak* 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_probe.py", "_tmp_showbat.py", "_tmp_probe.py.bak.20261022_090149_790305"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 09:02:08"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_probe.py", "_tmp_showbat.py", "_tmp_probe.py.bak.20261022_090149_790305"], "total": 3, "ts": "2026-10-22 09:02:08"}
