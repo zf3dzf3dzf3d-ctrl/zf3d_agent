@@ -438,6 +438,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 42,
+          "parent_id": 26,
+          "text": "手机峰控·蜂群第4轮收尾（采纳防复发建议） ##",
+          "path": "涌现能力总树/手机峰控·蜂群第4轮收尾（采纳防复发建议） ##",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
