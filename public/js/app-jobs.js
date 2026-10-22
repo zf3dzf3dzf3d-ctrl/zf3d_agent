@@ -121,22 +121,15 @@
     filterStatus: 'all', keyword: '',   // [P2] 列表筛选 + 搜索
 
     init: function () {
-      this._injectFab();
+      // 【2026 调整】监控入口从右下角悬浮 FAB 收进左上角文件菜单（高级功能不再占常驻入口），
+      // 对外暴露 window.JobsPanel 供 app-undo.js 文件菜单调用。
       this._injectDrawer();
       this._injectModal();
+      window.JobsPanel = this;
       var self = this;
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden && self.visible) Poll.start();
       });
-    },
-
-    _injectFab: function () {
-      var b = document.createElement('div');
-      b.id = 'zfJobsFab'; b.title = '后台任务监控'; b.textContent = '\u2699';
-      b.innerHTML = '\u2699<span class="zf-jobs-badge" style="display:none"></span>';
-      var self = this;
-      b.addEventListener('click', function () { self.toggle(); });
-      document.body.appendChild(b);
     },
 
     _injectDrawer: function () {
@@ -220,8 +213,9 @@
     renderList: function (jobs) {
       this.list = jobs || [];
       var box = document.getElementById('zfJobsList');
-      var badge = document.querySelector('#zfJobsFab .zf-jobs-badge');
+      var badge = null; // FAB 已移除，badge 逻辑保留空操作兼容
       var active = this.list.filter(function (j) { return j.status === 'queued' || j.status === 'running' || j.status === 'await_review'; }).length;
+      // 角标改为反映在文件菜单入口提示（无常驻按钮则跳过）
       if (badge) { badge.style.display = active ? 'block' : 'none'; badge.textContent = active; }
       var self = this;
       // [P2] 应用状态筛选 + 关键词搜索（仅影响视图；badge 计数仍基于完整 list）

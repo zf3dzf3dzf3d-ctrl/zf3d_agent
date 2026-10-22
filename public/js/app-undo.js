@@ -258,6 +258,17 @@ function _dlgPrompt(msg, val){
                 try { fetch('/api/revive', { method: 'POST' }).catch(function () {}); } catch (e) {}
             }, false));
 
+            // 后台任务监控（原右下角悬浮 ⚙ 按钮，收进文件菜单——属高级功能不占常驻入口）
+            // 打开自包含抽屉面板：排队/运行/审核/完成/失败一览 + 新建后台任务。
+            menu.appendChild(this._item('🛰️ 后台任务监控', '查看/新建无人值守后台任务', function () {
+                menu.style.display = 'none';
+                if (window.JobsPanel && typeof window.JobsPanel.toggle === 'function') {
+                    window.JobsPanel.toggle(true);
+                } else if (window.App && window.App._toast) {
+                    App._toast('后台任务面板尚未就绪，请稍后再试', 'warn');
+                }
+            }, false));
+
             menu.appendChild(this._sep());
             var status = document.createElement('div');
             status.style.cssText = 'padding:4px 12px;font-size:11px;color:var(--text2,#888);';
