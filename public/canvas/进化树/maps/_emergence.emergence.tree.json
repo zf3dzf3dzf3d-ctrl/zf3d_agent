@@ -410,6 +410,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 40,
+          "parent_id": 26,
+          "text": "✅ 手机峰控「工具循环中无缝切换/新建对话不串台",
+          "path": "涌现能力总树/✅ 手机峰控「工具循环中无缝切换/新建对话不串台",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
