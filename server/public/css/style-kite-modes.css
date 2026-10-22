@@ -891,7 +891,7 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
 
 /* 【改造】空态提示文字移出太空舱：改为 body 级全屏层 #zfEmptyOverlay（fixed inset:0），
    flex 居中显示在屏幕正中心；层穿透（pointer-events:none）不挡画布拖拽/双击，仅 chip 可点。 */
-#zfEmptyOverlay { position: fixed; inset: 0; z-index: 60; pointer-events: none;
+#zfEmptyOverlay { position: fixed; inset: 0; z-index: 0; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 14px; color: rgba(150,195,240,.6); text-align: center; padding: 0 40px;
   /* 空态整体轻微悬浮呼吸，文字带柔和辉光 */
