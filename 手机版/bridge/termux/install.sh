@@ -7,8 +7,20 @@ echo "== 1. 更新源并安装基础包 =="
 pkg update -y && pkg install -y cronie termux-services openssh git python curl jq termux-api ntfy 2>/dev/null || true
 
 echo "== 2. 部署技能脚本 =="
+SRC_DIR="$(dirname "$0")"
+# 防复发守卫：被 crontab 引用的核心脚本一旦被误清成 0 字节，无差别 cp 会把空脚本
+# 部署到手机，导致定时任务静默跑空（晨报/记忆备份/看门狗失效）。部署前逐一用 [ -s ]
+# 校验非空（测字节，非 bash -n——空文件 bash -n 同样返回 0，不可作非空证据），空则中止。
+for f in boot_bridge.sh morning_report.sh sync_memory.sh; do
+  if [ ! -s "$SRC_DIR/$f" ]; then
+    echo "!! 中止：核心脚本 $SRC_DIR/$f 为空或不存在，疑似被误清空。" >&2
+    echo "   拒绝部署空脚本（会造成 crontab 定时任务静默失效）。请从 git 恢复后重试：" >&2
+    echo "   git checkout <good-commit> -- 手机版/bridge/termux/$f" >&2
+    exit 1
+  fi
+done
 mkdir -p ~/bin ~/scripts
-cp -f "$(dirname "$0")"/*.sh ~/scripts/ 2>/dev/null || true
+cp -f "$SRC_DIR"/*.sh ~/scripts/ 2>/dev/null || true
 chmod +x ~/scripts/*.sh
 
 echo "== 3. 允许后台运行（防杀） =="
