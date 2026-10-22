@@ -480,6 +480,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 45,
+          "parent_id": 26,
+          "text": "两张 5.6.0 截图已上传 OSS，GitHu",
+          "path": "涌现能力总树/两张 5.6.0 截图已上传 OSS，GitHu",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
