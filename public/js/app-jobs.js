@@ -189,9 +189,19 @@
       var badge = document.querySelector('#zfJobsFab .zf-jobs-badge');
       var active = this.list.filter(function (j) { return j.status === 'queued' || j.status === 'running' || j.status === 'await_review'; }).length;
       if (badge) { badge.style.display = active ? 'block' : 'none'; badge.textContent = active; }
-      if (!this.list.length) { box.innerHTML = '<div class="zf-jobs-empty">暂无任务，点「+ 新建」发一个</div>'; return; }
-      var self = this, html = '';
-      this.list.forEach(function (j) {
+      var self = this;
+      // [P2] 应用状态筛选 + 关键词搜索（仅影响视图；badge 计数仍基于完整 list）
+      var view = this.list.filter(function (j) {
+        if (self.filterStatus && self.filterStatus !== 'all' && j.status !== self.filterStatus) return false;
+        if (self.keyword) {
+          var g = (j.goal || '').toLowerCase(), id = String(j.id || '').toLowerCase();
+          if (g.indexOf(self.keyword) < 0 && id.indexOf(self.keyword) < 0) return false;
+        }
+        return true;
+      });
+      if (!view.length) { box.innerHTML = '<div class="zf-jobs-empty">' + (this.list.length ? '无匹配任务，调整筛选/搜索试试' : '暂无任务，点「+ 新建」发一个') + '</div>'; return; }
+      var html = '';
+      view.forEach(function (j) {
         var si = stInfo(j.status);
         var goal = j.goal || '(无目标)';
         html += '<div class="zf-jobs-card' + (j.id === self.selId ? ' sel' : '') + '" data-id="' + esc(j.id) + '">' +
@@ -207,6 +217,16 @@
       Array.prototype.forEach.call(box.querySelectorAll('.zf-jobs-card'), function (c) {
         c.addEventListener('click', function () { self.select(c.getAttribute('data-id')); });
       });
+    },
+
+    // [P2] transcript 角色配色映射（按关键词归类，未知角色回退灰）
+    roleClass: function (role) {
+      var r = (role || '').toLowerCase();
+      if (/(user|用户|human)/.test(r)) return 'r-user';
+      if (/(agent|builder|施工|planner|策划|assistant)/.test(r)) return 'r-build';
+      if (/(review|审核|critic|audit)/.test(r)) return 'r-review';
+      if (/(system|系统|tool|工具)/.test(r)) return 'r-system';
+      return 'r-unknown';
     },
 
     select: function (id) {
@@ -294,7 +314,7 @@
           var key = id + ':' + i;
           var open = self._openTr[key];
           var shown = (!open && c.length > LIM) ? c.slice(0, LIM) + '…' : c;
-          html += '<div class="tr-row"><div class="tr-role">' + esc(t.role || '?') + (t.turn_no ? ' · #' + t.turn_no : '') + '</div>' +
+          html += '<div class="tr-row ' + self.roleClass(t.role) + '"><div class="tr-role">' + esc(t.role || '?') + (t.turn_no ? ' · #' + t.turn_no : '') + '</div>' +
             '<div class="tr-body">' + esc(shown) +
             (c.length > LIM ? ' <span class="tr-fold" data-key="' + key + '">' + (open ? '收起' : '展开全文') + '</span>' : '') +
             '</div></div>';

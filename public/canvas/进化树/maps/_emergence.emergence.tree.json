@@ -256,6 +256,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 29,
+          "parent_id": 26,
+          "text": "✅ 收口核验完成（本对话未改动任何文件，仅做 g",
+          "path": "涌现能力总树/✅ 收口核验完成（本对话未改动任何文件，仅做 g",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
