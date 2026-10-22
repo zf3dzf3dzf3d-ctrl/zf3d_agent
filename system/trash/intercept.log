@@ -45,3 +45,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_rev_swarm.diff"], "total": 1, "ts": "2026-10-22 16:44:07"}
 {"action": "passthrough_complex", "cmd": "git rm -r -q --cached server/data/browser_profile", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 16:45:43"}
 {"action": "passthrough_complex", "cmd": "git rm -r -q --cached server/data/browser_profile", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 16:49:49"}
+{"action": "intercept", "cmd": "del /q _scratch_check.py 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_scratch_check.py"], "skipped": ["2>nul(not_found)"], "ts": "2026-10-22 17:01:22"}
+{"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_scratch_check.py"], "total": 1, "ts": "2026-10-22 17:01:22"}

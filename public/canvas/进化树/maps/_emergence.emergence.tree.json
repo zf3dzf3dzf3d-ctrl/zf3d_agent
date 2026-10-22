@@ -396,6 +396,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 39,
+          "parent_id": 26,
+          "text": "✅ 审核收口完成（审核蜂群 87/88 双通过 ",
+          "path": "涌现能力总树/✅ 审核收口完成（审核蜂群 87/88 双通过 ",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
