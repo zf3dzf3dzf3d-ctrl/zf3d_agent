@@ -90,6 +90,8 @@ class HotReloader:
         'routes/mixin_browser.py': 'routes.mixin_browser',
         'routes/mixin_demo.py': 'routes.mixin_demo',
         'routes/mixin_gate.py': 'routes.mixin_gate',
+        # 【2026-10-22 补】jobs 后台流水线 mixin 此前漏配监视，改完必须重启才生效 → 加入级联重载
+        'routes/mixin_jobs.py': 'routes.mixin_jobs',
         'chat_gate.py': 'chat_gate',
         'routes/mixin_docs.py': 'routes.mixin_docs',
         'routes/mixin_briefing.py': 'routes.mixin_briefing',
