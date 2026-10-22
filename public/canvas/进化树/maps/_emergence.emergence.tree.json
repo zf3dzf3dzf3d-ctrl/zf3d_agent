@@ -298,6 +298,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 32,
+          "parent_id": 26,
+          "text": "结论：后台监控功能正常，\"看不到\"根因是页面未加",
+          "path": "涌现能力总树/结论：后台监控功能正常，\"看不到\"根因是页面未加",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }
