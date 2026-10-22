@@ -200,6 +200,7 @@ def run_pipeline(cfg, cwd=None, log=print):
     # 续跑(resume_verdict 非空) 时跳过策划/收口/决策门；verdict 取续跑裁决或退化为 goal。
     # 红线：_skip_planning 恒 False 时走 else 分支，与旧代码逐行等价 → cli --pipeline 零回归。
     plans = []
+    import dispatch_swarm  # [P1] 提到分支外：关策划/续跑路径下阶段4审核仍需此模块
     _skip_planning = bool(resume_verdict) or n_pl <= 0
     if _skip_planning:
         if resume_verdict:
