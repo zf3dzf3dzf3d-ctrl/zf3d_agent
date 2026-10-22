@@ -26,7 +26,7 @@
   // v3：换新 key，让旧的「居中」存档失效，重新按左下角默认落位
   var POS_KEY = 'tree_pod_node_pos_v3';
   // 显式加载项目进化树（viewer 的 load() 由 ?file= 决定，否则默认落到 demo 树）
-  var VIEWER = '/canvas/进化树/viewer.html?embed=1&file=project.tree.json&v=3';
+  var VIEWER = '/canvas/进化树/viewer.html?embed=1&file=project.tree.json&v=4';
   var DEF_W = 256, DEF_H = 256;        // 默认尺寸：太空舱小巧，正方形贴合圆形舱
   var MIN_W = 180, MIN_H = 180;        // 缩放下限（须≤DEF_W，否则会把默认尺寸撑回下限）
   var MAX_W = 900, MAX_H = 900;        // 滚轮缩放上限
@@ -207,6 +207,8 @@
     }
     el._treeMsgHandler = _onTreeMsg;
     window.addEventListener('message', _onTreeMsg);
+    // 鼠标移出舱体容器时，兜底隐藏委托渲染的 hovercard
+    el.addEventListener('mouseleave', function () { if (_hcEl) _hcEl.style.display = 'none'; });
 
     el.addEventListener('dblclick', function () { el._treeFull ? _exitFull() : _enterFull(); });
 

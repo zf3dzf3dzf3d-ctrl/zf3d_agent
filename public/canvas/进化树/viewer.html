@@ -392,6 +392,8 @@ cv.addEventListener('mousedown', e=>{
   }
   cv.classList.add('drag');
 });
+// 鼠标离开 iframe（移到父窗口/圆舱外）时，通知父窗口隐藏委托渲染的 hovercard
+addEventListener('mouseout', e=>{ if(IS_EMBED && !e.relatedTarget){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); }catch(_){} } });
 addEventListener('mousemove', e=>{
   mouse.x=e.clientX; mouse.y=e.clientY; mouse.in=(e.target===cv);   // 仅当鼠标在画布上才渐显门控；移到工具栏/面板时 in=false 恢复全显示
   if(!drag){ hoverCard(e); if(mouse.in) draw(); return; }   // 重绘让文字随鼠标即时渐显（弹簧关闭时也生效）
