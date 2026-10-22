@@ -94,3 +94,4 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["README_zh_ok.md", "README_zh_tmp.md", "en1.md", "en2.md", "en3.md", "rb.md"], "total": 6, "ts": "2026-10-22 19:28:09"}
 {"action": "intercept", "cmd": "del _tmp_read.py _dbg.txt _readme_new.md 2>NUL", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_read.py", "_dbg.txt"], "skipped": ["_readme_new.md(not_found)", "2>NUL(not_found)"], "ts": "2026-10-22 19:32:30"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_tmp_read.py", "_dbg.txt"], "total": 2, "ts": "2026-10-22 19:32:30"}
+{"action": "passthrough_complex", "cmd": "if exist _build_v105.log (echo LOG_STILL_EXISTS & del /q _build_v105.log) else (echo log_clean)", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 19:34:38"}
