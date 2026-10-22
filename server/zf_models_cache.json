@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-21",
+  "updated": "2026-10-22",
   "models": [
     {
       "id": "zf-glm-flash",
@@ -25,13 +25,13 @@
         }
       ],
       "category": "chat",
-      "enabled": false,
+      "enabled": true,
       "sort": 0,
       "billing": {
         "type": "token",
         "multiplier": 1
       },
-      "default": false
+      "default": true
     },
     {
       "id": "千问_TokenPlan",
@@ -71,7 +71,7 @@
         "type": "token",
         "multiplier": 2
       },
-      "default": true
+      "default": false
     },
     {
       "id": "openrouter",
@@ -252,7 +252,7 @@
         "type": "token",
         "multiplier": 1
       },
-      "default": false
+      "default": true
     },
     {
       "id": "qwen-vision",
@@ -280,7 +280,7 @@
         "type": "token",
         "multiplier": 2
       },
-      "default": true
+      "default": false
     }
   ]
 }

@@ -1,6 +1,41 @@
 {
   "models": [
     {
+      "name": "智谱glm",
+      "id": "zf-glm-flash",
+      "modelId": "glm-5.3-flash",
+      "modelIdOptions": [
+        "glm-5.3-flash"
+      ],
+      "reasoningEffort": "disable",
+      "reasoningLevels": {
+        "glm-5.3-flash": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "baseUrl": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "endpoint": "https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash",
+      "provider": "zhufeng",
+      "zfLine": true,
+      "zfManaged": true,
+      "zfPinned": true,
+      "isOfficial": true,
+      "enabled": true,
+      "modelType": "language",
+      "abilities": [
+        "chat"
+      ],
+      "keyRef": "user",
+      "noKeyRequired": true,
+      "billing": {
+        "type": "token",
+        "multiplier": 1
+      },
+      "visible": true
+    },
+    {
       "name": "千问",
       "id": "千问_TokenPlan",
       "modelId": "qwen3.8-flash",
@@ -191,6 +226,7 @@
         "type": "token",
         "multiplier": 1
       },
+      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -227,7 +263,6 @@
         "type": "token",
         "multiplier": 2
       },
-      "isDefault": true,
       "visionInput": true,
       "visible": true
     }

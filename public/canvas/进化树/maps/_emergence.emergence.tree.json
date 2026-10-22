@@ -312,6 +312,20 @@
           "x": null,
           "y": null,
           "children": []
+        },
+        {
+          "id": 33,
+          "parent_id": 26,
+          "text": "✅ 已逐条对比两位审核员意见并实测核验，问题全部",
+          "path": "涌现能力总树/✅ 已逐条对比两位审核员意见并实测核验，问题全部",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "children": []
         }
       ]
     }

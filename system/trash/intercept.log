@@ -25,3 +25,5 @@
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_c.txt"], "total": 1, "ts": "2026-10-22 12:35:06"}
 {"action": "intercept", "cmd": "del /q _review_check.py 2>", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_review_check.py"], "skipped": ["2>(not_found)"], "ts": "2026-10-22 12:43:55"}
 {"action": "intercept_summary", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "moved": ["_review_check.py"], "total": 1, "ts": "2026-10-22 12:43:55"}
+{"action": "passthrough_complex", "cmd": "git rm --cached trace.txt push_out.txt render_shot1.py _analyze_push.py _media_audit.py _push_analysis.txt _media_audit.txt 2>nul", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 13:13:18"}
+{"action": "passthrough_complex", "cmd": "git rm --cached trace.txt push_out.txt render_shot1.py", "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0", "source": "shell", "ts": "2026-10-22 13:13:28"}
