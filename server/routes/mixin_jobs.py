@@ -114,6 +114,46 @@ class MixinJobs(MixinBase):
         t.start()
         self._send_json({'ok': True, 'job_id': job_id, 'session_id': session_id, 'status': 'queued'})
 
+    # ---------- POST /api/jobs/<id>/resume ----------
+    def _handle_jobs_resume(self, job_id):
+        """[P1 审核续跑回路] 手动审核续跑：读原任务 cfg，注入用户裁决为内核
+        resume_verdict，跳过策划/收口/决策门，直接施工→审核→总结。
+        复用同一 job_id/session_id，transcript 续写（前台可回看完整多角色流）。
+        内核 resume_verdict 原为死变量（主体从未消费），本次接线才真正生效。"""
+        import db as _db
+        job = _db.get_job(job_id)
+        if not job:
+            self._send_json({'ok': False, 'error': '任务不存在: %s' % job_id}, code=404)
+            return
+        if job.get('status') != 'await_review':
+            self._send_json({'ok': False,
+                             'error': '仅 await_review 状态可续跑，当前=%s' % job.get('status')},
+                            code=409)
+            return
+        try:
+            data = self._read_json() or {}
+        except Exception:
+            data = {}
+        verdict = str(data.get('verdict') or '').strip()
+        if not verdict:
+            self._send_json({'ok': False, 'error': '缺少 verdict（用户裁决文本）'}, code=400)
+            return
+        try:
+            cfg = json.loads(job.get('cfg_json') or '{}')
+        except Exception:
+            cfg = {}
+        cfg['goal'] = job.get('goal') or cfg.get('goal') or ''
+        cfg['session'] = job.get('session_id') or ('pl-' + str(int(time.time())))
+        cfg['resume_verdict'] = verdict
+        cfg['decision_gate'] = False  # 续跑不再触发决策断点，防二次 return3 死循环
+        cwd = os.path.abspath(data.get('cwd') or BASE_DIR)
+        _db.update_job(job_id, status='queued')
+        t = threading.Thread(target=_run_pipeline_worker,
+                             args=(job_id, cfg, cwd), daemon=True)
+        t.start()
+        self._send_json({'ok': True, 'job_id': job_id, 'session_id': cfg['session'],
+                         'status': 'queued', 'resumed': True})
+
     # ---------- GET /api/jobs[/<id>[/transcript]] ----------
     def _handle_jobs_get(self, path):
         import db as _db

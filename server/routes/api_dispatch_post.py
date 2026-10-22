@@ -702,6 +702,10 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
         if path == '/api/jobs/submit':
             self._handle_jobs_submit()
             return
+        # ===== Jobs·手动审核续跑（复用内核 resume_verdict）=====
+        if path.startswith('/api/jobs/') and path.endswith('/resume'):
+            self._handle_jobs_resume(path[len('/api/jobs/'):-len('/resume')])
+            return
         if path.startswith('/api/chat-pool/slot/') and path.endswith('/cancel'):
             self._handle_chat_pool_cancel()
             return
