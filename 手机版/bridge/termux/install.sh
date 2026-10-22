@@ -24,4 +24,24 @@ if ! grep -q NTFY_TOPIC ~/.bashrc 2>/dev/null; then
   echo 'export NTFY_TOPIC="zfengkong-CHANGE-ME"' >> ~/.bashrc
 fi
 
-echo "完成！请编辑 ~/.bashrc 里的 NTFY_TOPIC 改成随机串，然后 source ~/.bashrc"
+echo "== 6. 安装 termux-boot（开机自启）并注册桥启动脚本 =="
+pkg install -y termux-boot >/dev/null 2>&1 || echo "termux-boot 安装失败，可稍后手动 pkg install termux-boot"
+# 在 termux 开机触发目录放一个 boot.sh，重启后 Termux 自动跑它拉起桥
+BOOT_DIR="$HOME/.termux/boot"
+mkdir -p "$BOOT_DIR"
+cat > "$BOOT_DIR/zf_bridge.sh" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+termux-wake-lock
+bash "$HOME/scripts/boot_bridge.sh"
+EOF
+chmod +x "$BOOT_DIR/zf_bridge.sh" 2>/dev/null || true
+echo "已写入开机自启脚本：$BOOT_DIR/zf_bridge.sh"
+
+echo "== 7. 立即跑一次看门狗（无需等重启，先把桥拉起） =="
+bash ~/scripts/boot_bridge.sh || true
+
+echo "完成！"
+echo " - 开机自启：重启手机后 Termux 会自动拉起桥（需保持 termux-boot 开机权限，并在系统设置里允许 Termux 自启动/后台运行）。"
+echo " - 看门狗：cron 每 5 分钟复查一次心跳，桥死了会被自动重拉（见 crontab.txt）。"
+echo " - 可配置：编辑 ~/.env_bridge 设 ZF_BRIDGE_CMD / ZF_BRIDGE_HEARTBEAT / ZF_BRIDGE_STALE（均见 boot_bridge.sh 顶部说明）。"
+echo " - 记得编辑 ~/.bashrc 里的 NTFY_TOPIC 改成随机串，然后 source ~/.bashrc"

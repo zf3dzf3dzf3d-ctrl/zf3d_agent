@@ -3,3 +3,7 @@
 0 7 * * * bash $HOME/scripts/morning_report.sh >> $HOME/scripts/cron.log 2>&1
 # 记忆备份：每天 23:30 推到 PC
 30 23 * * * bash $HOME/scripts/sync_memory.sh push >> $HOME/scripts/cron.log 2>&1
+# 桥看门狗：每 10 分钟探活一次，掉线则自动报警 + 拉起（自愈）
+*/10 * * * * bash $HOME/scripts/watchdog_bridge.sh >> $HOME/scripts/cron.log 2>&1
+# 桥看门狗：每 5 分钟检查一次，桥死了自动重拉（解决「桥不开机自启、死了没人管」）
+*/5 * * * * bash $HOME/scripts/boot_bridge.sh >> $HOME/scripts/cron.log 2>&1
