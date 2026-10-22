@@ -311,7 +311,7 @@ def run_pipeline(cfg, cwd=None, log=print):
         '③【反驳核验】执行清单/策划案中含【反驳项】的，必须逐条核验：被施工证实的反驳项写入打回意见，不成立的说明理由；整段缺失或不回应视为审核不合格。'
         % (goal, verdict[:_STAGE_CTX_LIMIT], build_digest)))} for _ in range(n_rv)]
     # [P2/P3] 审核轮次闭环：不通过→意见回拼施工重跑→再审；cfg.max_review_rounds 兜底防死循环
-    max_rounds = max(1, int(cfg.get('max_review_rounds') or 2))
+    max_rounds = max(1, int(cfg.get('max_review_rounds') or 8))
     _pass_score = int(cfg.get('review_pass_score') or 80)
     _rv_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'swarm_pipeline')
 
