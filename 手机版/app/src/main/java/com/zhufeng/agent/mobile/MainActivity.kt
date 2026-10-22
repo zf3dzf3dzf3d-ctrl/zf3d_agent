@@ -183,10 +183,11 @@ class MainActivity : AppCompatActivity() {
         // 【修复】切回助手页必须清掉启动遮罩：遥控加载中切走后 splash 若不隐藏会永久盖住界面（黑屏）
         if (!remote) {
             splash.visibility = View.GONE
-            // 【黑屏修复】从遥控/文件/终端/浏览器切回助手页时，强制刷新一次聊天页，否则整个画面是黑的
+            // 【对话丢失修复】从遥控/文件/终端/浏览器切回助手页时，只做"保活重绘"恢复 GPU 渲染表面，
+            // 不再 chatView.reload()——reload 会清空 WebView 内存，导致当前会话的对话与工具问答全部丢失。
             if (chatDirty) {
                 chatDirty = false
-                chatView.reload()
+                refreshChatViewSurface()
             }
         } else {
             chatDirty = true
@@ -219,6 +220,28 @@ class MainActivity : AppCompatActivity() {
             if (remoteLoaded) splash.visibility = if (webView.progress < 100) View.VISIBLE else View.GONE
             else splash.visibility = View.GONE
         }
+    }
+
+    /**
+     * 助手页从 GONE 切回 VISIBLE 后的"保活重绘"：仅恢复 WebView 渲染表面，不重新加载页面。
+     * 旧实现用 chatView.reload() 治黑屏，但 reload 会清空 JS 内存，导致切走前正在进行的
+     * 对话与工具问答全部丢失（用户反馈：切到工具/浏览器/日志等再切回，之前的对话没了）。
+     * 这里改用 onResume+invalidate+requestLayout 触发重绘，并向页面派发 resize 事件让
+     * canvas/echarts 等重排，既治黑屏又保留会话内容。
+     */
+    private fun refreshChatViewSurface() {
+        if (!::chatView.isInitialized) return
+        try {
+            chatView.onResume()
+            chatView.invalidate()
+            chatView.requestLayout()
+        } catch (_: Exception) { }
+        try {
+            chatView.evaluateJavascript(
+                "window.dispatchEvent(new Event('resize'));if(window.__zfRepaintSurface){try{window.__zfRepaintSurface();}catch(e){}}",
+                null
+            )
+        } catch (_: Exception) { }
     }
 
     /** 在聊天页 WebView 中执行 JS（顶部栏 工具/列表/新建 及更多菜单的对话日志入口） */
