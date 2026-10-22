@@ -132,6 +132,55 @@ def _repath_subtree(c, node_id, new_path):
         _repath_subtree(c, k['id'], child_path)
 
 
+# ===== 方案A：统一为「一棵全局涌现树」 =====
+# 涌现侦测器建候选不再按对话 chat_id 分树（旧行为导致候选与画布割裂、画布永远看不到候选）。
+# 全部候选统一归到固定 subject（project / _emergence），并落盘到画布默认加载的同一个 maps 文件，
+# 这样侦测建候选、confirm、reject 后画布经 liveTick(2s) 自动热刷新。
+EMERGE_SUBJECT_TYPE = 'project'
+EMERGE_SUBJECT_ID = '_emergence'
+
+
+def _render_subject(c, ctx, st, sid, fname):
+    """把指定 subject 的 DB 树导出为 maps/<fname>.emergence.tree.json，返回 (文件名, 节点数)。
+    render action / _emergence 侦测 / confirm / reject 共用此落盘逻辑（单一真源）。"""
+    rows = c.execute(
+        'SELECT id,parent_id,text,path,depth,clarity,status,icon,kind,x,y'
+        ' FROM capability WHERE subject_type=? AND subject_id=? ORDER BY id',
+        (st, sid)).fetchall()
+    nodes = [dict(r) for r in rows]
+    by_id = {n['id']: dict(n, children=[]) for n in nodes}
+    roots = []
+    for n in nodes:
+        item = by_id[n['id']]
+        pid = n['parent_id']
+        if pid and pid in by_id:
+            by_id[pid]['children'].append(item)
+        else:
+            roots.append(item)
+    links = [dict(r) for r in c.execute(
+        'SELECT id,src,dst,kind FROM capability_link').fetchall()]
+    tree = {
+        'meta': {'title': '涌现能力树', 'subject_type': st, 'subject_id': sid,
+                 'created': time.strftime('%Y-%m-%d')},
+        'roots': roots,
+        'links': links,
+    }
+    outdir = os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps')
+    os.makedirs(outdir, exist_ok=True)
+    safe = re.sub(r'[^\w\-]', '_', fname) + '.emergence.tree.json'
+    with open(os.path.join(outdir, safe), 'w', encoding='utf-8') as f:
+        json.dump(tree, f, ensure_ascii=False, indent=2)
+    return safe, len(nodes)
+
+
+def _render_emerge(c, ctx):
+    """侦测/确认/驳回后，把全局涌现树落盘到画布默认文件（EMERGE_SUBJECT_ID）。"""
+    try:
+        return _render_subject(c, ctx, EMERGE_SUBJECT_TYPE, EMERGE_SUBJECT_ID, EMERGE_SUBJECT_ID)
+    except Exception:
+        return None
+
+
 def handle(body, ctx):
     action = (body.get('action') or '').strip()
     if not action:
