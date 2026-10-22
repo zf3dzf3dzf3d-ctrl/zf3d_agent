@@ -15,15 +15,21 @@
   line-height: 18px; padding: 0 4px; }
 
 #zfJobsDrawer {
-  position: fixed; top: 0; right: 0; height: 100%; width: 460px; max-width: 96vw;
+  /* 【2026-10-22 调整】不再全屏到顶，默认下移避开右上角「关闭/最小化」那一排窗口按钮；
+     支持拖拽移动（标题栏把手）+ 右下角缩放（resize） */
+  position: fixed; top: 40px; right: 8px; height: calc(100% - 52px); width: 460px; max-width: 96vw;
+  min-width: 300px; min-height: 260px;
   background: var(--zf-bg, #060607); color: var(--zf-text, #c8c8cc);
-  border-left: 1px solid var(--zf-border, #1a1a1f); z-index: 9995;
-  display: none; flex-direction: column; font-size: 13px;
-  box-shadow: -6px 0 24px rgba(0,0,0,.6); }
+  border: 1px solid var(--zf-border, #1a1a1f); border-radius: 8px; z-index: 9995;
+  display: none; flex-direction: column; font-size: 13px; overflow: hidden;
+  resize: both; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
 #zfJobsDrawer.open { display: flex; }
+#zfJobsDrawer.dragging { transition: none; user-select: none; }
 .zf-jobs-bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px;
   border-bottom: 1px solid var(--zf-border, #1a1a1f); }
-.zf-jobs-bar h3 { margin: 0; font-size: 14px; flex: 1; font-weight: 600; }
+.zf-jobs-bar h3 { margin: 0; font-size: 14px; flex: 1; font-weight: 600;
+  cursor: move; user-select: none; }
+.zf-jobs-bar h3::before { content: '\2837\FE0E '; opacity: .5; }  /* 拖拽把手提示 */
 .zf-jobs-btn { background: var(--zf-card, #111114); color: var(--zf-text, #c8c8cc);
   border: 1px solid var(--zf-border, #1a1a1f); border-radius: 6px; padding: 5px 10px;
   cursor: pointer; font-size: 12px; }
@@ -72,6 +78,24 @@
 .zf-jobs-form .adv { margin-top: 6px; border-top: 1px dashed var(--zf-border, #1a1a1f); padding-top: 8px; }
 .zf-jobs-form .sw { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
 .zf-jobs-form .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* 【2026-10-22 新增】新建任务附件区：粘贴/选择的图片、文本以卡片展示，可关闭 */
+.zf-jobs-form .attzone { margin: 4px 0 10px; border-top: 1px dashed var(--zf-border, #1a1a1f); padding-top: 8px; }
+.zf-jobs-form .att-title { font-size: 12px; color: var(--zf-text, #c8c8cc); margin-bottom: 6px; }
+.zf-jobs-form .att-pick { float: right; padding: 3px 8px; font-size: 11px; }
+.zf-jobs-form .att-note { color: #7a7a82; font-size: 11px; margin-bottom: 0; }
+.zf-jobs-att-hint { font-size: 11px; color: #7a7a82; margin: 2px 0 6px; }
+.zf-jobs-atts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.zf-jobs-att { position: relative; border: 1px solid var(--zf-border, #1a1a1f);
+  border-radius: 6px; background: var(--zf-card, #111114); padding: 6px; max-width: 160px; }
+.zf-jobs-att img { display: block; max-width: 148px; max-height: 110px; border-radius: 4px; }
+.zf-jobs-att .att-text { font-size: 12px; color: var(--zf-text, #c8c8cc); max-width: 148px;
+  max-height: 90px; overflow: hidden; white-space: pre-wrap; word-break: break-all; }
+.zf-jobs-att .att-x { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px;
+  line-height: 16px; text-align: center; border-radius: 50%; background: #8a3a3a; color: #fff;
+  border: none; cursor: pointer; font-size: 12px; padding: 0; }
+.zf-jobs-att .att-x:hover { background: #b04a4a; }
+.zf-jobs-att .att-cap { font-size: 10px; color: #7a7a82; margin-top: 3px; word-break: break-all; }
 
 /* [P1 审核续跑回路] await_review 裁决续跑区 */
 .zf-jobs-resume { margin-top: 12px; padding: 12px; border: 1px solid #8a6d2b;

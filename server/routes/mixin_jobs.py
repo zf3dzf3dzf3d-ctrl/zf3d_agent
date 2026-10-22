@@ -87,6 +87,40 @@ def _run_pipeline_worker(job_id, cfg, cwd):
 
 class MixinJobs(MixinBase):
 
+    # ---------- POST /api/jobs/upload ----------（2026-10-22 新增：新建任务附件图片落盘）
+    def _handle_jobs_upload(self):
+        """接收 {filename, data_b64}（兼容 dataURL），存 public/uploads/jobs/，返回 url。
+        供前端粘贴图片卡片上传；静态服务直接按 /uploads/jobs/<file> 访问。"""
+        import re as _re
+        import base64
+        try:
+            data = self._read_json() or {}
+        except Exception:
+            data = {}
+        raw = str(data.get('data_b64') or '')
+        name = str(data.get('filename') or 'attach.png')
+        if raw[:60].find(',') >= 0 and raw[:30].startswith('data:'):
+            raw = raw.split(',', 1)[1]
+        try:
+            blob = base64.b64decode(raw)
+        except Exception:
+            self._send_json({'ok': False, 'error': 'base64 解码失败'}, code=400)
+            return
+        if len(blob) > 8 * 1024 * 1024:
+            self._send_json({'ok': False, 'error': '附件超过8MB'}, code=413)
+            return
+        safe = _re.sub(r'[^A-Za-z0-9._-]', '_', name)[:60] or 'attach.png'
+        fn = '%d_%s' % (int(time.time() * 1000), safe)
+        d = os.path.join(PUBLIC_DIR, 'uploads', 'jobs')
+        try:
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, fn), 'wb') as f:
+                f.write(blob)
+        except Exception as e:
+            self._send_json({'ok': False, 'error': '保存失败: %s' % e}, code=500)
+            return
+        self._send_json({'ok': True, 'url': '/uploads/jobs/' + fn, 'name': name})
+
     # ---------- POST /api/jobs/submit ----------
     def _handle_jobs_submit(self):
         import db as _db

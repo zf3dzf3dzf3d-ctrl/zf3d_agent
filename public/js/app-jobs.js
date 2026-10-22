@@ -85,6 +85,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verdict: verdict })
       }).then(function (r) { return r.json(); });
+    },
+    upload: function (filename, dataUrl) {
+      return fetch('/api/jobs/upload', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: filename, data_b64: dataUrl })
+      }).then(function (r) { return r.json(); });
     }
   };
 
@@ -125,7 +132,9 @@
       // 对外暴露 window.JobsPanel 供 app-undo.js 文件菜单调用。
       this._injectDrawer();
       this._injectModal();
+      this._bindDrag();
       window.JobsPanel = this;
+      this._atts = [];
       var self = this;
       document.addEventListener('visibilitychange', function () {
         if (!document.hidden && self.visible) Poll.start();
@@ -173,26 +182,53 @@
       });
     },
 
+    // 【2026-10-22】拖拽移动抽屉：抓标题栏 h3 拖动，限制不跑出视口；与 resize 缩放并存
+    _bindDrag: function () {
+      var d = document.getElementById('zfJobsDrawer');
+      var h = d.querySelector('.zf-jobs-bar h3');
+      var drag = null;
+      h.addEventListener('pointerdown', function (e) {
+        if (e.target !== h) return;
+        var r = d.getBoundingClientRect();
+        drag = { x: e.clientX, y: e.clientY, left: r.left, top: r.top };
+        d.style.right = 'auto';            // 改用 left 定位
+        d.classList.add('dragging');
+        try { h.setPointerCapture(e.pointerId); } catch (err) {}
+        e.preventDefault();
+      });
+      h.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        var nx = Math.max(0, Math.min(window.innerWidth - 120, drag.left + e.clientX - drag.x));
+        var ny = Math.max(0, Math.min(window.innerHeight - 60, drag.top + e.clientY - drag.y));
+        d.style.left = nx + 'px'; d.style.top = ny + 'px';
+      });
+      var end = function () { if (drag) { drag = null; d.classList.remove('dragging'); } };
+      h.addEventListener('pointerup', end);
+      h.addEventListener('pointercancel', end);
+    },
+
     _injectModal: function () {
       var m = document.createElement('div');
       m.id = 'zfJobsModal';
       m.innerHTML =
         '<div class="zf-jobs-form">' +
           '<h4>新建后台任务</h4>' +
-          '<label>目标 goal*<br><textarea id="jGoal" rows="3" placeholder="要后台自动完成的任务描述"></textarea></label>' +
+          '<label>任务目标<br><textarea id="jGoal" rows="3" placeholder="要后台自动完成的任务描述（可留空，直接粘贴附件）"></textarea></label>' +
           '<div class="row3">' +
-            '<div><label>策划者<br><input type="text" id="jPlanners" value="2"></label></div>' +
-            '<div><label>施工者<br><input type="text" id="jBuilders" value="1"></label></div>' +
-            '<div><label>审核者<br><input type="text" id="jReviewers" value="2"></label></div>' +
+            '<div><label>策划师（个）<br><input type="text" id="jPlanners" value="2"></label></div>' +
+            '<div><label>审核师（个）<br><input type="text" id="jReviewers" value="2"></label></div>' +
+          '</div>' +
+          '<div class="attzone">' +
+            '<div class="att-title">附件（粘贴或选择图片/文本，卡片右上角 × 移除）' +
+            '<button class="zf-jobs-btn att-pick" id="jAttPick">选择文件</button>' +
+            '<input type="file" id="jFile" accept="image/*,.txt,.md,.py,.js,.json" multiple style="display:none"></div>' +
+            '<div class="zf-jobs-atts" id="jAtts"></div>' +
+            '<div class="zf-jobs-att-hint" id="jAttHint" tabindex="0">提示：光标在此处时 Ctrl+V 粘贴图片/文本即成卡片。文本作为上下文喂给流水线；图片落盘后以路径引用。</div>' +
           '</div>' +
           '<div class="adv">' +
-            '<div class="sw"><input type="checkbox" id="jSummarize" checked> 生成总结</div>' +
-            '<div class="sw"><input type="checkbox" id="jGate"> 决策门（跑完停下等审核）</div>' +
-            '<div class="row3">' +
-              '<div><label>最大审核轮<br><input type="text" id="jMaxRounds" value="2"></label></div>' +
-              '<div><label>通过分<br><input type="text" id="jPassScore" value="80"></label></div>' +
-            '</div>' +
-            '<label>上下文 context（可选）<br><textarea id="jContext" rows="2"></textarea></label>' +
+            '<div class="sw"><input type="checkbox" id="jSummarize" checked> 带总结师（固定1名）</div>' +
+            '<div class="sw"><input type="checkbox" id="jGate"> 决策门（跑完停下等人工审核）</div>' +
+            '<div class="sw att-note">施工师自动1名不用选 · 审核≥80分自动过 · 轮数自动</div>' +
           '</div>' +
           '<div class="acts"><button class="zf-jobs-btn" id="jCancel">取消</button>' +
           '<button class="zf-jobs-btn primary" id="jSubmit">提交</button></div>' +
@@ -202,6 +238,7 @@
       document.getElementById('jCancel').addEventListener('click', function () { m.classList.remove('open'); });
       document.getElementById('jSubmit').addEventListener('click', function () { self.doSubmit(); });
       m.addEventListener('click', function (e) { if (e.target === m) m.classList.remove('open'); });
+      this._bindAttEvents();
     },
 
     toggle: function (force) {
@@ -382,29 +419,124 @@
       }).catch(function () { box.innerHTML = '<div class="zf-jobs-empty">对话流加载失败</div>'; });
     },
 
-    openModal: function () { document.getElementById('zfJobsModal').classList.add('open'); },
+    openModal: function () {
+      document.getElementById('zfJobsModal').classList.add('open');
+    },
+
+    // 【2026-10-22 新增】附件卡片：图片/文本，粘贴或选择文件，可关闭。随任务提交（文本→context，图片→context 引用路径）
+    _bindAttEvents: function () {
+      var self = this;
+      var box = document.getElementById('jAtts');
+      var hint = document.getElementById('jAttHint');
+      var file = document.getElementById('jFile');
+      document.getElementById('jAttPick').addEventListener('click', function () { file.click(); });
+      file.addEventListener('change', function (e) {
+        Array.prototype.forEach.call(e.target.files || [], function (f) { self._addFileAtt(f); });
+        file.value = '';
+      });
+      // 粘贴：图片→上传成卡片；纯文本→文本卡片
+      hint.addEventListener('paste', function (e) {
+        var cd = e.clipboardData; if (!cd) return;
+        var imgs = Array.prototype.slice.call(cd.items || []).filter(function (it) {
+          return it.kind === 'file' && it.type && it.type.indexOf('image/') === 0;
+        });
+        if (imgs.length) {
+          e.preventDefault();
+          imgs.forEach(function (it) {
+            var f = it.getAsFile(); if (f) self._addFileAtt(f);
+          });
+          return;
+        }
+        var txt = cd.getData('text/plain');
+        if (txt && txt.trim()) { e.preventDefault(); self._atts.push({ type: 'text', name: '粘贴文本', text: txt }); self._renderAtts(); }
+      });
+      box.addEventListener('click', function (e) {
+        var x = e.target.closest ? e.target.closest('.att-x') : null;
+        if (!x) return;
+        var i = parseInt(x.getAttribute('data-i'), 10);
+        self._atts.splice(i, 1); self._renderAtts();
+      });
+    },
+
+    _addFileAtt: function (f) {
+      var self = this;
+      var isImg = (f.type || '').indexOf('image/') === 0;
+      if (isImg) {
+        var rd = new FileReader();
+        rd.onload = function () {
+          var att = { type: 'image', name: f.name || 'image.png', dataUrl: rd.result, status: '上传中…' };
+          self._atts.push(att); self._renderAtts();
+          API.upload(att.name, rd.result).then(function (r) {
+            if (r && r.ok) { att.url = r.url; att.status = ''; }
+            else { att.status = '上传失败'; }
+            self._renderAtts();
+          }).catch(function () { att.status = '上传失败'; self._renderAtts(); });
+        };
+        rd.readAsDataURL(f);
+      } else {
+        var rd2 = new FileReader();
+        rd2.onload = function () {
+          self._atts.push({ type: 'text', name: f.name || '文本附件', text: String(rd2.result || '').slice(0, 20000) });
+          self._renderAtts();
+        };
+        rd2.readAsText(f);
+      }
+    },
+
+    _renderAtts: function () {
+      var box = document.getElementById('jAtts'); if (!box) return;
+      this._atts = (this._atts || []).filter(Boolean);
+      if (!this._atts.length) { box.innerHTML = ''; return; }
+      box.innerHTML = this._atts.map(function (a, i) {
+        var x = '<button class="att-x" data-i="' + i + '" title="移除">×</button>';
+        var cap = '<div class="att-cap">' + esc(a.name || '') + (a.status ? ' · ' + esc(a.status) : '') + '</div>';
+        if (a.type === 'image') {
+          var src = a.url || a.dataUrl || '';
+          return '<div class="zf-jobs-att img">' + x + '<img src="' + src + '">' + cap + '</div>';
+        }
+        return '<div class="zf-jobs-att txt">' + x + '<div class="att-text">' + esc((a.text || '').slice(0, 160)) + '</div>' + cap + '</div>';
+      }).join('');
+    },
 
     doSubmit: function () {
       var g = document.getElementById('jGoal').value.trim();
-      if (!g) { alert('请填写任务目标 goal'); return; }
+      // 目标可留空，但必须有附件
+      if (!g && !(this._atts && this._atts.length)) { alert('请填写任务目标，或粘贴/选择附件'); return; }
+      // 【2026-10-22 精简】策划者/审核者由用户选；施工者固定1名；通过分固定80；轮数自动(8)
       var payload = {
-        goal: g,
+        goal: g || '(见任务附件)',
         planners: parseInt(document.getElementById('jPlanners').value, 10) || 0,
-        builders: parseInt(document.getElementById('jBuilders').value, 10) || 0,
+        builders: 1,
         reviewers: parseInt(document.getElementById('jReviewers').value, 10) || 0,
         summarize: document.getElementById('jSummarize').checked,
         decision_gate: document.getElementById('jGate').checked,
-        max_review_rounds: parseInt(document.getElementById('jMaxRounds').value, 10) || 2,
-        review_pass_score: parseInt(document.getElementById('jPassScore').value, 10) || 80
+        review_pass_score: 80,
+        max_review_rounds: 8
       };
-      var ctx = document.getElementById('jContext').value.trim();
-      if (ctx) payload.context = ctx;
+      // 附件 → 拼进 context（文本原文；图片以落盘路径引用），后端已支持 goal 为空时用 context 兜底
+      var atts = this._atts || [];
+      if (atts.length) {
+        payload.context = atts.map(function (a) {
+          if (a.type === 'image') return '[图片附件 ' + (a.url || '(未上传)') + ']';
+          return '[文本附件 ' + (a.name || '') + ']\n' + (a.text || '');
+        }).join('\n\n');
+        payload.attachments = atts.map(function (a) { return { type: a.type, name: a.name, url: a.url || '' }; });
+      }
       var self = this;
+      var btn = document.getElementById('jSubmit');
+      if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+      var reset = function () { if (btn) { btn.disabled = false; btn.textContent = '提交'; } };
       API.submit(payload).then(function (r) {
         document.getElementById('zfJobsModal').classList.remove('open');
-        if (r && r.ok) { document.getElementById('jGoal').value = ''; Poll.start(); if (r.job_id) self.select(r.job_id); }
-        else alert('提交失败：' + (r && r.error || JSON.stringify(r)));
-      }).catch(function (e) { alert('提交异常：' + e.message); });
+        if (r && r.ok) {
+          document.getElementById('jGoal').value = '';
+          self._atts = []; self._renderAtts();
+          Poll.start(); if (r.job_id) self.select(r.job_id);
+        } else {
+          alert('提交失败：' + (r && r.error || JSON.stringify(r)));
+        }
+        reset();
+      }).catch(function (e) { reset(); alert('提交异常：' + (e && e.message || e)); });
     }
   };
 
