@@ -6,7 +6,7 @@ window.registerToolDefs({
       "type": "function",
       "function": {
         "name": "browser_control",
-        "description": "内置浏览器工具（Playwright，登录态持久化于 server/data/browser_profile/，跨重启保留）：打开网页、截图、点击、滚动、填表、读正文、执行 JS。用户要求「打开网站/看网页/帮我登录/网页发帖/查页面内容」时调用。【存档习惯】调查一个网站后应立即 map_site 抓全站链接 + archive_site 存入网站档案（public/项目记录/网站档案/），防止浏览后遗忘，方便后期复查。【站点记忆】open/goto 时会自动附带该站历史记忆（private/记忆/站点/，用户不可见）；调查中总结出该站的经验/教训（如选择器技巧、登录流程、注意事项）请用 action=site_note 沉淀（严禁写密码），下次打开自动回读，越用越聪明。",
+        "description": "内置浏览器工具（Playwright，登录态持久化于 server/data/browser_profile/，跨重启保留）：打开网页、截图、点击、滚动、填表、读正文、执行 JS。用户要求「打开网站/看网页/帮我登录/网页发帖/查页面内容」时调用。【存档习惯】调查一个网站后应立即 map_site 抓全站链接 + archive_site 存入网站档案（public/项目记录/网站档案/），防止浏览后遗忘，方便后期复查。【站点记忆】open/goto 时会自动附带该站历史记忆（private/记忆/站点/，用户不可见）；调查中总结出该站的经验/教训（如选择器技巧、登录流程、注意事项）请用 action=site_note 沉淀（严禁写密码），下次打开自动回读，越用越聪明。【会话回收自愈】若返回体含 session_recycled:true，表示该会话空闲超时被自动回收过（浏览器上下文已重开、登录态保留）——此时页面状态可能已重置，如与预期不符请重新 open/goto，不要误判为网页故障。",
         "parameters": {
           "type": "object",
           "properties": {

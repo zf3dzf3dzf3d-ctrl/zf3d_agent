@@ -17,9 +17,9 @@
 
     // 内置兜底路径（后端 /api/appdocs 不可达、或其返回的文件 404 时使用）
     var DEFAULT_URLS = {
-        intro: { zh: 'docs/01-介绍.md' },
-        help: { zh: 'docs/02-帮助.md' },
-        version: { zh: 'docs/03-版本更新内容.md' }
+        intro: { zh: 'docs/软件介绍-5.8.0.md' },
+        help: { zh: 'docs/使用帮助-5.8.0.md' },
+        version: { zh: 'docs/版本变化-5.8.0.md' }
     };
     // 当前生效路径：初始 = 兜底，ensureUrls() 成功后被后端结果覆盖
     var MD_URLS = {
@@ -178,7 +178,20 @@
         });
     }
 
-    /* ---------- 版本更新：03-版本更新内容.md → 关于面板 ---------- */
+    /* ---------- 版本更新：版本变化*.md → 版本更新面板 ---------- */
+    function loadVersionsPanel() {
+        var body = document.getElementById('settingsVersionsBody');
+        if (!body) return;
+        fetchDoc('version').then(function (md) {
+            body.innerHTML = mdRender(md);
+            loaded.version = true;
+        }).catch(function (e) {
+            console.warn('[DocsSync] 版本更新面板加载失败:', e);
+            body.innerHTML = '<p style="color:var(--text2);">加载失败，请刷新重试。</p>';
+        });
+    }
+
+    /* ---------- 版本更新：03-版本更新内容.md → 关于面板（保留） ---------- */
     function loadVersion() {
         var panel = document.getElementById('settingsPanel-about');
         if (!panel) return;
@@ -222,6 +235,7 @@
             var r = origSwitch.apply(this, arguments);
             if (tab === 'help') loadHelp();
             if (tab === 'intro') loadIntro();
+            if (tab === 'versions') loadVersionsPanel();
             // 关于面板不再注入「版本更新」长文（用户要求关于里保持简洁）。
             // loadVersion 仍保留，需要时把上一行的注释恢复即可。
             // if (tab === 'about') loadVersion();

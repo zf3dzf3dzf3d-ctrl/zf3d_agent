@@ -214,7 +214,11 @@ class MixinProxy(MixinProxyStream, MixinBase):
                                     _val = _json.dumps({'chat_id': _tbox, 'message': _fwd,
                                                         'timestamp': _nowms, 'status': 'pending'},
                                                        ensure_ascii=False)
-                                    with _db_lock:
+                                    # 【P3 锁降级 2026-10-17】代理热路径限时抢锁(>2s 丢本条转发保代理吞吐)
+                                    if not _db_lock.acquire(timeout=2.0):
+                                        print('[RolesCollab] db lock busy(>2s), mention queue dropped: %s' % _tbox)
+                                        continue
+                                    try:
                                         _c2 = get_db()
                                         try:
                                             _cur2 = _c2.cursor()
@@ -225,6 +229,8 @@ class MixinProxy(MixinProxyStream, MixinBase):
                                             _c2.commit()
                                         finally:
                                             _c2.close()
+                                    finally:
+                                        _db_lock.release()
                                     _queued.append({'role': _h.get('name'), 'box': _tbox})
                                 if _queued:
                                     print('[RolesCollab] mention forwarded: %s' % _json.dumps(_queued, ensure_ascii=False))

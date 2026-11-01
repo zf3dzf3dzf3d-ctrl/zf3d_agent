@@ -58,6 +58,8 @@ from routes.mixin_settings_brain import MixinSettingsBrain
 from routes.mixin_webproxy import MixinWebproxy
 from routes.mixin_vault import MixinVault
 from routes.mixin_loop_s import MixinLoopS
+from routes.mixin_jobs import MixinJobs
+from routes.mixin_schedule import MixinSchedule
 
 
 class HandlerRoutes(
@@ -97,6 +99,8 @@ class HandlerRoutes(
     MixinWebproxy,
     MixinVault,
     MixinLoopS,
+    MixinJobs,
+    MixinSchedule,
     MixinBase,
 ):
     """路由处理（由各 Mixin 组成）"""

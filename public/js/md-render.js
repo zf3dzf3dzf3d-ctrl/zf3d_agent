@@ -75,7 +75,7 @@
         if (/\.(mp3|wav|m4a|aac|flac|ogg|opus)(\?|#|$)/.test(lu) || /^data:audio\//.test(lu)) {
             return '<audio src="' + escapeHtml(u) + '" controls preload="metadata" style="width:100%;margin:6px 0"></audio>';
         }
-        if (/^(https?:\/\/|data:image\/|\/sdcard\/|file:\/\/|content:\/\/|\/|\.\.\/|\.\/)/i.test(u)) {
+        if (/^(https?:\/\/|data:image\/(png|jpeg|gif|webp);|\/|\.\.\/|\.\/)/i.test(u)) {
             return '<img src="' + escapeHtml(u) + '" alt="' + escapeHtml(alt || u) + '" loading="lazy" onerror="this.outerHTML=this.alt" style="max-width:100%;height:auto;border-radius:8px;margin:6px 0;display:block">';
         }
         return escapeHtml(alt || u);

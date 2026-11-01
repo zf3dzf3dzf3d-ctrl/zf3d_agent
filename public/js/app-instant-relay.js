@@ -76,7 +76,8 @@
             '<div style="font-size:15px;font-weight:600;margin-bottom:6px;">⏳ 当前对话正在回复中</div>' +
             '<div style="font-size:13px;opacity:.8;margin-bottom:14px;">消息：' + _esc(preview) + '</div>' +
             '<div style="display:flex;flex-direction:column;gap:10px;">' +
-            '<button data-act="relay" style="text-align:left;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#3a3a4a);background:var(--accent,#4a6cf7);color:#fff;font-size:13px;cursor:pointer;">🆕 新建对话（继承本对话全部上下文，立即开始）</button>' +
+            '<button data-act="inject" style="text-align:left;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#3a3a4a);background:var(--accent,#4a6cf7);color:#fff;font-size:13px;cursor:pointer;">⚡ 直接插入当前对话（不打断运行，AI 下一轮收到）</button>' +
+            '<button data-act="relay" style="text-align:left;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#3a3a4a);background:transparent;color:inherit;font-size:13px;cursor:pointer;">🔗 新建对话·接力（继承本对话全部上下文，立即开始）</button>' +
             '<button data-act="queue" style="text-align:left;padding:10px 14px;border-radius:8px;border:1px solid var(--border,#3a3a4a);background:transparent;color:inherit;font-size:13px;cursor:pointer;">📥 排队（等本对话跑完后自动按顺序发送）</button>' +
             '</div>' +
             '<div style="font-size:11px;opacity:.55;margin-top:10px;">按 Esc 取消，消息会放回输入框</div>' +
@@ -108,6 +109,15 @@
                     toast('接力失败，消息已放回输入框');
                     restoreInput();
                 }
+            } else if (act === 'inject') {
+                // ⚡ 直接插入当前对话：复用 InjectBus 通道，不打断运行，AI 下一轮收到
+                try {
+                    if (typeof InjectBus === 'undefined' || !InjectBus.enqueue) { toast('插话组件未加载，消息已放回输入框'); restoreInput(); return; }
+                    InjectBus.enqueue(srcChat, origText);
+                    try { App.addMsg(srcBox, '⚡ ' + _esc(origText), 'user', srcChat.modelId); } catch (e) {}
+                    try { Store.addLog('info', srcChat.id, 'inject', '忙碌弹窗：用户选择直接插入当前对话: ' + origText.substring(0, 80)); } catch (e) {}
+                    toast('⚡ 已插入当前对话，AI 将在下一轮收到');
+                } catch (e) { console.error('[BusyChoice]', e); toast('插入失败，消息已放回输入框'); restoreInput(); }
             } else if (act === 'queue') {
                 try {
                     var qItem = { id: 'q' + Date.now() + Math.floor(Math.random() * 1000), text: origText };

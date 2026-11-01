@@ -33,15 +33,15 @@ def _get_combo():
 
 
 def _get_port():
-    """从 private/port.json 读取实际 api_port，失败兜底 8560"""
+    """从 private/port.json 读取实际 api_port，失败兜底 8570"""
     for cand in (os.path.join(_ROOT, 'server', 'private', 'port.json'),
                  os.path.join(_HERE, 'private', 'port.json')):
         try:
             with open(cand, encoding='utf-8') as f:
-                return int(json.load(f).get('api_port', 8560))
+                return int(json.load(f).get('api_port', 8570))
         except Exception:
             continue
-    return 8560
+    return 8570
 
 
 def _health_ok():
@@ -51,6 +51,18 @@ def _health_ok():
             return r.status == 200
     except Exception:
         return False
+
+
+def _pool_busy():
+    """有正在跑的 chat-pool Turn（AI 对话进行中）则视为非空闲，禁止重启。
+    防止无感重启掐断进行中的对话：槽位在内存里，重启即丢，前端 SSE 会 404。"""
+    try:
+        port = _get_port()
+        with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/chat-pool/active', timeout=3) as r:
+            d = json.loads(r.read().decode('utf-8'))
+        return bool(d.get('active') or d.get('slots') or d.get('turns') or d.get('items') or d.get('list'))
+    except Exception:
+        return True  # 探测失败/超时（往往是 server 正忙）→ 视为忙，跳过本轮重启更安全
 
 
 def _trigger_restart():
@@ -86,6 +98,9 @@ def start_watcher():
                 continue
             if combo != 0:
                 _log(f'combo={combo} 非空闲，跳过')
+                continue
+            if _pool_busy():
+                _log('chat-pool 有活跃 Turn（AI 对话进行中），跳过重启')
                 continue
             # 确认持续空闲 10 秒（期间 combo 一直为 0 且页面没刷新出新数据）
             ok = True

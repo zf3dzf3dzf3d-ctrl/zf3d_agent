@@ -758,30 +758,41 @@ def _issue_identity():
     if uid <= 0:
         return jsonify({'error': 'user_id required'}), 400
     # 本地库必须存在该会员，否则拒签（防止随便填 ID）
+    # 【2026-10 修复 proxy_unavailable】本地部署版 zf3d.db 无 users 表（主站库在远端），
+    # 此时登录态已由 9210 侧 login_data.success 校验，跳过本地库校验直接签发；
+    # 仅当 users 表存在时才做本地会员存在性校验。
     try:
         import sqlite3
+        has_users = False
         conn = sqlite3.connect(DB_PATH, timeout=10)
         try:
             try:
-                row = conn.execute('SELECT id FROM users WHERE id=? LIMIT 1', (uid,)).fetchone()
+                trow = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users') LIMIT 1").fetchone()
+                has_users = bool(trow)
             except Exception:
-                row = None
-            if not row:
+                has_users = False
+            if has_users:
                 try:
-                    row = conn.execute('SELECT user_id FROM users WHERE user_id=? LIMIT 1', (uid,)).fetchone()
+                    row = conn.execute('SELECT id FROM users WHERE id=? LIMIT 1', (uid,)).fetchone()
                 except Exception:
                     row = None
+                if not row:
+                    try:
+                        row = conn.execute('SELECT user_id FROM users WHERE user_id=? LIMIT 1', (uid,)).fetchone()
+                    except Exception:
+                        row = None
+                if not row:
+                    _zfi.audit('issue_identity_reject', uid=uid, reason='user_not_in_local_db')
+                    return jsonify({'error': 'unknown user'}), 404
         finally:
             conn.close()
-        if not row:
-            _zfi.audit('issue_identity_reject', uid=uid, reason='user_not_in_local_db')
-            return jsonify({'error': 'unknown user'}), 404
     except Exception as e:
         return jsonify({'error': 'db check failed: %s' % e}), 500
     ticket = _zfi.sign_identity(uid)
     if not ticket:
         return jsonify({'error': 'sign failed'}), 500
-    _zfi.audit('issue_identity', uid=uid)
+    # 【2026-10 审计增强】跳过本地校验路径打 via 标记，便于与全量校验路径区分审计
+    _zfi.audit('issue_identity', uid=uid, via=('no_users_table' if not has_users else 'local_db'))
     resp = jsonify({'ok': True, 'user_id': uid, 'expires_in': _zfi._TICKET_TTL})
     resp.set_cookie('zf_idt', ticket, max_age=_zfi._TICKET_TTL, httponly=True, samesite='Lax', path='/')
     return resp
@@ -1577,7 +1588,7 @@ async function showAudit(){const j=await api('/admin/audit',{limit:50});document
 def _proxy_port():
     """代理端口：优先 AI_PROXY_PORT 环境变量，其次 private/port.json 的 ai_proxy_port 字段，默认 8787。
     【多版本共存·端口段约定】朱峰智能体按版本号分端口段：
-    5.4.x = 8550-8554，5.5.x = 8555-8559，5.6.x = 8560-8564 ...
+    5.4.x = 8550-8554，5.5.x = 8555-8559，5.7.x = 8570-8574 ...
     （每 0.1 小版本预留 5 个端口，同大版本下的小版本可复用同一段）
     ai_proxy_port 建议用每段最后一个：5.4.x=8554、5.5.x=8559，
     避免 5.4.5 与 5.5.5 的代理互相抢占端口、冲击对方后台。"""
@@ -1596,7 +1607,7 @@ def _proxy_port():
             return _v
     except Exception:
         pass
-    return 8564  # 【2026-10-16 修复】兜底默认=本版本端口段末（5.6.x=8560-8564）。旧值 8559 是 5.5.x 段末，导致 5.6.0 与旧 5.5.x 代理抢同一端口：旧进程占住 8559 后，5.6.0 代理绑定失败静默挂掉，客户端连到的仍是旧代理 → 429/502 无人换道（"自己封锁自己"的根因）
+    return 8574  # 【2026-10-16 修复】兜底默认=本版本端口段末（5.7.x=8570-8574）。旧值 8559 是 5.5.x 段末，导致 5.7.0 与旧 5.5.x 代理抢同一端口：旧进程占住 8559 后，5.7.0 代理绑定失败静默挂掉，客户端连到的仍是旧代理 → 429/502 无人换道（"自己封锁自己"的根因）
 
 PROXY_PORT = _proxy_port()
 # 兼容旧客户端：额外尝试监听旧版本端口段末 8559，防止旧版代理进程复活抢占（端口被占则跳过，不报错）

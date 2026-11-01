@@ -1,0 +1,13 @@
+{
+  "mode": "color",
+  "color": "#1c2530",
+  "imageUrl": "",
+  "imageBlur": true,
+  "imageDark": true,
+  "fx": "wisps",
+  "fxs": [
+    "wisps",
+    "netmouse",
+    "comets"
+  ]
+}

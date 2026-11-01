@@ -262,7 +262,14 @@ Object.assign(Tools, {
                     if (tool === 'project_record') {
                         // 后端返回: list/search 返回 records(纯名字数组), read 返回 records 或单条 name+content,
                         // write 返回 name+size, append 只返回 name, delete 只返回 name
-                        var action = data.action || 'list';
+                        var action = data.action;
+                        // A3 消息层缺陷修复：后端缺 action 字段时按返回数据字段推断，防止误落 list 分支报「记录为空」
+                        if (!action) {
+                            if (data.bytes_written !== undefined) action = 'append';
+                            else if (data.size !== undefined) action = 'write';
+                            else if (data.content !== undefined || data.multi) action = 'read';
+                            else action = 'list';
+                        }
                         if (action === 'list') {
                             var recs = data.records || [];
                             if (recs.length === 0) {

@@ -1087,7 +1087,10 @@
       }).then(function (r) { return r.json(); }).then(function (sub) {
         if (!sub.ok) throw new Error(sub.error || 'submit 失败');
         var bid = sub.batch_id;
-        // 轮询直到全部完成（每 2s，上限 10 分钟）
+        // 轮询直到全部完成（每 2s；【2026-10-27 修复】不再 10 分钟抢先回收：
+        // 旧逻辑 ++tries>300 即调 collect(wait:false)，把未完成的批次当结果回收，
+        // 导致审核员拿到半成品提前收工、其余小弟被丢弃半路。现改为：
+        // 只有批次真正 done 才回收；60 分钟超时则如实报失败并附 batch_id 供人工回收。
         return new Promise(function (resolve) {
           var tries = 0;
           var timer = setInterval(function () {
@@ -1099,7 +1102,7 @@
               var p = st.batch || st.progress || {};
               // 【实时进度】轮询期间刷新占位卡片，显示各小弟状态
               try { _swarmUpdateCard(bid, p, _tasks); } catch (_se) {}
-              if (p.status === 'done' || p.status === 'completed' || ++tries > 300) {
+              if (p.status === 'done' || p.status === 'completed') {
                 clearInterval(timer);
                 fetch('/api/swarm/collect', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1124,6 +1127,16 @@
                     outputs: tasks
                   });
                 }).catch(function (e) { resolve({ success: false, message: '回收失败: ' + e.message }); });
+              } else if (++tries > 1800) {
+                // 60 分钟硬超时：如实报失败，不再假回收；批次仍在后台跑，可凭 batch_id 人工回收
+                clearInterval(timer);
+                var _undone = ((p.tasks || []).filter(function (t) { return t.status !== 'done' && t.status !== 'failed'; })).length;
+                resolve({
+                  success: false, batch_id: bid,
+                  total: (p.tasks || []).length,
+                  message: '蜂群等待超时（60分钟）：批次 ' + bid + ' 仍在后台运行，未完成小弟 ' + _undone + ' 个。' +
+                    '不要假装收工；可稍后用 batch_id=' + bid + ' 调 /api/swarm/collect 人工回收结果。'
+                });
               }
             }).catch(function () {});
           }, 2000);

@@ -41,21 +41,6 @@ function _dlgPrompt(msg, val){
       bp.open(document.getElementById('topbarMoreBtn'));
     } },
     { icon: '❤', label: '关于我们', title: '关于', click: 'aboutBtn' },
-    { sep: true },
-    /* ===== 账号功能（手机版峰控「更多」菜单：登录态相关，复用 app-zf3d.js 实现） ===== */
-    { icon: '💰', label: 'Token查询', title: '查询当前账号 AI Token 余额（打开官网 Token 页面）', run: function () {
-      window.open('https://www.zf3d.com/aitoken.asp', '_blank');
-    } },
-    { icon: '💳', label: '充值', title: '充值 AI Token（打开官网充值页面）', run: function () {
-      window.open('https://www.zf3d.com/airecharge.asp', '_blank');
-    } },
-    { icon: '🚪', label: '退出登录', title: '退出朱峰智能体账号登录', danger: true, run: function () {
-      if (!(window.App && App.zf3dTopbarLogout)) { window.showToast && showToast('登录模块尚未加载完成', 'warn'); return; }
-      _dlgConfirm('确定要退出登录吗？退出后需重新登录才能继续使用会员线路。').then(function (yes) {
-        if (yes) App.zf3dTopbarLogout();
-      });
-    } },
-    { sep: true },
 
   ];
 

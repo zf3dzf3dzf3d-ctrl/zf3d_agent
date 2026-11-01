@@ -1,0 +1,40 @@
+{
+  "defaultChatBoxSize": {
+    "width": 499,
+    "height": 602
+  },
+  "combo": {
+    "enabled": true,
+    "pos": {
+      "left": 65,
+      "top": 114
+    }
+  },
+  "engineNodes": [],
+  "defaultCompressionModes": {
+    "toolResults": "truncate",
+    "historyAnswers": "truncate"
+  },
+  "chatCompressionModes": {
+    "cb182-mvaucsaax89m2": {
+      "toolResults": "minimal",
+      "historyAnswers": "minimal"
+    },
+    "cb184-mvaukvul6kia8": {
+      "toolResults": "truncate",
+      "historyAnswers": "truncate"
+    },
+    "cb39-mvbuaabz9sp0y": {
+      "toolResults": "truncate",
+      "historyAnswers": "truncate"
+    },
+    "cb233-mvcdf1e2v7tn3": {
+      "toolResults": "truncate",
+      "historyAnswers": "truncate"
+    },
+    "cb232-mvcdf10l4844v": {
+      "toolResults": "truncate",
+      "historyAnswers": "truncate"
+    }
+  }
+}

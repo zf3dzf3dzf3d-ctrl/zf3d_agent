@@ -22,8 +22,11 @@
                 body: JSON.stringify({ action: 'list' })
             }).then(function(r) { return r.json(); }).then(function(data) {
                 var records = (data && data.records) || [];
-                // 只取长期目标文件（命名规则：长期目标- 开头）
-                var goalNames = records.filter(function(n) { return n.indexOf('长期目标-') === 0; });
+                // 只取长期目标文件（命名规则：文件名以 长期目标- 开头，忽略子目录前缀）
+                var goalNames = records.filter(function(n) {
+                    var base = String(n).split('/').pop();
+                    return base.indexOf('长期目标-') === 0;
+                });
                 if (!goalNames.length) {
                     self._goalCache = [];
                     body.innerHTML = '<div class="tp-empty">暂无长期目标。<br>对智能体说「创建一个长期目标：...」即可。</div>';

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""密码库（Vault）v1.0 —— 本地加密存储网站账号密码。
+"""密码库（Vault）v1.1 —— 本地加密存储网站账号密码。
 
 存储: private/密码库/vault.json
-加密: Fernet 对称加密（无 cryptography 库时自动降级为 XOR+base64 混淆，并给出提示）
+加密: 仅 Fernet 对称加密（缺 cryptography 库时 _enc 直接报错，绝不降级为不安全混淆）
 主密钥: private/密码库/.vault_key（首次自动生成，勿删，删了旧密码解不开）
 接口（mixin_vault.py 提供 HTTP 路由）:
   GET  /api/vault/list            列表（密码脱敏，只回 has_pwd）
@@ -45,32 +45,43 @@ def _fernet():
     except Exception:
         return None
 
-# ---------------- 加解密（cryptography 优先，缺失降级混淆） ----------------
+# ---------------- 加解密（仅 Fernet；缺库直接报错，绝不静默降级为混淆） ----------------
 def _enc(text):
     f = _fernet()
-    if f is not None:
-        return 'F:' + f.encrypt(text.encode('utf-8')).decode('ascii')
-    key = _load_key()
-    raw = text.encode('utf-8')
-    x = bytes(b ^ key[i % len(key)] for i, b in enumerate(raw))
-    return 'X:' + base64.urlsafe_b64encode(x).decode('ascii')
+    if f is None:
+        raise RuntimeError(
+            '密码库加密失败：缺少 cryptography 库，请先安装'
+            '（pip install cryptography）。已禁止不安全的降级混淆。')
+    return 'F:' + f.encrypt(text.encode('utf-8')).decode('ascii')
 
 def _dec(token):
     if not token:
         return ''
+    if not token.startswith('F:'):
+        # 历史 X: 混淆密文已废弃（不安全），不再支持解密；显式标记而非静默返空
+        return ''
     try:
-        if token.startswith('F:'):
-            f = _fernet()
-            if f is None:
-                return ''
-            return f.decrypt(token[2:].encode('ascii')).decode('utf-8')
-        if token.startswith('X:'):
-            key = _load_key()
-            x = base64.urlsafe_b64decode(token[2:].encode('ascii'))
-            return bytes(b ^ key[i % len(key)] for i, b in enumerate(x)).decode('utf-8')
+        f = _fernet()
+        if f is None:
+            return ''
+        return f.decrypt(token[2:].encode('ascii')).decode('utf-8')
     except Exception:
         return ''
-    return ''
+
+
+def decrypt_status(token):
+    """返回 (明文, 状态)。状态: 'ok' / 'legacy'（历史混淆密文需重新保存）/ 'corrupt'（损坏）/ 'empty'。"""
+    if not token:
+        return '', 'empty'
+    if not token.startswith('F:'):
+        return '', 'legacy'
+    f = _fernet()
+    if f is None:
+        return '', 'corrupt'
+    try:
+        return f.decrypt(token[2:].encode('ascii')).decode('utf-8'), 'ok'
+    except Exception:
+        return '', 'corrupt'
 
 # ---------------- 存取 ----------------
 def _read_all():
@@ -160,10 +171,14 @@ def get_item(site, username=None):
         if it.get('site', '').lower() == site:
             if username and it.get('username', '').strip() != username.strip():
                 continue
+            pwd, st = decrypt_status(it.get('password', ''))
             return {'ok': True, 'site': it.get('site'),
                     'username': it.get('username'),
-                    'password': _dec(it.get('password', '')),
-                    'note': it.get('note', '')}
+                    'password': pwd,
+                    'password_status': st,
+                    'note': it.get('note', ''),
+                    **({'warn': '该条目为历史混淆密文，明文已不可恢复，请重新保存密码'}
+                       if st == 'legacy' else {})}
     return {'ok': False, 'err': '未找到该站点账号'}
 
 def has_cryptography():

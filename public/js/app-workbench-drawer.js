@@ -95,46 +95,42 @@ function _dlgPrompt(msg, val){
         drawer.innerHTML =
             '<div class="wb-drawer-resize" title="拖拽调宽（双击复位）"></div>' +
             '<div class="wb-drawer-tabs">' +
-                '<button class="wb-tab active" data-wbtab="browser" title="本对话专属内置浏览器">🖥 浏览器</button>' +
-                '<button class="wb-tab" data-wbtab="engine" title="2D 游戏引擎">🎮 引擎</button>' +
-                '<button class="wb-tab" data-wbtab="image">🖼️ 图片</button>' +
-                '<button class="wb-tab" data-wbtab="video" title="AI 视频剪辑工作台">🎬 视频</button>' +
-                '<button class="wb-tab" data-wbtab="model3d" title="3D 模型生成">🗿 3D</button>' +
-                '<button class="wb-tab" data-wbtab="files" title="文本编辑器：Markdown 渲染 / 代码高亮">📝 文本</button>' +
-                '<button class="wb-tab" data-wbtab="ppt" title="敬请期待">📑 PPT</button>' +
-                '<button class="wb-flip" title="切换到右侧/左侧">⇄</button>' +
-                '<button class="wb-close" title="收起抽屉">✕</button>' +
+                '<button class="wb-tab active" data-wbtab="browser" title="本对话专属内置浏览器"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2"/><path d="M2.5 9h19"/><circle cx="5.5" cy="6.5" r="0.6"/><circle cx="8" cy="6.5" r="0.6"/></svg>浏览器</button>' +
+                '<button class="wb-tab" data-wbtab="engine" title="2D 游戏引擎"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>引擎</button>' +
+                '<button class="wb-tab" data-wbtab="image"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M3.5 17.5l5-4.5 4 3.5 3.5-3 4.5 4"/></svg>图片</button>' +
+                '<button class="wb-tab" data-wbtab="video" title="AI 视频剪辑工作台"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="M15.5 10.5l6-3.5v10l-6-3.5z"/></svg>视频</button>' +
+                '<button class="wb-tab" data-wbtab="model3d" title="3D 模型生成"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8.5 4.8v9.4L12 21.5l-8.5-4.8V7.3z"/><path d="M12 2.5v9.4M3.5 7.3l8.5 4.6 8.5-4.6M12 21.5v-9.6"/></svg>3D</button>' +
+                '<button class="wb-tab" data-wbtab="files" title="文本编辑器：Markdown 渲染 / 代码高亮"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5h6l2 2.5h8v12.5H4z"/><path d="M8 12.5h8M8 16h5"/></svg>文本</button>' +
+                '<button class="wb-tab" data-wbtab="ppt" title="敬请期待"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12.5" rx="1.5"/><path d="M12 16.5V21M8.5 21h7M7.5 12V8.5M12 12V7.5M16.5 12v-2.5"/></svg>PPT</button>' +
+                '<button class="wb-flip" title="切换到右侧/左侧"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12h13"/><path d="M16.5 8.5 20 12l-3.5 3.5"/><path d="M17 12H4"/><path d="M7.5 8.5 4 12l3.5 3.5"/></svg></button>' +
+                '<button class="wb-close" title="收起抽屉"><svg class="wb-tab-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
             '</div>' +
             '<div class="wb-drawer-body">' +
                 '<div class="wb-workbench" data-wbwork="image">' +
-                    '<div class="wb-img-toolbar">' +
-                        '<button data-tool="pan" class="active" title="平移/缩放画布">✋</button>' +
-                        '<button data-tool="select" title="框选区域发给 AI">⬚ 框选</button>' +
-                        '<button data-act="import" title="导入图片">📂 导入</button>' +
-                        '<button data-act="paste" title="粘贴剪贴板图片">📋</button>' +
-                        '<button data-act="undo" title="撤销">↩</button>' +
-                        '<button data-act="redo" title="重做">↪</button>' +
-                        '<button data-act="export" title="导出合成 PNG">💾 导出</button>' +
+                    '<div class="wb-img-toolbar" style="display:none">' +
                         '<span class="wb-sel-info"></span>' +
                     '</div>' +
                     '<div class="wb-img-stage-wrap">' +
                         '<div class="wb-img-stage"></div>' +
-                        '<canvas class="wb-mini-map" width="180" height="120" title="缩略图导航：点击/拖动跳转视角"></canvas>' +
-                        '<div class="wb-img-empty">拖入 / 粘贴 / 导入图片开始<br>「⬚框选」圈出区域 → 发送给 AI</div>' +
+                        '<canvas class="wb-mini-map" width="84" height="56" title="缩略图导航：点击/拖动跳转视角"></canvas>' +
+                        
                     '</div>' +
                     '<div class="wb-img-statusbar">' +
-                        '<span class="wb-zoom">100%</span>' +
-                        '<button data-act="fit" style="border:none;background:none;color:#9ab;cursor:pointer;font-size:11px">适应窗口</button>' +
                         '<span class="wb-msg"></span>' +
                     '</div>' +
                     '<div class="wb-img-bottom">' +
-                        '<div class="wb-img-bottom-tabs">' +
-                            '<button class="active" data-wbbot="layers">图层</button>' +
-                            '<button data-wbbot="history">历史</button>' +
-                            '<button data-wbbot="aitools">AI 工具</button>' +
+                        '<div class="wb-img-bottom" style="position:relative">' +
+                        '<div class="wb-img-bottom-tabs" style="display:flex;justify-content:center">' +
+                            '<button id="wbbotToggle" data-wbbot="gallery" title="展开/收起历史生成记录（含图片与视频）" style="display:flex;align-items:center;gap:5px"><svg class="wb-line-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13M12 7l5 5-5 5"/><rect x="18.5" y="5" width="3" height="14" rx="1"/></svg>历史记录</button>' +
                         '</div>' +
-                        '<div class="wb-img-bottom-body" data-wbbotbody="layers"></div>' +
-                        '<div class="wb-img-bottom-body" data-wbbotbody="history" style="display:none"></div>' +
+                        '<div class="wb-bot-switch" style="display:none;justify-content:center;gap:4px;padding:4px 0 0">' +
+                            '<button data-wbsrc="image" class="active" style="padding:2px 10px;font-size:11px;border-radius:6px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer">图片</button>' +
+                            '<button data-wbsrc="video" style="padding:2px 10px;font-size:11px;border-radius:6px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer">视频</button>' +
+                        '</div>' +
+                        '<button id="wbbotPrev" title="向左翻页" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);z-index:2;border:none;background:rgba(22,35,58,.9);color:#cfe;cursor:pointer;border-radius:6px;padding:4px 6px;font-size:12px">‹</button>' +
+                        '<button id="wbbotNext" title="向右翻页" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);z-index:2;border:none;background:rgba(22,35,58,.9);color:#cfe;cursor:pointer;border-radius:6px;padding:4px 6px;font-size:12px">›</button>' +
+                        '<div class="wb-img-bottom-body" data-wbbotbody="gallery" style="display:none;flex-direction:row;flex-wrap:nowrap;gap:8px;overflow-x:auto;overflow-y:hidden;padding:6px;scrollbar-width:none"></div>' +
+                        '<div class="wb-img-bottom-body" data-wbbotbody="layers" style="display:none;flex-direction:row;gap:8px;overflow-x:auto;overflow-y:hidden;padding:6px"></div>' +
                         '<div class="wb-img-bottom-body" data-wbbotbody="aitools" style="display:none"></div>' +
                     '</div>' +
                     '<div class="wb-send-bar" style="display:none">' +
@@ -150,8 +146,8 @@ function _dlgPrompt(msg, val){
                 '<div class="wb-workbench" data-wbwork="model3d">' +
                     '<div class="wb-3d-panel">' +
                         '<div class="wb-3d-mode" style="display:flex;gap:6px;margin-bottom:8px">' +
-                            '<button class="wb-3d-mode-btn active" data-3dmode="image2model" style="flex:1;padding:6px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer">🖼️ 图生 3D</button>' +
-                            '<button class="wb-3d-mode-btn" data-3dmode="text2model" style="flex:1;padding:6px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer">✏️ 文生 3D</button>' +
+                            '<button class="wb-3d-mode-btn active" data-3dmode="image2model" style="flex:1;padding:6px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M3.5 17.5l5-4.5 4 3.5 3.5-3 4.5 4"/></svg>图生 3D</button>' +
+                            '<button class="wb-3d-mode-btn" data-3dmode="text2model" style="flex:1;padding:6px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe3ff;cursor:pointer"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/></svg>文生 3D</button>' +
                         '</div>' +
                         '<div class="wb-3d-src-wrap" style="text-align:center;padding:14px;border:1px dashed #2a3b55;border-radius:10px;background:rgba(20,32,54,.6)">' +
                             '<div class="wb-3d-src-hint" style="color:#7d93b8;font-size:12px;margin-bottom:6px">拖入 / 粘贴 / 点击上传参考图</div>' +
@@ -165,7 +161,7 @@ function _dlgPrompt(msg, val){
                                 '<option value="glb">GLB</option><option value="obj">OBJ</option><option value="stl">STL</option><option value="fbx">FBX</option>' +
                             '</select>' +
                         '</div>' +
-                        '<button class="wb-3d-run" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,#2f6fed,#7c3aed);color:#fff;font-size:13px;cursor:pointer">🚀 生成 3D 模型</button>' +
+                        '<button class="wb-3d-run" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:none;background:linear-gradient(135deg,#2f6fed,#7c3aed);color:#fff;font-size:13px;cursor:pointer"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l3 6 6 .9-4.5 4.3 1.1 6L12 17l-5.6 3.2 1.1-6L3 9.9 9 9z"/></svg>生成 3D 模型</button>' +
                         '<div class="wb-3d-result" style="margin-top:10px;min-height:40px;font-size:12px;color:#9ab"></div>' +
                         '<div class="wb-3d-tip" style="margin-top:6px;font-size:11px;color:#5f7494;line-height:1.6">使用前请在「大模型设置 → 3D」中新建对应服务商配置并填 API Key（Tripo / Meshy / Rodin / 混元3D，混元填 SecretId:SecretKey）。生成完成后返回模型下载链接（GLB/OBJ/STL，可直接导入 ZBrush/Blender 雕刻）。</div>' +
                     '</div>' +
@@ -176,12 +172,12 @@ function _dlgPrompt(msg, val){
                 '<div class="wb-workbench active" data-wbwork="browser">' +
                     '<div class="wb-br-panel" style="display:flex;flex-direction:column;height:100%;min-height:0">' +
                         '<div class="wb-br-bar" style="position:relative;display:flex;align-items:center;gap:6px">' +
-                            '<button class="wb-br-btn" data-brnav="back" title="后退">←</button>' +
-                            '<button class="wb-br-btn" data-brnav="forward" title="前进">→</button>' +
-                            '<button class="wb-br-btn" data-brnav="reload" title="刷新">⟳</button>' +
+                            '<button class="wb-br-btn" data-brnav="back" title="后退"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>' +
+                            '<button class="wb-br-btn" data-brnav="forward" title="前进"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>' +
+                            '<button class="wb-br-btn" data-brnav="reload" title="刷新"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg></button>' +
                             '<input class="wb-br-url" placeholder="输入网址，回车打开（本对话独立会话）">' +
-                            '<button class="wb-br-btn" data-brnav="fav" title="收藏/取消收藏当前网址">☆</button>' +
-                            '<button class="wb-br-btn" data-brnav="history" title="历史记录">🕘</button>' +
+                            '<button class="wb-br-btn" data-brnav="fav" title="收藏/取消收藏当前网址"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8-4.3-4.1 5.9-.9z"/></svg></button>' +
+                            '<button class="wb-br-btn" data-brnav="history" title="历史记录"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.5 2"/></svg></button>' +
                             '<div class="wb-br-histlist" style="display:none;position:absolute;top:100%;left:8px;right:8px;max-height:280px;overflow-y:auto;background:#151b23;border:1px solid #2c3644;border-radius:8px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.5);padding:4px"></div>' +
                         '</div>' +
                         '<div class="wb-br-progress" style="height:2px;background:transparent;position:relative;overflow:hidden;flex:none"><div class="wb-br-progress-in" style="position:absolute;left:0;top:0;bottom:0;width:0;background:#3d8bfd;transition:width .3s ease"></div></div>' +
@@ -195,13 +191,13 @@ function _dlgPrompt(msg, val){
                             '<div class="wb-br-ailock" style="display:none;position:absolute;left:0;right:0;top:0;z-index:7;pointer-events:none;overflow:hidden;color:#fff;font-size:12px;padding:6px 10px;text-align:center;background:linear-gradient(180deg,rgba(30,90,160,.92),rgba(30,90,160,.6));box-shadow:0 2px 14px rgba(47,111,237,.55);animation:wbAiGlow 1.4s ease-in-out infinite"><span class="wb-br-aispin" style="display:inline-block;width:12px;height:12px;margin-right:7px;vertical-align:-2px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:wbAiSpin .8s linear infinite"></span>🤖 AI 正在操作浏览器，请勿点击（结束后自动消失）</div>' +
                             '<style>@keyframes wbAiSpin{to{transform:rotate(360deg)}}@keyframes wbAiGlow{0%,100%{background:linear-gradient(180deg,rgba(30,90,160,.92),rgba(30,90,160,.6))}50%{background:linear-gradient(180deg,rgba(47,111,237,1),rgba(124,58,237,.7));box-shadow:0 2px 22px rgba(124,58,237,.8)}}</style>' +
                         '</div>' +
-                        '<div class="wb-br-status" style="display:flex;align-items:center;gap:10px"><span class="wb-br-dot" style="width:8px;height:8px;border-radius:50%;background:#5f7494;flex:none"></span><span class="wb-br-stl">就绪</span><span class="wb-br-session"></span><span style="flex:1"></span><button class="wb-br-btn" data-brnav="fps" title="帧率切换：8/15/24 fps 循环（高动态页面选高帧率更流畅）"><span class="wb-br-fps-txt">15fps</span></button><button class="wb-br-btn" data-brnav="mark" title="标记模式：点画面任意处，写一句话给AI（如：这里点一下）">📌</button><button class="wb-br-btn" data-brnav="lasso" title="圈问：在画面上框选一块区域，截图裁剪+位置一起发给AI">🎯</button><button class="wb-br-btn" data-brnav="inputtext" title="键盘输入：点画面后可直接打字；此按钮可一次把一段文字（含中文）打进网页当前输入框">⌨</button><button class="wb-br-btn" data-brnav="maplinks" title="抓取当前页同域全部链接">🔗</button>' +
-                        '<button class="wb-br-btn" data-brnav="archive" title="抓取链接并存入网站档案（public/项目记录/网站档案/）">💾</button>' +
-                        '<button class="wb-br-btn" data-brnav="archpanel" title="网站档案库（查看/复查）">📁</button>' +
+                        '<div class="wb-br-status" style="display:flex;align-items:center;gap:10px"><span class="wb-br-dot" style="width:8px;height:8px;border-radius:50%;background:#5f7494;flex:none"></span><span class="wb-br-stl">就绪</span><span class="wb-br-session"></span><span style="flex:1"></span><button class="wb-br-btn" data-brnav="fps" title="帧率切换：8/15/24 fps 循环（高动态页面选高帧率更流畅）"><span class="wb-br-fps-txt">15fps</span></button><button class="wb-br-btn" data-brnav="mark" title="标记模式：点画面任意处，写一句话给AI（如：这里点一下）"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.5-6.5-10a6.5 6.5 0 0 1 13 0c0 4.5-6.5 10-6.5 10z"/><circle cx="12" cy="11" r="2.3"/></svg></button><button class="wb-br-btn" data-brnav="lasso" title="圈问：在画面上框选一块区域，截图裁剪+位置一起发给AI"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5.5"/><path d="M7.2 11.8c-1.6.9-2.7 2.1-2.7 3.4 0 1.4 1.4 2.4 3 1.9.3 2.1-1.2 3.6-3.7 4.2"/></svg></button><button class="wb-br-btn" data-brnav="inputtext" title="键盘输入：点画面后可直接打字；此按钮可一次把一段文字（含中文）打进网页当前输入框"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 10.5v3M10 12h4M15.5 10.5v3"/></svg></button><button class="wb-br-btn" data-brnav="maplinks" title="抓取当前页同域全部链接"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.7 1.7"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.7-1.7"/></svg></button>' +
+                        '<button class="wb-br-btn" data-brnav="archive" title="抓取链接并存入网站档案（public/项目记录/网站档案/）"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="17" height="5" rx="1"/><path d="M5 9v10.5h14V9M9.5 13h5"/></svg></button>' +
+                        '<button class="wb-br-btn" data-brnav="archpanel" title="网站档案库（查看/复查）"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5h7l2 2.5h9v11H3z"/></svg></button>' +
                         '<button class="wb-br-btn" data-brnav="viewsource" title="查看当前页面内容/源代码">&lt;/&gt;</button>' +
-'<button class="wb-br-btn" data-brnav="askai" title="把当前页网址+正文摘要发到对话输入框，让 AI 分析">💬</button>' +
-                        '<button class="wb-br-btn" data-brnav="mempanel" title="浏览记忆面板：笔记摘要+历史+收藏，可搜索，点击直达">📚</button>' + '<button class="wb-br-btn" data-brnav="hardreload" title="强制刷新：清空缓存并重载工作台页面（等同 Ctrl+F5）">🧹</button>' + '<button class="wb-br-btn" data-brnav="errlog" title="查看/复制页面JS报错（等同F12控制台）">🐞</button>' +
-                        '<button type="button" class="wb-br-copyerr" style="margin-left:0" title="复制全部错误信息">📋</button></div>' +
+'<button class="wb-br-btn" data-brnav="askai" title="把当前页网址+正文摘要发到对话输入框，让 AI 分析"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8.5 8.5 0 0 1-12.4 7.5L3 21l1.6-5.3A8.5 8.5 0 1 1 21 12z"/></svg></button>' +
+                        '<button class="wb-br-btn" data-brnav="mempanel" title="浏览记忆面板：笔记摘要+历史+收藏，可搜索，点击直达"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h4A2.5 2.5 0 0 1 11.5 7v12A2.5 2.5 0 0 0 9 16.5H5zM19 4.5h-4A2.5 2.5 0 0 0 12.5 7v12a2.5 2.5 0 0 1 2.5-2.5h4z"/></svg></button>' + '<button class="wb-br-btn" data-brnav="hardreload" title="强制刷新：清空缓存并重载工作台页面（等同 Ctrl+F5）"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/></svg></button>' + '<button class="wb-br-btn" data-brnav="errlog" title="查看/复制页面JS报错（等同F12控制台）"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="5.5"/><circle cx="9" cy="10" r="0.5" fill="currentColor"/><circle cx="15" cy="10" r="0.5" fill="currentColor"/><path d="M9.5 14.5h5"/></svg></button>' +
+                        '<button type="button" class="wb-br-copyerr" style="margin-left:0" title="复制全部错误信息"><svg class="wb-line-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="1.5"/><path d="M5.5 15.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button></div>' +
                     '</div>' +
                 '</div>' +
             '</div>';
@@ -435,8 +431,8 @@ function _dlgPrompt(msg, val){
                 card.innerHTML = '<div style="background:#2a1518;border:1px solid #e5534b;border-radius:8px;padding:14px 18px;max-width:80%;color:#ffb3ad;font-size:13px;line-height:1.6">' +
                     '<b style="color:#e5534b">⚠ 页面打开出错了</b><br>' +
                     '<span style="word-break:break-all">' + String(msg).replace(/</g, '&lt;') + '</span><br>' +
-                    '<button class="wb-br-btn wb-br-errretry" style="margin-top:8px">⟳ 重试</button> ' +
-                    '<button type="button" class="wb-br-copyerr wb-br-errcopy" data-slot="' + slot0 + '" style="margin-left:0">📋 复制错误信息</button></div>';
+                    '<button class="wb-br-btn wb-br-errretry" style="margin-top:8px"><svg class="wb-br-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3"/><path d="M20 4v7h-7"/></svg> 重试</button> ' +
+                    '<button type="button" class="wb-br-copyerr wb-br-errcopy" data-slot="' + slot0 + '" style="margin-left:0"><svg class="wb-br-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="1.5"/><path d="M5.5 15.5h-1a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg> 复制错误信息</button></div>';
                 card.style.display = 'flex';
                 var rb = card.querySelector('.wb-br-errretry');
                 if (rb) rb.addEventListener('click', function () {
@@ -456,7 +452,7 @@ function _dlgPrompt(msg, val){
             if (!brState()[slot].lastError) brState()[slot].lastError = String(msg);
             btn2.dataset.slot = slot;
             btn2.style.display = '';
-            btn2.textContent = '📋 一键复制错误信息';
+            btn2.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg> 一键复制错误信息';
         } else {
             btn2.style.display = 'none';
         }
@@ -491,6 +487,50 @@ function _dlgPrompt(msg, val){
         setTimeout(function () { bar.style.transition = 'none'; bar.style.width = '0'; setTimeout(function () { bar.style.transition = 'width .3s ease'; }, 50); }, 350);
     }
     // ---------- 批次1：网址历史 + 收藏（localStorage 按 slot 隔离，上限50） ----------
+    // 【云持久化 wbStore】历史/收藏/笔记/浏览器状态在 localStorage 之外，同步一份到服务端
+    // SQLite（/api/workbench/state，slot 加后缀 key），清缓存/换浏览器/重启后不丢。
+    // 合并策略（保证「老数据位置不变，新数据追加」）：以本地顺序为基准，服务端有而本地没有的项追加到尾部；
+    // 对象型（wbBr_ 状态）则浅合并：服务端字段为底、本地字段覆盖。
+    function wbStoreSrvKey(key) { return 'wbcloud_' + key; }   // 服务端 slot key（避开前端 key 空间）
+    function wbStoreSave(key, val) {
+        try {
+            fetch('/api/workbench/state', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ slot: wbStoreSrvKey(key), state: { v: val } })
+            }).catch(function () {});
+        } catch (e) {}
+    }
+    function wbStoreLoad(key, cb) {
+        try {
+            fetch('/api/workbench/state?slot=' + encodeURIComponent(wbStoreSrvKey(key)))
+                .then(function (r) { return r.json(); })
+                .then(function (j) { cb((j && j.ok && j.state) ? j.state.v : null); })
+                .catch(function () { cb(null); });
+        } catch (e) { cb(null); }
+    }
+    // 数组合并：base（本地，位置权威）在前，remote 独有项按原顺序追加到尾部
+    function wbMergeArr(base, remote) {
+        var seen = {}; (base || []).forEach(function (u) { seen[u] = 1; });
+        return (base || []).concat((remote || []).filter(function (u) { return !seen[u]; }));
+    }
+    function wbStoreSyncBack(key, lsKey, isObject) {
+        wbStoreLoad(key, function (rv) {
+            if (rv == null) return;   // 服务端无记录：不动本地
+            try {
+                var lv = null;
+                try { lv = JSON.parse(localStorage.getItem(lsKey) || 'null'); } catch (e) {}
+                if (isObject) {
+                    var merged = Object.assign({}, rv, lv || {});
+                    localStorage.setItem(lsKey, JSON.stringify(merged));
+                    wbStoreSave(key, merged);   // 回写统一态
+                } else {
+                    var merged2 = wbMergeArr(lv || [], rv).slice(0, 50);   // 合并后截断，保持上限与本地一致
+                    localStorage.setItem(lsKey, JSON.stringify(merged2));
+                    if (merged2.length !== (lv || []).length) wbStoreSave(key, merged2);
+                }
+            } catch (e) {}
+        });
+    }
     function brHistKey(slot) { return 'wb_br_hist_' + (slot || 'default'); }
     function brFavKey(slot) { return 'wb_br_fav_' + (slot || 'default'); }
     function brHistLoad(slot) {
@@ -503,6 +543,7 @@ function _dlgPrompt(msg, val){
         h.unshift(u);
         h = h.slice(0, 50);
         try { localStorage.setItem(brHistKey(slot), JSON.stringify(h)); } catch (e) {}
+        wbStoreSave('hist_' + (slot || 'default'), h);   // 云同步：重启/清缓存不丢
     }
     function brFavLoad(slot) {
         try { return JSON.parse(localStorage.getItem(brFavKey(slot)) || '[]'); } catch (e) { return []; }
@@ -544,7 +585,8 @@ function _dlgPrompt(msg, val){
         if (i >= 0) { favs.splice(i, 1); brToast('已取消收藏 ' + u); }
         else { favs.unshift(u); brToast('已收藏 ' + u); }
         try { localStorage.setItem(brFavKey(slot), JSON.stringify(favs.slice(0, 50))); } catch (e) {}
-        var fb = brEl('[data-brnav="fav"]'); if (fb) fb.textContent = favs.indexOf(u) >= 0 ? '★' : '☆';
+        wbStoreSave('fav_' + (slot || 'default'), favs.slice(0, 50));   // 云同步
+        var fb = brEl('[data-brnav="fav"]'); if (fb) fb.innerHTML = favs.indexOf(u) >= 0 ? '<svg class="wb-line-ico" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>' : '<svg class="wb-line-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>';
     }
     // 🌙 暗色三档滤镜：原色(0) → 柔和(1) → 夜间反色(2) 循环；UserSettings 持久化（全局键，跨会话生效）
     function brDarkApply() {
@@ -556,7 +598,7 @@ function _dlgPrompt(msg, val){
         else if (mode === 2) view.style.filter = 'invert(1) hue-rotate(180deg) contrast(0.9)';
         else view.style.filter = '';
         var db = brEl('[data-brnav="dark"]');
-        if (db) { db.textContent = mode === 0 ? '🌙' : (mode === 1 ? '🌥' : '🌛'); db.title = '画面护眼（当前：' + ['原色', '柔和', '夜间反色'][mode] + '，点击切换）'; }
+        if (db) { var _darkPaths = ['<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>', '<path d="M17 18a5 5 0 0 0 0-10 6.5 6.5 0 0 0-12.3 2A4.5 4.5 0 0 0 6 18z"/>', '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>']; db.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + _darkPaths[mode] + '</svg>'; db.title = '画面护眼（当前：' + ['原色', '柔和', '夜间反色'][mode] + '，点击切换）'; }
     }
     function brDarkToggle() {
         var mode = 0;
@@ -655,7 +697,7 @@ function _dlgPrompt(msg, val){
         if (!fb) return;
         var slot = br ? br.session : 'default';
         var favs = brFavLoad(slot);
-        fb.textContent = (br && br.url && favs.indexOf(br.url) >= 0) ? '★' : '☆';
+        fb.innerHTML = (br && br.url && favs.indexOf(br.url) >= 0) ? '<svg class="wb-line-ico" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>' : '<svg class="wb-line-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>';
     }
     // 一键复制错误信息（点按钮复制最近一次错误，成功后反馈）
     (function () {
@@ -667,8 +709,8 @@ function _dlgPrompt(msg, val){
             var txt = st.lastError || (btn.closest('.wb-br-status') && btn.closest('.wb-br-status').querySelector('.wb-br-stl') ? btn.closest('.wb-br-status').querySelector('.wb-br-stl').textContent : '');
             if (!txt) txt = '（无错误信息）';
             var done = function () {
-                btn.textContent = '✅ 已复制';
-                setTimeout(function () { btn.textContent = '📋 一键复制错误信息'; }, 1500);
+                btn.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> 已复制';
+                setTimeout(function () { btn.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg> 一键复制错误信息'; }, 1500);
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(txt).then(done, function () { fallbackCopy(txt, done); });
@@ -690,7 +732,7 @@ function _dlgPrompt(msg, val){
     }
     // ---------- 状态持久化：刷新/重启后恢复上次会话的网址与活动标签 ----------
     function brSlotKey() {
-        return curSlot || hostBox.dataset.wbSlot || 'wb_default';
+        return curSlot || hostBox.dataset.wbSlot || 'default';
     }
     function brPersistSave(activeIdx) {
         try {
@@ -700,10 +742,11 @@ function _dlgPrompt(msg, val){
             if (typeof activeIdx === 'number') st.active = activeIdx;
             brState()[slot] = st;
             localStorage.setItem('wbBr_' + slot, JSON.stringify(st));
+            wbStoreSave('br_' + (slot || 'default'), st);   // 云同步：浏览器状态（网址/活动标签）
         } catch (e) {}
     }
     function brEnsure() {
-        var slot = curSlot || hostBox.dataset.wbSlot || 'wb_default';
+        var slot = curSlot || hostBox.dataset.wbSlot || 'default';
         // 【会话独立】切换对话后强制换新会话：旧会话的浏览器状态不带入新对话
         if (br && br.session !== slot) {
             try { brStopPoll(); } catch (e) {}
@@ -719,6 +762,25 @@ function _dlgPrompt(msg, val){
             try { saved = JSON.parse(localStorage.getItem('wbBr_' + slot) || 'null'); if (saved) brState()[slot] = saved; } catch (e) {}
         }
         if (saved && saved.url) br.url = saved.url;
+        // 云回填：服务端 wbBr_ 状态合并到本地（服务端字段为底、本地覆盖），下次保存即统一
+        wbStoreSyncBack('br_' + (slot || 'default'), 'wbBr_' + slot, true);
+        // 云回填：历史/收藏（本地顺序为权威，服务端独有条目追加到尾部，老数据位置不变）
+        wbStoreSyncBack('hist_' + (slot || 'default'), brHistKey(slot), false);
+        wbStoreSyncBack('fav_' + (slot || 'default'), brFavKey(slot), false);
+        wbStoreSyncBack('notes_' + (slot || 'default'), 'wb_br_notes_' + (slot || 'default'), false);
+        // 云回填：页签记忆（字符串值，服务端有则回填本地，不覆盖本地已有）
+        (function () {
+            var tk = 'wbDrawerTab_' + slot;
+            wbStoreLoad('tab_' + (slot || 'default'), function (tv) {
+                if (!tv) return;
+                try {
+                    if (!localStorage.getItem(tk)) {
+                        localStorage.setItem(tk, String(tv));
+                        wbStoreSave('tab_' + (slot || 'default'), tv);
+                    }
+                } catch (e) {}
+            });
+        })();
         brEl('.wb-br-session').textContent = '会话: ' + br.session;
         brBindOnce();
         return br;
@@ -1207,12 +1269,12 @@ function _dlgPrompt(msg, val){
                 var pre = document.getElementById(a.dataset.brsrcid);
                 var raw = pre ? decodeURIComponent(pre.dataset.rawsrc || '') : '';
                 if (!raw) { brToast('无源码可复制'); return; }
-                var done = function () { brToast('✅ 已复制 ' + raw.length + ' 字符到剪贴板'); a.textContent = '✅ 已复制'; setTimeout(function () { a.textContent = '📋 复制源码'; }, 2000); };
+                var done = function () { brToast('✅ 已复制 ' + raw.length + ' 字符到剪贴板'); a.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> 已复制'; setTimeout(function () { a.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg> 复制源码'; }, 2000); };
                 if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(raw).then(done, function () {
                     var ta = document.createElement('textarea'); ta.value = raw; document.body.appendChild(ta); ta.select();
                     var _ok2 = false; try { _ok2 = document.execCommand('copy'); } catch (e) {}
                     document.body.removeChild(ta);
-                    if (_ok2) done(); else { brToast('⚠️ 复制失败，请手动选择文本复制'); a.textContent = '📋 复制源码'; }
+                    if (_ok2) done(); else { brToast('⚠️ 复制失败，请手动选择文本复制'); a.innerHTML = '<svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg> 复制源码'; }
                 });
                 else { var ta = document.createElement('textarea'); ta.value = raw; document.body.appendChild(ta); ta.select(); var _ok3 = false; try { _ok3 = document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); if (_ok3) done(); else brToast('⚠️ 复制失败，请手动选择文本复制'); }
             }
@@ -1347,7 +1409,7 @@ function _dlgPrompt(msg, val){
             var t = ((r.html || '') + '\n\n【正文摘要】\n' + (r.title || '')).replace(/</g, '&lt;');
             var srcId = 'wb-src-' + Date.now();
             brArchRender('<b style="color:#dfe9ff">&lt;/&gt; 页面源码 · ' + ((r.url || br.url || '').replace(/</g, '&lt;')) + '</b>　' +
-                '<a href="#" data-brarchact="copysrc" data-brsrcid="' + srcId + '" style="color:#6ea8ff">📋 复制源码</a>　' +
+                '<a href="#" data-brarchact="copysrc" data-brsrcid="' + srcId + '" style="color:#6ea8ff"><svg class="wb-line-ico" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg> 复制源码</a>　' +
                 '<a href="#" data-brarchact="close" style="color:#6b7686">收起</a><hr style="border-color:#2a313d"><pre id="' + srcId + '" data-rawsrc="' + encodeURIComponent(r.html || '') + '" style="white-space:pre-wrap;color:#9fb2c9;font-size:11px;max-height:340px;overflow:auto">' + t + '</pre>');
             brToast('已显示源码（约 ' + (encodeURIComponent(r.html || '').length / 1024).toFixed(1) + ' KB）');
         }, function () { brToast('请求失败'); });
@@ -1374,6 +1436,7 @@ function _dlgPrompt(msg, val){
                 notes.unshift({ url: url, title: title, brief: text.slice(0, 160), t: Date.now() });
                 if (notes.length > 200) notes = notes.slice(0, 200);
                 localStorage.setItem(ns, JSON.stringify(notes));
+                wbStoreSave('notes_' + (curSlot || hostBox.dataset.wbSlot || 'default'), notes);   // 云同步
             } catch (e) {}
             var msg = '请分析这个网页：\n【网址】' + url + (title ? '\n【标题】' + title : '') + '\n【正文摘要】\n' + text;
             // 人机协作：若抽屉处于「标记模式」，附带最后标记的点位与备注，AI 就知道“人说的是哪里”
@@ -1491,13 +1554,18 @@ function _dlgPrompt(msg, val){
                     stageEl().appendChild(s.frag);
                     layers.forEach(applyLayerStyle);
                     drawSelOverlay();
+                    showOnlyActive();   // 去图层化：恢复后强制单图显示
                     applyView(); updateStatus();
                     syncEmptyHint(); renderLayers();
                 }
             }
         }
-        drawer.querySelectorAll('.wb-tab[data-wbtab]').forEach(function (b) {
-            b.addEventListener('click', function () {
+        // 事件委托：动态注入的页签（如 👥团队/📊数据）也能触发切页
+        var _tabsBar = drawer.querySelector('.wb-drawer-tabs');
+        if (_tabsBar) _tabsBar.addEventListener('click', function (e) {
+            var b = e.target.closest('.wb-tab[data-wbtab]');
+            if (!b || !drawer.contains(b)) return;
+            {
                 var t = b.dataset.wbtab;
                 if (t === curTab) return;
                 deactivateTab(curTab);
@@ -1508,6 +1576,7 @@ function _dlgPrompt(msg, val){
                 try {
                     saveState();   // 抽屉展开状态即持久化（_open），重启后可恢复
                     localStorage.setItem('wbDrawerTab_' + (hostBox.dataset.wbSlot || curSlot || 'default'), t);   // 页签记忆：重启后恢复上次页签
+                    wbStoreSave('tab_' + (hostBox.dataset.wbSlot || curSlot || 'default'), t);   // 云同步
                 } catch (e) {}
                 if (t === 'image') setTimeout(fitView, 50);
                 if (t === 'browser') { brActivate(); }
@@ -1535,7 +1604,7 @@ function _dlgPrompt(msg, val){
                 if (t === 'video') {
                     wbVideoEnsure();
                 }
-            });
+        }
         });
         drawer.querySelector('.wb-close').addEventListener('click', function () { toggleDrawer(false); });
         drawer.querySelector('.wb-flip').addEventListener('click', function () { flipDrawerSide(); });
@@ -1553,13 +1622,46 @@ function _dlgPrompt(msg, val){
         drawer.querySelectorAll('.wb-img-toolbar [data-act]').forEach(function (b) {
             b.addEventListener('click', function () { doAct(b.dataset.act); });
         });
-        // 底部 tabs
-        drawer.querySelectorAll('.wb-img-bottom-tabs button').forEach(function (b) {
+        // 底部：单开关 展开/收起 历史记录 + 图片/视频切换
+        var _botOpen = false, _botSrc = 'image';
+        var _botSwitch = drawer.querySelector('.wb-bot-switch');
+        var _gBox2 = drawer.querySelector('[data-wbbotbody="gallery"]');
+        var _toggleBtn = drawer.querySelector('#wbbotToggle');
+        function _applyBotVis() {
+            if (_botOpen) {
+                _gBox2.style.display = 'flex';
+                if (_botSwitch) _botSwitch.style.display = 'flex';
+                if (_toggleBtn) _toggleBtn.classList.add('active');
+                try { renderGalleryTab(); } catch (e) {}
+            } else {
+                _gBox2.style.display = 'none';
+                if (_botSwitch) _botSwitch.style.display = 'none';
+                if (_toggleBtn) _toggleBtn.classList.remove('active');
+            }
+        }
+        if (_toggleBtn) _toggleBtn.addEventListener('click', function () { _botOpen = !_botOpen; _applyBotVis(); });
+        if (_botSwitch) _botSwitch.querySelectorAll('[data-wbsrc]').forEach(function (b) {
             b.addEventListener('click', function () {
-                drawer.querySelectorAll('.wb-img-bottom-tabs button').forEach(function (x) { x.classList.toggle('active', x === b); });
-                drawer.querySelectorAll('[data-wbbotbody]').forEach(function (x) { x.style.display = x.dataset.wbbotbody === b.dataset.wbbot ? '' : 'none'; });
+                _botSrc = b.dataset.wbsrc;
+                _botSwitch.querySelectorAll('[data-wbsrc]').forEach(function (x) { x.classList.toggle('active', x === b); x.style.background = x === b ? '#2f6fdb' : '#16233a'; });
+                try { renderGalleryTab(); } catch (e) {}
             });
         });
+        // 生成记录横排左右翻页箭头
+        var _gBox = drawer.querySelector('[data-wbbotbody="gallery"]');
+        var _gPrev = drawer.querySelector('#wbbotPrev'), _gNext = drawer.querySelector('#wbbotNext');
+        if (_gPrev && _gNext && _gBox) {
+            var _gScroll = function (dir) { _gBox.scrollBy({ left: dir * Math.max(240, _gBox.clientWidth * 0.8), behavior: 'smooth' }); };
+            _gPrev.addEventListener('click', function () { _gScroll(-1); });
+            _gNext.addEventListener('click', function () { _gScroll(1); });
+            var _gArrowUpd = function () {
+                var hidden = _gBox.style.display === 'none';
+                _gPrev.style.display = _gNext.style.display = hidden ? 'none' : '';
+            };
+            new MutationObserver(_gArrowUpd).observe(_gBox, { attributes: true, attributeFilter: ['style'] });
+            _gArrowUpd();
+        }
+        // 默认收起历史记录（点开关才展开）
         bindStageEvents();
         bindMinimap();
         bindDrag();
@@ -1606,6 +1708,147 @@ function _dlgPrompt(msg, val){
         else if (act === 'redo') { jumpHistory(histIndex + 1); }
         else if (act === 'export') { exportPNG(); }
         else if (act === 'fit') { fitView(); }
+        else if (act === 'gallery') { openWbGallery(); }
+    }
+
+    // ---------- 🗂 生成记录画廊（序列化查看 data/workbench/ 全部产物） ----------
+    var _wbGalleryItems = [], _wbGalleryIdx = 0;
+    function _wbThumbUrl(url) {
+        // 静态图走服务端缩略图接口（320px 缓存），视频和异常路径回退原图
+        try {
+            if (/\/data\/workbench\/([^\/?#]+)/.test(url)) {
+                return '/api/workbench/thumb?f=' + encodeURIComponent(decodeURIComponent(RegExp.$1));
+            }
+        } catch (e) {}
+        return url;
+    }
+    var _wbPreloadCache = {};
+    function _wbPreload(url) {
+        if (_wbPreloadCache[url]) return;
+        _wbPreloadCache[url] = true;
+        var im = new Image(); im.src = url;
+    }
+    function _wbTimeFmt(ts) {
+        var d = new Date(ts * 1000), p = function (n) { return (n < 10 ? '0' : '') + n; };
+        return (d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    function _wbGalleryLayerFromUrl(url, name, video) {
+        if (video) {
+            // 视频：直接塞进底部图片条用 <video> 展示（画布只支持静态图）
+            var box2 = drawer.querySelector('[data-wbbotbody="layers"]');
+            var v = document.createElement('video');
+            v.src = url; v.controls = true; v.muted = true; v.loop = true;
+            v.style.maxHeight = '160px'; v.style.maxWidth = '260px'; v.style.borderRadius = '8px';
+            v.title = name;
+            box2.appendChild(v);
+            showOnlyActive();
+            toast('视频已加入图片条：' + name);
+            return;
+        }
+        fetch(url).then(function (r) { return r.blob(); }).then(function (b) { addBlobAsLayer(b, name); toast('已载入画布：' + name); });
+    }
+    function openWbGallery(startIdx) {
+        var old = document.getElementById('wbGalleryOverlay');
+        if (old) old.remove();
+        var ov = document.createElement('div');
+        ov.id = 'wbGalleryOverlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,8,14,.92);display:flex;flex-direction:column;align-items:center;justify-content:center';
+        ov.innerHTML =
+            '<div style="position:absolute;top:12px;right:16px;color:#cfe;cursor:pointer;font-size:22px" id="wbgClose">✕</div>' +
+            '<div style="position:absolute;top:14px;left:16px;color:#9ab;font-size:13px" id="wbgInfo"></div>' +
+            '<div style="max-width:86vw;max-height:74vh;display:flex;align-items:center;justify-content:center" id="wbgView"></div>' +
+            '<div style="display:flex;gap:14px;margin-top:14px;align-items:center">' +
+            '<button id="wbgPrev" style="padding:8px 18px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe;cursor:pointer"><svg class="wb-br-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg> 上一张</button>' +
+            '<button id="wbgLoad" style="padding:8px 18px;border-radius:8px;border:1px solid #2a3b55;background:#1d3a2a;color:#cfe;cursor:pointer">⤵ 载入工作台</button>' +
+            '<button id="wbgNext" style="padding:8px 18px;border-radius:8px;border:1px solid #2a3b55;background:#16233a;color:#cfe;cursor:pointer">下一张 <svg class="wb-br-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>' +
+            '</div>' +
+            '<div id="wbgStrip" style="display:flex;gap:6px;margin-top:14px;max-width:90vw;overflow-x:auto;padding:6px"></div>';
+        document.body.appendChild(ov);
+        function show(i) {
+            if (!_wbGalleryItems.length) return;
+            _wbGalleryIdx = (i + _wbGalleryItems.length) % _wbGalleryItems.length;
+            var it = _wbGalleryItems[_wbGalleryIdx];
+            ov.querySelector('#wbgInfo').textContent = it.name + ' · ' + _wbTimeFmt(it.ts) + ' · ' + (_wbGalleryIdx + 1) + '/' + _wbGalleryItems.length;
+            var view = ov.querySelector('#wbgView');
+            view.innerHTML = '<div style="color:#7d93b8;font-size:13px;padding:30px">大图加载中…</div>';
+            // 预取相邻两张原图，翻页/双击时秒开
+            [_wbGalleryIdx - 1, _wbGalleryIdx + 1].forEach(function (ni) {
+                var nit = _wbGalleryItems[(ni + _wbGalleryItems.length) % _wbGalleryItems.length];
+                if (nit && !nit.video) _wbPreload(nit.url);
+            });
+            if (it.video) {
+                var v = document.createElement('video');
+                v.src = it.url; v.controls = true; v.autoplay = true; v.loop = true;
+                v.style.cssText = 'max-width:86vw;max-height:72vh;border-radius:10px';
+                view.innerHTML = ''; view.appendChild(v);
+            } else {
+                var im = document.createElement('img');
+                im.style.cssText = 'max-width:86vw;max-height:72vh;border-radius:10px;object-fit:contain;display:none';
+                im.onload = function () { view.innerHTML = ''; view.appendChild(im); im.style.display = ''; };
+                im.onerror = function () { view.innerHTML = '<div style="color:#a77;font-size:13px">加载失败</div>'; };
+                im.src = it.url;
+                // 已缓存则立即显示（onload 也会触发，这里兜底）
+                if (im.complete && im.naturalWidth) { view.innerHTML = ''; im.style.display = ''; view.appendChild(im); }
+            }
+        }
+        ov.querySelector('#wbgClose').onclick = function () { ov.remove(); };
+        ov.querySelector('#wbgPrev').onclick = function () { show(_wbGalleryIdx - 1); };
+        ov.querySelector('#wbgNext').onclick = function () { show(_wbGalleryIdx + 1); };
+        ov.querySelector('#wbgLoad').onclick = function () {
+            var it = _wbGalleryItems[_wbGalleryIdx];
+            _wbGalleryLayerFromUrl(it.url, it.name, it.video);
+        };
+        ov.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowLeft') show(_wbGalleryIdx - 1);
+            else if (e.key === 'ArrowRight') show(_wbGalleryIdx + 1);
+            else if (e.key === 'Escape') ov.remove();
+        });
+        ov.tabIndex = 0; ov.focus();
+        // 底部缩略图条
+        var strip = ov.querySelector('#wbgStrip');
+        _wbGalleryItems.forEach(function (it, i) {
+            var th = document.createElement(it.video ? 'video' : 'img');
+            th.src = it.video ? it.url : _wbThumbUrl(it.url);
+            if (!it.video) { th.loading = 'lazy'; }
+            if (it.video) { th.muted = true; }
+            th.style.cssText = 'height:56px;border-radius:6px;cursor:pointer;border:2px solid ' + (i === _wbGalleryIdx ? '#4a9eff' : 'transparent');
+            th.title = it.name;
+            th.onclick = function () {
+                show(i);
+                Array.prototype.forEach.call(strip.children, function (c, j) { c.style.borderColor = j === i ? '#4a9eff' : 'transparent'; });
+            };
+            strip.appendChild(th);
+        });
+        show(typeof startIdx === 'number' ? startIdx : 0);
+    }
+    function renderGalleryTab() {
+        var box = drawer.querySelector('[data-wbbotbody="gallery"]');
+        if (!box) return;
+        box.innerHTML = '<span style="color:#7d93b8;font-size:12px">加载中…</span>';
+        var _wantSrc = (typeof _botSrc !== 'undefined') ? _botSrc : 'image';
+        fetch('/api/workbench/gallery').then(function (r) { return r.json(); }).then(function (j) {
+            box.innerHTML = '';
+            if (!j.ok) { box.innerHTML = '<span style="color:#7d93b8;font-size:12px">暂无生成记录</span>'; return; }
+            var items = j.items.filter(function (it) { return _wantSrc === 'video' ? it.video : !it.video; });
+            if (!items.length) { box.innerHTML = '<span style="color:#7d93b8;font-size:12px">暂无' + (_wantSrc === 'video' ? '视频' : '图片') + '生成记录</span>'; return; }
+            _wbGalleryItems = items;
+            items.forEach(function (it, i) {
+                var wrap = document.createElement('div');
+                wrap.style.cssText = 'position:relative;cursor:pointer;width:120px';
+                var el = document.createElement(it.video ? 'video' : 'img');
+                el.src = it.video ? it.url : _wbThumbUrl(it.url);
+                if (!it.video) { el.loading = 'lazy'; }
+                if (it.video) { el.muted = true; }
+                el.style.cssText = 'width:120px;height:68px;object-fit:cover;border-radius:8px;border:1px solid #2a3b55';
+                var cap = document.createElement('div');
+                cap.textContent = it.name.replace(/\.[a-z]+$/i, '') + ' · ' + _wbTimeFmt(it.ts);
+                cap.style.cssText = 'color:#9ab;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px';
+                wrap.appendChild(el); wrap.appendChild(cap);
+                wrap.title = '点击载入上方大图显示';
+                wrap.onclick = function () { _wbGalleryLayerFromUrl(it.url, it.name, it.video); };
+                box.appendChild(wrap);
+            });
+        }).catch(function () { box.innerHTML = '<span style="color:#a77;font-size:12px">画廊加载失败</span>'; });
     }
 
     function pickFiles() {
@@ -1635,8 +1878,10 @@ function _dlgPrompt(msg, val){
             activeLayerId = layer.id;
             c.style.left = layer.x + 'px'; c.style.top = layer.y + 'px';
             stageEl().appendChild(c);
-            drawer.querySelector('.wb-img-empty').style.display = 'none';
+            var _emptyHint = drawer.querySelector('[data-wbwork="image"] .wb-img-empty'); if (_emptyHint) _emptyHint.style.display = 'none';
             applyLayerStyle(layer);
+            // 去图层化：新图自动成为当前显示，旧图全部隐藏归档到历史
+            showOnlyActive();
             syncEmptyHint();
             renderLayers(); pushHistory('导入 ' + layer.name); fitView();
         };
@@ -1663,35 +1908,88 @@ function _dlgPrompt(msg, val){
         l.canvas.style.pointerEvents = l.locked ? 'none' : 'auto';
     }
 
+    // v5.9 去图层化：底部列表改为「历史图片缩略图」，点击切换当前显示的大图，仅显示激活图片
     function renderLayers() {
         var box = drawer.querySelector('[data-wbbotbody="layers"]');
+        if (!box) return;
         if (typeof updateMinimap === 'function') setTimeout(updateMinimap, 0);
         box.innerHTML = '';
+        // 无图时给空提示
+        if (!layers.length) {
+            var hint = document.createElement('div');
+            hint.style.cssText = 'color:#5f7494;font-size:12px;align-self:center;padding:0 8px;white-space:nowrap';
+            hint.textContent = '暂无图片，AI 出图或导入后显示在这里';
+            box.appendChild(hint);
+            return;
+        }
+        // 若激活图已被删除，回落到最后一张
+        if (!activeLayer() ) activeLayerId = layers[layers.length - 1].id;
         for (var i = layers.length - 1; i >= 0; i--) {
             (function (l) {
-                var row = document.createElement('div');
-                row.className = 'wb-layer-row' + (l.id === activeLayerId ? ' active' : '');
-                row.innerHTML =
-                    '<button class="wb-eye">' + (l.visible ? '👁' : '–') + '</button>' +
-                    '<span class="wb-layer-name">' + l.name + (l.ai ? ' <span class="wb-layer-badge">AI</span>' : '') + '</span>' +
-                    '<input type="range" min="0" max="100" value="' + Math.round(l.opacity * 100) + '" title="不透明度">' +
-                    '<button class="wb-lock">' + (l.locked ? '🔒' : '🔓') + '</button>';
-                row.addEventListener('click', function (e) {
-                    if (e.target.type === 'range' || e.target.classList.contains('wb-eye') || e.target.classList.contains('wb-lock')) return;
-                    activeLayerId = l.id; renderLayers();
+                var cell = document.createElement('div');
+                cell.className = 'wb-layer-row' + (l.id === activeLayerId ? ' active' : '');
+                cell.title = l.name + (l.id === activeLayerId ? '（当前显示）' : '（点击切换显示）');
+                cell.style.cssText = 'position:relative;flex:none;width:72px;height:72px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid ' +
+                    (l.id === activeLayerId ? '#4a9eff' : 'transparent') + ';background:#0d1219';
+                var th = document.createElement('canvas');
+                th.width = 72; th.height = 72;
+                var tc = th.getContext('2d');
+                var s = Math.min(72 / l.canvas.width, 72 / l.canvas.height);
+                tc.drawImage(l.canvas, (72 - l.canvas.width * s) / 2, (72 - l.canvas.height * s) / 2, l.canvas.width * s, l.canvas.height * s);
+                th.style.cssText = 'width:100%;height:100%;display:block';
+                cell.appendChild(th);
+                // 删除按钮：默认隐藏，鼠标悬停缩略图时显示；点击需二次确认
+                var del = document.createElement('button');
+                del.textContent = '✕'; del.title = '删除这张图';
+                del.className = 'wb-layer-del';
+                del.style.cssText = 'position:absolute;top:2px;right:2px;width:20px;height:20px;line-height:18px;padding:0;border:none;border-radius:50%;background:rgba(220,40,40,.85);color:#fff;font-size:12px;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .12s;z-index:5';
+                cell.addEventListener('mouseenter', function () { del.style.opacity = '1'; del.style.visibility = 'visible'; });
+                cell.addEventListener('mouseleave', function () { del.style.opacity = '0'; del.style.visibility = 'hidden'; });
+                del.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var doDelete = function () {
+                        try { l.canvas.remove(); } catch (err) {}
+                        var idx = layers.indexOf(l);
+                        if (idx >= 0) layers.splice(idx, 1);
+                        if (activeLayerId === l.id) activeLayerId = null;
+                        syncEmptyHint();
+                        renderLayers(); fitView(); saveStateNow();   // 删除立即持久化，不走 1.2s 延迟
+                    };
+                    if (typeof _dlgConfirm === 'function') {
+                        _dlgConfirm('确定要删除「' + (l.name || '这张图') + '」吗？删除后不可恢复。').then(function (ok) { if (ok) doDelete(); });
+                    } else if (window.confirm('确定要删除「' + (l.name || '这张图') + '」吗？删除后不可恢复。')) {
+                        doDelete();
+                    }
                 });
-                row.querySelector('.wb-eye').addEventListener('click', function () { l.visible = !l.visible; applyLayerStyle(l); renderLayers(); pushHistory((l.visible ? '显示 ' : '隐藏 ') + l.name); });
-                row.querySelector('.wb-lock').addEventListener('click', function () { l.locked = !l.locked; applyLayerStyle(l); renderLayers(); });
-                row.querySelector('input').addEventListener('input', function (e) { l.opacity = e.target.value / 100; applyLayerStyle(l); });
-                row.querySelector('input').addEventListener('change', function () { pushHistory('不透明度 ' + l.name); });
-                box.appendChild(row);
+                cell.appendChild(del);
+                cell.addEventListener('click', function () {
+                    activeLayerId = l.id;
+                    showOnlyActive();
+                    renderLayers(); fitView(); saveState();
+                });
+                box.appendChild(cell);
             })(layers[i]);
         }
     }
 
+    // 只显示激活的那张图，其余隐藏（同一时间画布上只有一张当前图片）
+    function showOnlyActive() {
+        var act = activeLayer();
+        layers.forEach(function (l) {
+            l.visible = (act && l.id === act.id);
+            l.opacity = 1; l.locked = false;
+            l.x = 0; l.y = 0;   // 单图模式：全部对齐原点，不再层叠错位
+            applyLayerStyle(l);
+            if (l.canvas.isConnected) {
+                l.canvas.style.left = '0px'; l.canvas.style.top = '0px';
+            }
+        });
+        pushHistory('切换图片');
+    }
+
     // ---------- 画布交互（平移/缩放/框选） ----------
     function bindStageEvents() {
-        var wrap = stageWrap(), panning = false, sx = 0, sy = 0, ox = 0, oy = 0;
+        var wrap = stageWrap(), panning = false, sx = 0, sy = 0, ox = 0, oy = 0, panningJustMoved = false;
         var selStart = null;
 
         wrap.addEventListener('wheel', function (e) {
@@ -1705,13 +2003,14 @@ function _dlgPrompt(msg, val){
             view.y = my - (my - view.y) * k;
             view.scale = ns;
             applyView(); updateStatus();
+            saveState();   // 【持久化】缩放/平移后保存视角，关闭/重启后恢复
         }, { passive: false });
 
         wrap.addEventListener('mousedown', function (e) {
             if (e.button !== 0) return;
             var r = wrap.getBoundingClientRect();
             if (tool === 'pan' || e.target.closest('.wb-img-empty')) {
-                panning = true; sx = e.clientX; sy = e.clientY; ox = view.x; oy = view.y;
+                panning = true; sx = e.clientX; sy = e.clientY; ox = view.x; oy = view.y; panningJustMoved = true;
                 wrap.classList.add('wb-panning');
             } else if (tool === 'select') {
                 selStart = { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -1732,6 +2031,7 @@ function _dlgPrompt(msg, val){
         });
         document.addEventListener('mouseup', function () {
             panning = false; wrap.classList.remove('wb-panning');
+            if (panningJustMoved) { panningJustMoved = false; saveState(); }   // 【持久化】平移结束后保存视角
             if (selStart) {
                 selStart = null;
                 if (sel && (sel.w < 4 || sel.h < 4)) sel = null;   // 过滤点击误触
@@ -1757,6 +2057,21 @@ function _dlgPrompt(msg, val){
             Array.prototype.forEach.call(e.dataTransfer.files, function (f) {
                 if (/^image\//.test(f.type)) addBlobAsLayer(f, f.name);
             });
+        });
+        // 双击大图 → 最大化（打开生成记录画廊查看器，含全屏浏览/翻页）
+        wrap.addEventListener('dblclick', function (e) {
+            if (e.target && e.target.tagName === 'CANVAS') {
+                var act = activeLayer();
+                var idx = -1;
+                if (act) {
+                    var base = (act.name || '').replace(/\.[a-z]+$/i, '');
+                    _wbGalleryItems.forEach(function (it, i) {
+                        var nb = (it.name || '').replace(/\.[a-z]+$/i, '');
+                        if (idx < 0 && (it.name === act.name || nb === base)) idx = i;
+                    });
+                }
+                openWbGallery(idx >= 0 ? idx : 0);
+            }
         });
     }
 
@@ -1806,9 +2121,9 @@ function _dlgPrompt(msg, val){
         var pad = 8;
         var s = Math.min((W - pad * 2) / cw, (H - pad * 2) / ch);
         var ox = (W - cw * s) / 2 - minx * s, oy = (H - ch * s) / 2 - miny * s;
-        // 画合成缩略图
-        var comp = compositeCanvas();
-        if (comp) ctx.drawImage(comp, ox + minx * s, oy + miny * s, cw * s, ch * s);
+        // 画内容占位方块（不画图片内容，只显示宽高比例）+ 视口框
+        ctx.fillStyle = 'rgba(74,163,255,0.18)';
+        ctx.fillRect(ox, oy, cw * s, ch * s);
         // 视口框：屏幕(0,0)-(w,h) 映射回内容坐标再乘 s
         var w = wrap.clientWidth, h = wrap.clientHeight;
         var vx0 = (0 - view.x) / view.scale, vy0 = (0 - view.y) / view.scale;
@@ -1836,7 +2151,8 @@ function _dlgPrompt(msg, val){
         document.addEventListener('mouseup', function () { miniDragging = false; });
     }
     function updateStatus() {
-        drawer.querySelector('.wb-zoom').textContent = Math.round(view.scale * 100) + '%';
+        var z = drawer.querySelector('.wb-zoom');
+        if (z) z.textContent = Math.round(view.scale * 100) + '%';
     }
 
     function fitView() {
@@ -2014,7 +2330,7 @@ function _dlgPrompt(msg, val){
         if (!wbTools || !wbTools.length) { box.innerHTML = '<div class="wb-hist-empty">工具未加载</div>'; return; }
         var hint = document.createElement('div');
         hint.className = 'wb-hist-empty';
-        hint.textContent = '作用于当前图层' + (sel ? '的框选区域' : '全图');
+        hint.textContent = '作用于当前图片' + (sel ? '的框选区域' : '全图');
         box.appendChild(hint);
         // 【2026-10-02 瘦身】核心工具平铺；演示滤镜收进「更多滤镜」折叠区（后端 ?all=1 才下发，此处按需二次拉取）
         function renderRows(list, container) {
@@ -2068,13 +2384,13 @@ function _dlgPrompt(msg, val){
     }
     function applyToolLocal(toolName, params) {
         var l = activeLayer();
-        if (!l) { toast('没有可用图层，先导入图片'); return; }
+        if (!l) { toast('还没有图片，先让 AI 出图或导入一张'); return; }
         var src;
         if (sel && sel.w > 2 && sel.h > 2) {
             var wx = (sel.x - view.x) / view.scale, wy = (sel.y - view.y) / view.scale;
             var ww = sel.w / view.scale, wh = sel.h / view.scale;
             src = layerAt(wx, wy, ww, wh);
-            if (!src) { toast('选区不在当前图层内'); return; }
+            if (!src) { toast('框选区域不在当前图片内'); return; }
         } else {
             src = l.canvas;
         }
@@ -2094,7 +2410,7 @@ function _dlgPrompt(msg, val){
                 l.canvas.parentNode.replaceChild(nc, l.canvas);
                 l.canvas = nc;
                 applyLayerStyle(l); pushHistory(toolName + (sel ? ' · 选区' : ''));
-                toast('✅ ' + toolName + ' 完成，已写入当前图层（可撤销）');
+                toast('✅ ' + toolName + ' 完成，已写入当前图片（历史列表可切回旧图）');
             };
             img.onerror = function () { toast('结果图加载失败'); };
             img.src = j.resultUrl;
@@ -2123,7 +2439,7 @@ function _dlgPrompt(msg, val){
                     v.onloadedmetadata = function () {
                         if (v.videoWidth > 640) { v.style.width = '640px'; }
                         stageEl().appendChild(v);
-                        toast('🎬 AI 视频已回贴到工作台画布：' + (j.tool || 'video'));
+                        toast('🎬 AI 视频已更新到工作台：' + (j.tool || 'video'));
                         saveState();
                     };
                     v.onerror = function () { toast('AI 视频加载失败：' + j.url); };
@@ -2136,7 +2452,7 @@ function _dlgPrompt(msg, val){
                     c.getContext('2d').drawImage(img, 0, 0);
                     c.toBlob(function (blob) {
                         if (blob) addBlobAsLayer(blob, 'AI·' + (j.tool || 'result'));
-                        toast('🤖 AI 工具结果已加入新图层：' + (j.tool || ''));
+                        toast('🤖 AI 图片已更新到工作台：' + (j.tool || ''));
                     }, 'image/png');
                 };
                 img.src = j.url;
@@ -2203,7 +2519,8 @@ function _dlgPrompt(msg, val){
                         if (--pending === 0) {
                             layers = restored; activeLayerId = j.state.activeLayerId || (layers[layers.length - 1] && layers[layers.length - 1].id);
                             layers.forEach(applyLayerStyle);
-                            renderLayers(); renderHistory();
+                            showOnlyActive();   // 去图层化：恢复后强制单图显示
+                            renderLayers();
                             if (j.state.view) { view = j.state.view; applyView(); updateStatus(); }
                             toast('📂 已恢复上次工作台状态');
                             if (cb) cb();
@@ -2426,7 +2743,14 @@ function _dlgPrompt(msg, val){
             var _lastTab = localStorage.getItem('wbDrawerTab_' + (newSlot || curSlot || 'default'));
             if (_lastTab && _lastTab !== 'browser') {
                 var _ltb = drawer.querySelector('.wb-tab[data-wbtab="' + _lastTab + '"]');
-                if (_ltb) { drawer.querySelectorAll('.wb-tab').forEach(function (x) { x.classList.toggle('active', x === _ltb); }); drawer.querySelectorAll('.wb-workbench').forEach(function (w) { w.classList.toggle('active', w.dataset.wbwork === _lastTab); }); }
+                if (_ltb) {
+                    drawer.querySelectorAll('.wb-tab').forEach(function (x) { x.classList.toggle('active', x === _ltb); });
+                    drawer.querySelectorAll('.wb-workbench').forEach(function (w) { w.classList.toggle('active', w.dataset.wbwork === _lastTab); });
+                    // 【修复：点页签没反应】样式类恢复但 curTab 仍是初始值 'browser'，
+                    // 用户随后点击该页签会被 t === curTab 早退吞掉（表现为点击无任何反应）。
+                    // 此处必须同步 curTab，与视觉激活态一致。
+                    curTab = _lastTab;
+                }
             }
         } catch (err) {}
         var slotChanged = NS.workbenchSlot && NS.workbenchSlot !== newSlot;
@@ -2564,6 +2888,14 @@ function _dlgPrompt(msg, val){
                         }
                     } catch (e) {}
                 }
+                // 【修复：重启恢复到引擎/视频页签时白屏】上面的模拟点击仅在「抽屉原本未展开」分支里执行；
+                // 抽屉已展开时 inst.open() 不触发、curTab 也不更新 → 点击被 t === curTab 吞掉。
+                // 这里补一刀：展开态下也确保页签记忆被真实点击一次（click 内部有 t === curTab 防抖，幂等安全）。
+                try {
+                    var _lt2 = localStorage.getItem('wbDrawerTab_' + slot);
+                    var _tb2 = _dw.querySelector('.wb-tab[data-wbtab="' + _lt2 + '"]');
+                    if (_lt2 && _tb2 && !_tb2.classList.contains('active')) setTimeout(function () { try { _tb2.click(); } catch (e) {} }, 120);
+                } catch (e) {}
                 return true;   // 实例就绪并已应用（或本就处于展开态）
             }
             if (box.dataset.wbRestored === '1') return { unresolved: 0 };   // 已落地，重扫时跳过

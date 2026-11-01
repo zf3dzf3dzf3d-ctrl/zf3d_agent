@@ -127,6 +127,23 @@ def _recover_one(entry):
         return False
 
 
+def _is_user_initiated(entry):
+    """判断一个中断 Turn 是否为"用户手动发起"（方案A护栏 2026-11）。
+    背景：重启自动续跑会把 AI 工具链派生的循环轮一并重投，派生轮执行
+    chat_manage review/create 等工具会再派生新对话窗，用户视角即
+    "重启后对话凭空变多"。判别依据：Agent 循环的派生轮 messages 末尾
+    必然是 tool（工具结果回传）或 assistant（带 tool_calls 续推）角色；
+    用户手动发起的轮 messages 末尾是 user 角色。识别不出（无 messages）
+    时保守按用户发起处理，维持原续跑能力。"""
+    try:
+        msgs = ((entry.get('body') or {}).get('_body') or {}).get('messages')
+        if not isinstance(msgs, list) or not msgs:
+            return True
+        return msgs[-1].get('role') == 'user'
+    except Exception:
+        return True
+
+
 def recover_on_boot():
     """服务器启动时调用（非阻塞）：延迟数秒后扫描并续跑全部中断任务。"""
     def _run():
@@ -144,6 +161,22 @@ def recover_on_boot():
                 for tid in stale:
                     cur.pop(tid, None)
                 _save(cur)
+        if not picked:
+            return
+        # ===== 方案A护栏：AI 工具链派生的循环轮不自动续跑 =====
+        # 派生轮重投后 AI 会调用 chat_manage 等工具再派生新对话窗，
+        # 造成"重启后对话凭空变多"。只续跑用户手动发起的轮。
+        derived = [tid for tid, e in picked.items() if not _is_user_initiated(e)]
+        if derived:
+            with _LOCK:
+                cur = _load()
+                for tid in derived:
+                    cur.pop(tid, None)
+                _save(cur)
+            for tid in derived:
+                picked.pop(tid, None)
+            print('[PoolResume] 跳过 %d 个 AI 派生轮（不自动续跑，防重启后对话凭空增多）'
+                  % len(derived))
         if not picked:
             return
         print('[PoolResume] 检测到 %d 个中断任务，开始自动续跑…' % len(picked))

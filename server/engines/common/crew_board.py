@@ -107,6 +107,31 @@ def _recover_timeout(board):
     return bool(board['_stale_claimed'])
 
 
+# ---------- C6 安全加固（区域3大脑区·开工必审项）----------
+# 【2026-11-03 C6】project_root 白名单校验：project_root 来自前端 body/board 数据（可被伪造），
+# 原先 _slice_commit 只查 isdir 就在任意目录跑 git。现限定解析结果必须落在项目根内，
+# 允许环境变量 ZF_FS_EXTRA_ROOTS 追加根（分号分隔），口径对齐 mixin_project_fs.py L996 _fs_guard。
+def _proj_roots():
+    _proj = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
+    _roots = [_proj]
+    for _r in (os.environ.get('ZF_FS_EXTRA_ROOTS') or '').split(';'):
+        _r = _r.strip()
+        if _r:
+            _roots.append(os.path.realpath(_r))
+    return _roots
+
+
+def _root_allowed(root):
+    """project_root 白名单：解析后必须等于某允许根或位于其下。非允许路径返回 False（拒绝，不静默放行）。"""
+    if not root:
+        return True  # 空 root：_slice_commit 原逻辑本就 return None，不构成风险面
+    rp = os.path.realpath(str(root))
+    for _root in _proj_roots():
+        if rp == _root or rp.startswith(_root + os.sep):
+            return True
+    return False
+
+
 # ---------- 对外 API ----------
 
 def crew_create(body):
@@ -129,7 +154,13 @@ def crew_create(body):
     # 不再回退按服务进程 cwd 解析——避免 cwd 恰为项目根时命中意外同名文件、或前后端解析基准不一致。
     if not os.path.isabs(_md):
         _root = str(body.get('project_root') or '').strip()
-        _md = os.path.join(_root, _md) if _root else _md
+        if _root:
+            _md = os.path.join(_root, _md)
+        else:
+            # 【修复·相对路径回退锚定项目根】前端 /api/crew/create 未传 project_root 时，
+            # 相对路径按服务进程 cwd 解析会误判「计划书 md 不存在」。
+            # 与 _DATA_DIR 同源锚定：__file__ 上四级 = 项目根（不依赖 cwd）。
+            _md = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), _md)
     if not os.path.isfile(_md):
         return {'ok': False, 'error': '计划书 md 不存在（task_md=%s）：请核对【策划案路径：…】是否真实落盘，伪造/失效路径不得开工。' % task_md}
     try:
@@ -138,6 +169,10 @@ def crew_create(body):
                 return {'ok': False, 'error': '计划书 md 是空文件（task_md=%s）：请让策划师补全内容后再定稿开工。' % task_md}
     except OSError as _e:
         return {'ok': False, 'error': '计划书 md 无法读取（task_md=%s）：%s' % (task_md, _e)}
+    # 【2026-11-03 C6 安全加固】project_root 白名单校验（源头堵）：防伪造 root 让 git 在任意目录执行
+    _pr = str(body.get('project_root') or '').strip()
+    if _pr and not _root_allowed(_pr):
+        return {'ok': False, 'error': 'project_root 越出允许范围（项目根及 ZF_FS_EXTRA_ROOTS），拒绝创建: ' + _pr}
     with _LOCK:
         if _load(crew_id) is not None:
             return {'ok': False, 'error': 'crew_id 已存在: ' + crew_id}
@@ -342,6 +377,9 @@ def _slice_commit(board, slice_obj, window_id):
         root = board.get('project_root') or ''
         if not root or not os.path.isdir(root):
             return None
+        # 【2026-11-03 C6 安全加固】消费点兜底：旧黑板 board 数据里的 project_root 也必须过白名单（存量数据防伪造）
+        if not _root_allowed(root):
+            return None  # 拒绝在越界目录跑 git，best-effort 静默跳过与原异常路径一致
         files = [f for f in (slice_obj.get('files') or []) if os.path.exists(os.path.join(root, f))]
         if not files:
             return None

@@ -55,6 +55,12 @@ def record_task(ctx, body, threshold=3):
     ct = None
     try:
         ct = _ct()
+        # 方案A：reload 确保拿到 capability_tree 最新的 _render_emerge 落盘函数
+        # （server 进程可能缓存旧版模块，不 reload 则新建的辅助函数不可见）
+        try:
+            importlib.reload(ct)
+        except Exception:
+            pass
         ct._init(ctx)
         c = ct._conn(ctx)
         try:
@@ -74,8 +80,11 @@ def record_task(ctx, body, threshold=3):
             _set_setting(c, 'emerge_task_count', 0)
 
             # ③ 解析归属 subject
-            st = (body.get('subject_type') or 'project')
-            sid = (body.get('subject_id') or body.get('_chat_id') or '')
+            # 方案A：统一归到一棵全局涌现树，不再按对话 chat_id 分树
+            # （旧行为：每个对话各建一棵 cb-xxx 能力树，候选与画布 project.tree.json 割裂，
+            #  画布永远看不到候选 → 用户体感"科技树不更新"）。
+            st = 'project'
+            sid = '_emergence'
 
             # ④ 找根节点（depth=0 主干）；没有则建一个 project 种子主干
             root = c.execute(
@@ -84,7 +93,7 @@ def record_task(ctx, body, threshold=3):
                 'ORDER BY id LIMIT 1', (st, sid)).fetchone()
             t = time.time()
             if not root:
-                rtext = (sid or '项目') + '能力树'
+                rtext = '涌现能力总树' if sid == '_emergence' else (sid or '项目') + '能力树'
                 cur = c.execute(
                     'INSERT INTO capability(subject_type,subject_id,parent_id,text,path,depth,'
                     'clarity,status,icon,kind,binds,created_at,updated_at)'
@@ -125,6 +134,11 @@ def record_task(ctx, body, threshold=3):
             pending = c.execute(
                 'SELECT COUNT(*) n FROM emergence_event WHERE kind=\'emerge\' AND notified=0'
             ).fetchone()['n']
+            # 方案A：建候选后立即落盘全局涌现树 → 画布经 liveTick(2s) 自动长出候选球
+            try:
+                ct._render_emerge(c, ctx)
+            except Exception:
+                pass
             return int(pending)
         finally:
             try:

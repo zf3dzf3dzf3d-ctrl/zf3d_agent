@@ -116,12 +116,10 @@
         if (moved) {
           var fx = note.x, fy = note.y;
           note.x = nx; note.y = ny;
-          // 【v7】纯位置磁吸：未吸附→尝试吸附标题栏；已吸附→永不脱离（dx/dy 已随拖动更新）
-          if (!note.attach) attachNearest(note);
-          applyQnState(note); // 刷新吸附视觉：拖离后清除高亮边框/pin 图标残留
+          // 【v7.4】吸附功能已移除：随手标题拖到任意位置即停，不再吸附对话框
+          applyQnState(note);
           saveAll();
-    
-          // to 取 note.x/y（attachNearest 可能已把坐标改写为真实吸附落点），保证撤销回放坐标与实际落点一致
+
           recordQn({ type: 'qn-note-move', label: '移动随手标题', id: note.id, from: { x: fx, y: fy }, to: { x: note.x, y: note.y } });
           ev.stopPropagation(); e.preventDefault();
         }
@@ -134,7 +132,6 @@
     note._el = el;
     // 【v7】右键菜单已彻底移除（与对话框右键冲突）；颜色走编辑态、列表走 Shift+L
     applyQnState(note);
-    snapToChat(note); // 吸附态初始对齐，防首帧闪旧位置
     return el;
   }
 
@@ -206,122 +203,14 @@
     if (!note._el) return;
     QN_COLORS.forEach(function (c) { if (c.key) note._el.classList.remove('qn-c-' + c.key); });
     if (note.color) note._el.classList.add('qn-c-' + note.color);
-    var attached = !!(note.attach && qnChatEl(note.attach.chatId));
-    note._el.classList.toggle('qn-attached', attached);
-    // 📌 指示符（吸附态）
+    // 【v7.4】吸附功能已移除：清掉吸附视觉残留（高亮边框/📌），并顺带清掉历史 attach 数据
+    if (note.attach) { note.attach = null; }
+    note._el.classList.remove('qn-attached');
     var pin = note._el.querySelector('.qn-pin');
-    if (!pin) {
-      pin = document.createElement('span');
-      pin.className = 'qn-pin'; pin.textContent = '📌';
-      var icon = note._el.querySelector('.qn-icon');
-      if (icon && icon.parentNode) icon.parentNode.insertBefore(pin, icon.nextSibling);
-      else note._el.insertBefore(pin, note._el.firstChild);
-    }
+    if (pin && pin.parentNode) pin.parentNode.removeChild(pin);
   }
 
-  // 吸附态初始对齐：render 时立即摆到位，消除首帧闪跳
-  function snapToChat(note) {
-    if (!note.attach || !note._el) return;
-    var c = qnChatEl(note.attach.chatId);
-    if (!c || !document.body.contains(c)) return;
-    // 【v7.2】最小化（display:none）时坐标为 0，跳过对齐防闪到左上角
-    if (!c.offsetParent && c.getClientRects().length === 0) return;
-    note.x = Math.round(c.offsetLeft + note.attach.dx);
-    note.y = Math.round(c.offsetTop + note.attach.dy);
-    note._el.style.left = note.x + 'px';
-    note._el.style.top = note.y + 'px';
-  }
-
-  // 跟随循环：每帧读对话框坐标，零动画零延迟；最小化状态也照常跟随。
-  // 门控优化：无吸附便签时循环自停，attach 时再唤醒，避免 rAF 空转
-  var _qnRafRunning = false;
-  function ensureFollowLoop() {
-    if (_qnRafRunning) return;
-    _qnRafRunning = true;
-    requestAnimationFrame(followTick);
-  }
-  function hasAttached() {
-    for (var i = 0; i < _notes.length; i++) { if (_notes[i].attach) return true; }
-    return false;
-  }
-  function followTick() {
-    for (var i = 0; i < _notes.length; i++) {
-      var n = _notes[i];
-      if (!n.attach || !n._el) continue;
-      var c = qnChatEl(n.attach.chatId);
-      if (!c || !document.body.contains(c)) {
-        // 【v7.1】启动保护：页面加载后 5 秒内不随删（防异步渲染未挂载误删），只跳过等待
-        if (!followTick._bootSafe) followTick._bootSafe = Date.now() + 5000;
-        if (Date.now() < followTick._bootSafe) { _cleanOrphans(0); continue; }
-        // 【v7】对话框已关闭/删除 → 便签直接随删（不入撤销栈，防与画布菜单记录打架）
-        try { if (n._el && n._el.parentNode) n._el.remove(); } catch (e) {}
-        window.__qnApplying = true; // 屏蔽 recordQn
-        var idx2 = _notes.indexOf(n);
-        if (idx2 >= 0) _notes.splice(idx2, 1);
-        window.__qnApplying = false;
-        saveAll(); i--; continue;
-      }
-      var px = Math.round(c.offsetLeft + n.attach.dx);
-      var py = Math.round(c.offsetTop + n.attach.dy);
-      // 【v7.2】对话框最小化时 display:none → offsetLeft/Top 归 0，若照搬会把便签瞬移到画布左上角"隐身"。
-      // 此处检测宿主不可见（display:none）则跳过本帧更新，便签停在最后已知位置；还原后自动恢复跟随。
-      if (!c.offsetParent && c.getClientRects().length === 0) continue;
-      if (px !== n.x || py !== n.y) {
-        n.x = px; n.y = py;
-        n._el.style.left = px + 'px';
-        n._el.style.top = py + 'px';
-      }
-    }
-    if (hasAttached()) requestAnimationFrame(followTick);
-    else _qnRafRunning = false;
-  }
-
-  // 【v7】纯位置吸附：便签中心落在对话框「标题栏矩形外扩 24px」内 → 吸附最近一个；未命中不吸附
-  function attachNearest(note) {
-    if (!note._el) return false;
-    var cx = note.x + (note._el.offsetWidth || 0) / 2;
-    var cy = note.y + (note._el.offsetHeight || 0) / 2;
-    var PAD = 24, best = null, bestD = Infinity;
-    hostEl().querySelectorAll('.chatbox').forEach(function (c) {
-      var h = c.querySelector('.chatbox-header, .chat-header, .chatbox-title');
-      if (!h) h = c; // 兜底：无标题元素时用对话框顶部区域
-      var hx = c.offsetLeft + h.offsetLeft, hy = c.offsetTop + h.offsetTop;
-      var hw = h.offsetWidth || c.offsetWidth, hh = h.offsetHeight || 40;
-      if (cx >= hx - PAD && cx <= hx + hw + PAD && cy >= hy - PAD && cy <= hy + hh + PAD) {
-        var d = (hx + hw / 2 - cx) * (hx + hw / 2 - cx) + (hy + hh / 2 - cy) * (hy + hh / 2 - cy);
-        if (d < bestD) { bestD = d; best = c; }
-      }
-    });
-    if (!best) return false;
-    // 【v7.3】落点：便签紧贴标题栏【上方】（间距 8px），水平夹在标题栏范围内，而不是吸进标题栏里
-    var nh = note._el.offsetHeight || 30;
-    var nw = note._el.offsetWidth || 60;
-    var hh2 = best.querySelector('.chatbox-header, .chat-header, .chatbox-title') || best;
-    var hx2 = best.offsetLeft + hh2.offsetLeft, hw2 = hh2.offsetWidth || best.offsetWidth;
-    var tx = Math.min(Math.max(note.x, hx2), hx2 + Math.max(hw2 - nw, 0));
-    var ty = best.offsetTop + hh2.offsetTop - nh - 8;
-    note.attach = {
-      chatId: best.dataset.chatId || (best.id || '').replace(/^chatbox-/, ''),
-      dx: tx - best.offsetLeft,
-      dy: ty - best.offsetTop
-    };
-    note.x = Math.round(tx); note.y = Math.round(ty);
-    // 水吸动画：贴上去时轻微弹性回弹，像水珠吸附；结束后移除过渡类，避免影响跟随循环
-    var elx = note._el;
-    elx.classList.remove('qn-snap-in'); void elx.offsetWidth; // 重触发动画
-    elx.classList.add('qn-snap-in');
-    elx.style.left = note.x + 'px';
-    elx.style.top = note.y + 'px';
-    clearTimeout(elx._snapT);
-    elx._snapT = setTimeout(function () { elx.classList.remove('qn-snap-in'); }, 460);
-    saveAll(); applyQnState(note); ensureFollowLoop();
-    return true;
-  }
-
-  function detach(note) {
-    // 【v7】只能吸附无法脱离：此函数保留供撤销回放等内部使用，正常拖动不再调用
-    note.attach = null; saveAll(); applyQnState(note);
-  }
+  // 【v7.4】吸附跟随/磁吸功能已整体移除：随手标题独立定位，拖到哪停哪。
 
   // ---- 便签列表面板 ----
   var _qnListEl = null;
@@ -346,10 +235,10 @@
       var dot = document.createElement('span'); dot.className = 'qnlp-dot';
       var cd = QN_COLORS.find(function (c) { return c.key === n.color; });
       if (cd && cd.bg) dot.style.background = cd.bg;
-      if (n.attach && qnChatEl(n.attach.chatId)) dot.style.boxShadow = '0 0 0 2px rgba(90,140,255,.6)';
+      if (n.attach && qnChatEl(n.attach.chatId)) {} // 【v7.4】吸附高亮已移除
       var tx = document.createElement('span'); tx.className = 'qnlp-text'; tx.textContent = n.text || '(空)';
       it.appendChild(dot); it.appendChild(tx);
-      it.title = (n.attach ? '📌 已吸附 · ' : '') + '点击定位';
+      it.title = '点击定位';
       it.onclick = function () {
         toggleQnList();
         if (!n._el) render(n);
@@ -465,7 +354,7 @@
     }
     var removed = false;
     for (var i = _notes.length - 1; i >= 0; i--) {
-      if (_notes[i].attach && !qnChatEl(_notes[i].attach.chatId)) {
+      if (false && _notes[i].attach && !qnChatEl(_notes[i].attach.chatId)) { // 【v7.4】吸附已移除，不再按吸附孤儿删便签
         try { if (_notes[i]._el && _notes[i]._el.parentNode) _notes[i]._el.remove(); } catch (e) {}
         _notes.splice(i, 1); removed = true;
       }
@@ -510,8 +399,7 @@
   window.addEventListener('user-settings-refreshed', function () {
     setTimeout(_safeRestoreAll, 50);
   });
-  // 二期：吸附跟随循环（rAF 读坐标，无连线无动画；无吸附便签时空闲自停）
-  ensureFollowLoop();
+  // 二期：吸附跟随循环已随吸附功能一并移除（v7.4）
   // 快捷键：Shift+L 打开便签列表
   document.addEventListener('keydown', function (e) {
     if (e.shiftKey && (e.key === 'L' || e.key === 'l') && !e.ctrlKey && !e.altKey) {

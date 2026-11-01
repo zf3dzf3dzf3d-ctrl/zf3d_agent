@@ -107,7 +107,20 @@ class MixinDb(MixinBase):
 
             if resource == 'nodes':
                 cur.execute('SELECT * FROM canvas_nodes ORDER BY z_index')
-                result = {'ok': True, 'data': [dict(r) for r in cur.fetchall()]}
+                # 【防重启复活 v2】带墓碑的节点（用户已关闭）不进恢复列表：
+                # 即使 revive 令牌使恢复流程落库成功，重启后 restoreSession 也拿不到该节点，
+                # 彻底切断「恢复一次→墓碑被拆→之后任意回写复活→重启铺屏」的复发链。
+                # 显式恢复（restoreLastClosed）直接用前端快照 getNode 读取，不依赖本列表。
+                _rows = [dict(r) for r in cur.fetchall()]
+                _dead = set()
+                try:
+                    cur.execute("SELECT key FROM kv_store WHERE key LIKE 'node_tombstone:%'")
+                    _dead = {r['key'][len('node_tombstone:'):] for r in cur.fetchall()}
+                except Exception:
+                    pass
+                if _dead:
+                    _rows = [r for r in _rows if r.get('id') not in _dead]
+                result = {'ok': True, 'data': _rows}
 
             elif resource == 'canvas' and len(parts) > 1 and parts[1] == 'view':
                 cur.execute('SELECT * FROM canvas_view WHERE id=1')

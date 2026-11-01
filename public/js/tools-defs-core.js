@@ -613,6 +613,48 @@ window.registerToolDefs({
         }
       }
     },
+    "pin_datasource": {
+      "type": "function",
+      "function": {
+        "name": "pin_datasource",
+        "description": "数据中心：把外站页面上的某个数值（股票价/余额/浏览量等）钉成终身数据卡片，复用浏览器登录态自动抓取。用户说「帮我盯着XX网站上的XX数字」时用本工具。先用 browser_control 打开页面找到目标数值的 CSS 选择器，再 op=add 钉取；op=list 查看已有卡片，op=refresh 立即抓值，op=delete 删除。数据卡片展示在工作台面板「数据」标签页。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": ["list", "add", "refresh", "delete"],
+              "description": "操作：list=列出卡片，add=新增钉取（需 title/url/selector），refresh=立即抓取（需 id），delete=删除（需 id）"
+            },
+            "project": {
+              "type": "string",
+              "description": "项目标识（默认 default，按项目隔离）"
+            },
+            "id": {
+              "type": "string",
+              "description": "卡片 id（refresh/delete 时必填，可从 list 获得）"
+            },
+            "title": {
+              "type": "string",
+              "description": "卡片名称（add 必填，如「贵州茅台-股价」）"
+            },
+            "url": {
+              "type": "string",
+              "description": "目标页面地址（add 必填，http/https）"
+            },
+            "selector": {
+              "type": "string",
+              "description": "目标数值的 CSS 选择器（add 必填，可用 browser_control snapshot 查得）"
+            },
+            "attr": {
+              "type": "string",
+              "description": "取值方式：text=文本（默认），html=HTML，或任意属性名（如 href/content）"
+            }
+          },
+          "required": ["op"]
+        }
+      }
+    },
     "read_shared_context": {
       "type": "function",
       "function": {

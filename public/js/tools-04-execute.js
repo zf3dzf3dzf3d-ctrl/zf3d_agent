@@ -700,6 +700,17 @@ Object.assign(Tools, {
                         max_depth: args.max_depth || 6,
                         _chat_id: executionChatId
                     }, '项目分析 ' + (args.action || 'analyze'));
+                case 'pin_datasource':
+                    return callToolApi('pin_datasource', {
+                        op: args.op || 'list',
+                        project: args.project || 'default',
+                        id: args.id || '',
+                        title: args.title || '',
+                        url: args.url || '',
+                        selector: args.selector || '',
+                        attr: args.attr || 'text',
+                        _chat_id: executionChatId
+                    }, '数据中心 ' + (args.op || 'list'));
                 case 'read_shared_context':
                     return callToolApi('read_shared_context', {
                         key: args.key || 'project_analysis',
@@ -751,3 +762,39 @@ Object.assign(Tools, {
             }
         },
 });
+
+// ===== E2 工具元数据统计：execute 外层包装，异步上报至 /api/tool-stats/report =====
+// 只包 async 工具的 Promise 分支代价大且 switch 同步/异步混合，此处统一在 execute 返回值上
+// 打补丁：Promise 则 await 后上报，同步结果立即上报；fire-and-forget，绝不阻塞/改变原返回。
+(function () {
+    if (typeof Tools === 'undefined' || !Tools.execute || Tools.execute.__statWrapped) return;
+    var _rawExecute = Tools.execute;
+    var _report = function (name, ok, ms) {
+        try {
+            fetch('/api/tool-stats/report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, ok: !!ok, ms: ms, ts: new Date().toISOString() })
+            }).catch(function () {});
+        } catch (e) { /* 统计失败静默 */ }
+    };
+    var _wrapResult = function (name, t0, result) {
+        var ms = Date.now() - t0;
+        if (result && typeof result.then === 'function') {
+            return result.then(function (r) { _report(name, !(r && r.success === false), ms); return r; },
+                               function (err) { _report(name, false, ms); throw err; });
+        }
+        _report(name, !(result && result.success === false), ms);
+        return result;
+    };
+    Tools.execute = function (name, args, context) {
+        var t0 = Date.now();
+        try {
+            return _wrapResult(name, t0, _rawExecute.call(this, name, args, context));
+        } catch (err) {
+            _report(name, false, Date.now() - t0);
+            throw err;
+        }
+    };
+    Tools.execute.__statWrapped = true;
+})();

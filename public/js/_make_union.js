@@ -1,3 +1,6 @@
+// ⚠️ 警告：此脚本依赖旧版 5.2.5 目录的 _missing.json，产物为历史用途。
+// 5.7.0 的 _union.json 已手工修正（未峰→朱峰，commit ff1f45ac）。
+// 直接重跑本脚本会用旧数据覆盖手工修正——重跑前必须先修掉 5.2.5 路径依赖并核对数据源！
 const fs = require('fs');
 const dir = 'F:/朱峰社区智能体无限_新版本/朱峰社区智能体无限_5.2.5/public/js';
 const miss = JSON.parse(fs.readFileSync(dir + '/_missing.json', 'utf8'));

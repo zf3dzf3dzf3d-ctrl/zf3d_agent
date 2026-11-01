@@ -1,43 +1,25 @@
 @echo off
-
-rem Öì·åÖÇÄÜÌåÎŞ??- Æô¶¯Æ÷£¨ÍĞÅÌ³£×¤ + ×ÀÃæ´°¿Ú??
-rem ËµÃ÷£ºÓÅÏÈÓÃ pythonw.exe£¨ÎŞ¿ØÖÆÌ¨£©£»Ã»??pythonw.exe Ê±ÓÃ
-
-rem       powershell Òş²Ø´°¿Ú·½Ê½??python.exe£¬±£Ö¤ÈÎºÎ»·¾³¶¼ÄÜÆô¶¯??
+rem æœ±å³°æ™ºèƒ½ä½“æ— é™ - å¯åŠ¨å™¨ï¼ˆæ‰˜ç›˜å¸¸é©»ï¼‰
+rem ä¼˜åŒ–ï¼šæœ‰ pythonw æ—¶ç›´æ¥ start å¯åŠ¨ï¼ˆæ— æ§åˆ¶å°ï¼‰ï¼Œå»æ‰å¤šä½™çš„ cmd /c åŒ…è£…å‡å°‘é»‘æ¡†é—ªç•™ï¼›
+rem æœ¬ bat è‡ªèº«çš„é»‘æ¡†å±äº cmd è§£é‡Šå™¨è¡Œä¸ºï¼ˆåŒå‡» .bat å¿…å¼€ conhostï¼‰ï¼Œ
+rem å½»åº•æ— é»‘æ¡†è¯·ç”¨ã€Œå¯åŠ¨æœ±å³°æ™ºèƒ½ä½“_æ— çª—å£.vbsã€ã€‚
 setlocal
-
 cd /d "%~dp0"
 
 if not exist "%~dp0python\pythonw.exe" (
-
     if not exist "%~dp0python\python.exe" (
-
-        echo [´íÎó] Î´ÕÒ??%~dp0python\python.exe£¬Çë¼ì²éÏîÄ¿ÄÚ Python Ä¿Â¼ÊÇ·ñÍêÕû??
+        echo [é”™è¯¯] æœªæ‰¾åˆ° python\python.exeï¼Œè¯·æ£€æŸ¥é¡¹ç›®å†… Python ç›®å½•æ˜¯å¦å®Œæ•´ã€‚
         pause
-
         exit /b 1
-
     )
-
+    rem æ—  pythonw æ—¶ç”¨ powershell éšè—çª—å£æ–¹å¼å¯åŠ¨ python.exe
     powershell -NoProfile -WindowStyle Hidden -Command "Start-Process -FilePath '%~dp0python\python.exe' -ArgumentList 'server\tray_server.py' -WorkingDirectory '%~dp0' -WindowStyle Hidden"
-
 ) else (
-
-    rem ÈÎÎñ¹ÜÀíÆ÷ÏÔÊ¾ÃûÓÅÏÈÓÃ¸ÄÃû¸±±¾¡¸Öì·åÖÇÄÜÌåÎŞÏŞ.exe¡¹£¨pythonw µÄ¸±±¾£©£¬
-
-    rem È±Ê§Ê±»ØÍËÔ­Éú pythonw.exe£¬±£Ö¤ÈÎºÎ»·¾³¶¼ÄÜÆô¶¯¡£
-
-    if exist "%~dp0python\Öì·åÖÇÄÜÌåÎŞÏŞ.exe" (
-
-        start "" /b "%~dp0python\Öì·åÖÇÄÜÌåÎŞÏŞ.exe" "%~dp0server\tray_server.py"
-
+    rem ä»»åŠ¡ç®¡ç†å™¨æ˜¾ç¤ºåä¼˜å…ˆç”¨æ”¹åå‰¯æœ¬ã€Œæœ±å³°æ™ºèƒ½ä½“æ— é™.exeã€ï¼ˆpythonw çš„å‰¯æœ¬ï¼‰ï¼Œç¼ºå¤±æ—¶å›é€€åŸç”Ÿ pythonw.exe
+    if exist "%~dp0python\æœ±å³°æ™ºèƒ½ä½“æ— é™.exe" (
+        start "" "%~dp0python\æœ±å³°æ™ºèƒ½ä½“æ— é™.exe" "%~dp0server\tray_server.py"
     ) else (
-
-        start "" /b "%~dp0python\pythonw.exe" "%~dp0server\tray_server.py"
-
+        start "" "%~dp0python\pythonw.exe" "%~dp0server\tray_server.py"
     )
-
 )
-
 endlocal
-

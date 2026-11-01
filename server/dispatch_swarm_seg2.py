@@ -73,28 +73,10 @@ def _run_subtask(batch_id, task_id, goal, context, model_name, track='auto', all
                            'temperature': 0.3, 'max_tokens': 16384,
                            'tools': tools}
                 # [抗网络抖动] 超时/连接中断/5xx/429 指数退避重试，绝不一次抖动就判死
-                _last_net_err = None
-                r = None
-                for _net_try in range(4):
-                    try:
-                        r = _rq.post(model['base'] + '/chat/completions',
-                                     json=payload,
-                                     headers={'Authorization': 'Bearer ' + model['key']},
-                                     timeout=TASK_TIMEOUT)
-                        if r.status_code in (429, 500, 502, 503, 504) and _net_try < 3:
-                            _last_net_err = RuntimeError('HTTP %s' % r.status_code)
-                            time.sleep(2 * (2 ** _net_try))
-                            continue
-                        break
-                    except (_rq.exceptions.Timeout, _rq.exceptions.ConnectionError,
-                            _rq.exceptions.ChunkedEncodingError) as _ne:
-                        _last_net_err = _ne
-                        if _net_try < 3:
-                            time.sleep(2 * (2 ** _net_try))
-                            continue
-                        raise
-                if _last_net_err is not None and r is None:
-                    raise _last_net_err
+                # 【2026-10-22 修复】zf relay 线路 URL 已含 ?model=xxx，不能再拼 /chat/completions（404）
+                _url = model['base'] + ('' if 'zf_models_relay' in model['base'] else '/chat/completions')
+                r = _post_chat(_url,
+                               payload, model['key'], TASK_TIMEOUT)
                 r.raise_for_status()
                 msg = r.json()['choices'][0]['message']
                 content = msg.get('content') or ''
@@ -307,8 +289,15 @@ def status(batch_id):
 def collect(batch_id, wait_sec=0):
     """回收结果。wait_sec>0 时最多等这么久直到批次完成。"""
     deadline = time.time() + max(0, wait_sec if wait_sec else 0)
-    # [2026-09-30] 应用户要求改为"不成功绝不返回"：无上限等待直到批次全部收口。
-    # 原逻辑 min(wait_sec, 600) 的 600 秒硬上限已移除——批次有任务没完成就一直挂起等待。
+    # [2026-09-30] 600s 硬上限已移除；wait_sec 由调用方实参决定。
+    # [2026-10-30 区域8盘点·全量核对] 精确正则 \.collect\( 全 server 实查：
+    # 共 7 处匹配 / 6 处真实调用，wait_sec 实参各不相同：
+    #   api_dispatch_post.py L152=600 / swarm_solve_ab.py L25=1200 /
+    #   swarm_solve_exam.py L49=600 / swarm_tools.py L104=调用方传参(默认0) /
+    #   swarm_pipeline.py L195=0(轮询) / swarm_pipeline.py L212=60(补跑)
+    # 注意：wait_sec=0 时 deadline=当前时间，L326 循环一次不进、立即返回（非无限等待）；
+    # 无限等待仅在调用方显式传大 wait_sec 时发生。批次级停滞另有 swarm_pipeline
+    # _STALL_LIMIT=600 兜底，子任务 LLM 每轮 HTTP 有 seg1 TASK_TIMEOUT=300 超时。
     with _COND:
         b = _BATCHES.get(batch_id)
         if not b:

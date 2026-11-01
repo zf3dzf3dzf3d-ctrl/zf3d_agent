@@ -169,8 +169,12 @@ class MixinChatPool(MixinBase):
                         superseded = bool(t is not None and turn_id)
                     else:
                         # 方案E：读取前冲刷已到期的挂起合并 chunk（避免流暂停时滞留）
+                        # 【2026-10-26 死锁修复】此处已持 slot.cond（普通 Lock 不可重入），
+                        # 调带锁的 flush_coalesce() 会同线程再抢同一把锁 → 自我死锁且
+                        # 握着槽位锁不放，worker _emit/cancel/submit 全部连锁挂死。
+                        # 必须调已持锁版本 flush_coalesce_locked()。
                         try:
-                            slot.flush_coalesce()
+                            slot.flush_coalesce_locked()
                         except Exception:
                             pass
                         batch = [e for e in slot.events if e['seq'] > last]

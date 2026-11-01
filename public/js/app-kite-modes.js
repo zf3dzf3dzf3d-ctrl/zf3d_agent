@@ -1800,6 +1800,9 @@
                 var nnow = performance.now();
                 if (self._accChars == null) { self._accChars = 0; self._accT = nnow; }
                 self._accChars += String(d.content).length;
+                /* 【每5秒 token 读数】累计字符到当前 5 秒窗口 */
+                if (self._tok5At == null || !self._tok5At) self._tok5At = nnow;
+                self._tok5Chars += String(d.content).length;
                 var adt = (nnow - self._accT) / 1000;
                 if (adt >= 0.25) {
                     var inst = self._accChars / adt;
@@ -2161,6 +2164,42 @@
                     /* 【风筝统计联动】把实测 token/s 速率暴露到全局（带时间戳），供风筝统计面板画 tok/s 速度曲线 */
                     window.__zfTokRate = { t: Date.now(), v: tps };
                 }
+                /* 【每5秒 token 读数·低调】舷窗下方小字：每满 5 秒结算一次该窗口的字符数→约 token 数。
+                   空闲超时后隐藏；结算后定格显示上个窗口的值，不打扰。 */
+                if (this._rateEl) {
+                    if (this._tok5Chars > 0 && this._tok5At) {
+                        /* 【修复①·短回答永不显示】原逻辑只在窗口满 5 秒时结算，
+                           多数回答不足 5 秒就结束了，第一窗口永远攒不满 → 读数从不出现。
+                           现补「流停滞即提前结算」：距最后一个 token ≥1.5s（与舷窗冻结同源判定）
+                           就按实际窗口时长折算出 tok/s。 */
+                        var stalled = this._lastTokAt && (t - this._lastTokAt) >= 1500;
+                        if (t - this._tok5At >= 5000 || stalled) {
+                            /* 窗口结束取「最后一个 token 时刻」而非当前帧，
+                               避免把结算前的空闲时间算进分母把速率拉低 */
+                            var tend = stalled ? this._lastTokAt : t;
+                            var win = Math.max(500, tend - this._tok5At);      /* 窗口实际毫秒数 */
+                            var tps = (this._tok5Chars / 2) / (win / 1000);   /* 字符/2≈token → 每秒 */
+                            this._tok5Shown = tps >= 100 ? Math.round(tps) : Math.round(tps * 10) / 10;
+                            this._tok5Chars = 0; this._tok5At = stalled ? 0 : t;
+                            if (stalled) this._tok5At = 0;   /* 流停后不再开新窗口，等下一轮 token */
+                            this._rateEl.textContent = '⌁ ' + this._tok5Shown + ' tok/s';
+                            this._rateEl.style.display = '';
+                            this._tok5HoldUntil = t + 6000;  /* 定格 6s：防结算同帧即被隐藏 */
+                        } else if (this._tok5Shown > 0 && this._rateEl.style.display === 'none') {
+                            this._rateEl.textContent = '⌁ ' + this._tok5Shown + ' tok/s';
+                            this._rateEl.style.display = '';
+                        }
+                    }
+                    /* 【修复②·显示即被抹】原条件 !recentTok 与结算条件在同一帧可同时成立
+                       （回答不足 5 秒结束时结算那帧 _lastTokAt 往往也已超时 5s），
+                       刚 display 立刻 hide，用户永远看不到。现用定格窗口保护。 */
+                    if (!recentTok && (!this._tok5HoldUntil || t >= this._tok5HoldUntil)
+                        && this._rateEl.style.display !== 'none') {
+                        this._rateEl.style.display = 'none';
+                        this._tok5Chars = 0; this._tok5At = 0; this._tok5Shown = 0;
+                        this._tok5HoldUntil = 0;
+                    }
+                }
             }
 
             this._renderScene(ctx);
@@ -2208,10 +2247,16 @@
                     '<div class="zfm-sp-porthole">' +
                       '<canvas class="zfm-sp-rain"></canvas>' +
                       '<div class="zfm-sp-vignette"></div>' +
-                    '</div>'; /* 空态文字已移至 body 级全屏层 #zfEmptyOverlay（屏幕正中心），舷窗回归纯装饰 */
+                    '</div>' +
+                    '<div class="zfm-sp-rate" style="display:none"></div>'; /* 空态文字已移至 body 级全屏层 #zfEmptyOverlay（屏幕正中心），舷窗回归纯装饰 */
                 host.appendChild(this.el);
                 this.cv = this.el.querySelector('.zfm-sp-rain');
                 this.ctx = this.cv.getContext('2d');
+                /* 【每5秒 token 读数】舷窗正下方的小字读数（低调样式，见 css .zfm-sp-rate） */
+                this._rateEl = this.el.querySelector('.zfm-sp-rate');
+                this._tok5Chars = 0;        /* 当前 5 秒窗口累计字符数 */
+                this._tok5Shown = 0;        /* 上一窗口定格值（显示用） */
+                this._tok5At = 0;           /* 当前窗口开始时间（perf.now） */
                 this.collectPool();
                 this.syncSize();
                 this.makeDraggable();
@@ -3294,6 +3339,9 @@
     function applyMode(mode) {
         if (MODES.indexOf(mode) < 0) mode = 'kite';
         curMode = mode;
+        /* 【需求：统计面板关闭后恢复原模式】切到非 kite 模式 = 明确离开统计临时态，清除记录；
+           kite 分支不清（打开统计面板路径会先记录 prevMode 再 applyMode('kite')） */
+        if (mode !== 'kite') window.__kiteSoloPrevMode = null;
         setModeStore(mode);
         /* 双写旧皮肤存储：让 app-kite.js 的 applySkin（init 时跑）与新菜单保持一致 */
         try { localStorage.setItem('zf3d-kite-skin', mode); } catch (e) {}
@@ -3479,7 +3527,11 @@
                     if (typeof window.__kiteOpenHeadPanel === 'function') {
                         /* 需求4：进入 solo —— 隐藏风筝本体（头/线/身体），只保留统计面板；
                            若当前非风筝模式先切 kite 让 DOM 存在，再打开面板并加 solo。 */
-                        if (typeof curMode !== 'undefined' && curMode !== 'kite') { try { applyMode('kite'); } catch (e4) {} }
+                        if (typeof curMode !== 'undefined' && curMode !== 'kite') {
+                            /* 记录统计打开前的原模式（如 none=全部关闭），关闭面板时恢复 */
+                            window.__kiteSoloPrevMode = curMode;
+                            try { applyMode('kite'); } catch (e4) {}
+                        }
                         window.__kiteOpenHeadPanel();
                         try { if (r) r.classList.add('kite-panel-solo'); } catch (e5) {}
                     } else {
@@ -3503,6 +3555,8 @@
                 sw.classList.remove('open');
                 return;
             }
+            /* 主动从菜单选模式 = 离开统计临时态，清除"打开统计前的原模式"记录 */
+            window.__kiteSoloPrevMode = null;
             applyMode(b.dataset.mode);
             sw.classList.remove('open');
         });

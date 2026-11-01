@@ -153,7 +153,9 @@ def _chat(model, messages, timeout=TASK_TIMEOUT, max_tokens=16384, temperature=0
                'temperature': temperature, 'max_tokens': max_tokens}
     for attempt in range(retry + 1):
         try:
-            r = _post_chat(model['base'] + '/chat/completions', payload,
+            # 【2026-10-22 修复】zf relay 线路 URL 已含 ?model=xxx，不能再拼 /chat/completions（404）
+            _url = model['base'] + ('' if 'zf_models_relay' in model['base'] else '/chat/completions')
+            r = _post_chat(_url, payload,
                            model['key'], timeout)
         except Exception:
             if attempt >= retry:

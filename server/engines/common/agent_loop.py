@@ -141,6 +141,26 @@ def _log(msg):
         pass
 
 
+def _fallback_log(event, ctx, detail='', model=''):
+    """【降级透明化 2026-10-28】兜底/降载命中点写结构化 jsonl 日志，纯观测不改变任何流程。
+    【W1 修复 2026-10-30】model 兜底顺序：显式参数 > ctx.model_cfg > payload.model（历史事件 model 全空，
+    因降级点 ctx['model_cfg'] 常缺字段，而真实模型名就在 payload 里）。
+    落盘: server/logs/fallback_events.jsonl  字段: ts/event/model/detail"""
+    try:
+        _mk = (ctx or {}).get('model_cfg') or {}
+        _pm = (ctx or {}).get('payload') or {}
+        _model = model or _mk.get('model') or _mk.get('name') or _pm.get('model') or ''
+        # 【W1b 2026-10-30】补 request_id（取 ctx 内会话/轮次标识），降级事件可归因到具体窗
+        _rid = (ctx or {}).get('_turn_id') or (ctx or {}).get('turn_id') or (ctx or {}).get('box_id') or ''
+        rec = {'ts': time.strftime('%Y-%m-%d %H:%M:%S'), 'event': event,
+               'model': _model, 'request_id': str(_rid)[:60], 'detail': str(detail)[:300]}
+        _d = os.path.join(_DIR, '..', '..', '..', 'server', 'logs')
+        with open(os.path.normpath(os.path.join(_d, 'fallback_events.jsonl')), 'a', encoding='utf-8') as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + '\n')
+    except Exception:
+        pass
+
+
 def _sanitize_headers(headers):
     """修复 latin-1 编码失败的请求头（典型：掩码密钥 'Bearer ••••xxxx' 未被还原）。
     对不能 latin-1 编码的值：若是 Authorization，按尾4位从 api_keys.json 还原真实密钥；
@@ -187,6 +207,7 @@ def _call_upstream(ctx, payload):
         return _dual_call(ctx, payload)
     except Exception as e:   # noqa: BLE001 适配层任何异常都回退直连，不影响主流程
         _log('dual_protocol fallback -> builtin chat: %r' % e)
+        _fallback_log('layer1_dual_protocol_fallback', ctx, repr(e), model=(payload or {}).get('model') or '')
 
     url = ctx.get('target_url')
 
@@ -219,6 +240,7 @@ def _call_upstream(ctx, payload):
             with _op2.open(_rq2, timeout=UPSTREAM_TIMEOUT) as _rp2:
                 _b2 = _rp2.read().decode('utf-8', errors='replace')
             _log('anthropic fallback ok')
+            _fallback_log('layer2_anthropic_fallback', ctx, 'ok', model=_ap2.get('model') or '')
             _r2 = _al_from_anth(json.loads(_b2), _ap2.get('model') or '')
             try:
                 _m2 = ((_r2 or {}).get('choices') or [{}])[0].get('message') or {}
@@ -274,6 +296,7 @@ def _call_upstream(ctx, payload):
                 if _risk and attempt < 2:
                     _log('upstream high-risk rejection (attempt %d), mitigate & retry: %s'
                          % (attempt + 1, _body[:200]))
+                    _fallback_log('risk_mitigation', ctx, 'tools dropped, history truncated')
                     try:
                         _p2 = dict(payload)
                         _p2.pop('tools', None)
@@ -1059,6 +1082,7 @@ def run_agent_loop(engine_id, engine_mod, messages, ctx, on_event=None):
                     try:
                         on_event({'type': 'tool_result', 'turn': turn,
                                   'tool_call_id': entry['tool_call_id'],
+                                  'tool_name': r.get('tool_name', ''),
                                   'ok': bool(r.get('_ok', True)),
                                   'preview': entry['content'][:200]})
                     except Exception:

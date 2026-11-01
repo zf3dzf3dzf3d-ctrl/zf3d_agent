@@ -9,6 +9,17 @@
     python\\python.exe -X utf8 server\\cli.py --task-file tasks.txt    # 批处理：每行一条任务
     python\\python.exe -X utf8 server\\cli.py --list-engines
 
+推荐用法（体感优化）：
+    # 想看"在干活"的过程（里程碑进度，不刷屏；进度走 stderr，结果走 stdout）：
+    python\\python.exe -X utf8 server\\cli.py --progress "帮我建一个test.txt"
+    # 流水线模式同样支持 --progress（实时打 5 个阶段：策划/收口/施工/审核/总结）：
+    python\\python.exe -X utf8 server\\cli.py --progress --pipeline cfg.json
+    # 连续多轮任务：用 --session 复用同一会话上下文（落库，前台可见可续聊），
+    # 比每次新开进程冷启动 + 无上下文更省 token、更连贯：
+    python\\python.exe -X utf8 server\\cli.py --session demo --progress "第一步..."
+    python\\python.exe -X utf8 server\\cli.py --session demo --progress "基于上一步继续..."
+    # 批量独立任务用 --task-file（每行一条，逐条跑，互不串上下文）。
+
 退出码规范：0=全部成功；1=用法/配置错误；2=任务执行失败；130=用户中断。
 """
 import os
@@ -87,6 +98,60 @@ def _persist_turn(session_id, turn_no, role, content):
         print('[CLI] 会话落库失败(忽略): %s' % e)
 
 
+def _cli_on_event(ev):
+    """--progress 里程碑进度回调：把 agent 循环的关键事件打到 stderr（结果留 stdout，管道不破）。
+
+    心脏 run_agent_loop 通过 on_event 发出的是 dict 型里程碑事件（非逐 token）：
+      loop_turn / tool_event / tool_result / budget_exhausted /
+      loop_probe_spam / loop_batch_clamped / loop_truncated。
+    这里只做人类可读的进度行，自带 try/except，绝不影响主循环。"""
+    try:
+        if not isinstance(ev, dict):
+            return
+        et = ev.get('type', '')
+        turn = ev.get('turn', '?')
+        line = None
+        if et == 'loop_turn':
+            line = '⟳ 第 %s 轮' % turn
+        elif et == 'tool_event':
+            kind = ev.get('kind') or ''
+            if kind == 'swarm_mail':
+                d = ev.get('data') or {}
+                line = '🐝 蜂群进度 %s/%s' % (d.get('done', '?'), d.get('total', '?'))
+            else:
+                d = ev.get('data')
+                name = d.get('name') if isinstance(d, dict) else None
+                line = '🔧 调用工具 %s%s' % (name or kind, '' if not name else '')
+        elif et == 'tool_result':
+            ok = ev.get('ok', True)
+            tn = ev.get('tool_name') or ''
+            verb = '工具完成' if ok else '工具失败'
+            line = '%s %s%s' % ('✅' if ok else '❌', verb, (' %s' % tn) if tn else '')
+        elif et == 'budget_exhausted':
+            line = '⛔ 预算耗尽（第 %s 轮，spent=%s/%s）' % (
+                turn, ev.get('spent', '?'), ev.get('budget', '?'))
+        elif et == 'loop_probe_spam':
+            line = '⚠️ 疑似重复探测（累计 %s 次）' % ev.get('count', '?')
+        elif et == 'loop_batch_clamped':
+            line = '⚠️ 单轮批量被截断（保留 %s，丢弃 %s）' % (
+                ev.get('kept', '?'), ev.get('dropped', '?'))
+        elif et == 'loop_truncated':
+            line = '⚠️ 输出被截断，已请求续写'
+        if line:
+            sys.stderr.write('[progress] %s\n' % line)
+            sys.stderr.flush()
+    except Exception:
+        pass  # 进度回调异常绝不影响主循环
+
+
+def _cli_log_stderr(s):
+    """--progress 时把流水线 stage 日志改走 stderr（结果留 stdout，管道不破）。
+    run_pipeline 内部 log 已自带 [pipeline] 前缀，此处只做 stdout->stderr 重定向。
+    默认（不加 --progress）run_pipeline 的 log=print 走 stdout，逐字节不变。"""
+    sys.stderr.write('%s\n' % str(s))
+    sys.stderr.flush()
+
+
 def run_once(args, prompt, eid, turn_no=0):
     """跑一轮任务，返回 (最终回复文本, 原始 final dict)。异常向上抛。"""
     import engines_loader
@@ -141,7 +206,9 @@ def run_once(args, prompt, eid, turn_no=0):
             from engines.common import agent_loop
         except ImportError:
             import agent_loop
-        final = agent_loop.run_agent_loop(eid, eng_mod, payload.get('messages'), loop_ctx)
+        final = agent_loop.run_agent_loop(
+            eid, eng_mod, payload.get('messages'), loop_ctx,
+            on_event=(_cli_on_event if getattr(args, 'progress', False) else None))
 
     text = ''
     if isinstance(final, dict):
@@ -160,9 +227,11 @@ def main():
     ap.add_argument('--cwd', default=os.getcwd(), help='智能体工作目录')
     ap.add_argument('--session', default='', help='会话 id（指定后落库 agent_turns，与前台互通；REPL 多轮共用）')
     ap.add_argument('--json', action='store_true', help='输出原始 JSON（批处理时为 NDJSON）')
+    ap.add_argument('--progress', action='store_true', help='实时打印 agent 循环里程碑进度（轮次/工具调用/蜂群进度，走 stderr，不污染 stdout 结果）')
     ap.add_argument('--raw', action='store_true', help='纯对话直连（不发工具、不跑 agent 循环）')
     ap.add_argument('--task-file', default='', help='批处理：文件每行一条任务，顺序执行')
     ap.add_argument('--stop-on-error', action='store_true', help='批处理遇错即停（默认失败继续）')
+    ap.add_argument('--lanes', type=int, default=0, help='批处理并发车道数（>1 时启用，复用 chat_gate 闸门限流；默认 0=串行不变）')
     ap.add_argument('--pipeline', default='', help='蜂群流水线：JSON 配置文件（goal/planners/builders/reviewers）')
     ap.add_argument('--list-engines', action='store_true', help='列出可用引擎')
     ap.add_argument('--key-check', action='store_true', help='只跑 API Key 启动体检并退出（不调模型）')
@@ -210,7 +279,8 @@ def main():
             return 1
         import swarm_pipeline
         code, rep = swarm_pipeline.run_pipeline(
-            pcfg, cwd=args.cwd if os.path.isabs(args.cwd) else None)
+            pcfg, cwd=args.cwd if os.path.isabs(args.cwd) else None,
+            log=(_cli_log_stderr if getattr(args, 'progress', False) else print))
         if args.json:
             print(json.dumps({'exit': code, 'report': {k: rep.get(k) for k in
                                                        ('id', 'goal', 'elapsed', 'report_path', 'stages', 'error')}},
@@ -238,27 +308,90 @@ def main():
             return 1
         turn_no = int(time.time())
         ok_cnt, fail_cnt = 0, 0
-        for i, task in enumerate(tasks, 1):
-            head = '[%d/%d]' % (i, len(tasks))
-            print('%s %s' % (head, task[:60]))
+
+        # 单条任务处理：闸门 acquire -> 跑 -> release（--lanes 并发车道复用 chat_gate，不造轮子）
+        def _run_one(task, idx):
+            _ticket = None
+            _gate = None
+            if getattr(args, 'lanes', 0) and args.lanes > 0:
+                try:
+                    import chat_gate as _gate_mod
+                    _gate = _gate_mod
+                    # box_id 必须每条任务唯一：闸门按 md5(box_key) 粘性选道、道内串行出队，
+                    # 若全用同一固定串则所有线程挤同一条道→假并发。带 idx 打散到不同车道才是真并发。
+                    _ticket = _gate_mod.acquire('cli-lane-%d-%d' % (os.getpid(), idx),
+                                                engine=eid, entry='cli')
+                except Exception as ge:
+                    if _gate is not None and isinstance(ge, getattr(_gate, 'GateRejected', ())):
+                        raise RuntimeError('闸门拒绝(503)：%s' % ge)
+                    print('[CLI] 车道闸门不可用，本条降级直跑: %s' % ge)
+                    _gate = None
+                    _ticket = None
             try:
-                text, final = run_once(args, task, eid, turn_no=turn_no + i)
-                if args.json:
-                    print(json.dumps({'index': i, 'ok': True, 'final': final},
-                                     ensure_ascii=False))
-                else:
-                    print(text or '(空回复)')
-                _persist_turn(session_id, turn_no + i, 'user', task)
-                _persist_turn(session_id, turn_no + i, 'assistant', text)
-                ok_cnt += 1
-            except KeyboardInterrupt:
-                print('%s 用户中断' % head)
-                return 130
-            except Exception as e:
-                print('%s 失败: %s' % (head, e))
-                fail_cnt += 1
-                if args.stop_on_error:
-                    return 2
+                text, final = run_once(args, task, eid, turn_no=turn_no + idx)
+                _persist_turn(session_id, turn_no + idx, 'user', task)
+                _persist_turn(session_id, turn_no + idx, 'assistant', text)
+                if _gate is not None and _ticket:
+                    try:
+                        _gate.release(_ticket, ok=True)
+                    except Exception:
+                        pass
+                return (True, task, text, final)
+            except Exception as ex:
+                if _gate is not None and _ticket:
+                    try:
+                        _gate.release(_ticket, ok=False, error=str(ex))
+                    except Exception:
+                        pass
+                return (False, task, None, ex)
+
+        if args.lanes and args.lanes > 1:
+            # ===== 并发车道模式：N 个线程，每个起跑前过 chat_gate 闸门 =====
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            print('[CLI] 并发车道模式：%d 条并发 × 共 %d 任务（闸门限流复用 chat_gate）' % (
+                args.lanes, len(tasks)))
+            with ThreadPoolExecutor(max_workers=args.lanes) as ex:
+                futs = {}
+                for idx, task in enumerate(tasks, 1):
+                    futs[ex.submit(_run_one, task, idx)] = idx
+                done = 0
+                for fu in as_completed(futs):
+                    done += 1
+                    ok, task, text, res = fu.result()
+                    head = '[%d/%d]' % (done, len(tasks))
+                    if ok:
+                        ok_cnt += 1
+                        print('%s ✓ %s' % (head, task[:60]))
+                        if args.json:
+                            print(json.dumps({'index': futs[fu], 'ok': True, 'final': res},
+                                             ensure_ascii=False))
+                    else:
+                        fail_cnt += 1
+                        print('%s ✗ 失败: %s' % (head, res))
+                        if args.stop_on_error:
+                            return 2
+        else:
+            for i, task in enumerate(tasks, 1):
+                head = '[%d/%d]' % (i, len(tasks))
+                print('%s %s' % (head, task[:60]))
+                try:
+                    text, final = run_once(args, task, eid, turn_no=turn_no + i)
+                    if args.json:
+                        print(json.dumps({'index': i, 'ok': True, 'final': final},
+                                         ensure_ascii=False))
+                    else:
+                        print(text or '(空回复)')
+                    _persist_turn(session_id, turn_no + i, 'user', task)
+                    _persist_turn(session_id, turn_no + i, 'assistant', text)
+                    ok_cnt += 1
+                except KeyboardInterrupt:
+                    print('%s 用户中断' % head)
+                    return 130
+                except Exception as e:
+                    print('%s 失败: %s' % (head, e))
+                    fail_cnt += 1
+                    if args.stop_on_error:
+                        return 2
         print('===== 批处理汇总: 成功 %d / 失败 %d / 共 %d =====' % (ok_cnt, fail_cnt, len(tasks)))
         return 2 if fail_cnt else 0
 

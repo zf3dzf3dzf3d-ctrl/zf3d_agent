@@ -1345,3 +1345,42 @@ body[data-mode="gray"] .kite-head-overview .kho2-empty { color: var(--kite-panel
 .kite-panel-solo .kite-seg,
 .kite-panel-solo .kite-card { visibility: hidden !important; pointer-events: none !important; }
 
+
+/* ===== v17: 风筝统计面板全透明（去掉背景/半透明底色） ===== */
+.kite-head-overview,
+[data-theme="light"] .kite-head-overview,
+body[style*="--kite-panel-bg"] .kite-head-overview,
+body[data-mode="gray"] .kite-head-overview {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.kite-head-overview .kho-row,
+[data-theme="light"] .kite-head-overview .kho-row,
+body[style*="--kite-panel-bg"] .kite-head-overview .kho-row,
+body[data-mode="gray"] .kite-head-overview .kho-row {
+  background: transparent !important;
+}
+/* v17b: 面板内部组件半透明底一并置透（芯片/进度条/速度标签/行悬停） */
+.kite-head-overview .kho2-chip,
+.kite-head-overview .kho2-perf__bar,
+.kite-head-overview .kho-track__spd,
+.kite-head-overview .kho-row:hover {
+  background: transparent !important;
+}
+/* v17c: 压过白天主题/灰色模式/自定义背景色的 !important 底色，做到完全透明 */
+[data-theme="light"] .kite-head-overview,
+[data-theme="light"] .kite-head-overview .kho2-chip,
+[data-theme="light"] .kite-head-overview .kho2-perf__bar,
+body[style*="--kite-panel-bg"] .kite-head-overview .kho2-chip,
+body[style*="--kite-panel-bg"] .kite-head-overview .kho2-perf__bar,
+body[data-mode="gray"] .kite-head-overview .kho2-chip,
+body[data-mode="gray"] .kite-head-overview .kho2-perf__bar,
+.kite-head-overview .kho2-copy:hover,
+.kite-head-overview .kho-close:hover {
+  background: transparent !important;
+}
+/* v17d: 补收口审计遗漏——light 主题下速度标签/行悬停带 !important 的残留底色 */
+[data-theme="light"] .kite-head-overview .kho-track__spd,
+[data-theme="light"] .kite-head-overview .kho-row:hover {
+  background: transparent !important;
+}

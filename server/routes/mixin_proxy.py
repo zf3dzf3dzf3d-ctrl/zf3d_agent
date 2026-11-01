@@ -188,6 +188,65 @@ class MixinProxy(MixinProxyStream, MixinBase):
     def _handle_proxy_impl(self):
         try:
             body = self._read_body()
+            # [2026-10-26 修复2] 自建模型走朱峰中转：前端只带 _relay=<线路id> 未带 _target_url，
+            # 此前直接 400 Missing _target_url。现按 _relay 从 zf_models_cache.json 自动补中转地址。
+            if not body.get('_target_url') and body.get('_relay'):
+                try:
+                    _cache_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'zf_models_cache.json')
+                    _cache = None
+                    if not os.path.exists(_cache_path):
+                        # [2026-10-26 换机兜底] 冷启动缓存缺失：先触发一次官方模型同步，避免首启即 400
+                        try:
+                            import importlib.util as _ilu
+                            _spec = _ilu.spec_from_file_location('zf_model_sync_diag', os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'zf_model_sync.py'))
+                            _mod = _ilu.module_from_spec(_spec)
+                            _spec.loader.exec_module(_mod)
+                            _mod.sync()
+                            print('[Proxy][relay-fix] 缓存缺失，已触发 zf_model_sync 同步一次')
+                        except Exception as _sync_e:
+                            print('[Proxy][relay-fix] 缓存缺失且同步失败: %r' % _sync_e)
+                    if _cache is None:
+                        with open(_cache_path, 'r', encoding='utf-8') as _f:
+                            _cache = json.load(_f)
+                    _items = _cache if isinstance(_cache, list) else (_cache.get('models') or _cache.get('list') or _cache.get('lines') or [])
+                    if isinstance(_items, dict):
+                        _items = list(_items.values())
+                    _rid = str(body.get('_relay'))
+                    def _norm_id(s):
+                        return ''.join(ch for ch in str(s).lower() if ch.isalnum())
+                    _line = next((m for m in _items if isinstance(m, dict) and str(m.get('id')) == _rid), None)
+                    if not _line:
+                        # [2026-10-26 修复4] id 归一化匹配：前端线路 id(如 zfglm-flash) 与官方缓存 id(如 zf-glm-flash)
+                        # 去除分隔符后模糊匹配，避免精确等值失配导致 Missing _target_url 400。
+                        _rn = _norm_id(_rid)
+                        _rm = (_rn or '').replace('zf', '', 1)
+                        for _m in _items:
+                            if not isinstance(_m, dict):
+                                continue
+                            _mn = _norm_id(_m.get('id'))
+                            if not _mn:
+                                continue
+                            # [2026-10-26 修复4b] 收紧匹配：仅允许 去分隔符等值 / 去zf前缀等值，
+                            # 弃用过宽的双向子串包含（多条 zf- 系线路 id 互为子串时可能补错线路）
+                            if _mn == _rn or _mn == _rm:
+                                _line = _m
+                                break
+                    if _line:
+                        _model_ids = _line.get('modelIds') or []
+                        _first_model = (_model_ids[0].get('id') if _model_ids and isinstance(_model_ids[0], dict) else '') or _line.get('modelId') or ''
+                        if _first_model:
+                            import urllib.parse as _up
+                            body['_target_url'] = 'https://www.zf3d.com/api/zf_models_relay.asp?model=' + _up.quote(str(_first_model))
+                            # [2026-10-26 修复5] 平铺格式归一：model/messages 直接在顶层时，组装 _body
+                            if not isinstance(body.get('_body'), dict) and isinstance(body.get('messages'), list):
+                                body['_body'] = {k: v for k, v in body.items() if not str(k).startswith('_')}
+                            for _bb in ('_body',):
+                                if isinstance(body.get(_bb), dict) and not body[_bb].get('model'):
+                                    body[_bb]['model'] = str(_first_model)
+                            target_url = body['_target_url']
+                            print('[Proxy][relay-fix] _target_url auto-filled from _relay=%s -> %s' % (_rid, target_url[:90]))
+                except Exception as _rf_e:
+                    print('[Proxy][relay-fix] skip: %r' % _rf_e)
             # [2026-09-11 fix] 兼容 {endpoint, headers, payload} 简化格式（此前 Missing _target_url -> 401）
             if not body.get('_target_url') and body.get('endpoint'):
                 body = {'_target_url': body.get('endpoint'),
@@ -232,6 +291,28 @@ class MixinProxy(MixinProxyStream, MixinBase):
                         print('[Proxy][fix3] max_tokens %s -> 8192 (model=%s)' % (_mt, payload.get('model')))
             except Exception as _e:
                 print('[Proxy][fix3] skip: %s' % _e)
+
+            # 【2026-10-26 修复】官方中转线路（zf_models_relay）需要 X-ZF-Key + X-ZF-User 鉴权，
+            # 非流式路径原先未注入，导致 relay 返回 401 unauthorized [diag] no-key | loginUid=0
+            if 'zf_models_relay' in str(target_url or ''):
+                try:
+                    import sys as _sys
+                    _srv = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    if _srv not in _sys.path:
+                        _sys.path.insert(0, _srv)
+                    from zf3d_commands import _get_api_key as _zf_gk
+                    _zf_key = _zf_gk() or ''
+                    if _zf_key:
+                        headers['X-ZF-Key'] = _zf_key
+                        try:
+                            from zf3d_heartbeat import _get_login_status as _zf_gls
+                            _ls, _lu, _zf_uid = _zf_gls()
+                            if _zf_uid and int(_zf_uid) > 0:
+                                headers['X-ZF-User'] = str(_zf_uid)
+                        except Exception:
+                            pass
+                except Exception as _zf_e:
+                    print('[Proxy] relay header inject failed: %r' % _zf_e)
 
             if not target_url:
                 # ===== 详细诊断：记录原始请求体 + headers 摘要，便于排查 endpoint 丢失问题 =====
@@ -436,8 +517,11 @@ class MixinProxy(MixinProxyStream, MixinBase):
                     print('[ModeRules] enforce error (skip): %s' % _re)
 
             # 剥离对话级私有字段（下划线开头：_engine/_project_id/_project_path 等，不发给上游模型 API）
+            _relay_target = str(body.get('_target_url') or '') if isinstance(body, dict) else ''
             if isinstance(payload, dict):
                 try:
+                    if not _relay_target:
+                        _relay_target = str(payload.get('_target_url') or '')
                     for _k in [k for k in payload if k.startswith('_')]:
                         payload.pop(_k, None)
                 except Exception:
@@ -449,6 +533,21 @@ class MixinProxy(MixinProxyStream, MixinBase):
             except Exception as _um:
                 print('[Proxy] unmask headers error: %s' % _um)
 
+
+            # 【2026-10-26 密钥健康闸门】空 key 前置拦截（单线路拒绝，无全局熔断）：
+            # 密钥为空时直接报人话错误，不再打到上游换回 401 转圈（根因：api_keys.json 中某线路 key 解密后为空串，测通≠发送通）。
+            _auth_hdr = ''
+            for _hk in headers:
+                if str(_hk).lower() == 'authorization':
+                    _auth_hdr = str(headers.get(_hk) or '')
+                    break
+            _auth_stripped = _auth_hdr.replace('Bearer', '').replace('bearer', '').strip()
+            _is_relay = ('zf_models_relay.asp' in _relay_target) or str(payload.get('model') or '').startswith('zf-') or ('xiaomimimo.com' in target_url)
+            if len(_auth_stripped) == 0 and not _is_relay:
+                _model_name = str(payload.get('model') or '') or '未知模型'
+                # 【2026-10-26 放行】不再拦截：自定义模型可能用非 Authorization 鉴权（如 x-api-key、query key），
+                # 误拦会锁死用户自配模型。降级为仅日志提示，放行到上游由上游返回真实结果。
+                print('[Proxy][KeyGuard] 无Authorization头，放行 model=%s（如上游401请检查Key）' % _model_name)
             # 【v5.1.3】Anthropic 协议线路：转换请求体 + 换协议头（x-api-key / anthropic-version）
             _anth_hit = False
             try:

@@ -5,6 +5,31 @@ from routes.mixin_base import MixinBase
 
 
 class MixinSettingsHealth(MixinBase):
+    def _handle_key_audit(self):
+        """【P2.2 密钥体检上墙】GET /api/keys/audit：复用 key_audit.audit_keys()，
+        只回 名称+状态+hash8 指纹，绝不输出 Key 明文。红=空Key，黄=未加密明文，绿=健康。"""
+        try:
+            import key_audit
+            report = key_audit.audit_keys()
+            items = []
+            for it in report.get('items', []):
+                if it.get('kind') != 'model_key':
+                    continue
+                if it.get('empty'):
+                    level = 'red'
+                elif it.get('encrypted') is False:
+                    level = 'yellow'
+                else:
+                    level = 'green'
+                items.append({'name': it.get('name'), 'level': level,
+                              'encrypted': bool(it.get('encrypted')), 'hash8': it.get('hash8')})
+            self._send_json({'ok': True, 'time': report.get('time'), 'items': items,
+                             'warnings': report.get('warnings', []),
+                             'auth_fails_7d': report.get('auth_fails_7d', 0),
+                             'all_ok': bool(report.get('ok'))}, 200)
+        except Exception as e:
+            self._send_json({'ok': False, 'error': '密钥体检失败: ' + str(e)}, 500)
+
     def _handle_health_config_get(self):
         defaults = {
             'intervalMinutes': 30,
@@ -136,7 +161,11 @@ class MixinSettingsHealth(MixinBase):
             if seconds < 0:
                 seconds = 0
             conn = get_db()
-            with _db_lock:
+            # 【P3 锁降级 2026-10-17】健康遥测限时抢锁，抢不到(>1.5s)直接回忙，前端会自动重试心跳
+            if not _db_lock.acquire(timeout=1.5):
+                self._send_json({'ok': False, 'error': 'db busy, heartbeat skipped'}, 503)
+                return
+            try:
                 self._health_ensure_tables(conn)
                 row = conn.execute('SELECT active_seconds, state_day FROM health_state WHERE id=1').fetchone()
                 today = time.strftime('%Y-%m-%d')
@@ -156,6 +185,8 @@ class MixinSettingsHealth(MixinBase):
                     ON CONFLICT(id) DO UPDATE SET active_seconds=?, state_day=?, updated_at=datetime('now','localtime')''',
                     (seconds, today, seconds, today))
                 conn.commit()
+            finally:
+                _db_lock.release()
             self._send_json({'ok': True, 'active_seconds': seconds, 'day': today}, 200)
         except Exception as e:
             self._send_json({'ok': False, 'error': '心跳写库失败: ' + str(e)}, 500)
@@ -168,11 +199,17 @@ class MixinSettingsHealth(MixinBase):
             work_seconds = float(data.get('work_seconds', 0))
             detail = str(data.get('detail', ''))[:200]
             conn = get_db()
-            with _db_lock:
+            # 【P3 锁降级 2026-10-17】健康事件(提醒/锁定记录)限时抢锁，抢不到(>1.5s)回忙丢弃
+            if not _db_lock.acquire(timeout=1.5):
+                self._send_json({'ok': False, 'error': 'db busy, event skipped'}, 503)
+                return
+            try:
                 self._health_ensure_tables(conn)
                 conn.execute('INSERT INTO health_events(event_type, work_seconds, detail) VALUES(?,?,?)',
                              (etype, work_seconds, detail))
                 conn.commit()
+            finally:
+                _db_lock.release()
             self._send_json({'ok': True}, 200)
         except Exception as e:
             self._send_json({'ok': False, 'error': '事件写库失败: ' + str(e)}, 500)

@@ -1190,7 +1190,14 @@ var DB = {
                     throw _se2;
                 }
                 if (done && done.state === 'cancelled') {
-                    throw new DOMException('用户取消了请求', 'AbortError');
+                    // 【2026-10 修复】pool 权威取消（done.state=cancelled）：打 _poolCancelled 标记，
+                    // 供 loop 的 catch 区分「服务端已把本 Turn 判死」与「本地内部超时误 abort」。
+                    // 旧行为：排队续发会复位 chat._stopped，于是这里抛的 AbortError 被 loop 当成
+                    // 「意外超时」走自动重试，并重投同一个已 cancelled 的 _poolTurnId → 秒级空转死循环
+                    // （abort-unexpected 每 3s 刷一次、depth 固定）。标记后 loop 安静收尾，绝不重投死 Turn。
+                    var _pcancel = new DOMException('用户取消了请求', 'AbortError');
+                    _pcancel._poolCancelled = true;
+                    throw _pcancel;
                 }
                 return { ok: false, status: 0, error: 'chat-pool: turn ended without result (' + ((done && done.state) || '?') + ')', data: null };
             });
@@ -1362,7 +1369,14 @@ var DB = {
                     throw _se4;
                 }
                 if (done && done.state === 'cancelled') {
-                    throw new DOMException('用户取消了请求', 'AbortError');
+                    // 【2026-10 修复】pool 权威取消（done.state=cancelled）：打 _poolCancelled 标记，
+                    // 供 loop 的 catch 区分「服务端已把本 Turn 判死」与「本地内部超时误 abort」。
+                    // 旧行为：排队续发会复位 chat._stopped，于是这里抛的 AbortError 被 loop 当成
+                    // 「意外超时」走自动重试，并重投同一个已 cancelled 的 _poolTurnId → 秒级空转死循环
+                    // （abort-unexpected 每 3s 刷一次、depth 固定）。标记后 loop 安静收尾，绝不重投死 Turn。
+                    var _pcancel = new DOMException('用户取消了请求', 'AbortError');
+                    _pcancel._poolCancelled = true;
+                    throw _pcancel;
                 }
                 if (done && done.state === 'gone') {
                     if (chunksSeen > 0) {

@@ -718,7 +718,7 @@ Object.assign(App, {
         // 定位（失败则用默认坐标：北京）
         function done(lat, lon, city) {
             fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
-                  '&current=temperature_2m,weather_code&timezone=auto', { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined }) /* 【性能修复】外网天气请求 5 秒超时，防止断网时 fetch 悬挂 */
+                  '&current=temperature_2m,weather_code,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto', { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined }) /* 【性能修复】外网天气请求 5 秒超时，防止断网时 fetch 悬挂 */
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
                     var cur = data.current || {};
@@ -733,6 +733,20 @@ Object.assign(App, {
                     }
                     self.zf3dCwSetDesc(pair[1]);
                     self.zf3dCwBuildScene(self.zf3dCwSceneKind(code));
+                    try {
+                        var fcEl = document.getElementById('zf3dCwForecast');
+                        var dly = data.daily || {};
+                        var humEl = cur.relative_humidity_2m;
+                        var parts = [];
+                        if (dly.temperature_2m_max && dly.temperature_2m_max[0] != null && dly.temperature_2m_min && dly.temperature_2m_min[0] != null) {
+                            parts.push('今日 ↑' + Math.round(dly.temperature_2m_max[0]) + '° ↓' + Math.round(dly.temperature_2m_min[0]) + '°');
+                        }
+                        if (humEl != null) { parts.push('💧 ' + Math.round(humEl) + '%'); }
+                        if (fcEl) {
+                            if (parts.length) { fcEl.textContent = parts.join('  '); fcEl.style.display = ''; }
+                            else { fcEl.style.display = 'none'; }
+                        }
+                    } catch (e) {}
                     try {
                         localStorage.setItem('zf3d_cw_weather', JSON.stringify({
                             icon: pair[0], temp: temp, text: pair[1], city: city, kind: self.zf3dCwLastSceneKind, t: Date.now()
@@ -787,7 +801,7 @@ Object.assign(App, {
     zf3dCwPreciseLocate: function() {
         var self = this;
         if (!navigator.geolocation) { _dlgAlert('当前浏览器不支持精确定位'); return; }
-        if (!_dlgConfirmSync('当前显示的是 IP 定位的大概位置（可能不准，如显示北京）。\n\n需要精确定位吗？点击"确定"后请在浏览器弹窗中允许位置授权，将定位到你所在的城市并刷新天气。')) return;
+        // 直接请求浏览器 GPS 授权，不再弹确认框
         navigator.geolocation.getCurrentPosition(function(pos) {
             var lat = pos.coords.latitude, lon = pos.coords.longitude;
             // 反查城市名（走后端代理，避免跨域）
@@ -804,6 +818,7 @@ Object.assign(App, {
         }, function(err) {
             _dlgAlert('定位失败：' + (err.message || '未获得授权') + '\n\n可检查浏览器地址栏的位置权限设置后重试。');
         }, { enableHighAccuracy: true, timeout: 10000 });
+        // 已移除确认弹窗，点击位置后直接发起精确定位
     },
 
 zf3dTopbarShowLogin: function() {

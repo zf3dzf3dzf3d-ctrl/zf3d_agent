@@ -6203,6 +6203,7 @@ html, body,
    根因：popup 基础样式（默认隐藏 + 下拉绝对定位）丢失。app-zf3d.js 用
    classList.toggle('zf3d-cw-show') 控制展开，故补回：默认 display:none，
    带 .zf3d-cw-show 才 block；容器 #zf3dClockWeather 设为定位父级。 */
+/* ===== [DEPRECATED 2026-10-29] 本段 popup 定义已被文件末尾 6857 起的新版玻璃拟态段收敛覆盖（flex/尺寸/视觉均以后者为准），仅保留历史补丁注释与 ::before 桥接区定义（新段仍在复用）。请勿再修改本段，清理时一并删除 6207-6229 与 RESTORE 段内 .zf3d-cw-popup 相关块。 ===== */
 #zf3dClockWeather { position: relative; }
 .zf3d-cw-popup {
     display: none;
@@ -6820,3 +6821,137 @@ html, body,
 .task-notify--fail .task-notify__icon { color: #ff5b5b; text-shadow: 0 0 6px rgba(255,91,91,.45); }
 /* 标题文字宽度居中（其余布局保持不变） */
 .task-notify__title { text-align: center; }
+
+/* ===== 导航地图开关（进化树圆舱右侧裸图标按钮控制）=====
+   body.zf-minimap-off = 用户关闭导航地图。
+   用 visibility:hidden 而非 display:none：保留 #minimap 几何尺寸，
+   避免 app-quick-create 搬移/回位时把"不可见"误判成异常而清掉拖拽记忆的位置，
+   也避免 canvas.clientWidth=0 导致的重绘跳过。 */
+body.zf-minimap-off #minimap,
+body.zf-minimap-off .minimap {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+/* 关闭态：按钮上"导航地图"文字提示同步压暗（hover 时由 JS 复原） */
+body.zf-minimap-off .tree-mm-toggle { color: #6e7681; }
+
+/* 进化树舱旁的导航地图开关按钮：裸图标、无背景无边框、线形简易 */
+.tree-mm-toggle {
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color .12s linear, transform .12s ease-out;
+}
+.tree-mm-toggle svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  overflow: visible;
+}
+.tree-mm-toggle:hover { transform: scale(1.14); }
+.tree-mm-toggle.off { color: #6e7681 !important; }
+
+
+/* ===== [2026-10-29 天气弹卡界面升级 A+B+C] 信息层级重排 + 玻璃拟态 + 高低温/湿度 =====
+   说明：6207/6286 存在两段重复 .zf3d-cw-popup 定义（block vs flex 冲突），
+   本段追加在文件末尾，级联优先级最高，统一收敛为 flex 列布局。 */
+.zf3d-cw-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-width: 220px;
+    max-width: 360px;
+    padding: 16px 22px 18px;
+    background: var(--panel, rgba(30, 30, 46, .88));
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
+    white-space: nowrap;
+    overflow: hidden;
+    min-width: 300px;
+    max-width: 400px;
+}
+.zf3d-cw-popup.zf3d-cw-show,
+#zf3dClockWeather:hover .zf3d-cw-popup,
+.zf3d-clock-weather:hover .zf3d-cw-popup { display: flex; }
+/* 保留原 ::before 桥接区防闪烁机制（6224 行），仅适配新圆角 */
+.zf3d-cw-popup::before { top: -10px; height: 10px; }
+
+/* 日期：小字弱化置顶 */
+.zf3d-cw-popup .zf3d-cw-date {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: .85;
+    letter-spacing: .4px;
+}
+/* 大时间：第二视觉焦点，等宽数字 + 呼吸冒号 */
+.zf3d-cw-popup .zf3d-cw-bigtime {
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text, #fff);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+}
+/* 农历行 */
+.zf3d-cw-popup .zf3d-cw-lunar { font-size: 11px; opacity: .7; }
+
+/* 天气行：横向组合（温度大字 + 城市） */
+.zf3d-cw-popup .zf3d-cw-wrow {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+.zf3d-cw-popup .zf3d-cw-weather {
+    font-size: 15px;
+    margin: 0;
+}
+.zf3d-cw-popup #zf3dCwWeather { font-size: 24px; font-weight: 700; cursor: pointer; }
+.zf3d-cw-popup .zf3d-cw-loc { font-size: 12px; opacity: .75; }
+
+/* 高低温/湿度预报行（无数据时 JS 隐藏） */
+.zf3d-cw-popup .zf3d-cw-forecast {
+    font-size: 12px;
+    opacity: .9;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+/* 建议语：底部胶囊条 */
+.zf3d-cw-popup .zf3d-cw-wxdesc {
+    max-width: 300px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .10);
+    border: 1px solid rgba(255, 255, 255, .08);
+    font-size: 11.5px;
+    opacity: .95;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.5;
+}
+/* 分割线已从 DOM 移除，兜底隐藏 */
+.zf3d-cw-popup .zf3d-cw-divider { display: none; }
+
+/* 浅色主题：胶囊条/描边适配 */
+html[data-theme='light'] .zf3d-cw-popup,
+body[data-theme='light'] .zf3d-cw-popup {
+    background: rgba(255, 255, 255, .82);
+    border-color: rgba(0, 0, 0, .08);
+}
+html[data-theme='light'] .zf3d-cw-popup .zf3d-cw-wxdesc,
+body[data-theme='light'] .zf3d-cw-popup .zf3d-cw-wxdesc {
+    background: rgba(0, 0, 0, .06);
+    border-color: rgba(0, 0, 0, .05);
+    color: var(--text, #333);
+}

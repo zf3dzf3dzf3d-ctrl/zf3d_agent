@@ -67,12 +67,25 @@
   let dispatchSrcChat = null;
   /* 【v29 计划书锁定】从任务文本提取 .md 路径（含 private/记忆/、docs/ 等任意位置），
      随 /api/crew/create 存入黑板，board 读取时优先返回它，防止施工窗被兜底指到 private/计划书 旧案。 */
+  /* 【v34 放松版·路径归一化】AI 不是傻子：策划师常只写《记录名》或不带目录/后缀的名字，都能兜住，最终由 validateMd 实测把关。
+     规则：补 .md 后缀；无目录时按名字前缀补 private/记忆/ 或 private/记忆/全局/。 */
+  function normalizePlanPath(p) {
+    p = String(p || '').replace(/\.markdown$/i, '.md').replace(/^[\/\\]+/, '');
+    if (!/\.md$/i.test(p)) p += '.md';
+    if (!/[\\/]/.test(p)) {
+      p = (/^(策划案|计划书|规划)/.test(p) ? 'private/记忆/全局/' : 'private/记忆/') + p;
+    }
+    return p;
+  }
   function extractMdPath(text) {
-    /* 【v33 定稿闭环】优先识别策划师结论行末尾的显式标记「【策划案路径：xxx.md】」，消灭误抓无关 md；无标记时退回普通 md 正则 */
-    const tag = String(text || '').match(/【策划案路径[:：]\s*([^\s'\"<>【】，,；;（）()]+\.md(?:arkdown)?)\s*】/i);
-    if (tag) return tag[1];
-    const m = String(text || '').match(/[\w\-\/\\.\u4e00-\u9fff]+\.(?:md|markdown)/i);
-    return m ? m[0] : '';
+    /* 【v34 放松版】优先显式标记「【策划案路径：…】」（内容可省 .md、可省目录）；再兜底《策划案-xxx》记录名；最后普通 md 正则 */
+    const t = String(text || '');
+    const tag = t.match(/【策划案路径[:：]\s*([^\s'"<>【】，,；;（）()]+?)\s*】/i);
+    if (tag) return normalizePlanPath(tag[1]);
+    const rec = t.match(/[《「]((?:策划案|计划书|规划)[^《》「」\s'"<>，,；;]*)[》」]/);
+    if (rec) return normalizePlanPath(rec[1]);
+    const m = t.match(/[\w\-\/\\.\u4e00-\u9fff]+\.(?:md|markdown)/i);
+    return m ? normalizePlanPath(m[0]) : '';
   }
 
   /* 【v27 规划直通】优先抽取策划案回注中的【执行规划】章节（含 md 计划书路径），保证施工队按策划师预写的分片任务书施工 */
@@ -82,9 +95,9 @@
       /* 【v33 定稿闭环】优先识别策划师结论中的显式标记「【策划案路径：xxx.md】」：找到即直接以该 md 为施工任务书（主对话定稿后才允许开工，故存在标记=已定稿或待定稿策划案） */
       for (let i = ms.length - 1; i >= 0; i--) {
         const cAll = String((ms[i] && ms[i].content) || '');
-        const tag = cAll.match(/【策划案路径[:：]\s*([^\s'\"<>【】，,；;（）()]+\.md(?:arkdown)?)\s*】/i);
+        const tag = cAll.match(/【策划案路径[:：]\s*([^\s'\"<>【】，,；;（）()]+?)\s*】/i);
         if (tag) {
-          const p = tag[1];
+          const p = normalizePlanPath(tag[1]);
           /* 同消息若含【执行规划】章节则一并带上（含分片任务书），否则仅返回计划书路径 */
           const idx0 = cAll.indexOf('【执行规划】');
           if (idx0 >= 0) {
@@ -198,7 +211,7 @@
       $('zf-crew-step2').style.display = 'none';
       $('zf-crew-step1').style.display = 'block';
     };
-    $('zf-crew-confirm').onclick = () => {
+    $('zf-crew-confirm').onclick = async () => {
       const btn = $('zf-crew-confirm');
       const hint = $('zf-crew-md-hint');
       const showHint = msg => { if (hint) { hint.textContent = msg; hint.style.display = 'block'; } else { alert(msg); } };
@@ -206,16 +219,21 @@
       const edited = ($('zf-crew-task-edit') || {}).value;
       const finalTask = (typeof edited === 'string' && edited.trim()) ? edited.trim() : taskCtx;
       /* 【铁律·公共函数】施工队必须读到 md（任意任务说明/计划 md，不要求是长期目标）才允许开工 */
-      const mdPath = extractMdPath(finalTask);
-      if (!mdPath) {
-        showHint('🐝 还差一步：任务上下文里没看到 md 文件路径。把 md 路径写进去（如 private/记忆/xxx.md）就能开工啦～');
+      btn.disabled = true; btn.textContent = '校验 md 中…';
+      let mdPath = extractMdPath(finalTask);
+      let taskFinal = finalTask;
+      try {
+        const ensured = await ensureTaskMd(finalTask);
+        mdPath = ensured.mdPath; taskFinal = ensured.task;
+      } catch (e) {
+        showHint('🐝 任务说明落盘失败（' + (e.message || e) + '）。也可以手动把 md 路径写进上下文再开工～');
+        btn.disabled = false; btn.innerHTML = '确认开工 <b id="zf-crew-confirm-n">' + chosenN + '</b> 窗';
         return;
       }
-      btn.disabled = true; btn.textContent = '校验 md 中…';
       validateMd(mdPath)
         .then(() => {
           btn.textContent = '建现场中…';
-          return startCrew(genCrewId(), chosenN, finalTask, dispatchSrcChat).then(() => overlay.remove());
+          return startCrew(genCrewId(), chosenN, taskFinal, dispatchSrcChat).then(() => overlay.remove());
         })
         .catch(e => {
           showHint('🐝 md「' + mdPath + '」暂时读不到（' + (e.message || e) + '）。确认下路径写法，改好就能开工～');
@@ -231,6 +249,29 @@
   /* 【v33.2 审核采纳·合并去重】extractMdPath 全文件仅保留唯一实现（文件前部，含【策划案路径：】显式标记
      优先 + .markdown 支持 + 统一返回 ''）。此前此处曾有一份重复同名声明靠函数提升「碰巧行为兼容」，
      已删除，防止将来只改其中一份静默失效。 */
+  /* 【v35 自动落盘兜底】找不到 md 路径时，把任务上下文自动写成 md（/api/fs/text-save），
+     并在任务上下文补【策划案路径：】标记，让施工队按该 md 施工——施工队不再因缺 md 派不出去。 */
+  async function ensureTaskMd(task) {
+    let mdPath = extractMdPath(task);
+    if (mdPath) return { mdPath: mdPath, task: task };
+    const d = new Date();
+    const stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
+      + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + String(d.getSeconds()).padStart(2, '0');
+    mdPath = 'private/记忆/施工任务-' + stamp + '.md';
+    const mdText = '# 施工任务说明（开工时自动落盘）\n\n'
+      + '【任务上下文】以下为源对话最近的任务说明，施工队按此施工：\n\n'
+      + String(task || '（源对话无正文，请阅读项目现状后自行确定待完成工作并施工。）').slice(0, 15000) + '\n';
+    const r = await fetch('/api/fs/text-save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: mdPath, text: mdText })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!j || j.ok === false) throw new Error(j && j.error ? j.error : '保存失败');
+    const newTask = '【策划案路径：' + mdPath + '】\n\n' + task;
+    return { mdPath: mdPath, task: newTask };
+  }
+
   async function validateMd(mdPath) {
     const r = await fetch('/api/fs/text?path=' + encodeURIComponent(mdPath), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -238,6 +279,9 @@
     const okRead = j && (j.ok !== false) && j.text != null && String(j.text).trim().length > 0;
     if (!okRead) throw new Error('md 内容为空或不可读');
   }
+
+  /* 【定位·回笼源】记录最近一次开工的源窗，供回笼审核员窗贴源定位 */
+  let _crewSrcChat = null;
 
   async function startCrew(crewId, n, task, srcChat) {
     const mdPath = extractMdPath(task);
@@ -249,12 +293,13 @@
     ));
     if (!r.ok) throw new Error(r.error || '建现场失败');
     rememberCrew(crewId);
+    _crewSrcChat = srcChat || null;
     const srcId = (srcChat && (srcChat.id || (srcChat.el && srcChat.el.id))) || null;
     // 【v11 黑板先写后看】首窗立即开工（带任务上下文，负责自动拆片写黑板）；
     // 其余窗不再同时开——轮询黑板，等首窗拆好片（出现 id≠auto 的分片）后再开窗，
     // 素材包改为「看板找活」模式：开工直接读黑板认领 pending 片，无需人工派活。
     // 兜底：最长等 120 秒（首窗拆片可能较慢），超时也开窗（素材包保留自动拆片协议，若黑板仍为 auto 占位则该窗接手拆片）。
-    const chat0 = openWorkerWindow(crewId, 'worker', task, 0);
+    const chat0 = openWorkerWindow(crewId, 'worker', task, 0, srcChat);
     if (chat0) _bindCrewWindow(chat0, crewId, 'worker-1', srcId);
     if (n <= 1) return;
     const t0 = Date.now();
@@ -281,7 +326,7 @@
           const hint = document.getElementById('zf-crew-wait-hint');
           if (hint) hint.remove();
           for (let i = 1; i < n; i++) {
-            const chat = openWorkerWindow(crewId, 'worker', '', i);
+            const chat = openWorkerWindow(crewId, 'worker', '', i, srcChat);
             if (chat) _bindCrewWindow(chat, crewId, 'worker-' + (i + 1), srcId);
           }
           return;
@@ -293,7 +338,7 @@
           const hint = document.getElementById('zf-crew-wait-hint');
           if (hint) hint.remove();
           for (let i = 1; i < n; i++) {
-            const chat = openWorkerWindow(crewId, 'worker', '', i);
+            const chat = openWorkerWindow(crewId, 'worker', '', i, srcChat);
             if (chat) _bindCrewWindow(chat, crewId, 'worker-' + (i + 1), srcId);
           }
           return;
@@ -373,17 +418,14 @@
   async function dispatchCrew(srcChat, n) {
     if (typeof n === 'number' && n >= 1) {
       const crewId = genCrewId();
-      /* 【P0 封堵旁路】收敛派单与弹窗入口同走 md 铁律：无 md 或 md 不可读一律拒绝开工 */
-      const task = extractTask(srcChat) || '';
-      const mdPath = extractMdPath(task);
-      if (!mdPath) {
-        crewToast('🐝 还差一步：暂时没找到 md 文件路径。把任务说明写成 md 并在对话里写明路径（如 private/记忆/xxx.md），再点开工就可以啦～');
-        return;
-      }
+      /* 【P0 封堵旁路】收敛派单与弹窗入口同走 md 铁律：无 md 自动落盘兜底，仍失败才拒绝开工 */
+      let task = extractTask(srcChat) || '';
       try {
-        await validateMd(mdPath);
+        const ensured = await ensureTaskMd(task);
+        task = ensured.task;
+        await validateMd(ensured.mdPath);
         await startCrew(crewId, n, task, srcChat);
-      } catch (err) { crewToast('🐝 md「' + mdPath + '」暂时读不到（' + (err.message || err) + '）。确认一下文件路径是否写对了，改好后随时可以再开工～'); }
+      } catch (err) { crewToast('🐝 自动落盘/校验 md 失败（' + (err.message || err) + '）。可以在对话里写明 md 路径后再点开工～'); }
       return;
     }
     return openDispatchDialog(srcChat);
@@ -392,17 +434,66 @@
   /* 【v8 修复】window.createChatBox / window.sendToChatbox 在本项目根本不存在（真正的建窗链路是
      App.createChatBox(x, y, modelId)），旧写法永远命中静默降级 → 点了开工只建黑板不出窗。
      现改用 App.createChatBox + 输入框注入派单消息（与 chatbox-race.js 同口径），窗口真正弹出来干活。 */
-  function openWorkerWindow(crewId, role, task, idx) {
+  /* 【定位统一·与审核师同口径】施工队新窗贴源窗右下角外10px落点（含画布缩放/平移校正），
+     无源窗或解析失败时回退旧固定坐标 90+i*46。 */
+  function crewSpawnPos(srcChat, i) {
+    const idx = i || 0;
+    try {
+      const srcEl = srcChat && srcChat.el;
+      if (srcEl && document.body.contains(srcEl)) {
+        let _sc = (window.App && typeof App.canvasScale === 'function') ? (App.canvasScale() || 1) : 1;
+        let _cv = (window.App && typeof App.canvasGetView === 'function') ? (App.canvasGetView() || { x: 0, y: 0 }) : { x: 0, y: 0 };
+        let _caOff = { left: 0, top: 0 };
+        try { const ca = document.querySelector('.canvas-area') || (document.getElementById('canvasArea')); if (ca) { const r = ca.getBoundingClientRect(); _caOff = { left: r.left, top: r.top }; } } catch (eCa) {}
+        let _srcL = parseInt(srcEl.style.left, 10), _srcT = parseInt(srcEl.style.top, 10);
+        if (isNaN(_srcL) || isNaN(_srcT)) {
+          try {
+            const r = srcEl.getBoundingClientRect();
+            _srcL = Math.round((r.left - _caOff.left - (_cv.x || 0)) / _sc);
+            _srcT = Math.round((r.top - _caOff.top - (_cv.y || 0)) / _sc);
+          } catch (eR) { _srcL = NaN; _srcT = NaN; }
+        }
+        if (!isNaN(_srcL) && !isNaN(_srcT) && isFinite(_srcL) && isFinite(_srcT)) {
+          const offW = Math.round((srcEl.offsetWidth || 420) / _sc);
+          const offH = Math.round((srcEl.offsetHeight || 300) / _sc);
+          return { x: _srcL + offW + 10 + idx * 20, y: _srcT + offH + 10 + idx * 20, ok: true };
+        }
+      }
+    } catch (e) {}
+    return { x: 90 + idx * 46, y: 90 + idx * 46, ok: false };
+  }
+
+  function openWorkerWindow(crewId, role, task, idx, srcChat) {
     if (!window.App || typeof App.createChatBox !== 'function') {
       console.warn('[ZFCrew] blackboard ready, front-end App.createChatBox unavailable:', crewId);
       return null;
     }
     const i = idx || 0;
-    // 阶梯错位落点，避免 N 个窗完全重叠
-    const x = 90 + i * 46, y = 90 + i * 46;
+    // 【定位统一】贴源窗右下角外10px（与审核师同口径），同批依次 +20 阶梯错开；无源窗回退固定坐标
+    const _sp = crewSpawnPos(srcChat, i);
+    const x = _sp.x, y = _sp.y;
     let chat = null;
     try { chat = App.createChatBox(Math.round(x), Math.round(y), null, true); } catch (e) { chat = null; }
     if (!chat) { console.warn('[ZFCrew] createChatBox 被拦截（窗口数量限制？）:', crewId); return null; }
+    /* 【定位最终钉回】与审核员窗 v5 同口径：创建后多拍强制钉回目标坐标（偏差>400px 放弃，防传送） */
+    try {
+      const boxPin = chat.el ? chat.el : chat;
+      const _pinCrew = function () {
+        try {
+          if (!boxPin || !document.body.contains(boxPin)) return;
+          const curL = parseFloat(boxPin.style.left), curT = parseFloat(boxPin.style.top);
+          const dL = Math.abs(curL - x), dT = Math.abs(curT - y);
+          if ((dL > 1 || dT > 1) && Math.max(dL, dT) < 400) {
+            boxPin.style.left = x + 'px';
+            boxPin.style.top = y + 'px';
+          }
+        } catch (e) {}
+      };
+      _pinCrew();
+      setTimeout(_pinCrew, 300);
+      setTimeout(_pinCrew, 1000);
+      setTimeout(_pinCrew, 2500);
+    } catch (ePin) {}
     const boxEl = chat.el ? chat.el : chat;
     const pack = buildPack(crewId, role) + (task ? '\n【本次任务描述】\n' + task + '\n' : '');
     // 轮询等输入框+发送按钮就绪后注入派单消息并触发发送（每 300ms 最多 20 次 = 6 秒）
@@ -530,7 +621,9 @@
        App.createChatBox + 轮询注入审核员素材包，与 openWorkerWindow 同口径。 */
     if (!window.App || typeof App.createChatBox !== 'function') { alert('前台缺 App.createChatBox，无法开审核员窗'); return; }
     let cb = null;
-    try { cb = App.createChatBox(90, 90, null, true); } catch (e) { cb = null; }
+    /* 【定位统一·v10】回笼审核员窗也贴源窗右下角（与 worker/审核师同口径），无源窗回退 90,90 */
+    const _rSp = crewSpawnPos(_crewSrcChat, 0);
+    try { cb = App.createChatBox(Math.round(_rSp.x), Math.round(_rSp.y), null, true); } catch (e) { cb = null; }
     if (!cb) { alert('建审核员窗失败（窗口数量限制？）'); return; }
     const boxEl = cb.el ? cb.el : cb;
     const pack = buildReviewerPack(crewId) + '\n请立即开始收口：读黑板核验 → 逐片验收 → 合并分支 → close 黑板（合并失败时 POST /api/crew/close 传 merge_failed:true 及 merge_error，黑板会保留现场分支供重试）。';
@@ -657,7 +750,7 @@
     const srcId = opts.srcChatId || null; /* 复活窗连线由箭头层维护（suspended pair 已有 srcId） */
     const n = Math.max(1, slices.filter(s => s.id !== 'auto').length || 1);
     for (let i = 0; i < n; i++) {
-      const chat = openWorkerWindow(crewId, 'worker', '', i);
+      const chat = openWorkerWindow(crewId, 'worker', '', i, (opts && opts.srcChat) || null);
       if (chat) _bindCrewWindow(chat, crewId, 'worker-' + (i + 1), srcId);
     }
     return true;

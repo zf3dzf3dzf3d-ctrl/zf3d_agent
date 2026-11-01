@@ -658,7 +658,7 @@
                     var body = box.querySelector('.chatbox-body');
                     if (body && !body.querySelector('.msg:not([data-welcome])')) {
                         var w = body.querySelector('[data-welcome]');
-                        if (w) w.innerHTML = '<b>' + (role.avatar || '🎭') + ' ' + role.name + '</b> 已加入本对话。直接开始聊吧，也可以在其他对话里用 @' + role.name + ' 呼叫 TA。';
+                        if (w) { /* 【XSS修复 2026-11-07】角色名经转义后拼入 */ var _esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }; w.innerHTML = '<b>' + (role.avatar || '🎭') + ' ' + _esc(role.name) + '</b> 已加入本对话。直接开始聊吧，也可以在其他对话里用 @' + _esc(role.name) + ' 呼叫 TA。'; }
                     }
                 } catch (e) {}
             });

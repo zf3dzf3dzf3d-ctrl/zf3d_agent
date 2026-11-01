@@ -43,6 +43,65 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             self._send_json(memory_import.auto_collect())
             return
 
+    # ===== 🔑 密码大师：跨版本浏览器 profile/密码库导入 =====
+    def _handle_profile_import(self):
+        import browser_profile_import
+        try:
+            body = self._read_body()
+        except Exception:
+            body = {}
+        path = self.path.split('?')[0]
+        if path == '/api/browser/profile/import/candidates':
+            self._send_json(browser_profile_import.list_candidates())
+            return
+        if path == '/api/browser/profile/import/scan':
+            src = str(body.get('src') or '')
+            pp = str(body.get('profile_path') or '') or None
+            self._send_json(browser_profile_import.scan_import(src, profile_path=pp))
+            return
+        if path == '/api/browser/profile/import/run':
+            src = str(body.get('src') or '')
+            pp = str(body.get('profile_path') or '') or None
+            self._send_json(browser_profile_import.run_import(src, profile_path=pp))
+            return
+        if path == '/api/browser/profile/import/auto':
+            self._send_json(browser_profile_import.auto_collect())
+            return
+        # 🛡 钉住保底：备援备份/回滚/健康自检
+        if path == '/api/browser/profile/import/reserve-backup':
+            self._send_json(browser_profile_import.reserve_backup())
+            return
+        if path == '/api/browser/profile/import/reserve-restore':
+            self._send_json(browser_profile_import.reserve_restore(str(body.get('ts') or '') or None))
+            return
+        if path == '/api/browser/profile/import/health':
+            self._send_json(browser_profile_import.check_login_data_health())
+            return
+
+    # ===== 🛰️ 万能智能体数据导入大师：外部 Agent 会话库只读导入 =====
+    def _handle_agent_import(self):
+        import external_agent_import
+        try:
+            body = self._read_body()
+        except Exception:
+            body = {}
+        path = self.path.split('?')[0]
+        if path == '/api/agent/import/candidates':
+            self._send_json(external_agent_import.list_candidates())
+            return
+        if path == '/api/agent/import/scan':
+            agent = str(body.get('agent') or '')
+            self._send_json(external_agent_import.scan_import(agent))
+            return
+        if path == '/api/agent/import/run':
+            agent = str(body.get('agent') or '')
+            self._send_json(external_agent_import.run_import(agent))
+            return
+        if path == '/api/agent/import/status':
+            agent = str(body.get('agent') or '') or None
+            self._send_json(external_agent_import.status(agent))
+            return
+
     # ===== 多线程下载器 =====
     def _route_download_post(self):
         path = self.path.split('?')[0]
@@ -235,6 +294,12 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             return
         parsed = urlparse(self.path)
         path = parsed.path
+        # 区域9-T1 多模态路由耗时埋点（单点包装，无锁无业务侵入）
+        try:
+            import zf_mm_perf
+            zf_mm_perf.wrap(self, path)
+        except Exception:
+            pass
 
         # ===== 审核师箭头配对：服务器端持久化（保存/覆盖） =====
         if path == '/api/verify-pairs':
@@ -249,6 +314,49 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                 os.makedirs(os.path.dirname(_fp), exist_ok=True)
                 with open(_fp, 'w', encoding='utf-8') as f:
                     f.write(str(raw))
+                self._send_json({'ok': True})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e)}, 500)
+            return
+
+        # ===== E2 工具元数据统计：前端 execute 埋点异步上报，落 private/db/tool_stats.json =====
+        if path == '/api/tool-stats/report':
+            try:
+                body = self._read_body() or {}
+                name = str(body.get('name') or '')[:64]
+                if not name:
+                    self._send_json({'ok': False, 'error': 'name required'})
+                    return
+                import threading as _thr
+                _fp = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                    '..', '..', 'private', 'db', 'tool_stats.json'))
+                entry = {
+                    'ok': bool(body.get('ok')),
+                    'ms': int(body.get('ms') or 0),
+                    'ts': str(body.get('ts') or ''),
+                }
+                def _write():
+                    try:
+                        import json as _json
+                        with _db_lock:
+                            data = {}
+                            if os.path.exists(_fp):
+                                try:
+                                    data = _json.loads(open(_fp, encoding='utf-8').read())
+                                except Exception:
+                                    data = {}
+                            st = data.setdefault(name, {'count': 0, 'ok': 0, 'total_ms': 0, 'last_ts': ''})
+                            st['count'] += 1
+                            st['ok'] += 1 if entry['ok'] else 0
+                            st['total_ms'] += entry['ms']
+                            st['last_ts'] = entry['ts']
+                            tmp = _fp + '.tmp'
+                            with open(tmp, 'w', encoding='utf-8') as f:
+                                _json.dump(data, f, ensure_ascii=False)
+                            os.replace(tmp, _fp)
+                    except Exception:
+                        pass
+                _thr.Thread(target=_write, daemon=True).start()
                 self._send_json({'ok': True})
             except Exception as e:
                 self._send_json({'ok': False, 'error': str(e)}, 500)
@@ -422,6 +530,273 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             return
 
         # ===== 管家团记录/档案写入（role 参数缺省=健康师） =====
+        # ===== 工作台面板：情报小组件 增/改/删（POST） =====
+        if path == '/api/workbench/widgets':
+            try:
+                import workbench_panel as _wp
+                body = self._read_body() or {}
+                _pid = str((body or {}).get('project') or 'default')
+                _op = str((body or {}).get('op') or 'add')
+                if _op == 'add':
+                    w = _wp.add_widget(_pid, (body or {}).get('widget') or {})
+                    self._send_json({'ok': True, 'widget': w})
+                elif _op == 'update':
+                    w = _wp.update_widget(_pid, str((body or {}).get('id') or ''),
+                                          (body or {}).get('patch') or {})
+                    self._send_json({'ok': True, 'widget': w})
+                elif _op == 'delete':
+                    _wp.delete_widget(_pid, str((body or {}).get('id') or ''))
+                    self._send_json({'ok': True})
+                else:
+                    self._send_json({'ok': False, 'err': '未知 op: %s' % _op}, 400)
+            except ValueError as e:
+                self._send_json({'ok': False, 'err': str(e)}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        # ===== 员工定时器 写操作（P4：add/enable/disable/remove） =====
+        if path == '/api/employee/timers':
+            try:
+                import employee_scheduler as es
+                body = self._read_body() or {}
+                op = str(body.get('op') or '')
+                if op == 'add':
+                    name = str(body.get('name') or '').strip()
+                    prompt = str(body.get('task_prompt') or '').strip()
+                    sch = body.get('schedule') or {}
+                    if not name or not prompt or not isinstance(sch, dict) or sch.get('type') not in ('daily', 'interval'):
+                        self._send_json({'ok': False, 'err': '参数不合法（需 name/task_prompt/schedule.type=daily|interval）'}, 400)
+                        return
+                    if sch.get('type') == 'interval':
+                        try:
+                            sec = int(sch.get('seconds') or 0)
+                        except Exception:
+                            sec = 0
+                        if sec < es.MIN_INTERVAL_SECONDS:
+                            self._send_json({'ok': False, 'err': 'interval 最小 %d 秒' % es.MIN_INTERVAL_SECONDS}, 400)
+                            return
+                    if sch.get('type') == 'daily' and not sch.get('time'):
+                        self._send_json({'ok': False, 'err': 'daily 需 time=HH:MM'}, 400)
+                        return
+                    tid = es.add_timer(name, str(body.get('box_id') or '').strip(), prompt, sch,
+                                       enabled=bool(body.get('enabled', True)))
+                    self._send_json({'ok': True, 'id': tid})
+                elif op in ('enable', 'disable'):
+                    self._send_json({'ok': es.set_enabled(str(body.get('id') or ''), op == 'enable')})
+                elif op == 'remove':
+                    self._send_json({'ok': es.remove_timer(str(body.get('id') or ''))})
+                else:
+                    self._send_json({'ok': False, 'err': '未知 op: %s' % op}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        # ===== 团队成员 增/改/删（POST：project 维度；scope=global 操作全局管家团） =====
+        if path == '/api/butler/team':
+            try:
+                import butler_store as _bs
+                body = self._read_body() or {}
+                _b = body or {}
+                _op = str(_b.get('op') or 'add')
+                _global = str(_b.get('scope') or '') == 'global'
+                if _op == 'templates':
+                    self._send_json({'ok': True, 'templates': _bs.list_templates()})
+                    return
+                if _op == 'auto_join':
+                    # 加入团队（AI 全自动总结）：读对话历史 → _call_llm 总结成员名/接手线索/相关路径 → 直接入库，无任何弹窗
+                    try:
+                        import datetime as _dt_mod
+                        import json as _json
+                        import re as _re
+                        from db import db_read
+                        from brain.main_brain import _call_llm
+                        _cid = str(_b.get('chat_id') or '').strip()
+                        if not _cid:
+                            self._send_json({'ok': False, 'err': '缺少 chat_id'}); return
+                        rows = db_read('''
+                            SELECT role, content, created_at FROM (
+                                SELECT role, content, created_at FROM chat_history WHERE session_id = ?
+                                UNION ALL
+                                SELECT role, content, created_at FROM chat_history_archive WHERE session_id = ?
+                            ) ORDER BY created_at DESC LIMIT 24
+                        ''', (_cid, _cid))
+                        msgs = [{'role': r['role'], 'preview': (r['content'] or '')[:400]} for r in reversed(rows)]
+                        if not msgs:
+                            self._send_json({'ok': False, 'err': '当前对话还没有内容，无法总结'}); return
+                        hist_txt = '\n'.join([('[%s] %s' % (m['role'], m['preview'])) for m in msgs])[:12000]
+                        sys_p = (
+                            '你是团队档案员。请根据下面的对话内容，把这次对话总结为一名可加入工作台团队的员工。'
+                            '要求（全部简体中文）：\n'
+                            '1. name：2-10字成员名，必须带主题（格式如「调查-XXX」「策划-XXX」「修复-XXX」），不要重名；\n'
+                            '2. summary：接手线索，一两句话说明这个对话干了什么/结论是什么，60-150字；\n'
+                            '3. paths：对话中提到的关键文件/目录绝对路径数组（0-5条，没有就空数组）；\n'
+                            '4. 只输出一个 JSON 对象，形如 {"name":"...","summary":"...","paths":["..."]}，不要任何解释、不要代码块标记。'
+                        )
+                        raw = _call_llm(BASE_DIR, [
+                            {'role': 'system', 'content': sys_p},
+                            {'role': 'user', 'content': '对话内容：\n%s' % hist_txt}],
+                            max_tokens=600, temperature=0.4) or ''
+                        m = _re.search(r'\{[\s\S]*\}', raw)
+                        j = _json.loads(m.group(0)) if m else {}
+                        nm = str(j.get('name') or '').strip()[:30]
+                        sm = str(j.get('summary') or '').strip()[:500]
+                        if not nm or not sm:
+                            self._send_json({'ok': False, 'err': 'AI 总结失败，请稍后重试'}); return
+                        pts = [str(x).strip() for x in (j.get('paths') or []) if str(x).strip()][:5]
+                        mem = {
+                            'name': nm, 'avatar': '🛠', 'type': 'workbench',
+                            'chat_id': _cid, 'summary': sm, 'paths': pts,
+                            'commits': [], 'last_ts': _dt_mod.now().strftime('%Y/%m/%d %H:%M:%S'),
+                        }
+                        _is_global = _global
+                        _pid2 = str(_b.get('project') or 'default')
+                        try:
+                            if _is_global:
+                                _bs.add_member(mem)
+                            else:
+                                _bs.p_add_member(mem, _pid2)
+                        except ValueError:
+                            # 同名成员已存在：直接返回已存在提示，不再弹窗
+                            self._send_json({'ok': False, 'err': '成员「%s」已在团队中' % nm}); return
+                        new_team = _bs.get_team() if _is_global else _bs.get_project_team(_pid2)
+                        self._send_json({'ok': True, 'name': nm, 'summary': sm, 'team': new_team})
+                    except Exception as e2:
+                        self._send_json({'ok': False, 'err': '自动总结加入失败：%s' % e2})
+                    return
+                if _op == 'auto_generate':
+                    # 工作台团队：按用户描述调 AI 自动生成 1~6 名员工角色并入库（参照专家团 expert_auto_generate）
+                    _hint = str(_b.get('hint') or '').strip()[:200]
+                    if not _hint:
+                        self._send_json({'ok': False, 'err': '请先描述需要什么样的员工'}); return
+                    try:
+                        _cnt = int(_b.get('count') or 1)
+                    except Exception:
+                        _cnt = 1
+                    _cnt = max(1, min(6, _cnt))
+                    _is_global = _global
+                    _pid = str(_b.get('project') or 'default')
+                    try:
+                        import json as _json
+                        import re as _re
+                        from brain.main_brain import _call_llm
+                        sys_p = (
+                            '你是团队岗位设计助手。用户描述一个需求场景，请为该场景设计 %d 名对应的工作台员工（岗位角色）。'
+                            '要求：\n'
+                            '1. 全部使用简体中文；\n'
+                            '2. 每名员工给出 name（2-8字岗位名，如 图标制作师/文案策划，不要重名）、'
+                            'avatar（1个emoji）、persona（该员工的职责定位与工作方式，30-120字）、'
+                            'fields（该岗位需要长期追踪的关键档案字段，2-6个短词组成的数组）；\n'
+                            '3. 只输出一个 JSON 数组，形如 [{"name":"...","avatar":"...","persona":"...","fields":["..."]}]，'
+                            '不要任何解释、不要代码块标记。'
+                        ) % _cnt
+                        raw = _call_llm(BASE_DIR, [
+                            {'role': 'system', 'content': sys_p},
+                            {'role': 'user', 'content': '需求场景：%s' % _hint}],
+                            max_tokens=900, temperature=0.8) or ''
+                        m = _re.search(r'\[[\s\S]*\]', raw)
+                        arr = _json.loads(m.group(0)) if m else []
+                        made = []
+                        for it in arr:
+                            if not isinstance(it, dict):
+                                continue
+                            nm = str(it.get('name') or '').strip()
+                            ps = str(it.get('persona') or '').strip()
+                            if not nm or not ps:
+                                continue
+                            mem = {
+                                'name': nm,
+                                'avatar': str(it.get('avatar') or '🤖').strip()[:8] or '🤖',
+                                'persona': ps,
+                                'fields': [str(x).strip() for x in (it.get('fields') or []) if str(x).strip()][:20],
+                            }
+                            try:
+                                if _is_global:
+                                    _bs.add_member(mem)
+                                else:
+                                    _bs.p_add_member(mem, _pid)
+                                made.append(nm)
+                            except ValueError:
+                                # 同名成员已存在，跳过
+                                continue
+                            if len(made) >= _cnt:
+                                break
+                        if made:
+                            new_team = _bs.get_team() if _is_global else _bs.get_project_team(_pid)
+                            self._send_json({'ok': True, 'team': new_team, 'made': made})
+                        else:
+                            self._send_json({'ok': False, 'err': 'AI 未能生成有效员工，请换一种描述重试'})
+                    except Exception as e2:
+                        self._send_json({'ok': False, 'err': '自动生成失败：%s' % e2})
+                    return
+                if _global:
+                    if _op == 'add':
+                        team = _bs.add_member(_b.get('member') or {})
+                    elif _op == 'update':
+                        team = _bs.update_member(str(_b.get('name') or ''), _b.get('patch') or {})
+                    elif _op == 'delete':
+                        team = _bs.delete_member(str(_b.get('name') or ''))
+                    else:
+                        raise ValueError('未知 op: %s' % _op)
+                else:
+                    _pid = str(_b.get('project') or 'default')
+                    if _op == 'add':
+                        team = _bs.p_add_member(_b.get('member') or {}, _pid)
+                    elif _op == 'update':
+                        team = _bs.p_update_member(str(_b.get('name') or ''), _b.get('patch') or {}, _pid)
+                    elif _op == 'delete':
+                        team = _bs.p_delete_member(str(_b.get('name') or ''), _pid)
+                    else:
+                        raise ValueError('未知 op: %s' % _op)
+                self._send_json({'ok': True, 'team': team})
+            except ValueError as e:
+                self._send_json({'ok': False, 'err': str(e)}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        if path == '/api/pins/extract':
+            try:
+                import datasource_pins as _dp
+                body = self._read_body() or {}
+                _b = body or {}
+                r = _dp.extract(str(_b.get('url') or ''),
+                                str(_b.get('selector') or ''),
+                                str(_b.get('attr') or 'text'))
+                self._send_json({'ok': True, **r})
+            except ValueError as e:
+                self._send_json({'ok': False, 'err': str(e)}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        if path == '/api/pins':
+            try:
+                import datasource_pins as _dp
+                body = self._read_body() or {}
+                _b = body or {}
+                _op = str(_b.get('op') or 'list')
+                _pid = str(_b.get('project') or 'default')
+                if _op == 'list':
+                    self._send_json({'ok': True, 'pins': _dp.list_pins(_pid)})
+                elif _op == 'add':
+                    p = _dp.add_pin(dict(_b.get('pin') or {}, project=_pid))
+                    self._send_json({'ok': True, 'pin': p})
+                elif _op == 'update':
+                    p = _dp.update_pin(_pid, str(_b.get('id') or ''), _b.get('patch') or {})
+                    self._send_json({'ok': True, 'pin': p})
+                elif _op == 'delete':
+                    _dp.delete_pin(_pid, str(_b.get('id') or ''))
+                    self._send_json({'ok': True})
+                elif _op == 'refresh':
+                    p = _dp.refresh_pin(_pid, str(_b.get('id') or ''))
+                    self._send_json({'ok': True, 'pin': p})
+                elif _op == 'save_pos':
+                    _dp.save_positions(_pid, _b.get('positions') or {})
+                    self._send_json({'ok': True})
+                else:
+                    self._send_json({'ok': False, 'err': '未知 op: %s' % _op}, 400)
+            except ValueError as e:
+                self._send_json({'ok': False, 'err': str(e)}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
         if path == '/api/butler/record':
             try:
                 import butler_store as _bs
@@ -568,9 +943,19 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             _succ(self)
             return
 
+        # ===== 🛰️ 万能智能体数据导入大师（/api/agent/import/*） =====
+        if path in ('/api/agent/import/candidates', '/api/agent/import/scan', '/api/agent/import/run', '/api/agent/import/status'):
+            self._handle_agent_import()
+            return
+
         # ===== 🧬 记忆大师：跨版本记忆导入（/api/memory/import/*） =====
         if path in ('/api/memory/import/candidates', '/api/memory/import/scan', '/api/memory/import/run', '/api/memory/import/auto'):
             self._handle_memory_import()
+            return
+
+        # ===== 🔑 密码大师：跨版本浏览器 profile/密码库导入（/api/browser/profile/import/*） =====
+        if path in ('/api/browser/profile/import/candidates', '/api/browser/profile/import/scan', '/api/browser/profile/import/run', '/api/browser/profile/import/auto', '/api/browser/profile/import/reserve-backup', '/api/browser/profile/import/reserve-restore', '/api/browser/profile/import/health'):
+            self._handle_profile_import()
             return
 
         # ===== 多线程下载器（/api/download/*） =====
@@ -697,6 +1082,18 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
         # ===== 循环内核化·阶段C：审批决议（POST /api/approval/<req_id>）=====
         if path.startswith('/api/approval/'):
             self._handle_approval_resolve(path[len('/api/approval/'):])
+            return
+        # ===== 可编排后台流水线·Jobs（提交异步任务）=====
+        if path == '/api/jobs/submit':
+            self._handle_jobs_submit()
+            return
+        # ===== Jobs 附件上传（新建任务粘贴图片落盘）=====
+        if path == '/api/jobs/upload':
+            self._handle_jobs_upload()
+            return
+        # ===== Jobs·手动审核续跑（复用内核 resume_verdict）=====
+        if path.startswith('/api/jobs/') and path.endswith('/resume'):
+            self._handle_jobs_resume(path[len('/api/jobs/'):-len('/resume')])
             return
         if path.startswith('/api/chat-pool/slot/') and path.endswith('/cancel'):
             self._handle_chat_pool_cancel()
@@ -1379,6 +1776,26 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                 conn = get_db()
                 cur = conn.cursor()
 
+                if resource == 'nodes' and len(parts) > 2 and parts[2] == 'revive':
+                    # 【防重启复活 v2】显式复活（恢复已关闭对话时调用）：
+                    # 不再清除墓碑（v1 的"一次性墓碑"被任意一次恢复永久拆除，
+                    # 之后节点失去保护、重启后复活铺屏——2026-10-25 复发实证）。
+                    # 改为发放 60 秒短时落库令牌：允许本次恢复流程的 saveNode 写入，
+                    # 但墓碑仍在 → GET /api/db/nodes 列表继续过滤该节点 → 重启后 restoreSession 拿不到它。
+                    node_id = parts[1]
+                    now_ms_revive = int(time.time() * 1000)
+                    cur.execute('INSERT OR REPLACE INTO kv_store (key, value) VALUES (?,?)',
+                                ('node_revive_token:' + node_id, str(now_ms_revive)))
+                    conn.commit()
+                    if not isinstance(body, dict) or not body:
+                        # 前端 revive 调用 body 为空 {}：仅发令牌即可（随后 getNode/saveNode 才真正落库）。
+                        # 不落库，防止用空字段 + 随机新 id 插入垃圾空节点（审核打回项）。
+                        return self._send_json({'ok': True, 'revived': node_id})
+                    body['id'] = node_id  # 带数据的 revive：强制落库 id = URL 中的 id
+                    _tombstone_cleared = True
+                else:
+                    _tombstone_cleared = False
+
                 if resource == 'nodes' and len(parts) > 2 and parts[2] == 'project':
                     # POST /nodes/{id}/project 鈥?璁剧疆鑺傜偣鐨勯」鐩綊灞?
                     node_id = parts[1]
@@ -1389,6 +1806,29 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
 
                 elif resource == 'nodes':
                     node_id = body.get('id', 'n' + str(now))
+                    # 【防重启复活】墓碑检查：该节点已被用户关闭（DELETE 过）→ 拒绝普通 POST 复活。
+                    # 只有显式 POST /nodes/{id}/revive（restoreLastClosed 恢复流程）才能越过。
+                    if not _tombstone_cleared:
+                        cur.execute('SELECT value FROM kv_store WHERE key=?', ('node_tombstone:' + node_id,))
+                        _tomb = cur.fetchone()
+                        if _tomb:
+                            conn.commit()
+                            result = {'ok': True, 'id': node_id, 'tombstoned': True,
+                                      'msg': 'node was closed by user; ignored to prevent restart resurrection'}
+                            import logging as _lg
+                            _lg.info('[AntiResurrect] 拦截已关闭节点的复活写入: %s', node_id)
+                            # 【日志落盘】根 logger 无文件 handler，复发时无从查证——
+                            # 追加写 server/logs/anti_resurrect.log（失败不影响主流程）
+                            try:
+                                import os as _os
+                                _dir = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), 'logs')
+                                _os.makedirs(_dir, exist_ok=True)
+                                with open(_os.path.join(_dir, 'anti_resurrect.log'), 'a', encoding='utf-8') as _f:
+                                    import datetime as _dt
+                                    _f.write('%s AntiResurrect id=%s\n' % (_dt.datetime.now().isoformat(), node_id))
+                            except Exception:
+                                pass
+                            return self._send_json(result)
                     cur.execute('''
                         INSERT OR REPLACE INTO canvas_nodes
                         (id, title, model_id, x, y, w, h, collapsed, z_index, scroll_pos, project_id, created_at, updated_at,
@@ -1443,9 +1883,11 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                             pass
 
                 elif resource == 'chat-history' and len(parts) > 1 and parts[1] == 'sessions':
-                    # Existing installations may predate the archive table.
-                    cur.execute('''
-                        CREATE TABLE IF NOT EXISTS chat_history_archive (
+                    # 【性能修复 2026-10-25】重 UNION 查询挪出 _db_lock：
+                    # 此前每次请求都在全局写锁内做 建表+PRAGMA+全量 UNION 大查询，
+                    # 实测持锁 3~6s，文件树展开等所有并发 DB 请求被拖到超时。
+                    # 改为：锁内只做一次性 DDL 兜底（毫秒级），大查询走只读连接（不排队 _db_lock）。
+                    cur.execute('''CREATE TABLE IF NOT EXISTS chat_history_archive (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             session_id TEXT NOT NULL,
                             session_name TEXT,
@@ -1453,29 +1895,17 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                             content TEXT,
                             model_id TEXT,
                             created_at INTEGER
-                        )
-                    ''')
-                    cur.execute("PRAGMA table_info(chat_history_archive)")
-                    archive_columns = {row['name'] for row in cur.fetchall()}
+                        )''')
+                    conn.commit()
+                    archive_columns = {r['name'] for r in cur.execute("PRAGMA table_info(chat_history_archive)").fetchall()}
                     if 'model_id' not in archive_columns:
                         cur.execute('ALTER TABLE chat_history_archive ADD COLUMN model_id TEXT')
-                    cur.execute('''
-                        SELECT session_id, session_name, role, content, model_id, created_at
-                        FROM (
-                            SELECT ch.session_id, COALESCE(s.name, ch.session_id) AS session_name,
-                                   ch.role, ch.content, ch.model_id, ch.created_at
-                            FROM chat_history ch
-                            LEFT JOIN sessions s ON s.id = ch.session_id
-                            WHERE ch.role = 'user'
-                            UNION ALL
-                            SELECT session_id, COALESCE(session_name, session_id) AS session_name,
-                                   role, content, model_id, created_at
-                            FROM chat_history_archive
-                            WHERE role = 'user'
-                        ) all_history
-                        ORDER BY created_at DESC
-                    ''')
-                    result = {'ok': True, 'data': [dict(row) for row in cur.fetchall()]}
+                        conn.commit()
+                    # 【真修复 2026-10-26】readonly 大查询此前仍在 with _db_lock 缩进内（假移出），
+                    # 实测持锁 42s 平均、全站排队。改为锁内只做 DDL 兜底并置标记，
+                    # 锁释放后再执行大查询（只读连接，不占 _db_lock）。
+                    _sessions_readonly_needed = True
+                    result = None
 
                 elif resource == 'sessions':
                     sid = body.get('id', 's' + str(now))
@@ -1649,6 +2079,15 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
             self._send_error(str(e), 500)
             return
 
+        # 【真修复 2026-10-26】chat-history/sessions 大查询：锁外执行（只读连接，不占 _db_lock）。
+        # 此前 _chat_history_sessions_readonly() 被误留在 with _db_lock 缩进内（假移出），
+        # 实测平均持锁 42s、全站 /api/db/* 排队。
+        if locals().get('_sessions_readonly_needed'):
+            result = self._chat_history_sessions_readonly()
+            if result is not None:
+                self._send_json(result)
+                return
+
         # ===== 【P1 修复 2026-10-17】成长埋点：锁已释放，异步线程执行不阻塞响应 =====
         _gd = locals().get('_growth_defer')
         if isinstance(_gd, dict):
@@ -1704,6 +2143,38 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                 try: self.close_connection = True
                 except Exception: pass
             self._send_error('Unknown POST route: ' + path, 404)
+
+    def _chat_history_sessions_readonly(self):
+        """【性能修复 2026-10-25】chat-history/sessions 大查询走只读连接（不排队 _db_lock）。
+        原实现在全局写锁内做全量 UNION 查询，实测持锁 3~6s，拖垮文件树展开等并发请求。
+        只读路径与 db.db_read 同语义，失败时兜底空列表（接口语义不变）。"""
+        try:
+            from db import db_read
+            rows = db_read('''
+                SELECT session_id, session_name, role, content, model_id, created_at
+                FROM (
+                    SELECT ch.session_id, COALESCE(s.name, ch.session_id) AS session_name,
+                           ch.role, ch.content, ch.model_id, ch.created_at
+                    FROM chat_history ch
+                    LEFT JOIN sessions s ON s.id = ch.session_id
+                    WHERE ch.role = 'user'
+                    UNION ALL
+                    SELECT session_id, COALESCE(session_name, session_id) AS session_name,
+                           role, content, model_id, created_at
+                    FROM chat_history_archive
+                    WHERE role = 'user'
+                ) all_history
+                ORDER BY created_at DESC
+            ''')
+            return {'ok': True, 'data': [dict(r) for r in rows]}
+        except Exception as e:
+            try:
+                from config import QUIET_CONSOLE
+                if not QUIET_CONSOLE:
+                    print('[chat-history/sessions] 只读查询失败(兜底空): %r' % e, flush=True)
+            except Exception:
+                pass
+            return {'ok': True, 'data': []}
 
     # ==================== 智能体养成：签到（P3） ====================
     def _handle_growth_checkin(self):

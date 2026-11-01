@@ -52,9 +52,15 @@ def record_token_usage(provider='', model='', box_id='', prompt_tokens=0,
         ct = int(completion_tokens or 0)
         ck = int(cached_tokens or 0)
         total = pt + ct
-        with _db_lock:
-            conn = sqlite3.connect(DB_PATH, timeout=30)
-            conn.execute('PRAGMA busy_timeout=30000')
+        # 【卡顿修复 2026-10-25】记账是观测数据，丢了不心疼，绝不能霸占全局锁：
+        # 1) acquire 带短超时（3s），拿不到锁直接放弃本次记账（原 with 会死等）；
+        # 2) 本连接 busy_timeout 降到 3s（原 30s：SQLite 层被外部进程占用时，
+        #    会在持有 _db_lock 期间死等 30s，正是 [DB-STUCK] 全站冻结的元凶之一）。
+        if not _db_lock.acquire(timeout=3.0):
+            return
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=3)
+            conn.execute('PRAGMA busy_timeout=3000')
             try:
                 conn.execute(
                     'INSERT INTO token_usage(ts, day, month, provider, model, box_id,'
@@ -67,6 +73,8 @@ def record_token_usage(provider='', model='', box_id='', prompt_tokens=0,
                 conn.commit()
             finally:
                 conn.close()
+        finally:
+            _db_lock.release()
     except Exception:
         pass
 

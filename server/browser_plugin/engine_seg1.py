@@ -54,7 +54,21 @@ _sessions = {}         # name -> BrowserSession
 _sessions_lock = threading.RLock()
 
 # --- 空闲自动关闭：会话超过 idle_close_seconds 秒无任何操作则自动关闭，防止 Chromium 后台吃 CPU ---
+# S2(v1.3.2)：支持 browser_plugin/config.json 的 idle_close_seconds 覆盖（默认300不变）。
+# 注意：server 进程常驻期间内存标记可达；若未来引擎拆独立进程/重启策略变更，须重评落盘标记。
 _IDLE_CLOSE_SECONDS = 300
+
+
+def _idle_close_seconds():
+    try:
+        cfg_path = os.path.join(_PLUGIN_DIR, 'config.json')
+        if os.path.exists(cfg_path):
+            v = json.load(open(cfg_path, encoding='utf-8-sig')).get('idle_close_seconds')
+            if isinstance(v, (int, float)) and v > 0:
+                return v
+    except Exception:
+        pass
+    return _IDLE_CLOSE_SECONDS
 _reaper_started = False
 
 
@@ -80,10 +94,11 @@ def _start_reaper():
             now = time.time()
             try:
                 stale = []
+                _ics = _idle_close_seconds()
                 with _sessions_lock:
                     for name, s in list(_sessions.items()):
                         idle_for = now - getattr(s, 'last_used', now)
-                        if idle_for > _IDLE_CLOSE_SECONDS:
+                        if idle_for > _ics:
                             stale.append(name)
                 for name in stale:
                     # 只关浏览器上下文（profile 保留，登录态不丢），
@@ -93,14 +108,20 @@ def _start_reaper():
                     if s is None:
                         continue
                     # 二次确认：取锁后仍是空闲且无排队任务才关
-                    if now - getattr(s, 'last_used', now) <= _IDLE_CLOSE_SECONDS:
+                    if now - getattr(s, 'last_used', now) <= _ics:
                         continue
                     if getattr(s, '_q', None) and not s._q.empty():
                         continue
                     try:
                         s.close()
+                        # S2(v1.3.2) 回收标记挂 session 对象（一次性读取）：
+                        # 下一次 dispatch 返回体携带 session_recycled:true 提醒 AI 会话曾被空闲回收
+                        try:
+                            s.recycled_at = now
+                        except Exception:
+                            pass
                         print('[browser] 空闲会话已自动关闭: %s (空闲>%ds)'
-                              % (name, _IDLE_CLOSE_SECONDS), flush=True)
+                              % (name, _ics), flush=True)
                     except Exception as e:
                         print('[browser] 空闲会话关闭失败 %s: %s' % (name, e), flush=True)
             except Exception as e:
@@ -922,6 +943,21 @@ class BrowserSession:
             'shot_jpeg', 'stream_poll', 'framesig', 'console',
             'tabs', 'content', 'snapshot', 'viewsource')
         r = self.run(_do, touch=action not in readonly_actions)
+        # S2(v1.3.2) 会话回收可感知：空闲回收只发生在两次调用之间，AI 无法从日志感知。
+        # 在返回体带一次性标记 session_recycled:true（读即清零，与返回构建同事务防重试丢失），
+        # AI 看到该字段应知道"页面状态可能已重置"，而非误判网页故障。冷启动不误报
+        # （recycled_at 仅由空闲回收线程设置）。server 常驻期间内存标记可达；若进程模型
+        # 变更（引擎拆独立进程/重启策略改变），须重评改为落盘标记。
+        try:
+            ra = getattr(self, 'recycled_at', None)
+            if ra is not None and isinstance(r, dict):
+                del self.recycled_at
+                r.setdefault('session_recycled', True)
+                r.setdefault('session_recycled_note',
+                             '该会话空闲超时被自动回收过（浏览器上下文已重开，登录态保留）；'
+                             '如当前页面与预期不符请重新 open/goto')
+        except Exception:
+            pass
         # ---- 自愈：worker 线程被残留 asyncio 事件循环污染或卡死时自动重建 ----
         # Playwright sync API 要求所在线程没有正在运行的 loop；若线程曾启动
         # 过未关闭的 loop，sync_playwright().start() 会永远抛

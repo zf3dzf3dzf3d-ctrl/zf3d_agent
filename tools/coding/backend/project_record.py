@@ -219,6 +219,18 @@ def handle(body, ctx):
                 return None, None
         if not parts[-1].endswith('.md'):
             parts[-1] += '.md'
+        # 【区域6修复 2026-11】防「全局/全局」双层镜像：全局层(records_dir 已指向 全局/)时，
+        # name 再带 全局/ 前缀会被拼成 全局/全局/xxx（历史双写根因）。此处归一化剥离冗余前缀。
+        try:
+            if os.path.normcase(os.path.normpath(records_dir)).endswith(
+                    os.path.normcase(os.sep + GLOBAL_DIR_NAME)) and parts and parts[0] == GLOBAL_DIR_NAME:
+                parts = parts[1:]
+                if not parts:
+                    return None, None
+                if not parts[-1].endswith('.md'):
+                    parts[-1] += '.md'
+        except NameError:
+            pass  # GLOBAL_DIR_NAME 尚未定义（早期调用），跳过归一化
         full = os.path.normpath(os.path.join(records_dir, *parts))
         base = os.path.normpath(records_dir)
         if not (full == base or full.startswith(base + os.sep)):
@@ -331,7 +343,41 @@ def handle(body, ctx):
                     except Exception as e:
                         results.append({'name': rel[:-3], 'error': str(e)})
                 else:
-                    results.append({'name': rel[:-3], 'error': 'Not found'})
+                    # 【目标面板修复 2026-11】批量 read 与单条 read 对齐：项目层未命中时
+                    # 依次回退 全局/ → 旧根目录 → 全库 basename 兜底搜索。
+                    # （前端目标面板 list 拿到的名字可能来自任意层，read 不带 _project_id
+                    #  会路由到 全局/ 层导致 Not found → 展开详情无内容）
+                    _fb_fp = None
+                    _tail = rel.split('/', 1)[-1] if '/' in rel else rel
+                    for _fb in (os.path.join(_root_records_dir, '全局', _tail),
+                                os.path.join(_root_records_dir, rel)):
+                        if os.path.isfile(_fb):
+                            _fb_fp = _fb
+                            break
+                    if not _fb_fp:
+                        # 全库兜底：按 basename 在记忆根下递归搜（排除隐藏目录与索引）
+                        try:
+                            _base = os.path.basename(rel + '.md')
+                            for _rt, _ds, _fs in os.walk(_root_records_dir):
+                                _ds[:] = [d for d in _ds if not d.startswith('.')]
+                                if _base in _fs:
+                                    _fb_fp = os.path.join(_rt, _base)
+                                    break
+                        except Exception:
+                            pass
+                    if _fb_fp:
+                        try:
+                            with open(_fb_fp, 'r', encoding='utf-8', errors='replace') as f:
+                                c, clipped = _clip(f.read())
+                            _fb_rel = os.path.relpath(_fb_fp, _root_records_dir).replace('\\', '/')[:-3]
+                            ent = {'name': _fb_rel, 'content': c}
+                            if clipped:
+                                ent['truncated'] = True
+                            results.append(ent)
+                        except Exception as e:
+                            results.append({'name': rel[:-3], 'error': str(e)})
+                    else:
+                        results.append({'name': rel[:-3], 'error': 'Not found'})
             ctx.send_json({'ok': True, 'multi': True, 'records': results})
             return
         rel, fp = _rel_path(name, category)
@@ -461,7 +507,28 @@ def handle(body, ctx):
             with open(fp, 'a', encoding='utf-8') as f:
                 f.write(content)
             _ensure_index(records_dir)
-            out = {'ok': True, 'name': rel[:-3]}
+            # 【A3 返回值如实化 2026-10-30】append 后回读实查：返回真实落盘字节数+回读哈希，
+            # 修复"两次写入 message 均返回记录为空"的虚报——现在回读验证非空才报 ok。
+            _bytes_written = len(content.encode('utf-8'))
+            _reread = ''
+            try:
+                with open(fp, 'r', encoding='utf-8', errors='replace') as f:
+                    _reread = f.read()
+            except Exception:
+                _reread = ''
+            import hashlib as _hashlib
+            out = {
+                'ok': True,
+                'name': rel[:-3],
+                'bytes_written': _bytes_written,
+                'file_bytes': os.path.getsize(fp),
+                'file_sha1': _hashlib.sha1(_reread.encode('utf-8', errors='replace')).hexdigest()[:12],
+                'file_nonempty': len(_reread.strip()) > 0,
+                'file_chars': len(_reread),
+            }
+            if not out['file_nonempty']:
+                out['ok'] = False
+                out['error'] = 'append 后回读为空，落盘疑似失败（bytes_written=%d 但回读 0 字符）' % _bytes_written
             if dup_note:
                 out['note'] = dup_note
             ctx.send_json(out)

@@ -70,7 +70,7 @@ def _open_ui():
     exe = sys.executable
     script = os.path.join(_HERE, 'webview_client.py')
     if not os.path.exists(script):
-        webbrowser.open(f'http://127.0.0.1:{PORT}/')
+        open_url_maximized(f'http://127.0.0.1:{PORT}/')
         return
     # 窗口进程单实例检测：扫描 python 进程命令行是否已带 webview_client.py
     try:
@@ -107,6 +107,13 @@ def _open_ui():
         subprocess.Popen([exe, script], cwd=_PROJECT_ROOT,
                          creationflags=flags)
         # 延迟写入 PID 锁（窗口进程自己也会写，这里兜底）
+        return
+    except Exception:
+        pass
+    # 【初始最大化修复 2026-10-27】回退浏览器也用 --start-maximized 启动
+    try:
+        from webview_client import open_url_maximized
+        open_url_maximized(f'http://127.0.0.1:{PORT}/')
         return
     except Exception:
         pass

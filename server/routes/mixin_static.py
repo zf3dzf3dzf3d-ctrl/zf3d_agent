@@ -415,13 +415,27 @@ class MixinStatic(MixinBase):
                         except Exception:
                             _rp = 8521
                     _text = content.decode('utf-8', 'replace')
+                    # ---- 动态注入：本地 js/css 缓存号自动升级（课题18 收口：内容变→hash 变→?v 自动变）----
+                    try:
+                        import re as _re
+                        import hashlib as _hl
+                        def _ver_of(_m):
+                            _rel = _m.group(2).lstrip('/')
+                            _fp = os.path.join(PUBLIC_DIR, _rel.replace('/', os.sep))
+                            if os.path.isfile(_fp):
+                                return _m.group(1) + _m.group(2) + '?v=' + _hl.md5(open(_fp, 'rb').read()).hexdigest()[:8] + _m.group(3)
+                            return _m.group(0)
+                        _text = _re.sub(r'((?:src|href)=["\'])(/?(?:js|css)/[^"\'?]+)(?:\?v=[^"\']*)?(["\'])',
+                                       _ver_of, _text)
+                    except Exception:
+                        pass  # 注入失败返回原文，不影响服务
                     if 'name="remote-port"' not in _text and "name='remote-port'" not in _text:
                         _meta = '<meta name="remote-port" content="' + str(_rp) + '">'
                         if '<head>' in _text:
                             _text = _text.replace('<head>', '<head>' + _meta, 1)
                         else:
                             _text = _meta + _text
-                        content = _text.encode('utf-8')
+                    content = _text.encode('utf-8')
                 except Exception:
                     pass  # 注入失败则返回原文件，不影响服务
             try:

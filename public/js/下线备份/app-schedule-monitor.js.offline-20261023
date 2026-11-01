@@ -1,0 +1,95 @@
+/* app-schedule-monitor.js — 后台任务监控卡（无限桌面）
+ * 数据源: GET /api/schedule?action=list（只读）
+ * 特性: dock 按钮 + 浮动面板、5s 轮询（页面隐藏自动暂停）、三色状态灯、
+ *       last_output 折叠展开、「提升到前台」弹窗实时查看。
+ */
+(function () {
+  'use strict';
+  var POLL_MS = 5000, timer = null, panelOpen = false, expanded = {};
+
+  function $(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function lamp(t) {
+    if (!t.running && t.last_exit_code === -1) return '<span style="color:#e74c3c">🔴</span>';
+    if (t.running) return '<span style="color:#2ecc71">🟢</span>';
+    return '<span style="color:#95a5a6">⚪</span>';
+  }
+
+  function fetchList(cb) {
+    fetch('/api/schedule?action=list').then(function (r) { return r.json(); }).then(cb).catch(function () { cb(null); });
+  }
+
+  function render(data) {
+    var box = document.getElementById('sched-mon-body');
+    if (!box) return;
+    if (!data || !data.ok) { box.innerHTML = '<div style="padding:12px;color:#999">⚠️ 无法读取后台任务（服务未响应）</div>'; return; }
+    var tasks = data.tasks || [];
+    if (!tasks.length) { box.innerHTML = '<div style="padding:12px;color:#999">暂无后台任务。让 AI 用 schedule 工具新建任务后，这里会实时出现。</div>'; return; }
+    box.innerHTML = tasks.map(function (t) {
+      var isOpen = !!expanded[t.name];
+      var out = esc(t.last_output || '(无输出)').slice(0, 1200);
+      return '<div style="border:1px solid rgba(128,128,128,.25);border-radius:8px;padding:8px 10px;margin-bottom:8px">' +
+        '<div style="display:flex;align-items:center;gap:6px;cursor:pointer" onclick="window.__schedToggle(\'' + esc(t.name) + '\')">' +
+          lamp(t) + '<b style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(t.name) + '</b>' +
+          '<span style="font-size:11px;color:#888">执行 ' + t.times_executed + ' 次 / 每 ' + t.interval + 's</span>' +
+          '<span style="font-size:11px;color:#888;cursor:pointer" onclick="event.stopPropagation();window.__schedPeek(\'' + esc(t.name) + '\')">🖥️ 前台</span>' +
+        '</div>' +
+        (t.stop_reason ? '<div style="font-size:11px;color:#888;margin-top:2px">停止原因: ' + esc(t.stop_reason) + '</div>' : '') +
+        (isOpen ? '<pre style="margin:6px 0 0;max-height:200px;overflow:auto;font-size:11px;background:rgba(0,0,0,.3);padding:6px;border-radius:6px;white-space:pre-wrap">' + out + '</pre>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  function poll() { if (!document.hidden && panelOpen) fetchList(render); }
+
+  function ensurePanel() {
+    if (document.getElementById('sched-mon-panel')) return;
+    var p = $( '<div id="sched-mon-panel" style="display:none;position:fixed;right:16px;bottom:90px;width:340px;max-height:60vh;z-index:99998;' +
+      'background:var(--panel-bg,#1e1e28);color:var(--panel-fg,#eee);border:1px solid rgba(128,128,128,.35);border-radius:12px;' +
+      'box-shadow:0 8px 30px rgba(0,0,0,.4);overflow:hidden;flex-direction:column">' +
+      '<div style="display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid rgba(128,128,128,.25);font-weight:bold">' +
+      '⏱ 后台任务 <span id="sched-mon-count" style="font-size:11px;color:#888;margin-left:6px"></span>' +
+      '<span style="flex:1"></span><span id="sched-mon-close" style="cursor:pointer;padding:0 4px">✕</span></div>' +
+      '<div id="sched-mon-body" style="overflow:auto;padding:10px;max-height:calc(60vh - 40px);font-size:12px"></div></div>');
+    document.body.appendChild(p);
+    p.querySelector('#sched-mon-close').onclick = function () { togglePanel(false); };
+  }
+
+  function togglePanel(open) {
+    ensurePanel();
+    panelOpen = (open === undefined) ? !panelOpen : open;
+    document.getElementById('sched-mon-panel').style.display = panelOpen ? 'flex' : 'none';
+    if (panelOpen) { poll(); if (!timer) timer = setInterval(poll, POLL_MS); }
+  }
+
+  // 提升到前台：弹窗实时看单任务输出
+  window.__schedPeek = function (name) {
+    var old = document.getElementById('sched-peek'); if (old) old.remove();
+    var d = $('<div id="sched-peek" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center">' +
+      '<div style="width:min(680px,92vw);max-height:80vh;background:var(--panel-bg,#1e1e28);color:var(--panel-fg,#eee);border-radius:12px;display:flex;flex-direction:column;overflow:hidden">' +
+      '<div style="padding:10px 14px;border-bottom:1px solid rgba(128,128,128,.25);font-weight:bold">🖥️ 前台查看: ' + esc(name) +
+      '<span style="flex:1"></span><span id="sp-close" style="float:right;cursor:pointer">✕</span></div>' +
+      '<pre id="sp-out" style="flex:1;overflow:auto;margin:0;padding:12px;font-size:12px;white-space:pre-wrap;background:rgba(0,0,0,.3)"></pre>' +
+      '<div style="padding:8px 12px;border-top:1px solid rgba(128,128,128,.25);font-size:11px;color:#888">每 2s 自动刷新（只读实时查看）</div></div></div>');
+    document.body.appendChild(d);
+    d.querySelector('#sp-close').onclick = function () { clearInterval(d._t); d.remove(); };
+    function refresh() {
+      fetch('/api/schedule?action=status&name=' + encodeURIComponent(name))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var pre = d.querySelector('#sp-out');
+          if (pre) pre.textContent = (j && j.ok) ? (j.last_output || '(暂无输出)') : ('⚠️ ' + (j && j.error || '读取失败'));
+        }).catch(function () {});
+    }
+    refresh(); d._t = setInterval(refresh, 2000);
+  };
+  window.__schedToggle = function (name) { expanded[name] = !expanded[name]; poll(); };
+
+  // dock 入口按钮已移除：后台任务监控统一从「文件菜单 → 🛰️ 后台任务监控」进入
+  // （原右下角 ⏱ 悬浮按钮与文件菜单入口重复，2026-11 收敛为单一入口）
+
+  function boot() { /* 入口收敛：不再注入悬浮按钮 */ }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();

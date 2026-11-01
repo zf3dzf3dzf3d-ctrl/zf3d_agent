@@ -136,8 +136,8 @@
     el.style.cssText = 'position:fixed;left:0;top:0;z-index:5000;cursor:pointer;pointer-events:auto;filter:drop-shadow(0 0 8px rgba(255,183,77,.9));user-select:none;transition:transform .25s;';
     el.innerHTML =
       '<svg width="240" height="72" viewBox="0 0 240 72" xmlns="' + SVG_NS + '" style="overflow:visible">' +
-      '<line class="ma-line" x1="6" y1="36" x2="168" y2="36" stroke="' + GOLD + '" stroke-width="11" stroke-linecap="round" stroke-dasharray="14 10"/>' +
-      '<polygon class="ma-head" points="162,4 236,36 162,68" fill="' + GOLD + '" stroke="#ffffff" stroke-width="3"/>' +
+      '<line class="ma-line" x1="6" y1="36" x2="168" y2="36" stroke="' + GOLD + '" stroke-width="9" stroke-linecap="round" stroke-dasharray="14 10"/>' +
+      '<polygon class="ma-head" points="162,6 234,36 162,66" fill="' + GOLD + '" stroke="#ffe0b2" stroke-width="3"/>' +
       '<g class="ma-badge">' +
       '<rect class="ma-badge-rect" x="84" y="18" width="72" height="34" rx="17" fill="' + GOLD + '" opacity="0.95"/>' +
       '<text class="ma-badge-text" x="120" y="41" text-anchor="middle" font-size="18" font-weight="bold" fill="#ffffff" font-family="sans-serif">讨论中</text>' +
@@ -313,7 +313,8 @@
             p.status = 'discussing';
             var bt = p.el.querySelector('.ma-badge-text');
             /* 【自动回收 v4】p.auto 或创建时认领的票据：只作用于本 pair，全局标志不再跨 pair 生效 */
-            var _ag = p.auto || !!(p._autoTicket && (Date.now() - p._autoTicket) < 60000);
+            /* 【2026-11-01 按用户要求：彻底移除自动返回】_ag 恒 false，不再自动回收，只保留手动点箭头回收 */
+            var _ag = false; /* 原逻辑存档： p.auto || !!(p._autoTicket && (Date.now() - p._autoTicket) < 60000); */
             if (bt) bt.textContent = _ag ? '自动回收中…' : '已就绪·点回收';
             p._ready = true;
             if (_ag && !p._autoTimer && !(p._gatherUsedAt && p._gatherUsedAt === p._autoTicket)) {

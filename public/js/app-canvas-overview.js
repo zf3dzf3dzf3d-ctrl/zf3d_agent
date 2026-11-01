@@ -33,6 +33,8 @@
     sel.forEach(function (n) { if (list.indexOf(n) === -1) n.classList.remove(SEL_CLS); });
     sel = list;
     sel.forEach(function (n) { n.classList.add(SEL_CLS); });
+    /* 选中态边框按实时缩放比补偿：低缩放下 outline 固定像素会被画布稀释，除以 zoom 保持视觉恒定 */
+    try { document.body.style.setProperty('--ov-zoom', (list.length ? scaleOf(list[0]) : 1).toFixed(4)); } catch (e) {}
   }
 
   /* ---------- 横幅提示 ---------- */
@@ -96,9 +98,14 @@
   var GRID = 20;             // P1: 落点网格吸附间距
   var dragging = false;      // P1: 拖动中挂起染色刷新
   function startNodeDrag(e, first) {
-    var targets = sel.length ? sel.slice() : [first];
+    /* 【点选直选修复】按下即选中：点未选中节点→立即单选并只拖它；
+       点已选中节点→保持多选整体拖。原先 targets 取旧选中集、选中
+       要等 mouseup「未移动＝点选」才补，首击视觉上像"先取消选择，
+       再点一次才选中"。 */
+    var ctrlToggle = e.ctrlKey && sel.indexOf(first) < 0; // Ctrl 加选：不预选，交给 mouseup 切换
+    var targets = (!ctrlToggle && sel.length && sel.indexOf(first) >= 0) ? sel.slice() : [first];
     if (!targets.length) return;
-    targets.forEach(function (n) { if (sel.indexOf(n) === -1) setSel(sel.concat([n])); });
+    if (!ctrlToggle) setSel(targets);
     var sx = e.clientX, sy = e.clientY, moved = false;
     dragging = true;
     var starts = targets.map(function (n) { return { el: n, l: n.offsetLeft, t: n.offsetTop, s: scaleOf(n) }; });
@@ -183,11 +190,11 @@
           try { if (window.ZFRelativeRestore && ZFRelativeRestore.endMigration) ZFRelativeRestore.endMigration(); } catch (err) {}
         }, 300);
       } else {
-        // 未移动＝点选：无 Ctrl/Shift → 单选；Ctrl → 切换
+        // 未移动＝点选：按下时已直选（见 startNodeDrag），此处仅处理 Ctrl 追加/移除
         if (e.ctrlKey) {
           if (sel.indexOf(first) >= 0) setSel(sel.filter(function (n) { return n !== first; }));
           else setSel(sel.concat([first]));
-        } else setSel([first]);
+        }
       }
     }
     document.addEventListener('mousemove', onMove);
@@ -235,6 +242,20 @@
       if (!e.shiftKey) clearSel();
       startMarquee(e);
     }
+  }, true);
+
+  /* ---------- 【点选直选】总览态拦截节点内 click：防止冒泡到应用层
+     激活/重排对话导致选中态被冲掉（第一击像被取消、第二击才选中）。
+     输入框/按钮/可编辑区放行，不影响正常控件。 ---------- */
+  document.addEventListener('click', function (e) {
+    if (!on) return;
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
+    if (t && t.closest && t.closest('button,input,textarea,select,[contenteditable="true"]')) return;
+    var node = isNode(t) ? t.closest(NODE_SEL) : null;
+    if (!node) return;
+    e.preventDefault();
+    e.stopPropagation();
   }, true);
 
   /* ---------- Esc 返回 / Delete 关闭 ---------- */

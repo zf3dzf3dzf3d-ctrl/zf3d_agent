@@ -33,7 +33,7 @@ Object.assign(App, {
         _foldSelfGateReport: function(div, text) {
             try {
                 if (!text || typeof text !== 'string') return;
-                var MARKS = ['—— 审核报告 ——', '—— 审官报告 ——']; // 兼容新旧两种标记（历史消息可能是旧文案「审官报告」）
+                var MARKS = ['—— 审核报告 ——', '—— 审官报告 ——', '【逐条核验清单】', '① 逐条核验清单']; // 兼容新旧标记及 AI 变体写法（历史消息可能是旧文案「审官报告」）
                 var idx = -1;
                 for (var mi = 0; mi < MARKS.length; mi++) { var t = text.indexOf(MARKS[mi]); if (t !== -1 && (idx === -1 || t < idx)) idx = t; }
                 if (idx === -1) return; // 无标记：不动，走原渲染

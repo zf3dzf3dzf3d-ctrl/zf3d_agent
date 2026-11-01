@@ -63,7 +63,7 @@
 </div>
 <div id="panelMask"></div>
 <div id="panel"><span id="panelClose">✕</span><b id="panelTitle"></b><div id="panelBody"></div></div>
-<div id="tip">滚轮缩放 · 左键拖节点/空白平移 · 右键拖拽整个太空舱位置（自动记住） · 单击节点聚焦子树 · 左上角为舱体玻璃高光</div>
+<div id="tip">滚轮缩放 · 左键拖节点/空白平移 · 右键拖拽整个太空舱位置（自动记住） · 单击节点聚焦子树 · 拖拽小球带配音（按 M 开关） · 左上角为舱体玻璃高光</div>
 <div id="hovercard"></div>
 <canvas id="cv"></canvas>
 <script>
@@ -86,11 +86,18 @@ let showLink = false;
 const IS_EMBED = /[?&]embed=1(?:&|$)/.test(location.search);
 let pod = {cx:null, cy:null, r:0};   // 舱体屏幕中心与半径；null=未初始化
 if(!IS_EMBED){ try{ const _s=JSON.parse(localStorage.getItem('tree_pod_pos')||'null'); if(_s && _s.cx!=null){ pod.cx=_s.cx; pod.cy=_s.cy; } }catch(e){} }
+// 视图位置持久化（cam.x/y/zoom）：重启后回到上次浏览位置；默认开启。树加载 fit() 之后 restoreCam() 应用。
+let _savedCam=null; let _camSaveTimer=null;
+if(!IS_EMBED){ try{ _savedCam=JSON.parse(localStorage.getItem('tree_cam_pos')||'null'); }catch(e){} }
+function saveCam(){ if(IS_EMBED) return; clearTimeout(_camSaveTimer); _camSaveTimer=setTimeout(()=>{ try{ localStorage.setItem('tree_cam_pos', JSON.stringify({x:+cam.x.toFixed(1), y:+cam.y.toFixed(1), zoom:+cam.zoom.toFixed(4)})); }catch(e){} }, 300); }
+function restoreCam(){ if(_savedCam && _savedCam.zoom){ cam.x=_savedCam.x; cam.y=_savedCam.y; cam.zoom=_savedCam.zoom; } draw(); }
 function savePod(){ if(IS_EMBED) return; try{ localStorage.setItem('tree_pod_pos', JSON.stringify({cx:Math.round(pod.cx), cy:Math.round(pod.cy)})); }catch(e){} }
 if(IS_EMBED){ var _tip=document.getElementById('tip'); if(_tip) _tip.style.display='none';
-  // embed：整页透明，圆形舱之外透出外层画布（无边框无背景的太空舱观感）
-  document.documentElement.style.background='transparent';
-  document.body.style.background='transparent';
+  // embed：舱内背景不透明（深色实心）。外层容器用 clip-path 裁成正圆，
+  //   圆舱之外仍透出画布，圆舱之内为实心深色，文字/连线不再透出背景。
+  //   底色与画布右侧缩略图(minimap)一致：rgb(10,18,38)。
+  document.documentElement.style.background='rgb(10,18,38)';
+  document.body.style.background='rgb(10,18,38)';
 }
 // 视图中心：圆形舱模式下=舱体中心，全屏模式=屏幕中心。所有屏幕↔世界换算以此为锚。
 function vcx(){ return roundFrame && pod.cx!=null ? pod.cx : innerWidth/2; }
@@ -101,6 +108,7 @@ function resize(){
   cv.width = innerWidth*DPR; cv.height = innerHeight*DPR;
   cv.style.width = innerWidth+'px'; cv.style.height = innerHeight+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  _bgCv=null; _frCv=null;   // 尺寸/DPR 变化后重建离屏缓存
   draw();
 }
 addEventListener('resize', resize);
@@ -139,23 +147,39 @@ function layout(){
   const LEAF_ARC = 160;                                  // 叶子沿外圈期望弧长间距（含文字空间；叶球放大1.5倍后需加大防重叠抖动）
   const R_LEAF = (totalLeaves*LEAF_ARC)/(Math.PI*2);     // 最外圈半径
   let maxD=0; nodes.forEach(n=>{ if(n.depth>maxD) maxD=n.depth; });
-  const LVL=[0]; for(let d=1; d<=maxD; d++) LVL[d]=R_LEAF*(d/maxD);   // 各层半径，根=0
-  function placeRadial(node, a0, a1){
-    const am=(a0+a1)/2 - Math.PI/2;                      // 顶部为 0 度，顺时针展开
-    node.wx = Math.cos(am)*LVL[node.depth];
-    node.wy = Math.sin(am)*LVL[node.depth];
-    node._pinned=true;
-    if(!node._kids.length) return;
-    const total=leafCount(node)||1; let acc=a0;
-    for(const k of node._kids){
-      const share=(leafCount(k)/total)*(a1-a0);
-      placeRadial(k, acc, acc+share); acc+=share;
-    }
+  // 星云散开布局（用户要求2）：节点不做层级钉位，而是围绕中心按黄金角散开，
+  //   层深决定离中心远近（微弱层级感），同层用黄金角+半径抖动错开 → 散而不叠。
+  //   父子关系仍由「胞质丝」连线表达 = 科技点自己"找"关联项目。
+  // 多根修复（反驳①）：根/孤儿根也按黄金角散开在第一圈，不再全部钉死 (0,0) 重叠。
+  const PHI = Math.PI*(3-Math.sqrt(5));          // 黄金角 ≈137.5°
+  const GAP = Math.max(90, 62*nodes.length/8);   // 半径随节点数增长（散开尺度自适应）
+  const ROOT_ARC = 200;                          // 根之间的期望间距（像素）
+  const rootRing = nodes.filter(n=> n.depth===0 || n.parent_id==null);
+  rootRing.forEach((n,i)=>{
+    const a = i*PHI + 0.3;
+    const rr = rootRing.length===1 ? 0 : Math.max(GAP, ROOT_ARC*rootRing.length/(Math.PI*2));
+    n.wx = Math.cos(a)*rr;
+    n.wy = Math.sin(a)*rr;
+  });
+  const byDepth = {};
+  nodes.forEach(n=>{ if(!(n.depth===0 || n.parent_id==null)) (byDepth[n.depth]=byDepth[n.depth]||[]).push(n); });
+  for(const d in byDepth){
+    const dd=+d;
+    const ring=byDepth[d];
+    ring.forEach((n,i)=>{
+      const a = i*PHI + dd*0.7;                  // 黄金角散开 + 层间相位错开
+      const rr = GAP*dd*(0.82 + 0.36*((i*2654435761)%1000)/1000);  // 半径抖动防同心圆感
+      n.wx = Math.cos(a)*rr;
+      n.wy = Math.sin(a)*rr;
+    });
   }
-  let aCur=0;
-  nodes.filter(n=>n.parent_id==null).forEach(r=>{
-    const share=(leafCount(r)/totalLeaves)*(Math.PI*2);
-    placeRadial(r, aCur, aCur+share); aCur+=share;
+  // 手工摆位保留（反驳⑤修复）：后端导出带 x/y（用户拖拽钉位）时，
+  //   用手工坐标覆盖算法坐标并钉住；其余节点才用星云散开布局。
+  let _manual = 0;
+  nodes.forEach(n=>{
+    if(n._raw && n._raw.x != null && n._raw.y != null){
+      n.wx = +n._raw.x; n.wy = +n._raw.y; n._pinned = true; _manual++;
+    } else { n._pinned = true; }
   });
   // 记录 home（权威目标坐标）：力导向只围绕 home 呼吸，防坍缩聚集
   // 同时标记叶子（末端子节点）：_kids 为空 = 该节点无下级，球体更大
@@ -168,7 +192,7 @@ const LEAF_BOOST = 1.5;   // 子节点（末端叶球）半径放大倍数
 function styleByClarity(n){
   const cl = (n && typeof n==='object') ? (+n.clarity||0) : (+n||0);   // 兼容旧式传 clarity 数字
   const isLeaf = !!(n && typeof n==='object' && n._leaf);
-  let r = 17 + cl*30;            // 基础球径
+  let r = 17 + cl*30;            // 基础球径（已还原：缩小应作用于外圈舱体而非内部球）
   if(isLeaf) r *= LEAF_BOOST;    // 子节点更大
   // 有更多子节点的圆形更大：按直接子节点数温和放大（1 子不放大，子越多越大，上限 +50%）
   const _kc = (n && n._kids) ? n._kids.length : 0;
@@ -186,49 +210,77 @@ function toScreen(n){ return {x:(n.wx-cam.x)*cam.zoom+vcx(), y:(n.wy-cam.y)*cam.
 function inFocus(n){ return focusSet===null || focusSet.has(n.id); }
 
 function draw(){
+  _animT=performance.now();
   ctx.clearRect(0,0,innerWidth,innerHeight);
   // 舱体几何：圆形模式下若未初始化则默认居中
   if(pod.cx==null){ pod.cx=innerWidth/2; pod.cy=innerHeight/2; }
   const cx=vcx(), cy=vcy();
-  const R = roundFrame ? Math.min(innerWidth,innerHeight)*0.42 : Math.hypot(innerWidth,innerHeight);
+  const R = roundFrame ? Math.min(innerWidth,innerHeight)*0.50 : Math.hypot(innerWidth,innerHeight);
   pod.r = R;
   if(roundFrame && !IS_EMBED) drawSpaceBackdrop();   // 舱外宇宙背景（embed 时透明，透出外层画布）
   if(!tree){ if(roundFrame) drawPodFrame(cx,cy,R); return; }
-  if(roundFrame){ ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip(); drawPodInterior(cx,cy,R); }
-  // 父子主干连线（保留：体现父子层级关系，画在圆点下层）；网状关系线仍不绘制，关系由 hover 文字提示承载
-  ctx.lineWidth=1.6; ctx.strokeStyle='rgba(88,214,141,.28)';
+  if(roundFrame){ ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.clip(); if(!IS_EMBED) drawPodInterior(cx,cy,R); }
+  // 细胞质感：胞质丝连线 —— 端点缩进到球缘、贝塞尔微弯、粗细随 clarity、颜色蓝→绿渐变，替代生硬直线
   for(const e of edges){
     if(!inFocus(e.from) || !inFocus(e.to)) continue;
     const a=toScreen(e.from), b=toScreen(e.to);
-    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    const sa=styleByClarity(e.from), sb=styleByClarity(e.to);
+    const ra=sa.r*cam.zoom*(e.from.spawn==null?1:e.from.spawn), rb=sb.r*cam.zoom*(e.to.spawn==null?1:e.to.spawn);
+    const dx=b.x-a.x, dy=b.y-a.y; const d=Math.hypot(dx,dy)||1;
+    const ux=dx/d, uy=dy/d;
+    const ax=a.x+ux*ra, ay=a.y+uy*ra;        // 从 a 球缘出发
+    const bx=b.x-ux*rb, by=b.y-uy*rb;        // 到 b 球缘
+    const cval=(+(e.to.clarity||0));
+    const t=Math.max(0,Math.min(1,cval));
+    const c1=[58,110,165], c2=[88,214,141];
+    const rgb=c1.map((v,i)=>Math.round(v+(c2[i]-v)*t));
+    const mx=(ax+bx)/2 - uy*d*0.10, my=(ay+by)/2 + ux*d*0.10;   // 垂直偏移 → 微弯胞质丝
+    ctx.strokeStyle=`rgba(${rgb.join(',')},.45)`;
+    ctx.lineWidth=Math.max(1.2, 1.4+t*2.4);    // 越清晰越粗，像充盈的细胞质
+    ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.quadraticCurveTo(mx,my,bx,by); ctx.stroke();
   }
   // 节点
+  const labels=[];
   for(const n of nodes){
     if(!inFocus(n)) continue;
     const p=toScreen(n); const st=styleByClarity(n);
     ctx.globalAlpha=st.alpha;
-    const _sp=(n.spawn==null?1:n.spawn); ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp,0,Math.PI*2);
+    const _sp=(n.spawn==null?1:n.spawn);
+    // 细胞核质感①：外围柔光晕（radial 光斑，让球体像悬浮在胞液中的发光细胞器）
+    if(n._kids.length>0){
+      const _gr=st.r*cam.zoom*_sp*2.6;
+      const gg=ctx.createRadialGradient(p.x,p.y,st.r*cam.zoom*_sp*0.5, p.x,p.y,_gr);
+      gg.addColorStop(0,'rgba(88,214,141,.16)'); gg.addColorStop(1,'rgba(88,214,141,0)');
+      ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(p.x,p.y,_gr,0,Math.PI*2); ctx.fill();
+    }
+    // 微动效①：节点柔和呼吸（半径随时间正弦微缩放，相位按 id 错开，像微微发光的星）
+    const _br=1+0.06*Math.sin(_animT*0.0016+(n.id%10)*0.63);
+    ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp*_br,0,Math.PI*2);
     ctx.fillStyle=st.color; ctx.fill();
+    // 细胞核质感②：有子节点的「细胞器」加半透明细胞膜外环（虚线膜，弱化点感、强化器官感）
+    if(n._kids.length>0){
+      ctx.setLineDash([3,4]);
+      ctx.lineWidth=1;
+      ctx.strokeStyle='rgba(140,230,180,.30)';
+      ctx.beginPath(); ctx.arc(p.x,p.y,st.r*cam.zoom*_sp*_br*1.45+3,0,Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // 微动效②：左上高光点，随呼吸微微移动，出"玻璃珠"质感
+    const _hr=Math.max(1.2,st.r*cam.zoom*_sp*0.28);
+    ctx.globalAlpha=st.alpha*0.35;
+    ctx.beginPath(); ctx.arc(p.x-_hr*0.8,p.y-_hr*0.9,_hr,0,Math.PI*2);
+    ctx.fillStyle='#ffffff'; ctx.fill();
+    ctx.globalAlpha=st.alpha;
     ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.stroke();
     ctx.globalAlpha=1;
-    // 文字 + ✓ —— ① 按层级隐藏：缩小只看主干(depth浅)文字，放大才显示分支(depth深)文字；② 再叠加鼠标屏幕距离渐显
-    const _depthLimit = Math.max(0, Math.floor(cam.zoom/0.3));   // 缩放越大，可见层级越深
-    let _a = (n.depth||0) > _depthLimit ? 0 : 1;
-    if(_a>0){
+    // 文字标签：默认全部不显示，只显示离鼠标最近的那个节点（收集后统一在舱体 clip 外绘制，避免被圆圈裁剪遮挡）
+    if(inFocus(n) && mouse.in){
+      const p=toScreen(n);
       const _d=Math.hypot(p.x-mouse.x, p.y-mouse.y);
-      if(mouse.in){ const NEAR=300, FAR=760; _a=1-Math.min(1,Math.max(0,(_d-NEAR)/(FAR-NEAR))); }   // 文字显示距离调为原2倍
-    }
-    if(_a>0.03){
-      const _ft=Math.max(11, 13*cam.zoom)*(0.9+0.45*_a);   // 近大远小
-      ctx.font=`${_ft}px "Microsoft YaHei"`;
-      ctx.textAlign='center'; ctx.textBaseline='top';
-      const _tx=n.text+(n.clarity>=0.8?' ✓':'');
-      const _ty=p.y+st.r*cam.zoom+4;
-      ctx.lineWidth=Math.max(2,_ft*0.22); ctx.lineJoin='round'; ctx.strokeStyle='rgba(6,10,16,.92)';
-      ctx.globalAlpha=_a;                                   // 远→透明，近→清晰
-      ctx.strokeText(_tx, p.x, _ty);
-      ctx.fillStyle='#e6edf3'; ctx.fillText(_tx, p.x, _ty);
-      ctx.globalAlpha=1;
+      const NEAR=30, FAR=90;                 // 只有 90px 内才可能显示
+      const _a=1-Math.min(1,Math.max(0,(_d-NEAR)/(FAR-NEAR)));
+      if(_a>0.03) labels.push({n,p,_a,_d});
     }
   }
   // P3-1 连线橡皮筋预览
@@ -244,19 +296,65 @@ function draw(){
     ctx.beginPath(); ctx.arc(p.x,p.y,(st.r+5)*cam.zoom,0,Math.PI*2); ctx.stroke();
   }
   if(roundFrame){ ctx.restore(); drawPodFrame(cx,cy,R); }
+  // —— 标签统一绘制：只取距离鼠标最近的一个节点，实现"单个小球独立显示" ——
+  let _tlSent=false;
+  if(labels.length>1){
+    labels.sort((a,b)=>a._d-b._d);
+    labels.length=1;
+  }
+  for(const L of labels){
+    const {n,p,_a}=L; const st=styleByClarity(n);
+    const _sp=(n.spawn==null?1:n.spawn);
+    const _ft=Math.max(9.5, 10.5*cam.zoom);              // 字号整体调小，近处也不放大太多
+    let _tx=(n.text||'')+(n.clarity>=0.8?' ✓':'');   // 显示完整文字，不截断（与鼠标悬浮外框信息一致）
+    // 根节点（总树）追加统计：共 N 点 · 今日 M（按 created_at 当日计数）
+    if(!n.parent_id && n.depth===0){
+      const _total=_cnt(n.id);
+      const _today=(function(){ let t=0; const _w=function(id){ const p=findRaw(id); if(!p||!p.children||!p.children.length) return; const d0=new Date(); d0.setHours(0,0,0,0); p.children.forEach(c=>{ if(c.created_at && c.created_at*1000>=d0.getTime()) t++; _w(c.id); }); }; _w(n.id); return t; })();
+      _tx+=`（共${_total} · 今日${_today}）`;
+    }
+    const _ty=p.y+st.r*cam.zoom*_sp+4;
+    // embed：舱内 canvas 标签会被外层容器 clip-path:circle 裁掉 → 委托父窗口渲染，突破圆形裁剪
+    if(IS_EMBED){
+      try{ parent.postMessage({__tree:1,type:'treelabel',x:p.x,y:_ty,text:_tx,alpha:_a},'*'); }catch(_){}
+      _tlSent=true;
+      continue;
+    }
+    ctx.font=`${_ft}px "Microsoft YaHei"`;
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    const _tw=ctx.measureText(_tx).width, _padX=4, _padY=2;
+    ctx.globalAlpha=_a;                                  // 裸图表：无胶囊底，仅文字+暗色描边保证可读
+    // 裸图表：不画胶囊底，直接描边+文字
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(4,8,14,.9)'; ctx.strokeText(_tx, p.x, _ty);
+    ctx.globalAlpha=_a*0.95;
+    ctx.fillStyle='#e8f1f9';
+    ctx.fillText(_tx, p.x, _ty);
+    ctx.globalAlpha=1;
+  }
+  // embed 且本帧无标签（鼠标不在球附近）→ 通知父窗口隐藏委托标签
+  if(IS_EMBED && !_tlSent){ try{ parent.postMessage({__tree:1,type:'treelabelHide'},'*'); }catch(_){} }
 }
-// 舱外宇宙背景：深色渐变 + 星点
+// 舱外宇宙背景：深色渐变 + 星点 —— 离屏缓存（尺寸不变时零重绘，拖拽/右键移舱不再每帧建渐变+画140颗星 → 修卡顿）
 let _stars=null;
-function drawSpaceBackdrop(){
-  const g=ctx.createRadialGradient(innerWidth/2,innerHeight/2,0, innerWidth/2,innerHeight/2, Math.max(innerWidth,innerHeight));
+let _animT=0;
+let _bgCv=null;
+function buildBackdrop(){
+  _bgCv=document.createElement('canvas');
+  _bgCv.width=Math.max(1,innerWidth*DPR); _bgCv.height=Math.max(1,innerHeight*DPR);
+  const c=_bgCv.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+  const g=c.createRadialGradient(innerWidth/2,innerHeight/2,0, innerWidth/2,innerHeight/2, Math.max(innerWidth,innerHeight));
   g.addColorStop(0,'#0a1020'); g.addColorStop(1,'#05070d');
-  ctx.fillStyle=g; ctx.fillRect(0,0,innerWidth,innerHeight);
+  c.fillStyle=g; c.fillRect(0,0,innerWidth,innerHeight);
   if(!_stars || _stars.w!==innerWidth || _stars.h!==innerHeight){
     _stars={w:innerWidth,h:innerHeight,pts:[]};
     for(let i=0;i<140;i++) _stars.pts.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*1.4+0.3,a:Math.random()*0.6+0.2});
   }
-  for(const s of _stars.pts){ ctx.globalAlpha=s.a; ctx.fillStyle='#cfe3ff'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
-  ctx.globalAlpha=1;
+  for(const s of _stars.pts){ c.globalAlpha=s.a; c.fillStyle='#cfe3ff'; c.beginPath(); c.arc(s.x,s.y,s.r,0,Math.PI*2); c.fill(); }
+  c.globalAlpha=1;
+}
+function drawSpaceBackdrop(){
+  if(!_bgCv) buildBackdrop();
+  ctx.drawImage(_bgCv,0,0,innerWidth,innerHeight);
 }
 // 舱内：玻璃罩内底色（比舱外略亮的太空腔体）
 function drawPodInterior(cx,cy,R){
@@ -264,39 +362,43 @@ function drawPodInterior(cx,cy,R){
   g.addColorStop(0,'rgba(20,40,60,.35)'); g.addColorStop(1,'rgba(8,14,24,.55)');
   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill();
 }
-// 太空舱舱体：金属外环 + 铆钉 + 左上玻璃高光弧 + 边缘描光
+// 太空舱舱体：金属外环（对齐导航缩略图样式）+ 左上玻璃高光弧 + 边缘描光 —— 离屏缓存（只随尺寸重建一次；移舱仅 blit，消除右键拖动卡顿主因）
+let _frCv=null;
 function drawPodFrame(cx,cy,R){
-  ctx.save();
-  // 金属外环
-  const ringW = Math.max(10, R*0.06);
-  const mg=ctx.createLinearGradient(cx-R,cy-R,cx+R,cy+R);
-  mg.addColorStop(0,'#5a6577'); mg.addColorStop(0.5,'#2a3140'); mg.addColorStop(1,'#6b7689');
-  ctx.lineWidth=ringW; ctx.strokeStyle=mg;
-  ctx.beginPath(); ctx.arc(cx,cy,R+ringW/2,0,Math.PI*2); ctx.stroke();
-  // 内描光（玻璃边缘青色发光）
-  ctx.lineWidth=2; ctx.strokeStyle='rgba(88,214,241,.55)';
-  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
-  // 铆钉：沿外环均布
-  const n=16;
-  for(let i=0;i<n;i++){
-    const a=i/n*Math.PI*2; const rr=R+ringW/2;
-    const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr;
-    ctx.beginPath(); ctx.arc(x,y,Math.max(2,ringW*0.22),0,Math.PI*2);
-    ctx.fillStyle='#8a94a6'; ctx.fill();
-    ctx.beginPath(); ctx.arc(x-Math.cos(a)*0.8,y-Math.sin(a)*0.8,Math.max(1,ringW*0.1),0,Math.PI*2);
-    ctx.fillStyle='#c8d2e0'; ctx.fill();
+  const pad=Math.ceil(R*0.08+24);                       // 外环+铆钉余量
+  const S=Math.ceil((R+pad)*2);
+  if(!_frCv || _frCv._S!==S || _frCv._dpr!==DPR){
+    _frCv=document.createElement('canvas');
+    _frCv.width=S*DPR; _frCv.height=S*DPR; _frCv._S=S; _frCv._dpr=DPR;
+    const c=_frCv.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+    const cc=S/2;
+    c.save();
+    /* 外环配色对齐导航缩略图 .minimap：舱壁金属外环 #22303f + 内层窗框高光 #3a4a5c（去掉旧渐变与铆钉） */
+    const ringW = 4;                                       /* 对齐缩略图 0 0 0 4px 舱壁金属外环 */
+    c.lineWidth=ringW; c.strokeStyle='#22303f';
+    c.beginPath(); c.arc(cc,cc,R-ringW/2,0,Math.PI*2); c.stroke();
+    c.lineWidth=2; c.strokeStyle='#3a4a5c';                /* 对齐缩略图 inset 0 0 0 2px 内层金属环 */
+    c.beginPath(); c.arc(cc,cc,R-ringW,0,Math.PI*2); c.stroke();
+    /* 外缘细高光：对齐缩略图 0 0 0 5px rgba(255,255,255,.10) 的凸起立体感（内收防被外层圆形裁剪吃掉） */
+    c.lineWidth=1; c.strokeStyle='rgba(255,255,255,.10)';
+    c.beginPath(); c.arc(cc,cc,R-0.5,0,Math.PI*2); c.stroke();
+    /* 高光对齐缩略图 .minimap::before 同参数：135° 玻璃反光弧（.22/.10 全强度） */
+    const hg = c.createLinearGradient(cc-R,cc-R,cc+R,cc+R);
+    hg.addColorStop(0,'rgba(255,255,255,.22)'); hg.addColorStop(.42,'rgba(255,255,255,0)');
+    hg.addColorStop(.60,'rgba(255,255,255,0)'); hg.addColorStop(1,'rgba(255,255,255,.10)');
+    c.fillStyle=hg; c.beginPath(); c.arc(cc,cc,R,0,Math.PI*2); c.fill();
+    /* 左上球面高光斑（对齐 .minimap::after 同位置/同尺寸/同强度）：凸面玻璃反光 */
+    c.save();
+    c.translate(cc-R*0.36, cc-R*0.42); c.rotate(-0.4); c.scale(1, 0.30/0.44);
+    const hgRad=c.createRadialGradient(-R*0.044, -R*0.057, R*0.02, 0, 0, R*0.44);
+    hgRad.addColorStop(0,'rgba(255,255,255,.28)'); hgRad.addColorStop(.7,'rgba(255,255,255,.12)'); hgRad.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=hgRad;
+    c.beginPath(); c.arc(0,0,R*0.44,0,Math.PI*2); c.fill();
+    c.restore();
+    c.restore();
   }
-  // 左上玻璃高光：两段白色弧（大弧+小弧），模拟太空舱罩反光
-  ctx.lineCap='round';
-  ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=Math.max(3,R*0.025);
-  ctx.beginPath(); ctx.arc(cx,cy,R-ringW*0.2, Math.PI*1.05, Math.PI*1.45); ctx.stroke();
-  ctx.strokeStyle='rgba(255,255,255,.30)'; ctx.lineWidth=Math.max(2,R*0.015);
-  ctx.beginPath(); ctx.arc(cx,cy,R-ringW*0.55, Math.PI*1.12, Math.PI*1.32); ctx.stroke();
-  // 高光晕（左上径向白）
-  const hg=ctx.createRadialGradient(cx-R*0.45,cy-R*0.45,0, cx-R*0.45,cy-R*0.45,R*0.7);
-  hg.addColorStop(0,'rgba(180,220,255,.18)'); hg.addColorStop(1,'rgba(180,220,255,0)');
-  ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fillStyle=hg; ctx.fill();
-  ctx.restore();
+  // blit：舱体中心对齐（移动舱体=纯贴图，零重绘成本）
+  ctx.drawImage(_frCv, cx-_frCv._S/2, cy-_frCv._S/2, _frCv._S, _frCv._S);
 }
 
 // ===== 交互：平移/缩放/点选聚焦/拖拽挪枝 =====
@@ -328,12 +430,25 @@ function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 // P0 悬停文字提示：圆点=内容，鼠标搭上出 hovercard（名称/路径/清晰度/状态/挂接）
 function hoverCard(e){
   const hc=document.getElementById('hovercard');
-  if(e.target!==cv){ hc.style.display='none'; return; }
+  if(e.target!==cv){ hc.style.display='none'; if(IS_EMBED){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); }catch(_){} } return; }
   const n=hitTest(e.clientX,e.clientY);
-  if(!n){ hc.style.display='none'; return; }
+  if(!n){ hc.style.display='none'; if(IS_EMBED){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); }catch(_){} } return; }
+  // 子树统计：直接子节点数 + 全部后代数（递归，仅父子树，不含 link 网状关系）
+  const subCnt=_cnt(n.id); const dirCnt=(n.children?n.children.length:0);
+  // embed：卡片渲染委托给父窗口（外层容器 clip-path:circle 会裁掉 iframe 内超出圆的元素，
+  //   故不能在 iframe 内显示，须 postMessage 让父窗口在 body 上渲染，突破圆形裁剪）。
+  if(IS_EMBED){
+    hc.style.display='none';
+    try{ parent.postMessage({__tree:1,type:'hovercard',mx:e.clientX,my:e.clientY,
+      node:{text:n.text,path:(n.path||('id:'+n.id)),clarity:(+n.clarity||0),status:(n.status||'-'),
+        kind:(n.kind||'capability'),binds:(n.binds||n._binds||''),
+        childCount:dirCnt,descCount:subCnt}},'*'); }catch(_){}
+    return;
+  }
   hc.innerHTML='<b>'+esc(n.text)+'</b>'
     +'<div class="hc-path">'+esc(n.path||('id:'+n.id))+'</div>'
     +'清晰度 '+Number(n.clarity||0).toFixed(2)+' · 状态 '+(n.status||'-')+' · '+esc(n.kind||'capability')
+    +(subCnt?('<div class="hc-path">🌿 子节点：直接 '+(dirCnt||0)+' 个 · 含后代共 '+subCnt+' 个</div>'):('<div class="hc-path">🌿 叶子节点（无子节点）</div>'))
     +((n.binds||n._binds)?('<div class="hc-binds">🔗挂接：'+esc(n.binds||n._binds)+'</div>'):('<div class="hc-binds">（未挂接文件）</div>'));
   hc.style.display='block';
   // —— 智能定位：让卡片完整可见、不被圆舱边缘裁切 ——
@@ -347,6 +462,32 @@ function hoverCard(e){
   //    避免卡片被圆形边界收拢/遮挡。
   hc.style.left=Math.round(x)+'px'; hc.style.top=Math.round(y)+'px';
 }
+// ===== 拖拽配音（Web Audio 合成，自包含无需外部音频文件；首次拖拽手势内懒建 AudioContext，规避 autoplay 限制）=====
+const SFX = (function(){
+  let ctx=null, on=true;                 // ctx 复用；on=开关
+  function ac(){ if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(_){} } if(ctx && ctx.state==='suspended') ctx.resume(); return ctx; }
+  function tone(freq, dur, type, vol, slideTo){
+    if(!on) return; const c=ac(); if(!c) return;
+    const t0=c.currentTime, o=c.createOscillator(), g=c.createGain();
+    o.type=type||'sine'; o.frequency.setValueAtTime(freq, t0);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20,slideTo), t0+dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002,(vol||0.12)), t0+0.012);   // 快起音
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);                          // 衰减收尾
+    o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0+dur+0.02);
+  }
+  let lastTick=0;
+  return {
+    // 抓起：短促上扬「叮」，模拟把小球拾起
+    pick(){ tone(520, 0.12, 'triangle', 0.14, 760); },
+    // 放下：轻落「咚」，频率下滑
+    drop(){ tone(360, 0.16, 'sine', 0.16, 150); },
+    // 拖动滚动音：随位移间隔触发，带轻微随机音高像「咔嗒」滚珠声；按时间节流防过密
+    tick(){ const now=performance.now(); if(now-lastTick < 90) return; lastTick=now; tone(300+Math.random()*180, 0.04, 'square', 0.05); },
+    toggle(v){ on=(v===undefined)?(!on):!!v; return on; },
+    get on(){ return on; }
+  };
+})();
 function toWorld(sx,sy){ return {x:(sx-vcx())/cam.zoom+cam.x, y:(sy-vcy())/cam.zoom+cam.y}; }
 cv.addEventListener('mousedown', e=>{
   if(replayPlaying) return;   // 回放时锁交互
@@ -355,9 +496,10 @@ cv.addEventListener('mousedown', e=>{
     // embed（被无限画布太空舱节点内嵌）：右键拖拽应移动【整个球】，
     // 而非舱内取景框（否则内部偏移被外层 clip 圆裁切）。→ 通知父窗口移动。
     if(IS_EMBED){
-      try{ parent.postMessage({__tree:1,type:'podDragStart',x:e.clientX,y:e.clientY},'*'); }catch(_){}
-      var _pdMv=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragMove',x:ev.clientX,y:ev.clientY},'*'); }catch(_){} };
-      var _pdUp=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragEnd',x:ev.clientX,y:ev.clientY},'*'); }catch(_){}
+      // 传 screenX/screenY（屏幕绝对坐标）：舱体一移动 clientX 就失真形成反馈回路（拖拽晃动真病灶）
+      try{ parent.postMessage({__tree:1,type:'podDragStart',x:e.screenX,y:e.screenY},'*'); }catch(_){}
+      var _pdMv=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragMove',x:ev.screenX,y:ev.screenY},'*'); }catch(_){} };
+      var _pdUp=function(ev){ try{ parent.postMessage({__tree:1,type:'podDragEnd',x:ev.screenX,y:ev.screenY},'*'); }catch(_){}
         document.removeEventListener('mousemove',_pdMv); document.removeEventListener('mouseup',_pdUp); };
       document.addEventListener('mousemove',_pdMv); document.addEventListener('mouseup',_pdUp);
       e.preventDefault(); return;
@@ -377,26 +519,30 @@ cv.addEventListener('mousedown', e=>{
     const ids = descendantIds(hit.id);
     const snap = {}; nodes.forEach(n=>{ if(ids.has(n.id)) snap[n.id]={x:n.wx,y:n.wy}; });
     drag={mode:'node', root:hit, snap, sx:e.clientX, sy:e.clientY, w0:toWorld(e.clientX,e.clientY), moved:0};
+    SFX.pick();   // 抓起小球配音
   } else {
     drag={mode:'pan', sx:e.clientX,sy:e.clientY,camx:cam.x,camy:cam.y,moved:0};
   }
   cv.classList.add('drag');
 });
+// 鼠标离开 iframe（移到父窗口/圆舱外）时，通知父窗口隐藏委托渲染的 hovercard
+addEventListener('mouseout', e=>{ if(IS_EMBED){ try{ parent.postMessage({__tree:1,type:'hovercard',node:null},'*'); if(!e.relatedTarget) parent.postMessage({__tree:1,type:'treelabelHide'},'*'); }catch(_){} } });
 addEventListener('mousemove', e=>{
   mouse.x=e.clientX; mouse.y=e.clientY; mouse.in=(e.target===cv);   // 仅当鼠标在画布上才渐显门控；移到工具栏/面板时 in=false 恢复全显示
-  if(!drag){ hoverCard(e); if(mouse.in) draw(); return; }   // 重绘让文字随鼠标即时渐显（弹簧关闭时也生效）
+  if(!drag){ hoverCard(e); if(mouse.in) requestDraw(); return; }   // 重绘让文字随鼠标即时渐显（弹簧关闭时也生效）
   document.getElementById('hovercard').style.display='none';
   const dx=e.clientX-drag.sx, dy=e.clientY-drag.sy;
   drag.moved=Math.max(drag.moved,Math.abs(dx)+Math.abs(dy));
-  if(drag.mode==='link'){ linkTemp.x2=e.clientX; linkTemp.y2=e.clientY; draw(); return; }
-  if(drag.mode==='pod'){ pod.cx=drag.pcx+dx; pod.cy=drag.pcy+dy; draw(); return; }
+  if(drag.mode==='link'){ linkTemp.x2=e.clientX; linkTemp.y2=e.clientY; requestDraw(); return; }
+  if(drag.mode==='pod'){ pod.cx=drag.pcx+dx; pod.cy=drag.pcy+dy; requestDraw(); return; }
   if(drag.mode==='pan'){
-    cam.x=drag.camx-dx/cam.zoom; cam.y=drag.camy-dy/cam.zoom; draw();
+    cam.x=drag.camx-dx/cam.zoom; cam.y=drag.camy-dy/cam.zoom; requestDraw(); saveCam();
   } else {
     // 世界位移 = 当前鼠标世界 - 按下世界，作用于整棵子树
     const w=toWorld(e.clientX,e.clientY); const ox=w.x-drag.w0.x, oy=w.y-drag.w0.y;
     nodes.forEach(n=>{ if(drag.snap[n.id]){ n.wx=drag.snap[n.id].x+ox; n.wy=drag.snap[n.id].y+oy; if(n._home){ n._home.x=n.wx; n._home.y=n.wy; } } });
-    draw();
+    if(drag.mode==='node' && drag.moved>=5) SFX.tick();   // 拖动中滚珠滚动音（按位移+时间节流）
+    requestDraw();
   }
 });
 addEventListener('mouseup', e=>{
@@ -415,12 +561,24 @@ addEventListener('mouseup', e=>{
   if(drag.mode==='node'){
     if(drag.moved<5){ // 视作点击 = 聚焦子树
       selectNode(drag.root); focusSubtree(drag.root);
-    } else { saveMove(drag); }  // 真拖拽 = 回写新坐标（P1-1 级联：整棵子树坐标已随动）
+    } else { SFX.drop(); saveMove(drag); }  // 真拖拽 = 回写新坐标（P1-1 级联：整棵子树坐标已随动）
   } else {
-    if(drag.moved<5){ const hit=hitTest(e.clientX,e.clientY); if(hit){ selectNode(hit); focusSubtree(hit);} }
+    if(drag.moved<5){
+      const hit=hitTest(e.clientX,e.clientY);
+      if(hit){ selectNode(hit); focusSubtree(hit); }
+      else { // 点空白 = 失去焦点：取消选中 + 取消子树聚焦
+        selected=null; focusSet=null;
+        const cb=document.getElementById('ctxBtn'); if(cb) cb.disabled=true;
+        const ab=document.getElementById('aiModBtn'); if(ab) ab.disabled=true;
+        document.getElementById('focusInfo').style.display='none';
+        draw();
+      }
+    }
   }
   drag=null;
 });
+let _drawQueued=false;
+function requestDraw(){ if(_drawQueued) return; _drawQueued=true; requestAnimationFrame(()=>{ _drawQueued=false; draw(); }); }  // 高频事件（拖舱/平移/缩放/mousemove）合帧到 rAF，一帧至多绘一次 → 修卡顿
 cv.addEventListener('wheel', e=>{
   e.preventDefault();
   const f=e.deltaY<0?1.12:1/1.12;
@@ -430,10 +588,12 @@ cv.addEventListener('wheel', e=>{
   cam.zoom=Math.max(0.05,Math.min(4,cam.zoom*f));
   cam.x=wx-(e.clientX-vcx())/cam.zoom;
   cam.y=wy-(e.clientY-vcy())/cam.zoom;
-  draw();
+  requestDraw(); saveCam();
 },{passive:false});
 // 右键拖拽舱体：屏蔽浏览器默认右键菜单
 cv.addEventListener('contextmenu', e=>{ e.preventDefault(); });
+// 按 M 键开关拖拽配音
+addEventListener('keydown', e=>{ if((e.key==='m'||e.key==='M') && !/input|textarea|select/i.test((e.target.tagName||''))){ const on=SFX.toggle(); flash(on?'🔊 拖拽配音已开启':'🔇 拖拽配音已关闭（按 M 开）'); } });
 // 鼠标移出画布：取消渐显门控，恢复全部标签显示（避免空屏无文字）
 cv.addEventListener('mouseleave', e=>{ mouse.in=false; draw(); });
 
@@ -480,6 +640,8 @@ function descendantIds(rootId){
 let rawIndex={};
 function buildIndex(){ rawIndex={}; (function w(arr){ arr.forEach(n=>{rawIndex[n.id]=n; if(n.children) w(n.children);}); })(tree.roots||[]); }
 function findRaw(id){ return rawIndex[id]; }
+// 子树统计（全局）：全部后代数（递归，仅父子树，不含 link 网状关系）—— draw() 标签统计与 hoverCard 共用
+function _cnt(id){ const p=findRaw(id); if(!p||!p.children||!p.children.length) return 0; let t=0; p.children.forEach(c=>{ t+=1+_cnt(c.id); }); return t; }
 function ancestors(id){ const out=[]; let n=findRaw(id); while(n){ n.parent_id!=null && out.push(n.parent_id); n=findRaw(n.parent_id); } return out; }
 function focusSubtree(n){
   buildIndex();
@@ -535,8 +697,11 @@ document.getElementById('emergeBtn').onclick=async ()=>{
   if(!r||!r.ok) list.innerHTML='<small>读取失败：'+(r&&r.error||'需服务端')+'</small>';
   else if(!r.count) list.innerHTML='<small>（暂无待确认候选）</small>';
   else list.innerHTML=r.items.map(it=>'<div class="emrow"><span>'+(it.text||('#'+it.cap_id))+' <small>+'+(+it.delta_clarity).toFixed(2)+'</small><br><small>'+(it.detail||'')+'</small></span><span><button data-c="'+it.id+'" data-cap="'+(it.cap_id||0)+'">✓</button> <button data-r="'+it.id+'">✕</button></span></div>').join('');
-  list.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await api({action:'confirm', event_id:+b.dataset.c, cap_id:+b.dataset.cap, ...sel()}); await renderNow(); document.getElementById('emergeBtn').click(); reloadTree(); });
-  list.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{ await api({action:'reject', event_id:+b.dataset.r, ...sel()}); document.getElementById('emergeBtn').click(); });
+  // 方案A：确认/驳回后，后端已落盘全局涌现树；前端即时 reloadTree 拉新 + 通知父窗口刷角标，
+  //        不再等 20s 轮询或依赖 renderNow（embed 下 subject 可能与落盘文件错位）。
+  function _notifyHostEmerge(){ try{ parent.postMessage({__tree:1,type:'emergeChanged'},'*'); }catch(_){} }
+  list.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{ await api({action:'confirm', event_id:+b.dataset.c, cap_id:+b.dataset.cap, ...sel()}); await reloadTree(); _notifyHostEmerge(); flash('✓ 已确认，画布已长出该能力球'); document.getElementById('emergeBtn').click(); });
+  list.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{ await api({action:'reject', event_id:+b.dataset.r, ...sel()}); await reloadTree(); _notifyHostEmerge(); flash('✕ 已驳回'); document.getElementById('emergeBtn').click(); });
   document.getElementById('toggleSw').onclick=async()=>{ const s=await api({action:'switch', state:'toggle'}); flash('侦测开关：'+(s&&s.emerge_enabled||'?')); };
 };
 
@@ -590,6 +755,12 @@ function springStep(){
   return maxV;
 }
 function springLoop(){ if(!springOn) return; const maxV=springStep(); /* 纯 home 临界回弹：收敛后 maxV→0 自动停绘，杜绝微颤与空耗；拖拽/新节点偏离 _home 时下一帧 maxV 回升自动恢复 */ if(maxV>REST_V) draw(); springRAF=requestAnimationFrame(springLoop); }
+// 微动效③：呼吸常驻循环（低频持续重绘，让节点"活着"但不晃位置）
+let _breathRAF=null, _lastBreath=0;
+function breathLoop(){ // 呼吸循环节流到 ~12fps（原 60fps 全帧重绘白耗 GPU，导致开关小舱卡顿）
+  const now=performance.now(); if(now-_lastBreath>=80){ _lastBreath=now; draw(); }
+  _breathRAF=requestAnimationFrame(breathLoop); }
+function startBreath(){ if(_breathRAF==null) _breathRAF=requestAnimationFrame(breathLoop); }
 // P0 圆形盆景：常驻漂浮启动器 + 圆形/全屏切换
 function startFloat(){
   const sb=document.getElementById('spring'); if(sb) sb.style.background='#3a6ea5';
@@ -691,13 +862,17 @@ document.getElementById('growBtn').onclick=async ()=>{
 };
 
 // ===== 加载数据 =====
+// 统计树上全部节点数（科技球总数）：递归 roots.children
+function countNodes(t){ if(!t||!t.roots) return 0; let c=0; (function walk(list){ (list||[]).forEach(n=>{ c++; walk(n.children); }); })(t.roots); return c; }
+function titleText(){ const t=tree&&tree.meta&&tree.meta.title||''; const c=countNodes(tree); return t?(' · '+t+'（'+c+' 个科技球）'):''; }
 async function load(file){
   const resp=await fetch('maps/'+file); if(!resp.ok){ alert('打不开 '+file); return; }
   tree=await resp.json(); buildIndex(); layout(); focusSet=null;
   document.getElementById('focusInfo').style.display='none';
-  document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
-  fit();
+  document.getElementById('title').textContent=titleText();
+  fit(); restoreCam();
   startFloat();
+  startBreath();
 }
 function _togPhys(btnId, get, set){ const b=document.getElementById(btnId); if(!b) return; b.onclick=()=>{ const v=!get(); set(v); b.style.background=v?'#3a6ea5':'#21262d'; }; }
 // P2 实时热重载：按 id diff 增量套用，新点发芽、旧点不跳（保留运行时 wx/wy/v/spawn）
@@ -711,7 +886,10 @@ function applyTreeDelta(t){
   });
   ensureVel(); draw();
 }
+var _liveDay=(new Date()).getDate();   // 跨日检测（反驳③修复）：0 点后自动重导出，画面跟上"今日"
 async function liveTick(){
+  const nowDay=(new Date()).getDate();
+  if(nowDay!==_liveDay){ _liveDay=nowDay; renderNow(); }   // 跨日：重新落盘（today_only 过滤到新的一天）
   const q=_curFile||new URLSearchParams(location.search).get('file'); if(!q) return;
   try{ const r=await fetch('maps/'+q+'?t='+Date.now()); if(!r.ok) return; const txt=await r.text(); if(txt===liveLast) return; liveLast=txt; applyTreeDelta(JSON.parse(txt)); }catch(e){}
 }
@@ -724,17 +902,22 @@ function aiModify(){
   const cmd='【进化树·修改节点】subject_type='+(m.subject_type||'project')+' subject_id='+(m.subject_id||'')+' 节点id='+selected.id+' 名称="'+selected.text+'"'+(binds?(' 挂接文件binds='+binds):'（该节点未挂接文件）')+'\n请调用 capability_tree(action=context, id='+selected.id+', subject_type='+(m.subject_type||'project')+', subject_id='+(m.subject_id||'')+') 读回祖先/兄弟/binds，定位到对应文件后修改这个部件（不要全项目盲搜）。';
   openPanel('🛠 让AI修改这里 · '+selected.text);
   const bd=document.getElementById('panelBody');
-  bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea><button id="aiCopy" style="margin-top:6px;background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">📋 复制指令</button>';
+  bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:5px;font-size:12px"></textarea><button id="aiCopy" style="margin-top:6px;background:#21262d;border:1px solid #58d68d;color:#58d68d;border-radius:6px;padding:6px 12px;cursor:pointer">📋 复制指令</button><button id=\"aiFill\" style=\"margin-top:6px;margin-left:6px;background:#21262d;border:1px solid #58a6ff;color:#58a6ff;border-radius:6px;padding:6px 12px;cursor:pointer\">🎯 送入对话框</button>';
   document.getElementById('aiCmd').value=cmd;
   document.getElementById('aiCopy').onclick=()=>{ const ta=document.getElementById('aiCmd'); ta.select(); try{ document.execCommand('copy'); flash('📋 已复制，去新对话粘贴'); }catch(e){ flash('⚠️ 复制失败，请手动全选'); } };
+  const fillBtn=document.getElementById('aiFill');
+  if(fillBtn) fillBtn.onclick=()=>{ try{ parent.postMessage({__tree:1,type:'zfFillChat',text:cmd,autoSend:false},'*'); flash('🎯 已送入主界面对话框（按回车开工）'); }catch(e){ flash('⚠️ 送入失败：'+e); } };
 }
 function useTree(t){
   tree=t; buildIndex(); layout(); focusSet=null;
   document.getElementById('focusInfo').style.display='none';
-  document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
-  fit();
+  document.getElementById('title').textContent=titleText();
+  fit(); restoreCam();
   startFloat();
+  startBreath();
 }
+// P1：接收宿主（主界面角标）指令，自动打开涌现侦测面板
+addEventListener('message', e=>{ const d=e.data||{}; if(d.__fromHost===1 && d.type==='openEmerge'){ const b=document.getElementById('emergeBtn'); if(b) b.click(); } });
 (async function init(){
   resize();
   const q=new URLSearchParams(location.search).get('file');
@@ -749,7 +932,7 @@ function useTree(t){
     sel.onchange=()=>load(sel.value);
   }catch(e){}
   if(q) load(q);
-  else if(IS_EMBED){ load('project.tree.json'); }   // embed 默认强制加载项目进化树，避免落到 demo 树/空白
+  else if(IS_EMBED){ load('_emergence.emergence.tree.json'); }   // embed 默认加载今日过滤的涌现总树（旧 project.tree.json 已归档）
   else { const ix0=document.getElementById('sel'); if(ix0.options.length>1){ ix0.value=ix0.options[1].value; load(ix0.value);} }
   // embed：默认开启实时热重载，AI 更新进化树后球内自动刷新（2s 轮询 maps json 增量套用）
   if(IS_EMBED){ try{ startLive(); }catch(e){} }

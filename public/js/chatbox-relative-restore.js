@@ -1,6 +1,15 @@
 /* =====================================================================
- * chatbox-relative-restore.js  v1.3
+ * chatbox-relative-restore.js  v1.4
  * 【重启后父子窗口相对位置守恒】
+ *
+ * v1.4：【用户拖拽永久脱钩】修复"拖动一个窗过一会另一个/本窗又被拉回"复发——
+ *       旧版拖拽守卫只有 3s 有效期、且只挡启动 30s 重试期：用户手动拖过窗后，
+ *       5s 周期采集把拖后位置写成新基准，启动重试循环仍按 localStorage 旧偏移
+ *       把子窗拽回旧位（表现为"移动一个，过一小会另一个跟着变"）。
+ *       新规则：pointermove 拖拽中每帧记录被拖的窗 el（仅主键按下+实际位移），
+ *       松手时将该窗从偏移基准中【永久作废】（含其作为子窗的记录与作为父窗的
+ *       全部子记录），本会话内不再被 applyRestore 校正，基准由后续采集按用户
+ *       拖后真实位置自然重建。不再依赖时间窗，重启前一直生效。
  *
  * v1.3：①恢复校正增加「父窗稳定门禁」——父窗 el 位置与落库坐标(chat.x/y)不一致时
  *       推迟校正，防止用父窗恢复中间态把子窗拽错位；
@@ -109,6 +118,44 @@
   var _restored = false;   // 首次校正完成前禁止采集，防止把漂移中间态写成基准（审核竞态备注）
   var _migrating = false;  // 【迁移中门禁】整理面板批量写回期间挂起采集/校正（防把写回中间态写成基准）
   var _pendingBase = {};   // 【v1.2 基准防污染】待确认的新基准（连续两轮采集一致才落库）
+  var _lastUserDragTs = 0; /* 【v1.4】声明提前：pointermove 跟踪在下方立即使用 */
+  /* 【v1.4 用户拖拽永久脱钩】本会话内被用户手动拖过的窗 id 集合：
+     applyRestore 跳过这些子窗；captureOffsets 首轮按拖后真实位置重建基准。
+     注：pointermove 才记（要求主键按下+位移>3px），普通点击不误伤（审核员#2 提示的守卫粒度问题） */
+  var _userDragged = {};
+  var _dragTracking = { down: false, btn: 0, x: 0, y: 0, el: null, moved: false };
+  function markUserDragged(el) {
+    if (!el) return;
+    /* 向上找窗容器并登记（窗可能嵌套容器） */
+    var box = el.closest ? el.closest('.chatbox, .chat-box, .chat-node') : null;
+    if (!box || !box.id) return;
+    _userDragged[box.id] = true;
+    /* 【v1.5 持久作废】拖拽确认瞬间立即从 localStorage 删除旧偏移基准：
+       该窗作为子窗的记录 + 作为父窗的全部子记录，一律作废。
+       不再等 captureOffsets 落库——否则用户拖完 800ms 防抖窗口内刷新页面，
+       旧偏移仍存活，重启恢复又会把窗拽回老位置（复发根因）。 */
+    try {
+      var offs = loadOffsets();
+      var changed = false;
+      if (offs[box.id]) { delete offs[box.id]; changed = true; }
+      Object.keys(offs).forEach(function (k) {
+        if (offs[k] && offs[k].parentId === box.id) { delete offs[k]; changed = true; }
+      });
+      if (changed) saveOffsets(offs);
+    } catch (e) {}
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return; /* 仅左键拖拽算用户手动移动 */
+    _dragTracking = { down: true, btn: 0, x: e.clientX, y: e.clientY, el: e.target, moved: false };
+  }, true);
+  document.addEventListener('pointermove', function (e) {
+    if (!_dragTracking.down || _dragTracking.moved) return;
+    if (Math.abs(e.clientX - _dragTracking.x) > 3 || Math.abs(e.clientY - _dragTracking.y) > 3) {
+      _dragTracking.moved = true;
+      _lastUserDragTs = Date.now();
+      markUserDragged(_dragTracking.el); /* 拖拽确认瞬间即登记，早于松手 */
+    }
+  }, true);
   function captureOffsets() {
     if (!_restored || _migrating || document.body.classList.contains('zf-overview-mode') || document.body.classList.contains('zf-org-mode')) return;
     /* 【平移门禁】主画布平移进行中不采集：平移期间的 layout 中间态可能把错误的
@@ -129,6 +176,16 @@
       if (!pp || !cp) return;
       if (isFresh(findChat(e.child))) return; /* 【出生保护】新窗 10s 内不采集偏移，防陈旧基准污染 */
       var rec = { parentId: e.parent, dx: Math.round(cp.x - pp.x), dy: Math.round(cp.y - pp.y), t: Date.now() };
+      /* 【v1.4 用户拖拽永久脱钩】被用户拖过的子窗：旧基准立即作废，
+         按拖后真实位置直接重建基准（不等连续两轮确认——用户放置即意图） */
+      if (_userDragged[e.child]) {
+        var od = offs[e.child];
+        if (!od || od.parentId !== rec.parentId || Math.abs(od.dx - rec.dx) > 0.5 || Math.abs(od.dy - rec.dy) > 0.5) {
+          offs[e.child] = rec; dirty = true;
+        }
+        delete _pendingBase[e.child];
+        return;
+      }
       var old = offs[e.child];
       var changed = !old || old.parentId !== rec.parentId || Math.abs(old.dx - rec.dx) > TOLERANCE || Math.abs(old.dy - rec.dy) > TOLERANCE;
       if (!changed) {
@@ -160,12 +217,22 @@
   setInterval(captureOffsets, 5000);
 
   /* ---------- 重启恢复校正 ---------- */
+  /* 【拖拽回弹修复】用户手动拖拽后 3s 内禁止 applyRestore 拉回：
+     启动后最长 30s 的重试循环期间用户拖动子窗，pending 的重试会按
+     localStorage 旧偏移把窗弹回原位（"拖过去 0.1 秒就回去"的根因） */
+  document.addEventListener('pointerup', function () { _lastUserDragTs = Date.now(); }, true);
+  document.addEventListener('pointercancel', function () { _lastUserDragTs = Date.now(); }, true);
   function applyRestore() {
     /* 【双倍跳转修复 v3】迁移中（整理面板批量写回）或整理模式激活时挂起校正：
        此时真实位置正在批量变更，用启动时采集的旧基准校正会把子窗拉回旧位 →
        用户平移画布时表现为父子双倍跳转。延后重试，待 endMigration 重算基准后再校 */
     if (_migrating || document.body.classList.contains('zf-org-mode') || document.body.classList.contains('zf-overview-mode')) {
       setTimeout(applyRestore, 3000);
+      return;
+    }
+    /* 【拖拽回弹修复】用户刚拖拽过（3s 内）→ 本轮校正整体跳过，重试交给原循环 */
+    if (Date.now() - _lastUserDragTs < 3000) {
+      if (_applyTries < 20) { _applyTries++; setTimeout(applyRestore, 1500); }
       return;
     }
     var offs = loadOffsets();
@@ -176,6 +243,10 @@
       total++;
       var child = findChat(childId), parent = findChat(rec.parentId);
       if (!child || !child.el || !parent || !parent.el) return; /* 未就绪，计入未校验 */
+      /* 【v1.4 用户拖拽永久脱钩】本会话内用户拖过的窗不做校正（其基准已由采集
+         按拖后位置重建）；同时父窗被拖过时也不动子窗（防按旧偏移拽走子窗，
+         覆盖审核建议的"父窗拖动场景"——父位已变但子窗位置是用户认可的） */
+      if (_userDragged[childId] || _userDragged[rec.parentId]) return;
       if (isFresh(child)) return; /* 【出生保护】新窗 10s 内不校正 */
       var pp = posOf(parent), cp = posOf(child);
       if (!pp || !cp) return;

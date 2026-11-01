@@ -276,12 +276,100 @@ class HandlerBase(BaseHTTPRequestHandler):
             return None
         return full
 
+    # ===== 对话框附件上传：multipart/form-data 二进制分支 =====
+    # 【修复 2026-10-26】前端附件上传走 FormData POST /api/tools/upload，而该路径
+    # 原先落到下面的 tools 统一分发，被 _read_body() 当 JSON 解析；multipart 的
+    # 二进制内容（如 .dmp）甚至不是合法 UTF-8，json.loads 必抛异常 → 前端表现为
+    # 「上传失败: xxx.txt - Invalid JSON body」。现单独解析并落盘。
+    UPLOAD_MAX_BYTES = 200 * 1024 * 1024
+
+    def _parse_multipart_file(self, body, boundary):
+        """极简 multipart 解析：返回 (文件名, 文件字节, {文本字段})。"""
+        fields = {}
+        fname, blob = '', None
+        for part in body.split(b'--' + boundary):
+            if part.startswith(b'\r\n'):
+                part = part[2:]
+            if not part or part.startswith(b'--'):
+                continue
+            sep = b'\r\n\r\n'
+            idx = part.find(sep)
+            if idx < 0:
+                continue
+            head = part[:idx]
+            data = part[idx + len(sep):]
+            if data.endswith(b'\r\n'):
+                data = data[:-2]
+            try:
+                head_txt = head.decode('utf-8', 'ignore')
+            except Exception:
+                head_txt = ''
+            fm = re.search(r'filename="([^"]*)"', head_txt)
+            if fm:
+                fname, blob = fm.group(1), data
+                continue
+            nm = re.search(r'name="([^"]*)"', head_txt)
+            if nm:
+                fields[nm.group(1)] = data.decode('utf-8', 'ignore')
+        return fname, blob, fields
+
+    def _handle_upload_multipart(self):
+        """接收 FormData(file, boxId)，存 public/uploads/chat/<boxId>/，回 path。"""
+        import time
+        ct = self.headers.get('Content-Type', '') or ''
+        m = re.search(r'boundary=([^;]+)', ct)
+        if not m:
+            self._send_json({'ok': False, 'error': 'need multipart boundary'}, 400)
+            return
+        try:
+            clen = int(self.headers.get('Content-Length') or 0)
+        except (TypeError, ValueError):
+            clen = 0
+        if clen <= 0:
+            self._send_json({'ok': False, 'error': 'empty body'}, 400)
+            return
+        if clen > self.UPLOAD_MAX_BYTES:
+            self._send_json({'ok': False, 'error': '文件超过 200MB'}, 413)
+            return
+        boundary = m.group(1).strip().strip('"').encode()
+        # body 已由分发入口 _drain_body 缓存，只能取一次；直接复用缓存原始字节
+        body = self._cached_body(clen)
+        fname, blob, fields = self._parse_multipart_file(body, boundary)
+        if blob is None:
+            self._send_json({'ok': False, 'error': 'no file part'}, 400)
+            return
+        # 安全：只取 basename 并净化字符，防路径穿越；原始名回传供前端显示
+        original = os.path.basename((fname or '').replace('\\', '/')) or 'unnamed'
+        safe = re.sub(r'\.{2,}', '_', re.sub(r'[^A-Za-z0-9._ -]', '_', original)[:120]).strip('._') or 'unnamed'
+        box = re.sub(r'[^A-Za-z0-9_-]', '_', str(fields.get('boxId') or 'default'))[:60].strip('_') or 'default'
+        d = os.path.join(PUBLIC_DIR, 'uploads', 'chat', box)
+        try:
+            os.makedirs(d, exist_ok=True)
+            dest = os.path.join(d, '%d_%s' % (int(time.time() * 1000), safe))
+            with open(dest, 'wb') as f:
+                f.write(blob)
+        except Exception as e:
+            self._send_json({'ok': False, 'error': '写盘失败: %s' % str(e)[:160]}, 500)
+            return
+        self._send_json({
+            'ok': True,
+            'path': dest.replace('\\', '/'),
+            'original_name': original,
+            'name': original,
+            'size': len(blob),
+            'url': '/uploads/chat/%s/%s' % (box, os.path.basename(dest)),
+        })
+
     # ===== 工具路由：/api/tools/* =====
     def _handle_tools_post(self, path):
         """统一处理 /api/tools/* POST 请求。
         所有工具统一走 tools 注册表动态分发。
         """
         tools = path.rsplit('/', 1)[-1]
+        # multipart 不是 JSON，必须先分流到二进制上传分支
+        if 'multipart/form-data' in (self.headers.get('Content-Type') or ''):
+            self._handle_upload_multipart()
+            return
         try:
             body = self._read_body()
         except Exception:

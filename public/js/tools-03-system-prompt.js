@@ -169,9 +169,8 @@ Object.assign(Tools, {
         var cid = chatId || this.currentChatId;
         var catName = this.chatCategories[cid] || this.activeCategory;
         var cat = this.categories[catName];
-        var lines = ['【动态状态】以下内容每次请求可能变化，仅作参考：'];
-        lines.push('当前模式：' + catName + (cat ? ('（' + cat.desc + '）') : ''));
-        lines.push('当前压缩档位：' + (this.compressMode || 'minimal'));
+        // 【注入瘦身 S3·5.7.1】压缩为单行，降低每轮固定注入开销
+        var lines = ['【动态状态】[模式:' + catName + (cat ? '(' + cat.desc + ')' : '') + '|档位:' + (this.compressMode || 'minimal') + ']'];
         var wl = '';
         // 修复：工作日志不再无条件注入（会污染无关对话、带偏回答）。
         // 仅当用户最近一轮消息涉及"今天/最近/上次/之前/做了什么/进展"等时间性提问时才注入。

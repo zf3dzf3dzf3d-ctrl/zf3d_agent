@@ -51,7 +51,7 @@
     height: 17px;
     line-height: 17px;
     border-radius: 9px;
-    background: rgba(255, 255, 255, 0.12);
+    background: transparent;
     color: #cfd6e4 !important;
 }
 
@@ -319,4 +319,25 @@
     box-sizing: border-box;
     text-align: left;
     white-space: nowrap;
+}
+
+/* ---------- 13. 【裸图标】右下角对话/三个点按钮去掉背景框（常态/hover/激活一律透明），只留裸图标 ---------- */
+.tp-fab-group .zf-dock-btn,
+.tp-fab-group .zf-dock-btn:hover,
+.tp-fab-group .zf-dock-btn.active,
+.tp-fab-group .zf-dock-btn.is-active,
+.tp-fab-group .zf-dock-btn[aria-selected="true"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    transform: none !important;
+}
+/* 激活/悬停改用图标提亮反馈，不再有胶囊底色 */
+.tp-fab-group .zf-dock-btn:hover,
+.tp-fab-group .zf-dock-btn.active,
+.tp-fab-group .zf-dock-btn.is-active,
+.tp-fab-group .zf-dock-btn[aria-selected="true"] {
+    color: #fff !important;
+    filter: drop-shadow(0 0 3px rgba(110, 198, 255, .55));
 }

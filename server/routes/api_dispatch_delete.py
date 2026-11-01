@@ -80,6 +80,14 @@ class MixinDispatchDelete(MixinBase):
                 if resource == 'nodes' and len(parts) > 1:
                     node_id = parts[1]
                     cur.execute('DELETE FROM canvas_nodes WHERE id=?', (node_id,))
+                    # 【防重启复活】写墓碑：记录"该节点已被用户关闭"。
+                    # 关闭后在途的异步回写（saveNode POST）即使晚于 DELETE 到达，重启后也不会复活窗口。
+                    # 恢复已关闭对话（restoreLastClosed）走 POST /nodes/{id}/revive 显式复活，清除墓碑。
+                    try:
+                        cur.execute('INSERT OR REPLACE INTO kv_store (key, value, updated_at) VALUES (?, ?, ?)',
+                                    ('node_tombstone:' + node_id, str(now), now))
+                    except Exception:
+                        pass
                     conn.commit()
                     result = {'ok': True, 'deleted': cur.rowcount}
 

@@ -1550,6 +1550,9 @@ Object.assign(App, {
             // view.x 差分驱动同源叠加；同时延长水动画循环，保证晃动能自然衰减到停止
 
             self.updateMinimap = function() {
+                // 【导航地图开关】用户关闭导航地图（body.zf-minimap-off，由进化树舱旁按钮控制）
+                // 时直接跳过重绘，省掉每帧遍历/绘制开销；重新开启时该模块会再调一次本函数补绘。
+                try { if (document.body.classList.contains('zf-minimap-off')) return; } catch (e0) {}
                 // 【防死循环】整理模式激活时跳过主小地图重绘，避免与整理面板渲染互相触发形成回环
                 try {
                     if (window.MinimapOrganize && window.MinimapOrganize.isActive()) return;

@@ -128,6 +128,15 @@ def get_team():
         return list(DEFAULT_TEAM)
 
 
+def get_auto_cap(role):
+    """策划案 v3：读角色 auto_cap（默认 True，缺字段不落盘、零配置漂移）。
+    auto_cap=False → 员工回退旧行为（无知识注入/无技能推断）。"""
+    conf = _role_conf(role)
+    if not conf:
+        return True
+    return conf.get('auto_cap', True)
+
+
 def _role_conf(role):
     """按角色名取配置；不在白名单则返回 None（防路径穿越）。"""
     role = str(role or '').strip()
@@ -312,6 +321,192 @@ def summary(role='健康师', days=7):
         if wk:
             lines.append('- 累计完成活数：%d 个，日均 %.1f 个' % (sum(wk), sum(wk) / max(1, len(wk))))
     return '\n'.join(lines), p, recs
+
+
+# ---------- 团队成员管理（工作台增删改） ----------
+_NAME_BAD = ('/', '\\', '..')
+
+
+def _valid_member(m, team, exclude=None):
+    name = str(m.get('name') or '').strip()[:20]
+    if not name:
+        raise ValueError('成员名字必填')
+    for b in _NAME_BAD:
+        if b in name:
+            raise ValueError('名字不能包含 %s' % b)
+    if any(r.get('name') == name for r in team if r is not exclude):
+        raise ValueError('成员已存在: %s' % name)
+    return name
+
+
+def _save_team_locked(team):
+    """原子写 team.json（.tmp→替换+.bak 备份）。调用方必须已持 _LOCK。"""
+    tf = _team_file()
+    if os.path.isfile(tf):
+        try:
+            import shutil as _sh
+            _sh.copy2(tf, tf + '.bak')
+        except Exception:
+            pass
+    tmp = tf + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(team, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, tf)
+
+
+def add_member(m):
+    """新增团队成员 m={name,avatar,persona,fields}。返回新团队列表。"""
+    with _LOCK:
+        team = get_team()
+        name = _valid_member(m, team)
+        avatar = str(m.get('avatar') or '👤').strip()[:8] or '👤'
+        persona = str(m.get('persona') or '').strip()[:2000]
+        fields = [str(x).strip() for x in (m.get('fields') or []) if str(x).strip()][:20]
+        team.append({'name': name, 'avatar': avatar, 'persona': persona, 'fields': fields})
+        _save_team_locked(team)
+        return team
+
+
+def update_member(old_name, patch):
+    """更新成员（按名字定位）。一期禁改名（避免档案目录迁移）。"""
+    with _LOCK:
+        team = get_team()
+        target = None
+        for r in team:
+            if r.get('name') == str(old_name or '').strip():
+                target = r
+                break
+        if not target:
+            raise ValueError('成员不存在: %s' % old_name)
+        if str(patch.get('name') or '').strip() and str(patch['name']).strip() != target['name']:
+            raise ValueError('一期暂不支持改名（避免档案目录迁移），请删除后新建')
+        if 'avatar' in patch:
+            target['avatar'] = str(patch['avatar'] or '👤').strip()[:8] or '👤'
+        if 'persona' in patch:
+            target['persona'] = str(patch['persona'] or '').strip()[:2000]
+        if 'fields' in patch:
+            target['fields'] = [str(x).strip() for x in (patch.get('fields') or []) if str(x).strip()][:20]
+        _save_team_locked(team)
+        return team
+
+
+def delete_member(name):
+    """删除团队成员（档案目录保留不删，可手工恢复）。"""
+    with _LOCK:
+        team = get_team()
+        n = len(team)
+        name = str(name or '').strip()
+        if name == '主脑':
+            raise ValueError('主脑不可删除')
+        team = [r for r in team if r.get('name') != name]
+        if len(team) == n:
+            raise ValueError('成员不存在: %s' % name)
+        _save_team_locked(team)
+        return team
+
+
+# ---------- 项目级团队（v3：每个项目独立 team.json，默认为空；全局管家团不受影响） ----------
+_PBASE = os.path.join(_BASE, 'projects')
+
+
+def _safe_pid(pid):
+    pid = str(pid or 'default').strip()
+    if not pid or any(b in pid for b in _NAME_BAD) or len(pid) > 80:
+        raise ValueError('非法项目标识: %r' % pid)
+    return pid
+
+
+def _pteam_file(pid):
+    return os.path.join(_PBASE, _safe_pid(pid), 'team.json')
+
+
+def get_project_team(pid='default'):
+    """读取项目团队（不存在=空列表，不再注入默认角色）。"""
+    with _LOCK:
+        try:
+            with open(_pteam_file(pid), 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+        except Exception:
+            pass
+        return []
+
+
+def _save_pteam_locked(pid, team):
+    d = os.path.dirname(_pteam_file(pid))
+    os.makedirs(d, exist_ok=True)
+    tf = _pteam_file(pid)
+    tmp = tf + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(team, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, tf)
+
+
+def _wb_extra_fields(m):
+    """工作台团队扩展字段：type/chat_id/summary/paths/commits/last_ts（策划案六.1）。"""
+    return {
+        'type': str(m.get('type') or '').strip()[:20],
+        'chat_id': str(m.get('chat_id') or '').strip()[:80],
+        'summary': str(m.get('summary') or '').strip()[:2000],
+        'paths': [str(x).strip() for x in (m.get('paths') or []) if str(x).strip()][:20],
+        'commits': [str(x).strip() for x in (m.get('commits') or []) if str(x).strip()][:20],
+        'last_ts': str(m.get('last_ts') or '').strip()[:30],
+    }
+
+
+def p_add_member(m, pid='default'):
+    """项目内新增成员。返回新团队列表。"""
+    with _LOCK:
+        team = get_project_team(pid)
+        name = _valid_member(m, team)
+        rec = {
+            'name': name,
+            'avatar': str(m.get('avatar') or '👤').strip()[:8] or '👤',
+            'persona': str(m.get('persona') or '').strip()[:2000],
+            'fields': [str(x).strip() for x in (m.get('fields') or []) if str(x).strip()][:20],
+        }
+        rec.update(_wb_extra_fields(m))
+        team.append(rec)
+        _save_pteam_locked(pid, team)
+        return team
+
+
+def p_update_member(old_name, patch, pid='default'):
+    with _LOCK:
+        team = get_project_team(pid)
+        target = next((r for r in team if r.get('name') == str(old_name or '').strip()), None)
+        if not target:
+            raise ValueError('成员不存在: %s' % old_name)
+        if str(patch.get('name') or '').strip() and str(patch['name']).strip() != target['name']:
+            raise ValueError('暂不支持改名，请删除后新建')
+        if 'avatar' in patch:
+            target['avatar'] = str(patch['avatar'] or '👤').strip()[:8] or '👤'
+        if 'persona' in patch:
+            target['persona'] = str(patch['persona'] or '').strip()[:2000]
+        if 'fields' in patch:
+            target['fields'] = [str(x).strip() for x in (patch.get('fields') or []) if str(x).strip()][:20]
+        for k, v in _wb_extra_fields(patch).items():
+            if k in patch:
+                target[k] = v
+        _save_pteam_locked(pid, team)
+        return team
+
+
+def p_delete_member(name, pid='default'):
+    with _LOCK:
+        team = get_project_team(pid)
+        n = len(team)
+        team = [r for r in team if r.get('name') != str(name or '').strip()]
+        if len(team) == n:
+            raise ValueError('成员不存在: %s' % name)
+        _save_pteam_locked(pid, team)
+        return team
+
+
+def list_templates():
+    """内置角色模板库（默认团队已退役，仅手动从模板添加时可见）。"""
+    return list(DEFAULT_TEAM)
 
 
 # 初始化：迁移旧数据 + 确保 team.json 存在

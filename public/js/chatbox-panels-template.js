@@ -68,22 +68,6 @@
             '<button class="send-btn" title="发送消息"><svg class="send-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg><svg class="stop-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg></button>' +
             '</div>' +
             '<div class="chatbox-configrow">' +
-            '<div class="eng-picker-wrap">' +
-            '<button class="eng-trigger" title="底层对话引擎（对话处理管线）">' +
-            '<span class="eng-name">默认</span>' +
-            '<span class="eng-arrow">▾</span>' +
-            '</button>' +
-            '<div class="eng-menu" hidden></div>' + /* 引擎菜单内容由 chatbox-config-widgets.js 统一填充 */
-            '</div>' +
-            '<div class="tool-cat-wrap">' +
-            '<button class="tool-cat-trigger" title="切换工具分类">' +
-            '<span class="tool-cat-icon" style="display:none">📄</span>' +
-            '<span class="tool-cat-label">工具分类:</span>' +
-            '<span class="tool-cat-name">极简</span>' +
-            '<span class="tool-cat-arrow">▾</span>' +
-            '</button>' +
-            '<div class="tool-cat-menu" hidden></div>' + /* 分类菜单由 chatbox-config-widgets.js 统一填充 */
-            '</div>' +
             '<button class="cfg-btn cfg-project-btn" data-act="project" title="切换项目">📁<span class="proj-label">切换项目</span></button>' +
             '<button class="cfg-btn cfg-branch-btn" data-act="branch" title="Git 分支：新建 / 选择 / 合并到主分支">git<span class="branch-label">主分支</span></button>' +
             '<div class="model-picker-wrap">' +

@@ -286,6 +286,10 @@ Object.assign(App, {
                     console.warn('[Agent] token stats persistence failed:', e);
                 }
             }
+            // 【中途插话不停止】终局残留同步消费：残留插话先转排队补发（📌可见性标注），再走下方排队续发
+            if (typeof InjectBus !== 'undefined' && InjectBus.size(chat) > 0) {
+                try { InjectBus.drainToQueueOnFinish(chat, box); } catch (e) {}
+            }
             // 如果有排队消息，处理下一条
             // 【2026 修复】用户刚点过"停止"时不自动发送排队消息，防止残留死循环被再次拉起
             if (chat.queue.length > 0 && !chat._stopped) {

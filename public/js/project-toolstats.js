@@ -218,7 +218,26 @@ Object.assign(App, {
                             if (tg && typeof tg.click === 'function') tg.click();
                         }
                     } catch (err) {}
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    /* 【修复 2026-10-27 整窗被顶起】scrollIntoView 会连滚所有可滚动祖先
+                       （工具卡片嵌在 toolpanel-body > chatbox > 画布多层滚动容器里），
+                       外层画布/页面被一起滚导致整个对话框抬高、背景上移。
+                       改为只在卡片所在的最近滚动容器内手动居中滚动（同 mc-quick-nav 方案）。 */
+                    (function () {
+                        var scroller = null, el = target;
+                        while (el && el !== document.body) {
+                            var oy = getComputedStyle(el).overflowY;
+                            if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 4) { scroller = el; break; }
+                            el = el.parentElement;
+                        }
+                        if (scroller) {
+                            var sr = scroller.getBoundingClientRect();
+                            var cr = target.getBoundingClientRect();
+                            var delta = (cr.top + cr.height / 2) - (sr.top + sr.height / 2);
+                            scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
+                        } else {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    })();
                     target.classList.remove('toolstats-flash');
                     void target.offsetWidth; // 重启动画
                     target.classList.add('toolstats-flash');

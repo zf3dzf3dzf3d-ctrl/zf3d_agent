@@ -1,0 +1,51 @@
+{
+  "name": "zf-infinite-desktop",
+  "displayName": "朱峰无限桌面",
+  "version": "0.2.0",
+  "description": "在 ZCode 内部界面内嵌「朱峰无限桌面」面板：会话右侧插件市场出现「打开」按钮，点击即在 ZCode 内直接加载无限桌面。",
+  "author": "zhufeng",
+  "ui": {
+    "surfaces": [
+      {
+        "id": "panel",
+        "type": "panel",
+        "title": "朱峰无限桌面",
+        "entry": "ui/panel.html",
+        "availability": "session"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "id": "zf-infinite-desktop.open",
+      "title": "打开无限桌面",
+      "description": "唤起朱峰无限桌面原生独立窗口",
+      "type": "action",
+      "action": {
+        "type": "run",
+        "command": "python",
+        "args": ["${pluginDir}/bridge_lite/launch.py"]
+      }
+    }
+  ],
+  "mcpServers": {
+    "zf-infinite-desktop": {
+      "command": "python",
+      "args": ["${pluginDir}/bridge_lite/launch.py", "--mcp"]
+    }
+  },
+  "userConfig": {
+    "zfAccountToken": {
+      "type": "string",
+      "title": "朱峰账号 Token",
+      "description": "登录朱峰账号后的凭证，仅存本地加密，绝不明文上传",
+      "sensitive": true
+    },
+    "engineRoute": {
+      "type": "string",
+      "title": "默认引擎线路",
+      "description": "zhufeng=朱峰线路(默认) / zcode-glm=ZCode 自己的 GLM",
+      "default": "zhufeng"
+    }
+  }
+}

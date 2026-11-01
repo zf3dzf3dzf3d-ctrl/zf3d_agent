@@ -28,13 +28,52 @@ import json
 import time
 import sys
 import base64
+import threading
 import urllib.parse
 
 TOOL_NAME = 'browser_control'
 
+# 目录定位必须先于所有模块级使用（修复：_STATS_PATH 曾在定义前引用 _SERVER_DIR）
 _TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_TOOLS_DIR)))
 _SERVER_DIR = os.path.join(_PROJECT_ROOT, 'server')
+
+# ---------- T0-S1 成功率统计（v1.3.2 策划案：browser_stats.json 按日落盘） ----------
+# 内存计数 + 周期落盘（成功每30s/失败即落）；锁内读改写+tmp原子替换防并发覆盖。
+# 统计口径：最终返回 ok / error / error含timeout 三类（前置参数校验错误不计入）。
+_STATS_PATH = os.path.join(_SERVER_DIR, 'data', 'browser_stats.json')
+_stats_lock = threading.Lock()
+_stats_counter = {'ok': 0, 'fail': 0, 'timeout': 0}
+_stats_last_flush = [0.0]
+
+
+def _stats_record(kind):
+    with _stats_lock:
+        if kind not in _stats_counter:
+            kind = 'fail'
+        _stats_counter[kind] += 1
+        now = time.time()
+        if kind == 'ok' and now - _stats_last_flush[0] < 30:
+            return
+        _stats_last_flush[0] = now
+        try:
+            data = {}
+            if os.path.exists(_STATS_PATH):
+                try:
+                    data = json.load(open(_STATS_PATH, encoding='utf-8'))
+                except Exception:
+                    data = {}
+            day = time.strftime('%Y-%m-%d')
+            d = data.setdefault(day, {'ok': 0, 'fail': 0, 'timeout': 0})
+            for k, v in _stats_counter.items():
+                d[k] = int(d.get(k, 0)) + v
+                _stats_counter[k] = 0
+            tmp = _STATS_PATH + '.tmp'
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, _STATS_PATH)
+        except Exception:
+            pass
 
 # 导入画布浏览器引擎（browser_plugin，与画布节点同一份代码）
 if _SERVER_DIR not in sys.path:
@@ -445,8 +484,23 @@ def handle(body, ctx):
                 '未知 action: %s（支持 open/goto/back/content/screenshot/click/'
                 'scroll/type/fill/press/eval/tabs/newtab/switchtab/closetab/'
                 'track_save/track_note/close/file）' % action)
+        # T0-S1 成功率统计：file/未知等前置校验路径不走这里；此处为真实执行结果
+        try:
+            if isinstance(data, dict):
+                if data.get('ok', True):
+                    _stats_record('ok')
+                elif 'timeout' in str(data.get('error') or '').lower():
+                    _stats_record('timeout')
+                else:
+                    _stats_record('fail')
+        except Exception:
+            pass
         return ctx.send_json(data)
     except Exception as e:
+        try:
+            _stats_record('timeout' if ('超时' in str(e) or 'timeout' in str(e).lower()) else 'fail')
+        except Exception:
+            pass
         msg = str(e)
         # 引擎 worker 卡死时的自救提示（与画布节点同款恢复手段）
         if '超时' in msg or 'timeout' in msg.lower():

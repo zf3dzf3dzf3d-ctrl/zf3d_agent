@@ -17,12 +17,14 @@
 .ft-panel-overlay {
     position: fixed; inset: 0; background: transparent;
     opacity: 0; pointer-events: none; transition: opacity .25s;
-    z-index: 890; /* 低于面板 901，不挡住面板 */
+    z-index: 9695; /* 夹在舷窗上限 9690 与面板本体 9700 之间：盖住科技树舷窗以捕获外部点击，但不挡住面板本体 */
 }
 .ft-panel-overlay.open { opacity: 1; pointer-events: none; /* 透明且可穿透：不拦截右侧交互 */ }
 
 /* 面板容器（左侧滑出） */
 .ft-panel {
+    /* 层级：高于科技树太空舱舷窗(app-canvas-tree-node.js Z=9400+seq)，
+       低于项目面板 9999 / 科技树全屏查看 99999，保证科技树面板沉在文件树缩略图面板之下 */
     position: fixed; top: 0; left: 0; bottom: 0;
     height: 100vh; /* 始终全屏高：必须盖过（高于）任意浮动对话框 */
     width: min(1664px, calc(125vw + 128px)); max-width: 97vw;
@@ -32,7 +34,7 @@
     box-shadow: 4px 0 24px rgba(0,0,0,.35);
     transform: translateX(-100%);
     transition: transform .28s cubic-bezier(.4,0,.2,1);
-    z-index: 901;
+    z-index: 9700;
     display: flex; flex-direction: column;
 }
 /* 动画结束后脱离 GPU 合成层，恢复 CPU 高精度文字渲染，解决发虚 */
@@ -155,7 +157,7 @@
 }
 .ft-node:hover { background: var(--bg-hover, #2a2b31); }
 .ft-node.ft-active { background: var(--accent-weak, rgba(90,140,255,.15)); }
-/* 【5.6.0 反馈修复】钉住项点击闪烁反馈 */
+/* 【5.7.0 反馈修复】钉住项点击闪烁反馈 */
 .ft-node.ft-flash { animation: ftPinFlash .9s ease; }
 @keyframes ftPinFlash {
   0% { background: var(--accent-weak, rgba(90,140,255,.15)); }
@@ -180,7 +182,7 @@
 /* 左侧顶部固定列表（我的电脑/我的文档/我的项目） */
 .ft-side-node { font-weight: 600; }
 .ft-pin-node { position: relative; }
-.ft-pin-node.ft-active { background: var(--accent-weak, rgba(90,140,255,.18)); outline: 1px solid var(--accent, #5a8cff); }
+.ft-pin-node.ft-active { background: var(--accent-weak, rgba(90,140,255,.18)); box-shadow: inset 0 0 0 1px var(--accent, #5a8cff); }
 .ft-pin-del {
     margin-left: auto; flex-shrink: 0;
     color: var(--text-secondary, #c5c6ce); font-size: 12px;

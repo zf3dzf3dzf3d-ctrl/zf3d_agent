@@ -135,6 +135,9 @@
             // 恢复每个对话框
             var maxZ = 50;
             var skippedCount = 0;
+            // 【防复活 v2】本地关闭清单：用户主动关过的对话，重启后即使 DB 残留也拒绝重建
+            var _closedList = {};
+            try { _closedList = JSON.parse(localStorage.getItem('zf3d_closed_chats') || '{}'); } catch (e) {}
             saved.chatBoxes.forEach(function(sb) {
                 // 【防重复】跳过已在 this.chatBoxes 中的对话框（热更新/重复调用 restoreSession 时避免复制）
                 var existingChat = self.chatBoxes.find(function(c) { return c.id === sb.id; });
@@ -142,6 +145,7 @@
                     skippedCount++;
                     return;
                 }
+                if (_closedList[sb.id]) { skippedCount++; return; }
                 // 如果 DOM 元素已存在但 chat 对象不在 this.chatBoxes 中（孤儿 DOM），
                 // 移除孤儿 DOM 元素后走正常创建流程，确保 chat 对象被重新注册
                 var existingEl = document.getElementById(sb.id);

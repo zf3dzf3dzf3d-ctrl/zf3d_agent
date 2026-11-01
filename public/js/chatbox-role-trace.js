@@ -10,6 +10,7 @@
  *   施工队  el._raceSrcId     + data-race-worktree 非 crew:// 开头（赛马）
  *   协作队  el._raceSrcId     + data-race-worktree 以 crew:// 开头
  *   总结师  el._isSummarizerChat + el._summarizerSrcId
+ *   验证师  el._isVerifierChat + el._customSrcId
  * 按子窗 id 去重（只记一次，刷新不重复计数），累计值存 localStorage zf_role_trace。
  * 渲染：在各对话头部 .header-actions 前插入/更新徽章 span，头被重建也能自动补回。
  * ============================================================ */
@@ -23,7 +24,10 @@
     '审核': '#ef6c00',  /* 橙 */
     '施工': '#1e88e5',  /* 蓝 */
     '协作': '#00897b',  /* 青 */
-    '总结': '#43a047'   /* 绿 */
+    '总结': '#43a047',  /* 绿 */
+    '反驳': '#e53935',  /* 红（反驳师·红队） */
+    '进化': '#2e7d32',  /* 绿（进化师·🧬） */
+    '验证': '#5c6bc0'   /* 靛（验证师·🧪 终验） */
   };
 
   function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) { return {}; } }
@@ -36,6 +40,8 @@
       if (el._isThinkerChat && el._thinkerSrcId != null) return { role: '策划', srcId: String(el._thinkerSrcId) };
       if (el._isQcChat && el._qcSrcId != null) return { role: '审核', srcId: String(el._qcSrcId) };
       if (el._isSummarizerChat && el._summarizerSrcId != null) return { role: '总结', srcId: String(el._summarizerSrcId) };
+      if (el._isVerifierChat && el._customSrcId != null) return { role: '验证', srcId: String(el._customSrcId) };
+      if (el._isObjectorChat && el._customSrcId != null) return { role: el._isEvolutionChat ? '进化' : '反驳', srcId: String(el._customSrcId) };
       if (el._raceSrcId != null) {
         var wt = '';
         try { wt = el.getAttribute('data-race-worktree') || ''; } catch (e) {}
@@ -88,9 +94,20 @@
       } catch (e) {}
       try {
         var tp = (window.ZFThinkerArrow && ZFThinkerArrow.getPairs && ZFThinkerArrow.getPairs()) || [];
-        tp.forEach(function (p) { if (String(p.srcId) === String(chat.id)) statusOf['策划'] = ({ pending: '策划中', applied: '已回注', modified: '修改完成', done: '策划完毕', clarified: '已澄清' })[p.status] || '策划中'; });
+        tp.forEach(function (p) {
+          if (String(p.srcId) !== String(chat.id)) return;
+          if (p.verifier) {
+            statusOf['验证'] = ({ pending: '验证中', applied: '已回注', modified: '修改完成', done: '验证完毕', clarified: '已验证' })[p.status] || '验证中';
+          } else if (p.evolution) {
+            statusOf['进化'] = ({ pending: '进化中', applied: '已回注', modified: '修改完成', done: '进化完毕', clarified: '已进化' })[p.status] || '进化中';
+          } else if (p.objector) {
+            statusOf['反驳'] = ({ pending: '反驳中', applied: '已回注', modified: '修改完成', done: '反驳完毕', clarified: '已反驳' })[p.status] || '反驳中';
+          } else {
+            statusOf['策划'] = ({ pending: '策划中', applied: '已回注', modified: '修改完成', done: '策划完毕', clarified: '已澄清' })[p.status] || '策划中';
+          }
+        });
       } catch (e) {}
-      var names = { '策划': '策划师', '审核': '审核员', '施工': '施工队', '协作': '协作队', '总结': '总结师' };
+      var names = { '策划': '策划师', '审核': '审核员', '施工': '施工队', '协作': '协作队', '总结': '总结师', '反驳': '反驳师', '进化': '进化师', '验证': '验证师' };
       Object.keys(COLORS).forEach(function (role) {
         var n = counts[role] || 0;
         if (n <= 0) return;

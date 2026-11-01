@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""生成「朱峰智能体无限 5.6.0」项目的万物进化树数据 (viewer 用 JSON)。
+"""生成「朱峰智能体无限 5.7.0」项目的万物进化树数据 (viewer 用 JSON)。
 结构：嵌套 roots 树 + links 跨枝关系网。坐标用放射状布局。
 成熟度 status: seed/sprout/grow/branch/bloom；clarity: 0~1。
 """
@@ -18,7 +18,7 @@ def node(text, clarity, status, icon="", kind="capability"):
     }
 
 # ---------- 1. 构建能力树（基于真实模块） ----------
-root = node("朱峰智能体无限\n5.6.0", 0.95, "bloom", "🌳")
+root = node("朱峰智能体无限\n5.7.0", 0.95, "bloom", "🌳")
 
 branches = [
     # (分支名, icon, clarity, status, [(叶名, clarity, status), ...])
@@ -156,7 +156,7 @@ for src, dst, kind in link_defs:
 
 data = {
     "meta": {
-        "title": "朱峰智能体无限 5.6.0 · 项目进化树",
+        "title": "朱峰智能体无限 5.7.0 · 项目进化树",
         "subject_type": "project",
         "subject_id": "proj_1792075652565",
         "created": "2026-10-19",

@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": 3,
-    "updated_at": "2026-10-20T15:24:56"
+    "updated_at": "2026-11-01T13:18:54"
   },
   "models": [
     {
@@ -162,7 +162,7 @@
     },
     {
       "name": "MiniMax",
-      "id": "MiniMax",
+      "id": "MiniMax3",
       "modelId": "MiniMax-M3.1-Flash",
       "modelIdOptions": [
         "MiniMax-M3.1-Flash"
@@ -230,6 +230,7 @@
         "type": "token",
         "multiplier": 1
       },
+      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -266,7 +267,6 @@
         "type": "token",
         "multiplier": 2
       },
-      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -299,7 +299,7 @@
       "useSystemKey": false,
       "id": "智谱CodingPlan新接",
       "createdAt": "2026-09-13T22:30:00.000Z",
-      "updatedAt": "2026-10-16T01:50:17.531Z",
+      "updatedAt": "2026-10-26T09:26:12.885Z",
       "modelIdOptions": [],
       "reasoningLevels": [
         {
@@ -1520,7 +1520,7 @@
       "keyRef": "user",
       "reasoningEffort": "low",
       "createdAt": "2026-10-13T04:49:32.534Z",
-      "updatedAt": "2026-10-18T12:41:34.265Z",
+      "updatedAt": "2026-10-21T23:13:01.953Z",
       "modelIdOptions": [
         "qwen3.6-flash",
         "qwen3.8-flash"
@@ -1552,7 +1552,7 @@
       "keyRef": "user",
       "reasoningEffort": "disable",
       "createdAt": "2026-10-14T12:52:27.584Z",
-      "updatedAt": "2026-10-18T12:52:57.144Z",
+      "updatedAt": "2026-10-21T23:18:56.908Z",
       "modelIdOptions": []
     },
     {
@@ -1634,7 +1634,7 @@
         ]
       },
       "description": "MiniMax M3.1-Flash 对话语言模型（OpenAI兼容，1M上下文，思考深度可调effort low/medium/high/xhigh/max，默认max；价格 输入¥1/百万token 输出¥4/百万token）",
-      "updatedAt": "2026-10-20T07:24:53.791Z"
+      "updatedAt": "2026-10-26T09:52:40.955Z"
     },
     {
       "name": "MiniMax生图",

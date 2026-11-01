@@ -27,6 +27,75 @@ import sys
 import json
 import time
 import traceback
+import subprocess
+
+
+def _git_evidence(cwd, limit=3000):
+    """[P1.1 review gate] 独立实据：实跑 git 获取当前工作区真实改动，供 reviewer 对照施工自述。
+    失败返回空串（不阻断流水线），并在串首标注获取失败。"""
+    try:
+        st = subprocess.run(['git', 'status', '--short'], cwd=cwd,
+                            capture_output=True, text=True, timeout=15,
+                            encoding='utf-8', errors='replace')
+        ds = subprocess.run(['git', 'diff', '--stat', 'HEAD'], cwd=cwd,
+                            capture_output=True, text=True, timeout=15,
+                            encoding='utf-8', errors='replace')
+        out = ('git status --short:\n' + (st.stdout or '(clean)') +
+               '\ngit diff --stat HEAD:\n' + (ds.stdout or '(no diff)')).strip()
+        return out[:limit]
+    except Exception as e:
+        return '[git 实据获取失败: %s]' % e
+
+
+def _worktree_create(cwd, session_id, log=print):
+    """[P1.2 worktree 隔离] 为施工阶段创建独立 git worktree（data/swarm_pipeline/wt-<session>），
+    避免多 worker 共享工作区互覆盖。默认关（cfg.worktree_isolate），失败降级共享工作区不阻断。"""
+    try:
+        base = os.path.join(SERVER_DIR, 'data', 'swarm_pipeline', 'wt-' + session_id)
+        if os.path.exists(base):
+            subprocess.run(['git', 'worktree', 'remove', '--force', base], cwd=cwd,
+                           capture_output=True, timeout=30)
+        r = subprocess.run(['git', 'worktree', 'add', base, 'HEAD'], cwd=cwd,
+                           capture_output=True, text=True, timeout=60,
+                           encoding='utf-8', errors='replace')
+        if r.returncode != 0:
+            log('[pipeline][P1.2] worktree 创建失败，降级共享工作区: %s'
+                % (r.stderr or '').strip()[:300])
+            return None
+        log('[pipeline][P1.2] worktree 隔离已开启: %s' % base)
+        return base
+    except Exception as e:
+        log('[pipeline][P1.2] worktree 创建异常，降级共享工作区: %s' % e)
+        return None
+
+
+def _worktree_merge(wt_dir, cwd, log=print):
+    """[P1.2] 施工/审核完成后，把 worktree 内改动 commit 后以 diff+apply 合回主工作区，
+    最后清理 worktree。合并失败保留现场供人工检查，不阻断流水线收口。"""
+    try:
+        subprocess.run(['git', 'add', '-A'], cwd=wt_dir, capture_output=True, timeout=120)
+        subprocess.run(['git', 'commit', '-m', '[wt] pipeline worker changes'],
+                       cwd=wt_dir, capture_output=True, timeout=60)
+        r = subprocess.run(['git', 'diff', '--binary', 'HEAD~1', 'HEAD'], cwd=wt_dir,
+                           capture_output=True, text=True, timeout=60,
+                           encoding='utf-8', errors='replace')
+        if not (r.stdout or '').strip():
+            log('[pipeline][P1.2] worktree 无改动可合并')
+        else:
+            a = subprocess.run(['git', 'apply', '--whitespace=nowarn'], cwd=cwd,
+                               input=r.stdout, capture_output=True, text=True,
+                               timeout=60, encoding='utf-8', errors='replace')
+            if a.returncode != 0:
+                log('[pipeline][P1.2] 合并冲突/失败，worktree 保留现场: %s'
+                    % (a.stderr or '').strip()[:300])
+                return False
+            log('[pipeline][P1.2] worktree 改动已合回主工作区')
+        subprocess.run(['git', 'worktree', 'remove', '--force', wt_dir], cwd=cwd,
+                       capture_output=True, timeout=30)
+        return True
+    except Exception as e:
+        log('[pipeline][P1.2] worktree 合并异常（现场保留）: %s' % e)
+        return False
 
 SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 if SERVER_DIR not in sys.path:
@@ -84,20 +153,42 @@ def _light_chat(prompt, model_name=''):
 
 
 def _build_stage(stage_cfg, n_default):
-    """阶段配置归一化：允许数字（并发份数）或 {count, model} 形式。"""
+    """阶段配置归一化：允许数字（并发份数）、{count, model} 或 {enabled:false} 关闭该阶段。
+
+    [P1 阶段开关] count/enabled 尊重显式 0（=关闭该阶段，返回 0）；但 stage_cfg 为
+    None 时仍走 n_default 旧逻辑——这是 cli --pipeline 零回归红线：不传 stages/planners
+    等键的旧配置行为完全不变（默认 2/1/2）。"""
     if stage_cfg is None:
         return n_default, ''
+    if isinstance(stage_cfg, bool):
+        # bool 是 int 子类，显式区分：True=走默认，False=关闭，避免误判成 1/0
+        return (n_default if stage_cfg else 0), ''
     if isinstance(stage_cfg, int):
-        return max(1, stage_cfg), ''
+        return min(max(0, stage_cfg), 8), ''
     if isinstance(stage_cfg, dict):
-        return max(1, int(stage_cfg.get('count', n_default))), str(stage_cfg.get('model', '') or '')
+        if stage_cfg.get('enabled') is False:
+            return 0, str(stage_cfg.get('model', '') or '')
+        return min(max(0, int(stage_cfg.get('count', n_default))), 8), str(stage_cfg.get('model', '') or '')
     return n_default, ''
 
 
 def _collect_strict(ds, batch_id, n_total, stage_name, log=print):
     """严格收口：轮询批次直到所有子任务都成功（done 且有产出）才返回。
-    不成功绝不返回：failed/partial/running 都继续重试（最多 5 轮全批重提）或继续挂起等待。
-    [2026-09-30] 应用户要求移除 600 秒兜底与"部分成功即放行"逻辑。"""
+    不成功绝不返回：failed/partial/running 都继续重试（最多 5 轮全批重提）
+    或继续等待，但 running 停滞超 _STALL_LIMIT 秒会显式阻断（见下），不存在无限挂起。
+    [2026-09-30] 应用户要求移除 600 秒兜底与"部分成功即放行"逻辑。
+    [2026-10-28 阶段A1 注释修正·v2.1] 修正本注释旧版与代码行为的两处不一致：
+    ①旧文"或继续挂起等待"已过时——L188 起有 running 停滞计时兜底；
+    ②collect 调用链全量核对口径（实读时间 2026-10-28，精确正则 \.collect\(
+    全 server 7 处匹配 / 6 处真实调用）：
+      - routes/api_dispatch_post.py L152  wait_sec=timeout（默认 600，入参可覆盖）
+      - swarm_solve_ab.py L25             wait_sec=1200
+      - swarm_solve_exam.py L49           wait_sec=600
+      - engines/common/swarm_tools.py L104 wait_sec=入参（默认 0）
+      - 本文件 L195                        wait_sec=0（轮询观测，不阻塞）
+      - 本文件 L212                        wait_sec=60（补跑批次单次等待）
+    即 wait_sec 只是单次阻塞等待时长，各调用方语义不同，均不构成本函数
+    层面的无限挂起风险；挂起防线以 _STALL_LIMIT 与 attempt 重试上限为准。"""
     # [2026-10-08 二次修复] 按审核意见改为「累积成功集合」：
     # 原实现每轮 res = ds.collect(...) 会覆盖上轮合并结果（死代码），且
     # attempt>=5 耗尽后无限挂起死循环。现循环外维护 done_map（id→产出），
@@ -107,6 +198,12 @@ def _collect_strict(ds, batch_id, n_total, stage_name, log=print):
     attempt = 0
     done_map = {}   # id -> task（累积所有已成功且带产出的任务，含补跑）
     _last_oks = 0
+    # [2026-10-28 修反驳师高项②·无限挂起路径] 旧抛错条件要求 not running：
+    # 上游请求挂死时任务永远停在 running，既不收口也不抛错（曾活体挂起 140 轮×3 秒）。
+    # 现加「running 停滞计时」：有在跑任务但累积成功数持续无进展超过 _STALL_LIMIT 秒
+    # 也视为无进展，与 attempt>=5 一起触发显式阻断，不再无限挂起。
+    _STALL_LIMIT = 600   # 10 分钟无任何新成功 → 判定上游挂死
+    _stall_start = None  # 首次观测到"有 running 且无新成功"的时间
     while True:
         res = ds.collect(batch_id, wait_sec=0) or {}
         for t in (res.get('tasks') or []):
@@ -138,14 +235,30 @@ def _collect_strict(ds, batch_id, n_total, stage_name, log=print):
             # 重试额度耗尽且无进展、无在跑任务 → 显式阻断，绝不死循环
             raise RuntimeError('%s批次 %d 轮补跑后仍有 %d 份失败，仅收齐 %d/%d，流水线阻断'
                                % (stage_name, attempt, len(failed), len(done_map), n_total))
+        # [2026-10-28 修高项②] running 停滞超时：有在跑但 10 分钟零新成功 → 上游挂死，显式阻断
+        if running and len(done_map) == _last_oks:
+            if _stall_start is None:
+                _stall_start = time.time()
+            elif time.time() - _stall_start >= _STALL_LIMIT:
+                raise RuntimeError('%s批次 %s 在跑任务停滞超过 %d 秒无任何新成功（疑似上游挂死），仅收齐 %d/%d，流水线阻断'
+                                   % (stage_name, batch_id, _STALL_LIMIT, len(done_map), n_total))
+        else:
+            _stall_start = None   # 有新进展 → 重置停滞计时
         _last_oks = len(done_map)
         log('[pipeline] %s批次未收口（累积成功%d/%d，运行中%d），继续等待' % (
             stage_name, len(done_map), n_total, running))
         time.sleep(3)
 
 
-def run_pipeline(cfg, cwd=None, log=print):
+def run_pipeline(cfg, cwd=None, log=print, sandbox=None, on_stage=None):
     """执行一条蜂群流水线，返回 (exit_code, report_dict)。
+
+    sandbox: 可选 evolution_lab.sandbox 模块。传入时施工/执行命令走密闭执行
+    （cwd 强制 workspace、死代理、超时击杀）；默认 None 时行为与旧版完全一致。
+
+    on_stage: 可选回调 fn(report_dict)。【增量落库】每完成一个阶段调用一次，
+    供 worker 实时把 report 摘要写回 jobs 表——使面板在 running 期间就能看到
+    进度条逐步点亮/概要内容，不再"切过去啥也看不到"。默认 None 行为不变。
 
     cfg 结构：
         goal:      必填，总任务目标
@@ -168,6 +281,11 @@ def run_pipeline(cfg, cwd=None, log=print):
     n_pl, m_pl = _build_stage(cfg.get('planners'), 2)
     n_bd, m_bd = _build_stage(cfg.get('builders'), 1)
     n_rv, m_rv = _build_stage(cfg.get('reviewers'), 2)
+    # [反驳师阶段] 默认 0（关闭）：cfg 不带 objectors 键 → 显式取 0 → 关，旧配置零回归。
+    # 注意必须用 cfg.get('objectors', 0)（缺键给 int 0），不能传 None，否则 _build_stage
+    # 的 None 分支会回落到 n_default 而凭空开启反驳（2026-10-23 反驳师实测证伪后修正）。
+    # 开启方式：cfg.objectors = 数字(并发份数，建议1) / {count:1, model:''} / true(走默认1)。
+    n_ob, m_ob = _build_stage(cfg.get('objectors', 0), 1)
     extra_ctx = str(cfg.get('context') or '')
     session_id = str(cfg.get('session') or ('pl-' + str(int(time.time()))))
     do_sum = bool(cfg.get('summarize'))
@@ -185,48 +303,102 @@ def run_pipeline(cfg, cwd=None, log=print):
 
     def note_stage(name, data):
         report['stages'][name] = data
+        # [增量落库] 每个阶段完成即回调（异常吞掉，绝不影响主流程）
+        if on_stage:
+            try:
+                on_stage(report)
+            except Exception:
+                pass
 
-    # ---------- 阶段1：策划（N 份并行 dispatch_swarm 批次） ----------
-    log('[pipeline] 阶段1/5 策划 ×%d' % n_pl)
-    import dispatch_swarm
-    ctx_hint = ('项目根目录: %s\n附加上下文: %s' % (cwd, extra_ctx)) if extra_ctx else ('项目根目录: %s' % cwd)
-    plan_tasks = [{'goal': _pack('planner', '后台流水线', (
-        '总任务：%s\n请独立调查代码并产出策划案（目标/涉及文件/风险/结论）。只调查不改代码。\n%s%s' % (goal, ctx_hint, _planner_format())))}
-        for _ in range(n_pl)]
-    bid = dispatch_swarm.submit(plan_tasks, model_name=m_pl or None)
-    res = _collect_strict(dispatch_swarm, bid, n_pl, '策划', log)
-    # [2026-10-08 修复] plans 从收集结果提取（原直接引用未定义的 plans 变量）
-    plans = [t.get('output') or '' for t in (res.get('tasks') or [])]
-    for i, p in enumerate(plans, 1):
-        log('  策划案%d：%d 字' % (i, len(p)))
-        persist('assistant', '【流水线·策划案%d】\n%s' % (i, p))
+    # ---------- 阶段1-2：策划 + 收口裁决 ----------
+    # [P1 阶段开关 & 审核续跑] _skip_planning：关闭策划(count=0/enabled=False) 或
+    # 续跑(resume_verdict 非空) 时跳过策划/收口/决策门；verdict 取续跑裁决或退化为 goal。
+    # 红线：_skip_planning 恒 False 时走 else 分支，与旧代码逐行等价 → cli --pipeline 零回归。
+    plans = []
+    import dispatch_swarm  # [P1] 提到分支外：关策划/续跑路径下阶段4审核仍需此模块
+    _skip_planning = bool(resume_verdict) or n_pl <= 0
+    if _skip_planning:
+        if resume_verdict:
+            verdict = resume_verdict
+            log('[pipeline] 续跑模式：跳过策划/收口，以注入裁决为执行清单施工')
+            persist('assistant', '【流水线·续跑·执行清单】\n' + verdict)
+        else:
+            verdict = goal
+            log('[pipeline] 策划阶段已关闭(count=0)，无策划案可裁决，以目标为执行清单')
+            persist('assistant', '【流水线·策划已关闭·直接施工】\n执行清单=目标：' + goal)
+        note_stage('converge', {'len': len(verdict),
+                                'resumed': bool(resume_verdict), 'skipped': True})
+    else:
+        log('[pipeline] 阶段1/5 策划 ×%d' % n_pl)
+        import dispatch_swarm
+        ctx_hint = ('项目根目录: %s\n附加上下文: %s' % (cwd, extra_ctx)) if extra_ctx else ('项目根目录: %s' % cwd)
+        plan_tasks = [{'goal': _pack('planner', '后台流水线', (
+            '总任务：%s\n请独立调查代码并产出策划案（目标/涉及文件/风险/结论）。只调查不改代码。\n%s%s' % (goal, ctx_hint, _planner_format(''))))}
+            for _ in range(n_pl)]
+        bid = dispatch_swarm.submit(plan_tasks, model_name=m_pl or None)
+        res = _collect_strict(dispatch_swarm, bid, n_pl, '策划', log)
+        # [2026-10-08 修复] plans 从收集结果提取（原直接引用未定义的 plans 变量）
+        plans = [t.get('output') or '' for t in (res.get('tasks') or [])]
+        for i, p in enumerate(plans, 1):
+            log('  策划案%d：%d 字' % (i, len(p)))
+            persist('assistant', '【流水线·策划案%d】\n%s' % (i, p))
+        # [阶段补全] 策划完成即记一笔，供面板进度条点亮「策划」格
+        note_stage('planning', {'ok': len(plans), 'total': n_pl})
 
-    # ---------- 阶段2：收口裁决（内置，轻量对话） ----------
-    log('[pipeline] 阶段2/5 收口裁决')
-    merged = '\n\n'.join('▶ 策划案%d：\n%s' % (i, p[:_STAGE_CTX_LIMIT]) for i, p in enumerate(plans, 1))
-    converge_prompt = _pack('planner', '收口', (
-        '这是多个策划窗对同一任务的方案，请逐条对比、说明采纳/不采纳及理由，'
-        '各策划案中含【反驳项】小节的，最终清单必须对被采纳方案的反驳项逐条回应（成立则列入改动要点，不成立则说明理由），'
-        '输出一份最终执行清单（只列要改的文件与做法，不要真的改代码）。总任务：%s\n\n%s' % (goal, merged)))
-    # [2026-09-30] 收口裁决：无限重试直到成功，绝不降级兜底
-    verdict = ''
-    while not verdict:
-        try:
-            verdict = (_light_chat(converge_prompt, m_pl) or '').strip()
-        except Exception as e:
-            log('[pipeline] 收口失败，挂起重试直到成功: %s' % e)
-            verdict = ''
-        if not verdict:
-            time.sleep(5)
-    verdict = verdict.strip()
-    note_stage('converge', {'len': len(verdict)})
-    persist('assistant', '【流水线·收口裁决】\n' + verdict)
-    # [强化A1修正] 收口裁决不再固定加 task_review_pass：原 amount=50 是「收口即加分」
-    # 口径错误（与审核质量无关），且会与阶段4审核的「分数驱动」加分重复计分。
-    # 质量信号统一由阶段4审核（swarm_pipeline:318 分数驱动）计入，避免一笔任务落两笔。
+        # ---------- 阶段2：收口裁决（内置，轻量对话） ----------
+        log('[pipeline] 阶段2/5 收口裁决')
+        merged = '\n\n'.join('▶ 策划案%d：\n%s' % (i, p[:_STAGE_CTX_LIMIT]) for i, p in enumerate(plans, 1))
+        converge_prompt = _pack('planner', '收口', (
+            '这是多个策划窗对同一任务的方案，请逐条对比、说明采纳/不采纳及理由，'
+            '各策划案中含【反驳项】小节的，最终清单必须对被采纳方案的反驳项逐条回应（成立则列入改动要点，不成立则说明理由），'
+            '输出一份最终执行清单（只列要改的文件与做法，不要真的改代码）。总任务：%s\n\n%s' % (goal, merged)))
+        # [2026-09-30] 收口裁决：重试直到成功；[2026-10-24 修复] 429/5xx 指数退避（5s→300s 封顶），
+        # 400 类永久错误重试无意义，超过 30 次按失败退出，杜绝整晚空转。
+        verdict = ''
+        _cv_att = 0
+        while not verdict:
+            _cv_att += 1
+            try:
+                verdict = (_light_chat(converge_prompt, m_pl) or '').strip()
+            except Exception as e:
+                log('[pipeline] 收口失败，挂起重试直到成功: %s' % e)
+                verdict = ''
+                if '400 Client Error' in str(e) or _cv_att >= 30:
+                    raise RuntimeError('收口裁决 %d 次仍失败（%s），终止而非空转' % (_cv_att, e))
+            if not verdict:
+                time.sleep(min(300, 5 * _cv_att))
+        verdict = verdict.strip()
+        note_stage('converge', {'len': len(verdict)})
+        persist('assistant', '【流水线·收口裁决】\n' + verdict)
 
-    # ---------- 决策断点（decision_gate，默认关） ----------
-    if decision_gate:
+        # ---------- 阶段2.5：反驳师（红队方案攻击，默认关；无否决权，意见注入后续环节） ----------
+        # 反驳产出直接以【反驳项】小节注入执行清单：下游收口回应语义(见策划案【反驳项】约定)
+        # 与阶段4审核的【反驳核验】纪律均已原生支持，无需额外接线。
+        if n_ob > 0:
+            log('[pipeline] 阶段2.5/5 反驳师 ×%d' % n_ob)
+            _obj_body = (
+                '作为反驳师（红队），请对以下执行清单做方案攻击：攻击前提假设、隐藏风险、可行性漏洞。'
+                '要求：每条反驳有具体依据并标注严重度【高/中/低】，无实质问题则明说，不许为反驳而反驳。'
+                '输出格式：以「【反驳项】」小节逐条列出（被后续环节逐条回应），最后给「▍反驳小结」一句总体判断。'
+                '只调查不改代码。\n\n总任务：%s\n\n执行清单：\n%s' % (goal, verdict[:_STAGE_CTX_LIMIT]))
+            _ob_tasks = [{'goal': _pack('planner', '反驳攻击', _obj_body)} for _ in range(n_ob)]
+            _ob_bid = dispatch_swarm.submit(_ob_tasks, model_name=m_ob or None)
+            _ob_res = _collect_strict(dispatch_swarm, _ob_bid, n_ob, '反驳师', log)
+            _objections = [t.get('output') or '' for t in (_ob_res.get('tasks') or [])]
+            for i, o in enumerate(_objections, 1):
+                log('  反驳报告%d：%d 字' % (i, len(o)))
+                persist('assistant', '【流水线·反驳报告%d】\n%s' % (i, o))
+            # 注入执行清单（无否决权：不阻断、不重做策划，交下游回应/核验）
+            _obj_block = '\n\n'.join('▶ 反驳报告%d：\n%s' % (i, o[:_STAGE_CTX_LIMIT])
+                                     for i, o in enumerate(_objections, 1))
+            verdict = verdict + '\n\n【反驳项】（反驳师红队意见，需逐条回应/核验）\n' + _obj_block
+            note_stage('objectors', {'ok': len(_objections), 'total': n_ob})
+        # [强化A1修正] 收口裁决不再固定加 task_review_pass：原 amount=50 是「收口即加分」
+        # 口径错误（与审核质量无关），且会与阶段4审核的「分数驱动」加分重复计分。
+        # 质量信号统一由阶段4审核（swarm_pipeline:318 分数驱动）计入，避免一笔任务落两笔。
+
+    # ---------- 决策断点（decision_gate，默认关；续跑/关策划时不触发，防 return3 死循环） ----------
+    if decision_gate and not _skip_planning:
         log('[pipeline] 决策断点：收口裁决已陈列，等待用户裁决')
         persist('assistant', '【决策断点】收口裁决如下，请在主对话回复裁决'
                              '（如"按清单开工"或修改意见）。未回复则按清单施工。')
@@ -234,10 +406,24 @@ def run_pipeline(cfg, cwd=None, log=print):
         return 3, report
 
     # ---------- 阶段3：施工（串行 ×N，完整 agent 工具循环） ----------
+    # [P1.2 worktree 隔离] cfg.worktree_isolate 默认 False（关）；开启时施工/审核 cwd 换为独立
+    # worktree，收尾合回主工作区。沿用 sandbox 优先级：sandbox 存在时仍走密闭 workspace（不变）。
+    # [2026-10-30 区域8策划·前置条件注释] 启用前必须同时满足：
+    #   ① 仓库无未提交改动（脏工作区会让 merge 回合归因混乱，收尾纪律第2条禁止在脏区归因）；
+    #   ② _worktree_create 的 merge 步骤有失败回滚路径（见其实现，audit 口径：
+    #      worktree 实验失败=弃用 worktree 目录+主区不受影响，不留半合并状态）；
+    #   ③ 施工产物全部落在项目根内（路径守卫已保证），否则 merge 会静默丢文件。
+    # audit 口径：本开关变更须先在课题池登记，经锁审计+用户拍板后方可开启。
+    _wt_dir = None
+    if cfg.get('worktree_isolate') and not sandbox:
+        _wt_dir = _worktree_create(cwd, session_id, log)
+    _build_cwd = sandbox.WORKSPACE if sandbox else (_wt_dir or cwd)
     log('[pipeline] 阶段3/5 施工 ×%d' % n_bd)
     build_results = []
-    # [2026-09-30] 引擎加载失败：无限重试直到成功，绝不中途返回
+    # [2026-10-24 修复] 引擎加载：指数退避+上限 30 次，防死循环空转
+    _el_att = 0
     while True:
+        _el_att += 1
         try:
             import cli as cli_mod
             import argparse as _ap
@@ -246,18 +432,26 @@ def run_pipeline(cfg, cwd=None, log=print):
             break
         except Exception as e:
             log('[pipeline] cli/引擎加载失败，挂起重试: %s' % e)
-            time.sleep(5)
+            if _el_att >= 30:
+                raise RuntimeError('引擎加载 %d 次仍失败（%s），终止而非空转' % (_el_att, e))
+            time.sleep(min(300, 5 * _el_att))
     for i in range(n_bd):
-        # [2026-09-30] 施工失败：无限重试直到成功，绝不中途返回
+        # [2026-10-24 修复] 施工失败：指数退避+上限 30 次；400 类永久错误直接抛出，防整晚空转
+        _bd_att = 0
         while True:
+            _bd_att += 1
             try:
                 bargs = _ap.Namespace(
                     prompt='', engine=_eid, model=m_bd,
-                    cwd=cwd, session=session_id, json=False, raw=False,
+                    cwd=_build_cwd,
+                    session=session_id, json=False, raw=False,
                     task_file='', stop_on_error=False, list_engines=False,
                     pipeline='')
                 text, _ = cli_mod.run_once(bargs, _pack('builder', '后台流水线施工', (
-                    '按以下执行清单施工（可读写文件、跑命令）。总任务：%s\n\n%s' % (goal, verdict))),
+                    '按以下执行清单施工（可读写文件、跑命令）。总任务：%s\n\n%s%s' % (
+                        goal, verdict,
+                        ('\n\n【密闭环境纪律·最高优先级】你在密闭进化沙箱中：只能读写 workspace 内的文件，'
+                         '禁止访问 workspace 之外的任何路径，禁止联网。') if sandbox else ''))),
                     _eid,
                     turn_no=int(time.time()) + i)
                 if not (text or '').strip():
@@ -268,7 +462,9 @@ def run_pipeline(cfg, cwd=None, log=print):
                 break
             except Exception as e:
                 log('[pipeline] 施工%d失败，挂起重试直到成功: %s' % (i + 1, e))
-                time.sleep(5)
+                if '400 Client Error' in str(e) or _bd_att >= 30:
+                    raise RuntimeError('施工%d %d 次仍失败（%s），终止而非空转' % (i + 1, _bd_att, e))
+                time.sleep(min(300, 5 * _bd_att))
     note_stage('build', {'ok': len(build_results), 'total': n_bd})
 
     # ---------- 阶段4：审核（N 份并行批次；失败阻断） ----------
@@ -282,9 +478,22 @@ def run_pipeline(cfg, cwd=None, log=print):
         '② 机器闸在前、人审闸在后且不得自动通过：能跑命令/读文件验证的必须实测，不得凭描述采信；'
         '涉及 bug 修复的，须确认「注释掉修复代码后原 bug 必复现」这一反例证据已在施工产出中体现，缺失即判不通过。'
         '③【反驳核验】执行清单/策划案中含【反驳项】的，必须逐条核验：被施工证实的反驳项写入打回意见，不成立的说明理由；整段缺失或不回应视为审核不合格。'
+        '④【机器闸·必须遵守】最后一行必须单独输出「得分：XX」（XX 为 0-100 整数），缺该行视为无效审核；≥80 分为通过，<80 分为打回。'
+        '⑤【实据对照·P1.1】下方附有流水线独立实跑的 git 工作区实据（非施工方自述）。你必须把施工自述的改动文件清单与该实据逐项对照：'
+        '自述声称改了但实据中不存在的文件，或实据中出现了施工未自述的意外改动，均须写入打回意见；实据获取失败时如实说明并降级为仅文本核验。'
         % (goal, verdict[:_STAGE_CTX_LIMIT], build_digest)))} for _ in range(n_rv)]
+    # [P1.1 review gate] 审核实据开关（cfg.review_git_evidence，默认开；关闭或 cwd 非 git 仓库则跳过）
+    _git_ev = ''
+    if cfg.get('review_git_evidence') is not False:
+        _git_ev = _git_evidence(_wt_dir or cwd)
+        if _git_ev.startswith('[git 实据获取失败'):
+            log('[pipeline] [P1.1] git 实据获取失败，审核降级为仅文本核验: %s' % _git_ev)
+            _git_ev = ''
+        elif _git_ev.count('(clean)') and _git_ev.count('(no diff)'):
+            log('[pipeline] [P1.1] 工作区无改动（clean），首轮 git 实据为空')
+    # [P1.1] 不在此处追加 rev_tasks[0]：实据统一在轮循环内按轮刷新注入，防首轮重复拼接
     # [P2/P3] 审核轮次闭环：不通过→意见回拼施工重跑→再审；cfg.max_review_rounds 兜底防死循环
-    max_rounds = max(1, int(cfg.get('max_review_rounds') or 2))
+    max_rounds = max(1, int(cfg.get('max_review_rounds') or 3))
     _pass_score = int(cfg.get('review_pass_score') or 80)
     _rv_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'swarm_pipeline')
 
@@ -301,7 +510,8 @@ def run_pipeline(cfg, cwd=None, log=print):
     review_rounds = []
     _reject_reasons = ''
     round_no = 0
-    while True:
+    # [P1 阶段开关] n_rv<=0 时整段审核循环不进入（reviews 保持空，下方埋点亦跳过）
+    while n_rv > 0:
         round_no += 1
         _goal_extra = ('\n\n【上一轮审核打回意见（必须逐条整改后重做）】\n' + _reject_reasons) if _reject_reasons else ''
         if round_no > 1:
@@ -311,7 +521,8 @@ def run_pipeline(cfg, cwd=None, log=print):
             try:
                 bargs = _ap.Namespace(
                     prompt='', engine=_eid, model=m_bd,
-                    cwd=cwd, session=session_id, json=False, raw=False,
+                    cwd=_build_cwd,
+                    session=session_id, json=False, raw=False,
                     task_file='', stop_on_error=False, list_engines=False,
                     pipeline='')
                 text, _ = cli_mod.run_once(bargs, _pack('builder', '打回重做', (
@@ -327,7 +538,13 @@ def run_pipeline(cfg, cwd=None, log=print):
                                                for i, b in enumerate(build_results, 1))
             except Exception as e:
                 log('[pipeline] 打回重做施工失败（沿用原产出继续审）: %s' % e)
-        rev_tasks_r = [{'goal': rev_tasks[0]['goal'] + _goal_extra} for _ in range(n_rv)]
+        # [P1.1] 每轮审核前刷新 git 实据（打回重做后工作区已变，须以最新实据为准）
+        if _git_ev or cfg.get('review_git_evidence') is not False:
+            _ev_new = _git_evidence(_wt_dir or cwd)
+            if not _ev_new.startswith('[git 实据获取失败'):
+                _git_ev = _ev_new
+        _ev_block = ('\n\n【git 工作区实据（流水线独立实跑，以此为准对照施工自述）】\n' + _git_ev) if _git_ev else ''
+        rev_tasks_r = [{'goal': rev_tasks[0]['goal'] + _ev_block + _goal_extra} for _ in range(n_rv)]
         bid2 = dispatch_swarm.submit(rev_tasks_r, model_name=m_rv or None)
         res2 = _collect_strict(dispatch_swarm, bid2, n_rv, '审核第%d轮' % round_no, log)
         reviews = []
@@ -347,48 +564,64 @@ def run_pipeline(cfg, cwd=None, log=print):
         for _j, _r in enumerate(reviews, 1):
             _sc = None
             try:
-                _m = re.search(r'(?:得分|score|评分|分数)[^\d]{0,4}(\d{1,3})', str(_r), re.I)
-                if _m:
-                    _sc = max(0, min(100, int(_m.group(1))))
+                # [2026-10-23 强化] 多格式兼容：得分：XX / 评分】45 / **审核评分** 45 / 45/100 / 80分（含markdown加粗、全角冒号）
+                _pats = [
+                    r'(?:(?:得分|score|评分|分数|审核评分)[^\d%]{0,6})(\d{1,3})',
+                    r'(\d{1,3})\s*/\s*100',
+                    r'(\d{1,3})\s*分',
+                ]
+                for _p in _pats:
+                    _m = re.search(_p, str(_r), re.I)
+                    if _m:
+                        _v = int(_m.group(1))
+                        if 0 <= _v <= 100:
+                            _sc = _v
+                            break
             except Exception:
                 _sc = None
             _scores.append(_sc)
             _log_review({'round': round_no, 'reviewer_no': _j, 'score': _sc,
                          'verdict': ('pass' if _sc >= _pass_score else 'reject') if _sc is not None else 'unknown',
                          'len': len(_r), 'at': int(time.time())})
+            if _sc is None:
+                log('[pipeline][警告] 审核%d 未能解析出分数（末 %d 字：…%s），请检查审核提示词是否遵守「得分：XX」约定'
+                    % (_j, 120, _r[-120:]))
         _valid = [s for s in _scores if s is not None]
         _pass = bool(_valid) and min(_valid) >= _pass_score
         review_rounds.append({'round': round_no, 'scores': _scores, 'pass': _pass})
         if _pass or round_no >= max_rounds:
             if not _pass:
-                log('[pipeline] 审核经 %d 轮仍未达标（有效分 %s），按现有产出收口放行'
+                log('[pipeline] [未达分兜底放行] 审核经 %d 轮仍未达标（有效分 %s），按现有产出收口放行'
                     % (round_no, max(_valid) if _valid else '无'))
+                for _j, _s in enumerate(_scores, 1):
+                    if _s is None:
+                        _scores[_j-1] = 0  # 兜底放行时 null 分记 0，留审计痕迹
+                _log_review({'round': round_no, 'reviewer_no': 0, 'score': None,
+                             'verdict': 'forced_pass_on_max_rounds', 'len': 0, 'at': int(time.time())})
             break
         _reject_reasons = '\n\n'.join(
-            '▶ 审核员%d（%s分）：\n%s' % (j, s, r[:2000])
+            '▶ 审核员%d（%s）：\n%s' % (j, ('%s分' % s) if s is not None else '未解析分', r[:2000])
             for j, (s, r) in enumerate(zip(_scores, reviews), 1))
         note_stage('review_round%d' % round_no, {'scores': _scores, 'reject': True})
     note_stage('review', {'rounds': review_rounds, 'ok': len(reviews), 'total': n_rv})
+    # [P1.2] 审核（含打回重做）全部结束后，把 worktree 内改动合回主工作区并清理
+    if _wt_dir:
+        _wt_ok = _worktree_merge(_wt_dir, cwd, log)
+        note_stage('worktree', {'merged': _wt_ok, 'dir': _wt_dir})
+        _wt_dir = None
     # [成长埋点] 蜂群审核通过（多审核员独立核验通过=高质量任务）
-    try:
-        import growth_engine
-        # [强化A1b] 原 amount=50+10*份数 与审核质量无关，改为「审核分数驱动」：
-        # 取各份审核里解析到的最大数字分数（0-100），无分数则回退按份数兜底。
-        _best = 0
-        for _r in reviews:
-            try:
-                _m = re.search(r'(?:得分|score|评分|分数)[^\d]{0,4}(\d{1,3})', str(_r), re.I)
-                if _m:
-                    _best = max(_best, max(0, min(100, int(_m.group(1)))))
-            except Exception as e:
-                # [强化A2] 审核分解析失败不再静默吞，记录后走份数兜底
-                log('[pipeline] 审核分数解析失败(走份数兜底): %s' % e)
-        _amt = _best if _best > 0 else min(100, 50 + 10 * len(reviews))
-        growth_engine.add_exp('task_review_pass', amount=_amt,
-                              note='蜂群审核通过 ×%d score=%d' % (len(reviews), _amt))
-    except Exception as e:
-        # [强化A2] 去静默吞，断线可见
-        log('[pipeline] 审核成长埋点失败: %s' % e)
+    # [P1 阶段开关] reviews 为空（审核已关闭 count=0）时不加经验，避免「没审核还加分」
+    if reviews and _pass:
+        try:
+            import growth_engine
+            _best = max([s for s in review_rounds[-1]['scores'] if s is not None], default=0)
+            _amt = _best if _best > 0 else min(100, 50 + 10 * len(reviews))
+            _note = ('蜂群审核通过 ×%d score=%d' % (len(reviews), _amt) if _best > 0
+                     else '蜂群审核通过(未解析分数，份数兜底) ×%d score=%d' % (len(reviews), _amt))
+            growth_engine.add_exp('task_review_pass', amount=_amt, note=_note)
+        except Exception as e:
+            # [强化A2] 去静默吞，断线可见
+            log('[pipeline] 审核成长埋点失败: %s' % e)
     for i, r in enumerate(reviews, 1):
         log('  审核%d：%d 字' % (i, len(r)))
         persist('assistant', '【流水线·审核%d】\n%s' % (i, r))

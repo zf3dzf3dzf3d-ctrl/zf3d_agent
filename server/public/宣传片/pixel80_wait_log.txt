@@ -1,0 +1,3 @@
+[10-29 07:14:01] wait for gen_pixel.py to finish...
+[10-29 07:17:01] gen_pixel.py finished, launching gen_pixel80.py
+[10-29 07:43:55] gen_pixel80.py done, lock released

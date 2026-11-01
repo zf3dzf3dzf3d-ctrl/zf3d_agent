@@ -198,7 +198,8 @@
             var btn = box.querySelector('.cfg-branch-btn');
             if (!btn) return;
             var br = btn.getBoundingClientRect();
-            var left = Math.max(8, Math.min(br.left, window.innerWidth - 330));
+            // 【统一弹出方向】左边缘贴按钮左边缘、自动上/下弹出，与其它下拉一致（宽度内钳制视口）
+            var left = Math.max(8, Math.min(br.left, window.innerWidth - 340));
             menu.style.left = left + 'px';
             // 【2026-10-14 适配】🌿 分支按钮已收纳进右上角「⋯更多」菜单（位于头部→按钮在屏幕上半区）。
             // 原逻辑一律「向上弹」，按钮在上半区时弹层会顶出屏幕外看不见。

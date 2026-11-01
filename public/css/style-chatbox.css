@@ -4240,8 +4240,8 @@
     background: #1e2126;
     color: #d8dce2;
     border: 1px solid #353b44;
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0,0,0,.55);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45);
     font-size: 13px;
     user-select: none;
     animation: bm-pop .14s ease-out;
@@ -4255,8 +4255,9 @@
     align-items: center;
     gap: 8px;
     padding: 10px 14px;
-    background: linear-gradient(135deg, #24422f, #1e2c26);
-    border-bottom: 1px solid #353b44;
+    /* 【风格统一】去掉绿色渐变头部，改为中性底 + 淡蓝下边线，与其它下拉一致 */
+    background: transparent;
+    border-bottom: 1px solid rgba(79,156,255,.25);
 }
 .bm-menu .bm-head-icon { font-size: 15px; }
 .bm-menu .bm-head-close {
@@ -4280,7 +4281,7 @@
     background: rgba(255,90,90,.14);
     color: #ff7a7a;
 }
-.bm-menu .bm-head-title { font-weight: 600; color: #a8e6bd; }
+.bm-menu .bm-head-title { font-weight: 600; color: var(--text,#d8dce2); }
 .bm-menu .bm-head-cur {
     margin-left: auto;
     max-width: 130px;
@@ -4330,7 +4331,7 @@
     white-space: nowrap;
     transition: background .12s;
 }
-.bm-menu .bm-item:hover { background: #2c323b; }
+.bm-menu .bm-item:hover { background: rgba(79,156,255,.14); }
 .bm-menu .bm-check {
     width: 14px;
     text-align: center;
@@ -4339,9 +4340,9 @@
     flex: none;
 }
 .bm-menu .bm-bname { overflow: hidden; text-overflow: ellipsis; }
-.bm-menu .bm-item.bm-current { background: #26402f; color: #a8e6bd; }
-.bm-menu .bm-item.bm-current .bm-check { color: #8fb8d3; }
-.bm-menu .bm-item.bm-current:hover { background: #2b4a36; }
+.bm-menu .bm-item.bm-current { background: rgba(79,156,255,.18); color: var(--text,#d8dce2); box-shadow: inset 0 0 0 1px rgba(79,156,255,.45); }
+.bm-menu .bm-item.bm-current .bm-check { color: #4f9cff; }
+.bm-menu .bm-item.bm-current:hover { background: rgba(79,156,255,.24); }
 .bm-menu .bm-main-tag {
     flex: none;
     font-size: 10px;
@@ -4803,7 +4804,7 @@ html.studio-skin .chatbox-configrow.chatbox-configrow .hd-btn.mastercluster-btn:
 
 
 /* ============================================================
-   【5.6.0 修复】对话框「选择模型」下拉列表被对话区截断
+   【5.7.0 修复】对话框「选择模型」下拉列表被对话区截断
    ------------------------------------------------------------
    现象：点底部「选择模型」，向上弹出的面板被输入行外壳上边缘切掉
         一截，剩余部分又被消息列表（.chatbox-body）压住。

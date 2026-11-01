@@ -22,11 +22,12 @@ import threading
 
 # --- bugfix: silent-except logger (auto) ---
 def _bf_dbg(tag, e):
+    # 【2026-10-17 修复】异常分支只打印不再递归调用自身（原写法可能无限递归栈溢出）
     try:
         import sys
-        print("[bf] " + str(tag) + " " + type(e).__name__ + ": " + str(e), file=sys.stderr, flush=True)
-    except Exception as _e:
-        _bf_dbg('chat_pool.py:28', _e)
+        print("[bf] " + str(tag) + " " + type(e).__name__ + ": " + str(e),
+              file=sys.stderr, flush=True)
+    except Exception:
         pass
 
 
@@ -52,8 +53,19 @@ _cfg_mtime = 0.0
 _CFG_LOCK = threading.Lock()
 
 _POOL_LOCK = threading.Lock()
+# 锁协议（2026-10-18 补记）：
+#   - _POOL_LOCK 仅保护 _turns/_recent_done/_seq 等池级全局，临界区必须短；
+#   - slot.cond 保护单槽位状态；锁序单向：slot.cond -> _POOL_LOCK，
+#     严禁反向嵌套（_POOL_LOCK 内不得再取任何 slot.cond）；
+#   - slot.cond = Condition(普通 Lock) 不可重入，持锁期间只能调 *_locked 方法。
 _slots = {}          # box_id -> Slot
 _turns = {}          # turn_id -> box_id（幂等索引，随缓冲清理）
+# 【误杀豁免窗 2026-10-18】reaper 清空 _turns 后，老代次 turn_id 的重试在
+# submit 查重时查不到条目，会掉进孤儿收割路径误杀在跑的新 Turn（L422 警告
+# 的死亡风暴场景）。收割/摘除索引时把 id 记入此表，submit 查重一并视作
+# "已见过" → 走让位(superseded)路径安静退出。条目带时间戳，超时自然失效。
+_recent_done = {}    # turn_id -> 收割时间戳
+_RECENT_DONE_TTL = 600.0  # 豁免窗 10 分钟，足够覆盖重试周期
 _seq = 0
 _bg_started = False
 
@@ -184,19 +196,34 @@ class Slot:
 
     def flush_coalesce(self, force=False):
         """冲刷挂起的合并 chunk（控制事件前 / 订阅读取前调用）。
-        force=True 无视窗口立即冲；否则仅窗口到期才冲（订阅轮询用）。"""
-        pend = getattr(self, '_pend_chunk', None)
-        if pend is None:
-            return
+        force=True 无视窗口立即冲；否则仅窗口到期才冲（订阅轮询用）。
+
+        【2026-10-17 修复】整个读-判-冲-清必须全程持 self.cond：
+        原实现 append 在锁内、置 _pend_chunk=None 在锁外，与 emit 并发时
+        emit 可能刚把新 chunk 并入 pend 又被锁外的 None 清掉 → 丢正文。
+
+        【2026-10-26 死锁修复】拆出 flush_coalesce_locked：调用方已持
+        self.cond 时（events 订阅轮询）绝不能再走本方法——cond 包的是普通
+        Lock 不可重入，同线程再抢 = 自我死锁且握着槽位锁不放，worker 的
+        _emit/cancel/submit/active 全部连锁挂死（"自配模型发消息无响应"
+        的根因）。持锁场景请调 flush_coalesce_locked()。
+        """
+        with self.cond:
+            self.flush_coalesce_locked(force=force)
+
+    def flush_coalesce_locked(self, force=False):
+        """flush_coalesce 的已持锁版本（调用方必须已持有 self.cond）。"""
         try:
             _win = int(cfg().get('sse_coalesce_ms', 0))
         except Exception:
             _win = 0
+        pend = getattr(self, '_pend_chunk', None)
+        if pend is None:
+            return
         expired = force or _win <= 0 or (time.time() - pend[0] >= _win / 1000.0)
-        if expired and pend[1]:
-            with self.cond:
-                self._append_locked('chunk', {'text': pend[1]})
         if expired:
+            if pend[1]:
+                self._append_locked('chunk', {'text': pend[1]})
             self._pend_chunk = None
 
     def _append(self, kind, data):
@@ -209,7 +236,7 @@ class Slot:
         【2026-10-17 死锁修复】本方法体内严禁再 `with self.cond:`：
         Slot.cond 包的是普通 Lock（不可重入），调用方 _append/emit 合并窗口/
         flush_coalesce 都已持锁，这里再加一次 = 自我死锁且握着槽位锁不放，
-        全池 submit/status/active/events 连锁挂死（5.6.0 对话卡死不发字的根因）。
+        全池 submit/status/active/events 连锁挂死（5.7.0 对话卡死不发字的根因）。
         """
         now = time.time()
         ev = {'seq': self.next_seq, 'gen': self.gen, 'kind': kind,
@@ -251,6 +278,7 @@ class Slot:
         self.gen = self.gen + 1
         self._buffer_bytes = 0
         self._truncated = False
+        self._pend_chunk = None   # 【2026-10-17 修复】清掉上一轮挂起的合并 chunk，防跨轮串字
 
     def snapshot_turn(self):
         """当前 Turn 的可序列化快照（剥离内部对象）。"""
@@ -409,7 +437,7 @@ def submit(body, turn_id=''):
             return {'ok': True, 'slot_id': box_id, 'turn_id': turn_id,
                     'state': cur.get('state', 'waiting')}
         with _POOL_LOCK:
-            _seen_turn = turn_id in _turns
+            _seen_turn = turn_id in _turns or _recent_done.get(turn_id, 0) > time.time() - _RECENT_DONE_TTL
         if cur and cur.get('state') in ('waiting', 'running'):
             if _seen_turn:
                 # 【让位 2026-09-10】老代次 Turn 的重试撞上更新的 Turn：绝不夺位再杀。
@@ -431,6 +459,8 @@ def submit(body, turn_id=''):
             try:
                 with _POOL_LOCK:
                     _turns.pop(str(cur.get('turn_id', '')), None)
+                    # 记入豁免窗：防止该旧 id 的迟到重试误杀本新 Turn
+                    _recent_done[str(cur.get('turn_id', ''))] = time.time()
             except Exception as _e:
                 _bf_dbg('chat_pool.py:312', _e)
                 pass
@@ -726,12 +756,23 @@ def _turn_worker(slot, turn, body):
 def _emit(slot, turn, kind, data):
     """事件落缓冲；Turn 已被新 Turn 取代时静默丢弃（无人订阅）。
     方案E：chunk 以外的控制事件到达前先冲刷挂起的合并 chunk，保序。"""
+    # 【卡死自动取证】事件到达=有进度，刷新看门狗心跳；>90s 无事件自动 dump
+    try:
+        import stuck_watch
+        stuck_watch.watch('turn-%s' % turn.get('turn_id'),
+                          '%s %s %s' % (turn.get('box'), turn.get('provider'),
+                                        turn.get('model')))
+    except Exception:
+        pass
     with slot.lock:
         if slot.turn is not turn:
             return
     if kind != 'chunk':
         try:
-            slot.flush_coalesce()
+            # 【2026-10-17 修复】控制事件前必须 force 冲刷：原来 force=False，
+            # 窗口未到期时 done/result 会先于尾段正文落缓冲 → 重放/订阅端
+            # 收到 done 后立即断开，最后一段正文永久丢失（错序）。
+            slot.flush_coalesce(force=True)
         except Exception:
             pass
     slot.emit(kind, data)
@@ -739,6 +780,11 @@ def _emit(slot, turn, kind, data):
 
 def _finish_turn(slot, turn):
     turn['ended_at'] = time.time()
+    try:  # 【卡死自动取证】Turn 收尾，注销看门狗观察
+        import stuck_watch
+        stuck_watch.unwatch('turn-%s' % turn.get('turn_id'))
+    except Exception:
+        pass
     u = turn.get('usage') or {}
     failed = turn['state'] == 'failed'
     _log('error' if failed else 'info', turn['box'], 'pool-turn-done',
@@ -845,6 +891,18 @@ def _cleanup_once():
             if t and t.get('state') in ('done', 'failed', 'cancelled') \
                     and t.get('ended_at') and now - t['ended_at'] > replay_keep:
                 _turns.pop(t.get('turn_id', ''), None)
+                # 【2026-10-17 修复】幂等索引慢泄漏：顺手清掉本槽名下所有已完结
+                # turn 的索引条目（正常换轮后旧 id 若不清理会永久残留）
+                with _POOL_LOCK:
+                    now_ts = time.time()
+                    for _tid in [k for k, v in _turns.items() if v == bid]:
+                        _turns.pop(_tid, None)
+                    # 清掉的 id 记入误杀豁免窗（防老代次重试掉进孤儿收割误杀新 Turn）
+                    _recent_done[t.get('turn_id', '')] = now_ts
+                    # 惰性清理过期豁免条目
+                    for _k in [k for k, ts in _recent_done.items()
+                               if now_ts - ts > _RECENT_DONE_TTL]:
+                        _recent_done.pop(_k, None)
                 s.events = []
                 s._buffer_bytes = 0
                 s.turn = None

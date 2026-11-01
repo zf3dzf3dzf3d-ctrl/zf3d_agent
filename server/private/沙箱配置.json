@@ -1,0 +1,4 @@
+{
+  "mode": "docker",
+  "mem_mb": 1024
+}

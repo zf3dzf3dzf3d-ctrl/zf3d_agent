@@ -345,23 +345,16 @@ var RaceArrow = (function () {
     var ORANGE = '#f59e0b';
     var pairs = [];
 
-    /* 【自动回收修复】读取数量弹窗勾选的一次性标志（60 秒内有效），施工队箭头此前从未消费该标志导致勾选无效 */
+    /* 【2026-11-01 按用户要求：彻底移除自动返回】恒返回 false，施工队自动回收停用，只保留手动点箭头回收 */
     function autoGatherOn() {
-        try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 60000); } catch (e) { return false; }
+        return false;
+        /* 原逻辑存档： try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 60000); } catch (e) { return false; } */
     }
     /* 【自动回收·多角色全回收】每 3 秒检查一次：标志有效且「全部」未回注队伍均已产出非空回复 → 才统一自动回注源对话。
        v4：改为全员就绪门槛——不再某队一有回复就先回收，而是等所有存活施工队都有回复后一起回收，保证汇总完整；
        按时间戳凭证各队各消费一次（p._gatherUsedAt 记录已消费的时间戳，同一时间戳不重复触发），60 秒后标志自然过期 */
     setInterval(function () {
-        /* v5：凭证即将过期且仍有未回收队伍时提示一次（防静默失效，_zfGatherExpireWarned 防重发） */
-        var t0 = window._zfAutoGatherNext;
-        if (t0 && (Date.now() - t0) > 45000 && (Date.now() - t0) < 60000 && !window._zfGatherExpireWarned) {
-            var pendingN = pairs.filter(function (p) { return !p.dead && p.state === 'construction' && p._gatherUsedAt !== t0; }).length;
-            if (pendingN) {
-                window._zfGatherExpireWarned = true;
-                if (typeof toast === 'function') toast('⏰ 自动回收凭证即将过期，仍有 ' + pendingN + ' 队未回收；如需继续请在数量弹窗重新勾选', false);
-            }
-        }
+        /* 【2026-11-01 彻底移除自动返回】原"凭证即将过期请重新勾选"提示已随自动回收一并移除（勾选框已失效，提示即误导） */
         if (!autoGatherOn()) return;
         var t = window._zfAutoGatherNext;
         var alive = pairs.filter(function (p) { return !p.dead && p.state === 'construction' && p._gatherUsedAt !== t; });

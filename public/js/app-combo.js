@@ -34,6 +34,12 @@
     var sessionHits = 0;              // 本场（当前对话）总打击数
     var toolCount = {};               // 本场各工具调用统计
     var lastHitTime = 0;
+    /* 【5.7 活体探针】最近 60 次工具命中的 (ts, gap) 环形数组：gap = 本次命中距上一次命中的毫秒数。
+       纯本地零网络噪声；随已有 /api/combo-state 通道带出落 server/.combo_state.json。
+       目的：把"连击为何掉到个位数"从静态读码推断变为一条实测间隔数据自证（排查纪律·前提复核）。 */
+    var _hitRing = (function () { try { var a = JSON.parse(localStorage.getItem('zf_combo_intervals') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } })();
+    function recordIntervalGap(gap) { _hitRing.push({ ts: Date.now(), gap: gap }); if (_hitRing.length > 60) _hitRing = _hitRing.slice(-60); try { localStorage.setItem('zf_combo_intervals', JSON.stringify(_hitRing)); } catch (e) {} }
+    function getHitIntervals() { return _hitRing; }
     var breakTimer = null;
     var hideTimer = null;
     var muted = false;
@@ -202,7 +208,7 @@
         st.id = 'zf-combo-css';
         st.textContent = [
             /* 徽章：无背景、无边框、平时完全透明不可见 */
-            '#zf-combo-badge{position:fixed;left:26px;bottom:196px;z-index:9990;',
+            '#zf-combo-badge{position:fixed;left:26px;bottom:196px;z-index:9698;',
             '  display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;',
             '  background:none;border:none;padding:0;pointer-events:none;',
             '  opacity:0;visibility:hidden;transform:scale(.5);filter:blur(6px);',
@@ -270,7 +276,7 @@
             '  38%{opacity:1;transform:rotate(var(--sa,45deg)) scaleX(1) scaleY(1);filter:brightness(2.2)}',
             '  100%{opacity:0;transform:rotate(var(--sa,45deg)) scaleX(1.45) translateY(calc(var(--sy,90px) * -1)) scaleY(.35)}}',
             /* 统计面板 */
-            '#zf-combo-panel{position:fixed;left:26px;bottom:196px;z-index:9991;width:250px;',
+            '#zf-combo-panel{position:fixed;left:26px;bottom:196px;z-index:9698;width:250px;',
             '  background:linear-gradient(145deg,rgba(20,22,30,.96),rgba(35,38,50,.94));',
             '  border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:14px 16px;',
             '  box-shadow:0 8px 28px rgba(0,0,0,.45);color:#e8eaed;font-size:12px;backdrop-filter:blur(8px);}',
@@ -525,6 +531,7 @@
                 badge.classList.add('zf-combo--off');
             }
         }
+        var _prevH = lastHitTime; recordIntervalGap(_prevH > 0 ? (now - _prevH) : null);
         lastHitTime = now;
         combo += 1;
         sessionHits += 1;
@@ -614,7 +621,7 @@
             fetch('/api/combo-state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ combo: n, ts: Date.now() })
+                body: JSON.stringify({ combo: n, ts: Date.now(), intervals: getHitIntervals() })
             }).then(function () {
                 _comboNet.inFlight = false;
                 var p = _comboNet.pending; _comboNet.pending = undefined;

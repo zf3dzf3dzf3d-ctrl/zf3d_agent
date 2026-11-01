@@ -162,15 +162,17 @@ function _dlgPrompt(msg, val){
 
   function showDetail(n) {
     var d = document.getElementById('kg-detail');
+    /* 【XSS修复 2026-11-07】动态字段统一转义后拼入 */
+    var _esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
     var rels = KGData.relationsOf ? KGData.relationsOf(n.id) : [];
     var relHtml = rels.slice(0, 15).map(function (r) {
-      var dir = r.from === n.id ? '→ ' + r.to : '← ' + r.from;
-      return '<div>· ' + dir + ' <span style="color:#88a">(' + r.type + ')</span></div>';
+      var dir = (r.from === n.id ? '→ ' : '← ') + _esc(r.from === n.id ? r.to : r.from);
+      return '<div>· ' + dir + ' <span style="color:#88a">(' + _esc(r.type) + ')</span></div>';
     }).join('');
-    d.innerHTML = '<h4>' + n.name + '</h4>' +
-      '<div style="color:' + colorOf(n.type) + '">' + n.type + ' · 置信度 ' + Math.min(1, n.hits * 0.1 + 0.5).toFixed(2) + '</div>' +
-      '<div style="margin:6px 0">' + (n.desc || '（无描述）') + '</div>' +
-      '<div class="kg-src">来源: ' + (n.sources && n.sources.length ? n.sources.join(', ') : '未知') + '</div>' +
+    d.innerHTML = '<h4>' + _esc(n.name) + '</h4>' +
+      '<div style="color:' + colorOf(n.type) + '">' + _esc(n.type) + ' · 置信度 ' + Math.min(1, n.hits * 0.1 + 0.5).toFixed(2) + '</div>' +
+      '<div style="margin:6px 0">' + _esc(n.desc || '（无描述）') + '</div>' +
+      '<div class="kg-src">来源: ' + (n.sources && n.sources.length ? _esc(n.sources.join(', ')) : '未知') + '</div>' +
       '<div style="margin-top:8px;color:#88a">关系 (' + rels.length + '):</div>' + relHtml;
     d.style.display = 'block';
   }

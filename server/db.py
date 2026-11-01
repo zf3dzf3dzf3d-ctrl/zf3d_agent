@@ -337,6 +337,149 @@ def get_agent_turns(session_id, turn_no=None):
         return []
 
 
+# ============================================================================
+# Jobs：后台流水线任务表（可编排后台流水线 P0）
+# 仿 agent_turns 惰性建表范式；report_json 只存摘要，正文经 session_id 关联 agent_turns。
+# 写库走 get_db()+commit（与 agent_turns 同，依赖 WAL/busy_timeout），读走 SELECT。
+# ============================================================================
+_JOBS_READY = False
+
+
+def _ensure_jobs(conn):
+    """惰性建表：保证 jobs 表存在（即便服务启动早于本函数上线）。"""
+    global _JOBS_READY
+    if _JOBS_READY:
+        return
+    try:
+        conn.execute('''CREATE TABLE IF NOT EXISTS jobs (
+            id TEXT PRIMARY KEY,
+            goal TEXT,
+            status TEXT DEFAULT 'queued',
+            session_id TEXT,
+            cfg_json TEXT,
+            report_json TEXT,
+            error TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+        )''')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)')
+        conn.commit()
+        _JOBS_READY = True
+    except Exception as e:
+        _dbg(f'[jobs] 惰性建表失败(忽略): {e}')
+
+
+def create_job(job_id, goal, session_id, cfg_json):
+    """落一条 queued 任务。返回是否成功。
+
+    【2026-10-22 修复】db 被外部进程短暂独占时报 database is locked，
+    加退避重试（最多 5 次 / 共约 6s），并把最后一次异常写进 _dbg 日志。
+    """
+    import time as _t
+    last_err = None
+    for attempt in range(5):
+        try:
+            conn = get_db()
+            _ensure_jobs(conn)
+            now = int(_t.time())
+            conn.execute(
+                '''INSERT OR REPLACE INTO jobs
+                   (id, goal, status, session_id, cfg_json, created_at, updated_at)
+                   VALUES (?, ?, 'queued', ?, ?, ?, ?)''',
+                (str(job_id), str(goal or ''), str(session_id or ''),
+                 str(cfg_json or '{}'), now, now))
+            conn.commit()
+            return True
+        except Exception as e:
+            last_err = e
+            _dbg(f'[jobs] create 第{attempt + 1}次失败: {e}')
+            _t.sleep(0.5 + attempt * 0.5)
+    _dbg(f'[jobs] create 最终失败: {last_err}')
+    return False
+
+
+def update_job(job_id, status=None, report_json=None, error=None, session_id=None):
+    """更新任务状态/报告/错误。仅传入字段参与 SET。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        sets = ['updated_at=?']
+        vals = [int(time.time())]
+        if status is not None:
+            sets.append('status=?'); vals.append(str(status))
+        if report_json is not None:
+            sets.append('report_json=?'); vals.append(str(report_json))
+        if error is not None:
+            sets.append('error=?'); vals.append(str(error))
+        if session_id is not None:
+            sets.append('session_id=?'); vals.append(str(session_id))
+        vals.append(str(job_id))
+        conn.execute('UPDATE jobs SET ' + ','.join(sets) + ' WHERE id=?', vals)
+        conn.commit()
+        return True
+    except Exception as e:
+        _dbg(f'[jobs] update 失败: {e}')
+        return False
+
+
+def get_job(job_id):
+    """按 id 读单个任务（dict）；不存在返回 None。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM jobs WHERE id=?', (str(job_id),))
+        r = cur.fetchone()
+        return dict(r) if r else None
+    except Exception as e:
+        _dbg(f'[jobs] get 失败: {e}')
+        return None
+
+
+def list_jobs(limit=50):
+    """最近任务列表（按创建时间倒序），每项 dict。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT id, goal, status, session_id, created_at, updated_at '
+                    'FROM jobs ORDER BY created_at DESC LIMIT ?', (int(limit),))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        _dbg(f'[jobs] list 失败: {e}')
+        return []
+
+
+def reconcile_jobs_on_startup():
+    """[僵尸回收] 服务刚启动时调用一次：把 jobs 表里所有残留的 queued/running
+    标记为 failed（error=进程重启中断）。
+
+    背景：流水线 worker 是 daemon 线程，进程一旦重启，线程全部死亡，但 jobs 表
+    status 仍卡在 running/queued，无人回收 → 面板「N 进行中」计数虚高，且这些
+    任务永远停在进行中状态。本进程启动时内存中尚无任何 worker，故此刻表里所有
+    queued/running 记录必然是上一个进程遗留的僵尸，安全标记为中断。
+
+    返回被回收的任务 id 列表。
+    """
+    ids = []
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM jobs WHERE status IN ('queued','running')")
+        ids = [r['id'] for r in cur.fetchall()]
+        if ids:
+            cur.executemany(
+                "UPDATE jobs SET status='failed', error='进程重启导致流水线中断（僵尸任务自动回收）', "
+                "updated_at=? WHERE id=?",
+                [(int(time.time()), jid) for jid in ids])
+            conn.commit()
+        _dbg(f'[jobs] 启动回收僵尸任务 {len(ids)} 个')
+    except Exception as e:
+        _dbg(f'[jobs] 启动回收失败: {e}')
+    return ids
+
+
 _local = threading.local()
 _WAL_SET = False
 
@@ -402,9 +545,17 @@ def get_db():
             except Exception:
                 pass
             _local.conn = None
-    conn = sqlite3.connect(DB_PATH, timeout=30)
+    # 【B1 止血 2026-10-25 蜂群收口】120s→8s：经 A1 持锁栈诊断坐实真凶——
+    # HTTP 线程在 `with _db_lock:` 内调本函数，若 SQLite 底层被外部连接/维护占用，
+    # 会在【全局锁内】死等最长 120s，正是实测「持锁 90~132s 堵死全站 500」的元凶。
+    # busy_timeout 是 SQLite 层等待，发生在 _db_lock 持有期间，所以这个值几乎等于
+    # 「最坏持锁时长」。降到 8s：写库最多占全局锁 8s 即快速失败（返回 500 远好于
+    # 拖死全站 120s）。原 2026-10-24 提到 120s 是为「通宵赛马外部子进程」落库——
+    # 但那是独立进程自己的连接，根本不走本函数，与本服务无关；本服务 HTTP 线程
+    # 不该为子进程问题陪绑死等 120s。子进程落库重试应在子进程侧解决。
+    conn = sqlite3.connect(DB_PATH, timeout=8)
     conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA busy_timeout=30000')
+    conn.execute('PRAGMA busy_timeout=8000')
     # WAL 模式：journal_mode 持久化，进程内只需设一次。
     # 【修复 2026-09-22】此前每次连接都执行 journal_mode=WAL，当数据库文件被
     # 短暂独占（检查点/外部进程）时该 PRAGMA 会阻塞最长 30s，期间持有全局
@@ -789,4 +940,10 @@ def _init_db_inner():
     # 启动后自动做一次定期维护（WAL 检查点 + 空间回收），24h 内不重复
     db_maintenance()  # 修复：去掉 force=True，走 24h 节流，避免启动 VACUUM 持锁 30-65s 堵死 API
     _start_maintenance_thread()
+    # 【员工定时器】启动持久化调度线程（P2：重启后从 员工定时器.json 恢复注册，见验收）
+    try:
+        import employee_scheduler
+        employee_scheduler.start()
+    except Exception as _e:
+        _dbg(f'[SQLite] 员工定时器启动失败(不影响主流程): {_e}')
     _dbg(f'[SQLite] 数据库已初始化: {DB_PATH}')

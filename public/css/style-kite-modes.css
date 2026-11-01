@@ -6,7 +6,7 @@
 
 /* ---------- 模式切换菜单（挂 body，由底部「风筝」按钮弹出，不动风筝头） ---------- */
 .zfm-switch {
-    position: fixed; z-index: 9050; display: none;
+    position: fixed; z-index: 9900; display: none;
 }
 .zfm-switch.open { display: block; }
 .zfm-menu {
@@ -844,13 +844,16 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
 .zfm-sp-earth:before { content: ''; position: absolute; inset: 12px; border-radius: 50%;
   background: radial-gradient(circle at 60% 40%, rgba(87,180,92,.5), transparent 55%); }
 
-/* 观景窗：直径 220px，完整显示在 260x252 方形容器内（不再被矩形裁剪） */
-.zfm-sp-porthole { position: absolute; left: 50%; top: 48%; width: 220px; height: 220px;
-  margin: -110px 0 0 -110px; border-radius: 50%; overflow: hidden;
+/* 观景窗：视觉直径与导航缩略图一致（容器 zoom:0.6，250px×0.6=150px 视觉，外圈多层金属环样式同步 .minimap） */
+.zfm-sp-porthole { position: absolute; left: 50%; top: 48%; width: 250px; height: 250px;
+  margin: -125px 0 0 -125px; border-radius: 50%; overflow: hidden;
   perspective: 420px; perspective-origin: 50% 50%;
   background: #0a1226;
-  box-shadow: inset 0 0 40px rgba(0,0,0,.85), inset 0 0 90px rgba(10,30,70,.5),
-    0 0 0 4px #3a4a5c, 0 0 0 6px #22303f, 0 0 26px rgba(60,120,190,.35); }
+  box-shadow: inset 0 0 22px rgba(0,0,0,.7), inset 0 0 40px rgba(10,30,70,.35),
+    inset 0 0 0 3px #3a4a5c,
+    0 0 0 7px #22303f, 0 0 0 9px rgba(255,255,255,.10), 0 6px 18px rgba(0,0,0,.5);
+  /* 【外环补偿】容器 zoom:0.6 会把 box-shadow 同比缩小：7px/9px/3px ×0.6 ≈ 4.2/5.4/1.8px，
+     与导航缩略图 .minimap 的 4px 外环 + 5px 外缘高光 + 2px 内层环视觉一致 */ }
 .zfm-sp-world { position: absolute; inset: 0; transform-style: preserve-3d;
   transform: rotateX(var(--pitch,0deg)) rotateY(var(--yaw,0deg)); transition: transform .18s ease-out; }
 /* 鐜粫鍏ㄦ櫙锛氭枃瀛楁祦鎸夋柟浣嶈平铺（JS 閫愭潯鍐欏叆锛夛紝涓ぎ瀛楀ぇ銆佷袱渚ч€忚缂╁皬 */
@@ -868,10 +871,10 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
 
 /* 鐜荤拑鍙屽姬绾块珮鍏夛細澧炲己鏇查潰楸肩溂鎰?*/
 .zfm-sp-porthole:before { content: ''; position: absolute; z-index: 4; pointer-events: none; border-radius: 50%;
-  background: linear-gradient(135deg, rgba(255,255,255,.16), transparent 42%, transparent 60%, rgba(255,255,255,.07)); }
-.zfm-sp-porthole:after { content: ''; position: absolute; left: 14%; top: 8%; width: 46%; height: 30%;
+  background: linear-gradient(135deg, rgba(255,255,255,.22), transparent 42%, transparent 60%, rgba(255,255,255,.10)); }
+.zfm-sp-porthole:after { content: ''; position: absolute; left: 12%; top: 7%; width: 44%; height: 30%;
   border-radius: 50%; z-index: 4; pointer-events: none;
-  background: radial-gradient(ellipse at 40% 30%, rgba(255,255,255,.18), transparent 70%); }
+  background: radial-gradient(ellipse at 40% 30%, rgba(255,255,255,.28), transparent 70%); }
 
 /* 杈圭紭鏆楄锛堥奔鐪煎洓鍛ㄥ帇鏆楋級 */
 .zfm-sp-vignette { position: absolute; inset: 0; z-index: 3; pointer-events: none; border-radius: 50%;
@@ -891,7 +894,12 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
 
 /* 【改造】空态提示文字移出太空舱：改为 body 级全屏层 #zfEmptyOverlay（fixed inset:0），
    flex 居中显示在屏幕正中心；层穿透（pointer-events:none）不挡画布拖拽/双击，仅 chip 可点。 */
-#zfEmptyOverlay { position: fixed; inset: 0; z-index: 60; pointer-events: none;
+/* 【层级修复】创建面板挂在 #canvasContent（带 transform，独立层叠上下文），
+   面板内部 z-index 不外溢到 body 层叠上下文，导致 body 级 fixed 的反应屏幕漂浮字
+   (#zfEmptyOverlay) 反而盖在面板之上。面板打开时给 body 加 .zf-dual-panel-open，
+   让引导文字临时让位；面板关闭时由 JS 移除该类恢复。 */
+body.zf-dual-panel-open #zfEmptyOverlay { display: none !important; }
+#zfEmptyOverlay { position: fixed; inset: 0; z-index: 0; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   font-size: 14px; color: rgba(150,195,240,.6); text-align: center; padding: 0 40px;
   /* 空态整体轻微悬浮呼吸，文字带柔和辉光 */
@@ -904,12 +912,18 @@ html.turbo .zfm-fk-fish .zfm-fk-tail, html.turbo .zfm-fk-bubble { animation: non
   0%,100% { text-shadow: 0 0 4px rgba(120,180,255,.15); opacity: .75; }
   50%     { text-shadow: 0 0 14px rgba(140,210,255,.55); opacity: 1; } }
 
-/* turbo 闈欐€侀檷绾?*/
+/* turbo 静态降级 */
 body.turbo .zfm-sp-dot.st-working, body.turbo .zfm-sp-dot.st-fail { animation: none; }
 body.turbo .zfm-sp-stars:before, body.turbo .zfm-sp-stars:after { animation: none; }
 body.turbo .zfm-sp-world { transition: none; }
+
+/* 【每5秒 token 读数】舷窗正下方的小字读数：无底框、半透明灰绿小字（用户要求稍明显：字号 12px、透明度提高） */
+.zfm-sp-rate { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%);
+  font: 12px/1.2 Consolas, monospace; letter-spacing: .5px;
+  color: rgba(175, 225, 195, .85); white-space: nowrap;
+  pointer-events: none; user-select: none; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
 @media (max-width: 900px) { .zfm-space-station { width: 200px; height: 210px; }
-  .zfm-sp-porthole { width: 180px; height: 180px; margin: -90px 0 0 -90px; } } /* 空态文字为屏幕级居中，窄屏无需缩放 */
+  .zfm-sp-porthole { width: 250px; height: 250px; margin: -125px 0 0 -125px; } } /* 空态文字为屏幕级居中；窄屏舷窗同锁 250px×0.6=150px 视觉与导航一致 */
 
 
 /* ===== 骇客帝国式快速流文字（真实对话内容，绿色字符雨风格） ===== */

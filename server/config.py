@@ -21,8 +21,10 @@ API 前缀: /api/db/*
 """
 
 import os
+import sys
 import time
 import threading
+import traceback
 import json
 import re
 
@@ -57,7 +59,7 @@ def _load_version():
         try:
             os.makedirs(os.path.dirname(VERSION_JSON_PATH), exist_ok=True)
             with open(VERSION_JSON_PATH, 'w', encoding='utf-8') as f:
-                json.dump({'version': '5.6.0'}, f, ensure_ascii=False, indent=4)
+                json.dump({'version': '5.7.0'}, f, ensure_ascii=False, indent=4)
             print('[配置] 已自动生成默认版本配置: %s' % VERSION_JSON_PATH, flush=True)
         except Exception as e:
             raise SystemExit('[配置错误] 无法创建版本配置文件 %s: %s' % (VERSION_JSON_PATH, e))
@@ -76,13 +78,13 @@ def _load_port():
     if not os.path.exists(PORT_JSON_PATH):
         _default = {
             "host": "127.0.0.1",
-            "_comment": "【端口段约定】5.6.x 用 8560-8564 段，与 5.5.x（8555-8559）互不冲突",
-            "api_port": 8560,
-            "ws_port": 8561,
-            "tts_stream": {"enabled": True, "port": 8562},
-            "remote_ws_port": 8563,
+            "_comment": "【端口段约定】5.7.x 用 8570-8574 段，与 5.5.x（8555-8559）互不冲突",
+            "api_port": 8570,
+            "ws_port": 8571,
+            "tts_stream": {"enabled": True, "port": 8572},
+            "remote_ws_port": 8573,
             "auth_token": "",
-            "ai_proxy_port": 8564,
+            "ai_proxy_port": 8574,
         }
         try:
             os.makedirs(os.path.dirname(PORT_JSON_PATH), exist_ok=True)
@@ -135,7 +137,7 @@ def get_ai_proxy_port():
     """AI 代理网关(ai_proxy.py)端口统一解析，与代理侧/服务端 _proxy_port 逐字等价：
       1) 环境变量 AI_PROXY_PORT
       2) private/port.json 的 ai_proxy_port 字段（唯一真源）
-      3) 本版本端口段末 8564 兜底（5.6.x=8560-8564）
+      3) 本版本端口段末 8574 兜底（5.7.x=8570-8574）
 
     所有『需要连本机 AI 网关』的调用方（zf_billing / zf_proxy_billing /
     mixin_zf3d / zf3d_commands）都必须走本函数，使『连网关的端口』与
@@ -156,7 +158,7 @@ def get_ai_proxy_port():
             return _v
     except Exception:
         pass
-    return 8564
+    return 8574
 
 
 def _load_app_config():
@@ -196,12 +198,65 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 # 而不是无限排队。此前某线程长期持有 _db_lock（写事务泄漏）时，所有请求线程
 # 无限堆积，表现为「网络卡住 / 全站 500 / 无法对话」。
 class _TimeoutLock:
+    # 【A1 持锁栈诊断 2026-10-25】加持锁调用栈转储 + 慢锁守护线程：
+    #   - release 慢锁（>SLOW_LOG_SEC）时，除线程名+时长外额外打印持锁线程调用栈，
+    #     直接看见「是哪个请求/业务路径进入的慢事务」，避免盲改误伤无关路径。
+    #   - 守护线程每 WATCHDOG_INTERVAL 秒巡检：若某线程持锁 > STUCK_SEC 仍未释放，
+    #     实时 dump 其当前栈（解决旧实现「必须等 release 才看得到、线程卡死就永远看不到」）。
+    #   纯只读可观测，不改任何加解锁语义，零功能风险。
+    SLOW_LOG_SEC = 2.0       # release 时超过此秒数打 [DB-SLOW] + 栈
+    STUCK_SEC = 15.0         # 持锁超过此秒数视为卡死，守护线程实时 dump [DB-STUCK] 栈
+    WATCHDOG_INTERVAL = 5.0  # 守护线程巡检间隔
+
     def __init__(self, timeout=30.0):
-        self._lock = threading.Lock()
+        # 【2026-10-27 锁重入审计修复】改为 RLock：实测活体栈(pid 17972)显示 _turn_worker
+        # (chat_pool.py:733 → record_token_usage, token_usage_stats.py:59) 与
+        # do_POST(api_dispatch_post.py:1505) 两条入口均抢 _db_lock；同一请求链路存在
+        # 持锁后再入锁的重入路径（正是 d4e4d8c4 修过的同型 bug 换锁复发）。非重入 Lock
+        # 在重入时=同线程自我死锁且握着全局 DB 锁不放（全站冻结的根因形态）。
+        self._lock = threading.RLock()
         self._timeout = timeout
         # 【持锁者追踪 2026-09-23】记录当前持锁线程与起始时间，便于超时定位元凶
         self._holder = None
         self._held_since = 0.0
+        # 【A1】慢锁守护线程（懒启动，全局仅一个 daemon 线程）
+        self._watchdog = None
+        self._wd_init_lock = threading.Lock()
+
+    @staticmethod
+    def _stack_of(thread):
+        # 取指定线程当前的调用栈文本：sys._current_frames 拿活线程栈帧，再 format_stack 还原
+        try:
+            frame = sys._current_frames().get(thread.ident)
+            if frame is None:
+                return '<线程已结束/无栈帧>'
+            return ''.join(traceback.format_stack(frame))
+        except Exception as e:
+            return '<取栈失败: %r>' % e
+
+    def _ensure_watchdog(self):
+        # 首次持锁时拉起守护线程（双检锁，避免重复启动）
+        if self._watchdog is not None:
+            return
+        with self._wd_init_lock:
+            if self._watchdog is None:
+                self._watchdog = threading.Thread(
+                    target=self._watchdog_loop, name='DBLockWatchdog', daemon=True)
+                self._watchdog.start()
+
+    def _watchdog_loop(self):
+        while True:
+            time.sleep(self.WATCHDOG_INTERVAL)
+            try:
+                h = self._holder
+                if h is None:
+                    continue
+                held = time.time() - self._held_since
+                if held > self.STUCK_SEC:
+                    print('[DB-STUCK] %s 持有 _db_lock %.1fs（仍未释放，实时栈↓）\n%s'
+                          % (h.name, held, self._stack_of(h)), flush=True)
+            except Exception:
+                pass
 
     def acquire(self, timeout=None):
         _t = timeout if timeout is not None else self._timeout
@@ -218,15 +273,17 @@ class _TimeoutLock:
             raise TimeoutError('_db_lock acquire timeout (%ss)%s：数据库被长期占用，请求放弃' % (_t, _info))
         self._holder = threading.current_thread()
         self._held_since = time.time()
+        self._ensure_watchdog()
         return True
 
     def release(self):
-        # 【慢锁预警 2026-09-23】持锁超过 2 秒时打日志，提前暴露长期占库的操作
+        # 【慢锁预警 2026-09-23】持锁超过 SLOW_LOG_SEC 打日志 +【A1】附带释放时调用栈
         try:
             if self._holder is not None:
                 _held = time.time() - self._held_since
-                if _held > 2.0:
-                    print('[DB-SLOW] %s 持有 _db_lock %.1fs' % (self._holder.name, _held), flush=True)
+                if _held > self.SLOW_LOG_SEC:
+                    print('[DB-SLOW] %s 持有 _db_lock %.1fs（释放时栈↓）\n%s'
+                          % (self._holder.name, _held, self._stack_of(self._holder)), flush=True)
         except Exception:
             pass
         self._holder = None

@@ -158,7 +158,7 @@
     },
     {
       "name": "MiniMax",
-      "id": "MiniMax",
+      "id": "MiniMax3",
       "modelId": "MiniMax-M3.1-Flash",
       "modelIdOptions": [
         "MiniMax-M3.1-Flash"
@@ -226,6 +226,7 @@
         "type": "token",
         "multiplier": 1
       },
+      "isDefault": true,
       "visionInput": true,
       "visible": true
     },
@@ -262,7 +263,6 @@
         "type": "token",
         "multiplier": 2
       },
-      "isDefault": true,
       "visionInput": true,
       "visible": true
     }

@@ -54,6 +54,36 @@ Object.assign(App, {
             }
         },
 
+        // ===== 整理最终消息（查看答案优化）：审核报告标准化 + 正文兜底 =====
+        // 输入 task_complete 的 message；输出标准化版本：
+        // 1) 找报告起点（「—— 审核报告 ——」或 AI 变体如「① 逐条核验清单」），
+        //    统一改写为渲染层 _foldSelfGateReport 已识别的标准标记「—— 审核报告 ——」
+        // 2) 若没有正文（整条都是报告，用户点「查看答案」只见报告不见答案），
+        //    在最前面补一条引导语
+        _formatFinalMessage: function(message) {
+            var msg = String(message || '');
+            if (!msg) return msg;
+            if (msg.indexOf('—— 审核报告 ——') !== -1) {
+                // 已有标准标记，只做正文兜底检查
+                var a0 = msg.split('—— 审核报告 ——')[0].replace(/^✅ 任务完成\s*/, '').trim();
+                return a0 ? msg : '（本次回复只包含审核报告，未附答案正文。如需答案请追问。）\n\n' + msg;
+            }
+            var marks = ['—— 审官报告 ——', '【逐条核验清单】', '① 逐条核验清单', '**【逐条核验清单】**'];
+            var idx = -1;
+            for (var i = 0; i < marks.length; i++) {
+                var p = msg.indexOf(marks[i]);
+                if (p >= 0 && (idx < 0 || p < idx)) idx = p;
+            }
+            if (idx < 0) return msg; // 没有报告，原样返回
+            if (idx > 0 && msg[idx - 1] === '【') idx -= 1; // 变体匹配吃掉了前置「【」，回退一格保证完整切分
+            var answer = msg.slice(0, idx).trim();
+            var report = '—— 审核报告 ——\n' + msg.slice(idx).trim();
+            if (!answer) {
+                answer = '（本次回复只包含审核报告，未附答案正文。如需答案请追问。）';
+            }
+            return answer + '\n\n' + report;
+        },
+
         // ===== 发送前清洗 messages：移除 reasoning_content 等非标准字段，防止 HTTP 400 =====
         _cleanNonStandardFields: function(messages) {
             for (var _ci = 0; _ci < messages.length; _ci++) {

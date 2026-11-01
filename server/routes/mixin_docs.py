@@ -56,7 +56,7 @@ class MixinDocs(MixinBase):
                     elif fn.startswith('软件介绍') or fn == '01-介绍.md':
                         lang_key = 'en' if fn.lower().endswith('-en.md') else 'zh'
                         result['intro'][lang_key] = url
-                    elif fn.startswith('历史版本') or fn == '03-版本更新内容.md':
+                    elif fn.startswith('历史版本') or fn == '03-版本更新内容.md' or fn.startswith('版本变化'):
                         result['history'] = url
             except Exception:
                 pass

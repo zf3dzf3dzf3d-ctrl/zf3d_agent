@@ -73,9 +73,9 @@ def _lane_worker_loop(lane):
     last_end = 0.0
     while True:
         try:
-            _lane_queues[lane].get(timeout=1.0)   # 唤醒信号（票面内容不使用）
+            _lane_queues[lane].get(timeout=0.4)   # 唤醒信号（票面内容不使用）；v4.9 1.0→0.4 削减优先票顶替后滞留票的重扫尾延迟
         except queue.Empty:
-            # 每秒兜底重扫（覆盖"逻辑排队但唤醒名额被优先票占用"的滞留票）。
+            # 兜底重扫（覆盖"逻辑排队但唤醒名额被优先票占用"的滞留票）。
             # 退役判定必须同时看逻辑残留：优先级选票下"唤醒票被顶替"后，
             # 物理队列空≠没有未跑的票，直接退出会丢请求（v3 语义不再成立）。
             with _gate_lock('_gate_worker.py'):

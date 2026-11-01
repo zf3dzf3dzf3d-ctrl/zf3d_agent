@@ -1,3 +1,7 @@
+// 【掩码兜底·全局】model.key 可能是脱敏掩码(••••xxxx, U+2022 非 latin-1)，
+// 直接进 Authorization 头会让浏览器 fetch 编码异常→请求发不出去；
+// 统一转 ASCII ****尾4位，由服务端 _unmask_auth_headers 换回真实密钥。
+function _zfMaskAuth(k){k=String(k||'');return k.indexOf('\u2022\u2022\u2022\u2022')!==-1?('****'+k.slice(-4)):k;}
 // ==== 拆分自 app-agent.js：Agent 循环核心 ====
 Object.assign(App, {
         // ===== 循环任务早期预警 =====
@@ -261,6 +265,15 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                 try { Store.addLog('info', chat.id, 'budget-inject', '步数预算提醒注入 | depth=' + depth + (_targetWarn ? ' | 目标级重复警告' : '')); } catch(e){}
             }
 
+            // ===== 自由插话（InjectBus 中途插话不停止）：优先于鞭子消费，schema 经 inject-bus.js 单模块 =====
+            if (typeof InjectBus !== 'undefined' && InjectBus.size(chat) > 0) {
+                var _injItems = InjectBus.drain(chat);   // 同步落 history（_injected 标记），messages 为 live 数组一次注入贯穿全程
+                for (var _ij = 0; _ij < _injItems.length; _ij++) {
+                    messages.push({ role: 'user', content: '（用户插话·务必响应）' + _injItems[_ij].text });
+                }
+                try { Store.addLog('info', chat.id, 'inject-inject', '中途插话注入模型 | depth=' + depth + ' | 条数=' + _injItems.length); } catch(e){}
+            }
+
             // ===== 鞭子插话（用户点击 typing 行「鞭子」按钮触发）：注入催促收尾消息，一次性消费 =====
             if (chat._whipRequested) {
                 chat._whipRequested = false;
@@ -356,7 +369,7 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
             // 请求头
             var headers = {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + model.key
+                'Authorization': 'Bearer ' + _zfMaskAuth(model.key)
             };
             if (model.headers) {
                 for (var hk in model.headers) if (model.headers.hasOwnProperty(hk)) headers[hk] = model.headers[hk];
@@ -438,7 +451,7 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                     model = Object.assign({}, _visionModel, { key: _visionModel.key || _visionModel.apiKey || '', _vision接管Of: _vOrigName });
                     // 【修复识图401】headers 在上方已用原模型 key 构建完毕，此处必须重建，
                     // 否则继续携带原模型（如火山方舟）的 key 打识图端点 → 401 令牌已过期
-                    headers['Authorization'] = 'Bearer ' + (model.key || '');
+                    headers['Authorization'] = 'Bearer ' + _zfMaskAuth(model.key || '');
                     if (model.headers) { for (var _vhk in model.headers) if (model.headers.hasOwnProperty(_vhk)) headers[_vhk] = model.headers[_vhk]; }
                     try { Store.addLog('info', chat.id, 'vision-takeover', '图片输入：使用默认识图模型「' + _visionModel.name + '」'); } catch (e) {}
                 } else {
@@ -467,7 +480,7 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                     var _aOrigName = model.name || model.modelId || '当前模型';
                     model = Object.assign({}, _audioModel, { key: _audioModel.key || _audioModel.apiKey || '', _audio接管Of: _aOrigName });
                     // 【修复】同识图接管：切换模型后必须重建 Authorization，否则带旧模型 key 打新端点必 401
-                    headers['Authorization'] = 'Bearer ' + (model.key || '');
+                    headers['Authorization'] = 'Bearer ' + _zfMaskAuth(model.key || '');
                     if (model.headers) { for (var _ahk in model.headers) if (model.headers.hasOwnProperty(_ahk)) headers[_ahk] = model.headers[_ahk]; }
                     try { Store.addLog('info', chat.id, 'audio-takeover', '当前模型不支持音频输入，已自动切换默认语音引擎「' + _audioModel.name + '」'); } catch (e) {}
                     try { this.addMsg(box, '🎧 当前模型不支持音频输入，已自动调用默认语音引擎「' + _audioModel.name + '」…', 'info'); } catch (e) {}
@@ -528,7 +541,8 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                     _genIntent = '';
                 }
             }
-            if (_genIntent && !model.imageGen && (depth || 0) === 0) {
+            // 【移除视频提示词拦截】视频生成不再靠提示词正则抢跑，完全交由大模型走工具调用链路
+            if (_genIntent === 'image' && !model.imageGen && (depth || 0) === 0) {
                 var _genModel = null;
                 try { _genModel = Models.getDefaultFor(_genIntent === 'video' ? 'video' : 'vision'); } catch (e) {}
                 var _genValid = !!(_genModel && _genModel.endpoint && (_genIntent === 'video'
@@ -1844,7 +1858,7 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                                 var catIconEl = box.querySelector('.tool-cat-icon');
                                 var catNameEl = box.querySelector('.tool-cat-name');
                                 if (catIconEl) catIconEl.textContent = newCat.icon;
-                                if (catNameEl) catNameEl.textContent = result.category;
+                                if (catNameEl) catNameEl.textContent = '工具分类'; // 【固定文字】触发按钮固定显示，不再显示具体分类名
                                 // Update menu active state
                                 var catMenu = box.querySelector('.tool-cat-menu');
                                 if (catMenu) {
@@ -1938,7 +1952,18 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                                 if (!chat._sgRound) chat._sgRound = 0;           // 自审轮次（每任务重置）
                                 if (!chat._sgReasonSig) chat._sgReasonSig = null; // 上轮拒绝原因签名（防打转）
                                 if (!chat._sgSameSigCount) chat._sgSameSigCount = 0;
-                                var _sgVerdict = SelfGate.validate(String(_termRes.message || ''));
+                                // S1 分级门禁 lite 判定：白名单从严——本轮只有写/执行类工具调用（或任务清单/计划等落地动作）才走 full，否则 lite
+                                var _sgIsLite = true;
+                                try {
+                                    if (Array.isArray(_roundToolCalls)) {
+                                        for (var _sgi = 0; _sgi < _roundToolCalls.length; _sgi++) {
+                                            var _sgName = (_roundToolCalls[_sgi] && _roundToolCalls[_sgi].name) || '';
+                                            // 写/执行/落地类工具 → full 严格模式
+                                            if (/^(write_file|replace_text|move_file|run_code|git_save|schedule|browser_control|image_gen|video_gen|send_email)$/i.test(_sgName)) { _sgIsLite = false; break; }
+                                        }
+                                    } else { _sgIsLite = false; } // 取不到本轮工具调用信息时从严走 full
+                                } catch (_eSGLite) { _sgIsLite = false; }
+                                var _sgVerdict = SelfGate.validate(String(_termRes.message || ''), { lite: _sgIsLite });
                                 if (!_sgVerdict.pass) {
                                     chat._sgRound++;
                                     // 防打转：拒绝原因签名相同连续 3 轮 → 本轮自纠指令强制换思路
@@ -1946,9 +1971,15 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                                     var _stuck = (chat._sgReasonSig === _sig);
                                     chat._sgSameSigCount = _stuck ? (chat._sgSameSigCount + 1) : 1;
                                     chat._sgReasonSig = _sig;
-                                    var _retry = SelfGate.buildRetryInstruction(_sgVerdict, chat._sgRound, chat._sgSameSigCount >= 3);
+                                    var _retry = SelfGate.buildRetryInstruction(_sgVerdict, chat._sgRound, chat._sgSameSigCount >= 3, _sgVerdict.lite === true);
                                     if (chat._sgRound >= 10) {
                                         _retry = '【自审门禁·第 ' + chat._sgRound + ' 轮】⚠️ 已连续 10 轮自审未通过。用户可能需要介入（可发送「selfGate:off」关闭门禁），但门禁仍然生效，请实质性解决拒绝原因后再交付。\n' + _retry;
+                                    }
+                                    // S4 degraded 熔断：同签名连续 ≥5 轮纯格式拒绝 → 知情降级放行（带 ⚠️ 永久标记+日志留痕，可回退）
+                                    if (chat._sgSameSigCount >= 5 && _sgVerdict.reasons && _sgVerdict.reasons.every(function (r) { return /审核报告(过短|缺少|出现模糊)|不足 2 条|辅助线/.test(r); })) {
+                                        chat._sgDegraded = true; // 永久打标（本 chat 内可追溯）
+                                        try { Store.addLog('warn', chat.id, 'self-gate-degraded', '⚠️ 连续 ' + chat._sgSameSigCount + ' 轮同签名纯格式拒绝，熔断降级放行（知情放行，非静默；本 chat 已打标可回退）'); } catch (_eSgd) {}
+                                        _sgVerdict = { pass: true, degraded: true, reasons: [], missing: [], score: null };
                                     }
                                     // 回填拒绝消息（role=tool），清空终止态，循环继续
                                     messages.push({ role: 'tool', tool_call_id: _terminalTcId || 'selfgate', content: JSON.stringify({ success: false, selfGate: true, message: _retry }) });
@@ -1959,7 +1990,7 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                                     try { if (window.ZFKiteModes && ZFKiteModes.toolResult) ZFKiteModes.toolResult(chat.id, '自审门禁: 第' + chat._sgRound + '轮未通过，继续自纠', false); } catch (_eSGK) {}
                                 } else {
                                     chat._sgRound = 0; chat._sgReasonSig = null; chat._sgSameSigCount = 0;  // 通过即重置（防沿用成永久通行证：状态挂在 chat 上，新任务自然重新计）
-                                    try { Store.addLog('info', chat.id, 'self-gate', '审核报告通过（' + ((_sgVerdict.score != null) ? _sgVerdict.score + '分' : '结构合格') + '），放行交付'); } catch (_eSGL2) {}
+                                    try { Store.addLog('info', chat.id, 'self-gate', (_sgVerdict.degraded ? '⚠️ [degraded熔断] ' : (_sgVerdict.lite ? '[lite分级] ' : '')) + '审核报告通过（' + ((_sgVerdict.score != null) ? _sgVerdict.score + '分' : '结构合格') + '），放行交付'); } catch (_eSGL2) {}
                                 }
                             }
                         } catch (_eSG) { console.warn('[self-gate] 门禁异常，降级放行:', _eSG); }
@@ -1978,6 +2009,32 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                             }
                             return;
                         }
+                        // ===== 【插话拦截】中途插话不补发：task_complete 时若 InjectBus 仍有未消费插话，
+                        // 不允许收尾——注入插话继续循环（与 SelfGate 拒绝同模式），让插话在任务内被响应，
+                        // 而不是落到终局 drainToQueueOnFinish 变成「📌插话补发」。仅当未点停止时生效。
+                        if (typeof InjectBus !== 'undefined' && InjectBus.size && InjectBus.size(chat) > 0 && !chat._stopped) {
+                            try {
+                                var _tjItems = InjectBus.drain(chat);
+                                for (var _tj = 0; _tj < _tjItems.length; _tj++) {
+                                    messages.push({ role: 'user', content: '（用户插话·务必响应）' + _tjItems[_tj].text });
+                                }
+                                // 回填终止型工具结果（role=tool），保持 messages 合法，再清空终止态继续循环
+                                if (_terminalTcId) {
+                                    messages.push({ role: 'tool', tool_call_id: _terminalTcId, content: JSON.stringify({ success: true, deferred: true, message: 'task_complete 已暂缓：用户有中途插话待响应，请先处理插话，处理完毕后再次调用 task_complete 收尾。' }) });
+                                }
+                                _terminalResult = null; _terminalToolName = null; _terminalTcId = null; _termRes = null;
+                                try { Store.addLog('info', chat.id, 'inject-terminal-intercept', '收尾拦截：' + _tjItems.length + ' 条插话在任务内注入继续循环（不补发）'); } catch (_eTjL) {}
+                                try { self.addMsg(box, '⚡ 收尾时收到插话，已注入继续执行（不补发）', 'notice', null, false, true); } catch (_eTjM) {}
+                                self._agentLoop(box, chat, model, messages, depth + 1, null, _myEpoch);
+                                return;
+                            } catch (_eTj) { console.warn('[inject-terminal-intercept] 拦截失败，回退终局补发:', _eTj); }
+                        }
+                        // ===== 协作流水线动画：任务收尾自动插入（策划案触发时机，角色子窗≥2 且开关开启） =====
+                        try {
+                            if (window.PipelineAnimation && PipelineAnimation.maybeInject && !self._isRoleChat(box)) {
+                                PipelineAnimation.maybeInject(chat.id);
+                            }
+                        } catch (_ePA) {}
                         // ===== 朗读助手：此处只暂存待读文本，真正朗读移到下方最终答案渲染完成后（读用户看到的全部文字） =====
                         // 【2026 修复】右下角"任务成功"弹窗提前+保护：原先排在统计写入/边框动画之后，
                         // 中间任何一步抛异常（DB.saveStats 等失败）都会跳过弹窗 → 表现为"弹窗没出来"。
@@ -2157,13 +2214,16 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                         var summaryPrefix = _isVerifySuccess
                             ? "\u2705\u2705 \u4e8c\u6b21\u9a8c\u8bc1\u6210\u529f \uff5c \u672c\u4efb\u52a1\u5df2\u901a\u8fc7\u9a8c\u8bc1\u5ba1\u67e5\n\n"
                             : (_termRes.success ? "\u2705 任务完成\n\n" : "\u274C 任务失败\n\n");
-                        chat.history.push({ role: "assistant", content: summaryPrefix + _termRes.message });
+                        // 【查看答案优化】整理最终消息：答案正文在前、审核报告折叠在 <details> 里；
+                        // 若 message 里没有正文（全是报告），自动补一条引导语，避免「查看答案」只见报告不见答案
+                        var _finalBody = self._formatFinalMessage(_termRes.message);
+                        chat.history.push({ role: "assistant", content: summaryPrefix + _finalBody });
                         try {
                             if (box.id) {
-                                Store.addMessage(box.id, 'assistant', summaryPrefix + _termRes.message, 'final', chat.modelId, (Store._lastUserMsgIds && Store._lastUserMsgIds[box.id]) || null);
+                                Store.addMessage(box.id, 'assistant', summaryPrefix + _finalBody, 'final', chat.modelId, (Store._lastUserMsgIds && Store._lastUserMsgIds[box.id]) || null);
                             }
                         } catch (e) { console.warn('[Agent] task summary persistence failed:', e); }
-                        self.addMsg(box, summaryPrefix + _termRes.message, 'ai', chat.modelId, true, true); // 已手动持久化，skipSave 防重复写库
+                        self.addMsg(box, summaryPrefix + _finalBody, 'ai', chat.modelId, true, true); // 已手动持久化，skipSave 防重复写库
                         // ===== 朗读助手：最终答案已完整渲染后朗读「用户看到的全部文字」 =====
                         // （摘要前缀的任务完成/失败标记、审核报告五部分均不读；只读给人看的答案正文）
                         if (_ttsPending && window.TTS && TTS.isEnabled()) {
@@ -2293,8 +2353,17 @@ if (!RETRY_BACKOFF_429.length) RETRY_BACKOFF_429 = [5000, 15000, 40000, 90000, 1
                     if (!chat._sendCompleteCalled) {
                         self._onSendComplete(box, chat);
                     }
+                } else if (err && err._poolCancelled) {
+                    // 【2026-10 修复】pool 权威取消（服务端已把本 Turn 判为 cancelled）：
+                    // 等同用户停止语义——安静收尾，绝不重试。旧 bug：排队续发复位 chat._stopped 后，
+                    // 该 AbortError 落入下面的「意外中止→自动重试」分支，重投同一个已死的 _poolTurnId，
+                    // 命中 cancelled 终态再次秒抛 AbortError → abort-unexpected 每 3s 刷一次、depth 固定的空转死循环。
+                    Store.addLog('info', chat.id, 'pool-cancelled-quiet', 'pool 权威取消，安静收尾（不重试死 Turn）| depth=' + depth);
+                    if (!chat._sendCompleteCalled) {
+                        self._onSendComplete(box, chat);
+                    }
                 } else if (err && err.name === 'AbortError' && !chat._stopped) {
-                    // 非用户触发的 AbortError（内部超时等）：明确提示并走重试
+                    // 非用户触发的 AbortError（本地内部超时等）：明确提示并走重试
                     try { err.message = '请求被中断（疑似超时），将自动重试'; } catch(e) {}
                     Store.addLog('error', chat.id, 'abort-unexpected', 'AbortError without user stop | depth=' + depth + ' | ' + _catchErrorMsg);
                     self.addMsg(box, '⚠ ' + _catchErrorMsg + '，将自动重试…', 'warning');

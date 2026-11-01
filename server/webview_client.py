@@ -17,6 +17,48 @@ import threading
 import subprocess
 import webbrowser
 
+# 【桌面窗口修复 2026-10-25】5.7.0 自带 Python 的 site-packages 中：
+#   1) pythonnet 为被 pip 卸载一半的损坏残留，import clr 直接失败
+#   2) pywebview 为新版，其 winforms 后端引用 .NET 8 WinForms，
+#      而 ContextMenu 类型在 .NET 8 中已删除 → TypeLoadException
+# 另一条隐藏根因：本进程对系统 TEMP 目录无写权限（沙箱/受限令牌），
+#   tempfile.gettempdir() 直接抛 FileNotFoundError → 还没 import pywebview
+#   就在 main() 建锁文件时崩溃 → tray_server 探测失败回退浏览器。
+# 修复 A：优先把 5.6.0 发布版（pythonnet 3.2.1 + 旧版 pywebview，已验证可用）
+#   的 site-packages 插到 sys.path 最前，本进程的 clr/pywebview 全走 5.6 可用版本。
+# 修复 B：TEMP 不可写时，启动最早期重定向 TMP/TEMP 到项目内 temp 目录。
+def _fix_temp_dir():
+    """系统 TEMP 不可写时重定向到项目内 temp（存在且可写），否则不动。"""
+    try:
+        import tempfile
+        tempfile.gettempdir()
+        return  # 系统 TEMP 可用
+    except Exception:
+        pass
+    _proj_tmp = os.path.normpath(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp'))
+    try:
+        os.makedirs(_proj_tmp, exist_ok=True)
+        _probe = os.path.join(_proj_tmp, '.zf_probe')
+        with open(_probe, 'w') as f:
+            f.write('ok')
+        os.remove(_probe)
+        os.environ['TMP'] = _proj_tmp
+        os.environ['TEMP'] = _proj_tmp
+        import tempfile
+        tempfile.tempdir = None  # 强制失效缓存，让 gettempdir() 重新解析
+    except Exception:
+        pass  # 项目内也不可写，维持原样
+
+_fix_temp_dir()
+
+_SITE56 = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)))),
+    '朱峰社区智能体无限_5.6.0_发布版', 'python', 'Lib', 'site-packages'))
+if os.path.isdir(_SITE56):
+    sys.path.insert(0, _SITE56)
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.dirname(_HERE)
 if _HERE not in sys.path:
@@ -27,6 +69,30 @@ if _PROJECT_ROOT not in sys.path:
 from config import PORT, VERSION
 
 URL = f'http://127.0.0.1:{PORT}/'
+
+
+def open_url_maximized(url):
+    """回退浏览器路径：优先用 --start-maximized 启动 Edge/Chrome（初始即最大化），
+    失败才退回 webbrowser.open（默认非最大化窗口）。【初始最大化修复 2026-10-27】"""
+    import subprocess
+    pf = os.environ.get('PROGRAMFILES', r'C:\Program Files')
+    pfx86 = os.environ.get('PROGRAMFILES(X86)', r'C:\Program Files (x86)')
+    candidates = [
+        os.path.join(pfx86, r'Microsoft\Edge\Application\msedge.exe'),
+        os.path.join(pf, r'Microsoft\Edge\Application\msedge.exe'),
+        os.path.join(pf, r'Google\Chrome\Application\chrome.exe'),
+        os.path.join(pfx86, r'Google\Chrome\Application\chrome.exe'),
+    ]
+    for exe in candidates:
+        if os.path.isfile(exe):
+            try:
+                subprocess.Popen('"%s" --start-maximized "%s"' % (exe, url),
+                                 close_fds=True)
+                return True
+            except Exception:
+                continue
+    webbrowser.open(url)
+    return False
 
 # 单实例标记：环境变量 ZF_UI_CHILD=1 表示是聚焦通知子进程
 FOCUS_ENV = 'ZF_UI_FOCUS_NOTIFY'
@@ -392,6 +458,12 @@ def _taskbar_autohide():
         return False
 
 
+def _cover_taskbar():
+    """最大化/还原时是否铺满整个屏幕（盖住任务栏）。默认 True = 真全屏。
+    需要恢复旧行为（让出任务栏）时，启动前设环境变量 ZF_UI_COVER_TASKBAR=0。"""
+    return os.environ.get('ZF_UI_COVER_TASKBAR', '1') != '0'
+
+
 def _install_resize_hittest(hwnd):
     """子类化窗口过程：无边框窗口在边缘/四角返回 HT* 命中码，
     使 WS_THICKFRAME 的拖拽调大小真正可用（WebView2 子窗口会吃掉鼠标消息，
@@ -434,9 +506,9 @@ def _install_resize_hittest(hwnd):
                     if bottom: return HTBOTTOM
                 return HTCLIENT
             if msg == WM_GETMINMAXINFO:
-                # 无边框窗口最大化默认铺满整屏（盖住任务栏），Windows 会把
-                # 它当全屏应用隐藏任务栏且鼠标到底部唤不出。这里把最大化
-                # 尺寸限制到工作区（不含任务栏），任务栏即可正常自动唤出。
+                # 默认铺满整个显示器（真全屏，盖住任务栏）。
+                # ZF_UI_COVER_TASKBAR=0 时退回旧行为：限制到工作区（不含任务栏），
+                # 任务栏可正常自动唤出。
                 try:
                     from ctypes import wintypes
                     class MINMAXINFO(ctypes.Structure):
@@ -457,13 +529,18 @@ def _install_resize_hittest(hwnd):
                     mi.cbSize = ctypes.sizeof(MONITORINFO)
                     if mon and user32.GetMonitorInfoW(
                             ctypes.c_void_p(mon), ctypes.byref(mi)):
-                        wa = mi.rcWork
-                        if _taskbar_autohide():
-                            wa.bottom = min(wa.bottom, mi.rcMonitor.bottom - 1)
-                        mmi.ptMaxPosition.x = wa.left
-                        mmi.ptMaxPosition.y = wa.top
-                        mmi.ptMaxSize.x = wa.right - wa.left
-                        mmi.ptMaxSize.y = wa.bottom - wa.top
+                        if _cover_taskbar():
+                            rm = mi.rcMonitor
+                            ml, mt, mr, mb = rm.left, rm.top, rm.right, rm.bottom
+                        else:
+                            wa = mi.rcWork
+                            if _taskbar_autohide():
+                                wa.bottom = min(wa.bottom, mi.rcMonitor.bottom - 1)
+                            ml, mt, mr, mb = wa.left, wa.top, wa.right, wa.bottom
+                        mmi.ptMaxPosition.x = ml
+                        mmi.ptMaxPosition.y = mt
+                        mmi.ptMaxSize.x = mr - ml
+                        mmi.ptMaxSize.y = mb - mt
                         return 0
                 except Exception:
                     pass
@@ -475,7 +552,7 @@ def _install_resize_hittest(hwnd):
             ctypes.c_void_p(hwnd), GWL_WNDPROC,
             ctypes.cast(_install_resize_hittest._cb, ctypes.c_void_p).value)
         # 窗口可能在子类化之前就已最大化（WM_GETMINMAXINFO 已错过），
-        # 这里补一次：把已最大化的窗口尺寸压回工作区，不盖任务栏
+        # 这里补一次：按全屏/工作区策略重设已最大化窗口的尺寸
         try:
             from ctypes import wintypes
             class MONITORINFO2(ctypes.Structure):
@@ -490,13 +567,13 @@ def _install_resize_hittest(hwnd):
                 mi.cbSize = ctypes.sizeof(MONITORINFO2)
                 if mon and user32.GetMonitorInfoW(
                         ctypes.c_void_p(mon), ctypes.byref(mi)):
-                    wa = mi.rcWork
-                    if _taskbar_autohide():
-                        wa.bottom = min(wa.bottom, mi.rcMonitor.bottom - 1)
+                    rect = mi.rcMonitor if _cover_taskbar() else mi.rcWork
+                    if not _cover_taskbar() and _taskbar_autohide():
+                        rect.bottom = min(rect.bottom, mi.rcMonitor.bottom - 1)
                     SWP_NOZORDER = 0x0004
                     user32.SetWindowPos(ctypes.c_void_p(hwnd), None,
-                        wa.left, wa.top, wa.right - wa.left, wa.bottom - wa.top,
-                        SWP_NOZORDER)
+                        rect.left, rect.top, rect.right - rect.left,
+                        rect.bottom - rect.top, SWP_NOZORDER)
         except Exception as e:
             print('[WebView] 最大化尺寸修正失败:', e)
     except Exception as e:
@@ -576,6 +653,36 @@ def _activate_via_powershell():
        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 
 
+def _open_kiosk_fallback(reason=''):
+    """Edge kiosk 真全屏兜底：桌面级全屏（无边框/无任务栏），F11/Alt+F4 退出。
+    pywebview 因 WebView2 交互 DLL 与 .NET 8 不兼容而失败时使用。"""
+    if reason:
+        print('[WebView] 窗口启动失败(%s)，尝试 Edge kiosk 全屏' % reason)
+    import subprocess
+    edge_paths = [
+        os.path.join(os.environ.get('PROGRAMFILES(X86)', r'C:\Program Files (x86)'),
+                     r'Microsoft\Edge\Application\msedge.exe'),
+        os.path.join(os.environ.get('PROGRAMFILES', r'C:\Program Files'),
+                     r'Microsoft\Edge\Application\msedge.exe'),
+    ]
+    for exe in edge_paths:
+        if os.path.isfile(exe):
+            try:
+                # 注意：列表参数形式(含空格/短路径)会导致 Edge 闪退(3221226505)，
+                # 必须用引号包裹的命令行字符串形式启动（实测有效）
+                kiosk_dir = os.path.join(tempfile.gettempdir(), 'zf_kiosk')
+                cmd = ('"{exe}" --kiosk "{url}" --edge-kiosk-type=fullscreen '
+                       '--no-first-run --disable-features=msSmartScreen '
+                       '--user-data-dir="{dir}"').format(exe=exe, url=URL, dir=kiosk_dir)
+                subprocess.Popen(cmd, close_fds=True)
+                return True
+            except Exception:
+                pass
+    # kiosk 不可用时也走最大化浏览器兜底（原 webbrowser.open 默认非最大化）
+    open_url_maximized(URL)
+    return False
+
+
 def main():
     # 聚焦通知子进程：不带窗口直接退出（Windows 下 webview 无跨进程聚焦 API，
     # 简化处理：子进程尝试用 PowerShell 激活同名窗口，然后退出）
@@ -631,7 +738,7 @@ def main():
 
     if not _wait_server():
         print('[WebView] 服务未就绪，回退浏览器')
-        webbrowser.open(URL)
+        open_url_maximized(URL)
         return
 
     try:
@@ -639,8 +746,7 @@ def main():
             f.write(str(os.getpid()))
         _run_window()
     except Exception as e:
-        print('[WebView] 窗口启动失败(%s)，回退浏览器' % e)
-        webbrowser.open(URL)
+        _open_kiosk_fallback(e)
     finally:
         try:
             os.remove(lock)

@@ -175,6 +175,12 @@ def t_trash_intercept():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def t_security_baseline():
+    """安全基线巡检（12 条断言，红线=整改不算完成）。"""
+    import security_baseline
+    assert security_baseline.run_baseline(), '安全基线有红线（单独跑 security_baseline.py 看明细）'
+
+
 def main():
     print('=== 朱峰智能体最小自测 ===')
     check('replace_text 匹配/零匹配(P0回归)', t_replace_text)
@@ -184,6 +190,7 @@ def main():
     check('bigmodel 通道归类回归', t_bigmodel_channel)
     check('shell readonly 保护拦截', t_protect_cmd_hit)
     check('trash_intercept 删除改写', t_trash_intercept)
+    check('安全基线巡检(security_baseline)', t_security_baseline)
     print('-' * 40)
     print('通过 %d  失败 %d' % (len(PASS), len(FAIL)))
     sys.exit(1 if FAIL else 0)

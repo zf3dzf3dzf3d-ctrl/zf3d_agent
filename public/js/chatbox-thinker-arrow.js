@@ -30,15 +30,41 @@
     applied:   { color: '#00e676', text: '已讨论', flow: false },
     failed:    { color: '#9e9e9e', text: '已失效', flow: false }
   };
-  /* 兼容三种结论标记：策划师/思想家（旧）/自定义角色（自定义·结论） */
-  var CONCLUSION_RE = /【(?:策划师|思想家|自定义·?)结论】/;
+  /* 【反驳师·红队文案】反驳师复用紫色箭头时，文案改用「反驳中」系（与策划/审核并列的第三种角色） */
+  var STATUS_OBJECTOR = {
+    modified:  { color: '#00e676', text: '修改完成', flow: false },
+    done:      { color: '#00e676', text: '反驳完成', flow: false },
+    pending:   { color: PURPLE, text: '反驳中', flow: true },
+    clarified: { color: VIOLET, text: '已反驳', flow: false },
+    applied:   { color: '#00e676', text: '已反驳', flow: false },
+    failed:    { color: '#9e9e9e', text: '已失效', flow: false }
+  };
+  /* 【进化师·进化文案】进化师复用反驳师链路时，箭头文案用「进化中」系（判定优先级：进化 > 反驳 > 自定义） */
+  var STATUS_EVOLUTION = {
+    modified:  { color: '#00e676', text: '修改完成', flow: false },
+    done:      { color: '#00e676', text: '进化完成', flow: false },
+    pending:   { color: PURPLE, text: '进化中', flow: true },
+    clarified: { color: VIOLET, text: '已进化', flow: false },
+    applied:   { color: '#00e676', text: '已进化', flow: false },
+    failed:    { color: '#9e9e9e', text: '已失效', flow: false }
+  };
+  /* 【验证师·终验文案】验证师窗（_isVerifierChat）用「验证中」系（判定优先级：验证 > 进化 > 反驳 > 自定义） */
+  var STATUS_VERIFIER = {
+    modified:  { color: '#00e676', text: '修改完成', flow: false },
+    done:      { color: '#00e676', text: '验证完成', flow: false },
+    pending:   { color: PURPLE, text: '验证中', flow: true },
+    clarified: { color: VIOLET, text: '已验证', flow: false },
+    applied:   { color: '#00e676', text: '已验证', flow: false },
+    failed:    { color: '#9e9e9e', text: '已失效', flow: false }
+  };
+  /* 兼容结论标记：策划师/思想家（旧）/自定义角色（自定义·结论）/反驳师/进化师/验证师 */
+  var CONCLUSION_RE = /【(?:策划师|思想家|自定义·?|反驳师|进化师|验证师)结论】/;
 
   /* 【自动回收修复】读取数量弹窗勾选的一次性标志（10 分钟内有效），策划师箭头此前从未消费该标志导致勾选无效 */
+  /* 【2026-11-01 按用户要求：彻底移除自动返回】autoGatherOn 恒返回 false，自动回收链路全部停用，只保留手动点箭头回收 */
   function autoGatherOn() {
-    /* 【修复】过期从 60 秒放宽到 10 分钟：策划师要先调查项目文件再出结论，响应常超 1 分钟，
-       60 秒窗口会导致回复出来时凭证已过期、不自动回收（单窗慢响应必现）。
-       防重复由 pair._gatherUsedAt 一次性消费保证，此处放宽不会造成重复回注 */
-    try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 600000); } catch (e) { return false; }
+    return false;
+    /* 原逻辑存档： try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 600000); } catch (e) { return false; } */
   }
 
   function cleanQuestionText(c) {
@@ -178,9 +204,9 @@
   }
 
   function applyStatus(pair) {
-    /* 【自定义角色·讨论文案】自定义对话的箭头用「讨论中」系文案，策划师保持原样 */
-    var useDiscuss = !!pair.custom;
-    var table = useDiscuss ? STATUS_DISCUSS : STATUS;
+    /* 【角色文案分表】自定义角色用「讨论中」系，反驳师用「反驳中」系，进化师用「进化中」系（优先），策划师保持原样 */
+    var useDiscuss = !!pair.custom && !pair.objector && !pair.evolution && !pair.verifier;
+    var table = pair.verifier ? STATUS_VERIFIER : (pair.evolution ? STATUS_EVOLUTION : (pair.objector ? STATUS_OBJECTOR : (useDiscuss ? STATUS_DISCUSS : STATUS)));
     var st = table[pair.status] || table.pending;
     var svg = pair.el && pair.el.querySelector('svg');
     if (!svg) return;
@@ -230,7 +256,7 @@
   function persist() {
     try {
       localStorage.setItem('zf_thinker_pairs', JSON.stringify(pairs.map(function (p) {
-        return { srcId: p.srcId, tkId: p.tkId, state: p.state, status: p.status, phase: p.phase || '', tkCount: p.tkCount || 0, rounds: p.rounds || 0, question: p.question || '', custom: !!p.custom };
+        return { srcId: p.srcId, tkId: p.tkId, state: p.state, status: p.status, phase: p.phase || '', tkCount: p.tkCount || 0, rounds: p.rounds || 0, question: p.question || '', custom: !!p.custom, objector: !!p.objector, evolution: !!p.evolution, verifier: !!p.verifier };
       })));
     } catch (e) {}
   }
@@ -258,6 +284,12 @@
         p.question = d.question || firstQuestion(src);
         /* 【自定义角色·讨论文案】恢复配对时：优先用存档里的 custom 标志；老数据无该字段则按 DOM 标志重判（防重启后标志丢失回退成策划师文案） */
         try { p.custom = (d.custom === true || d.custom === false) ? d.custom : !!(tk.el && tk.el._isCustomChat); } catch (e) {}
+        /* 【反驳师·红队文案持久化】优先用存档 objector；老数据无该字段则按 DOM 标志重判 */
+        try { p.objector = (d.objector === true || d.objector === false) ? d.objector : !!(tk.el && tk.el._isObjectorChat); } catch (e) {}
+        /* 【进化师·进化文案持久化】优先用存档 evolution；老数据无该字段则按 DOM 标志重判 */
+        try { p.evolution = (d.evolution === true || d.evolution === false) ? d.evolution : !!(tk.el && tk.el._isEvolutionChat); } catch (e) {}
+        /* 【验证师·终验文案持久化】优先用存档 verifier；老数据无该字段则按 DOM 标志重判 */
+        try { p.verifier = (d.verifier === true || d.verifier === false) ? d.verifier : !!(tk.el && tk.el._isVerifierChat); } catch (e) {}
         applyStatus(p);
         restored++;
       }
@@ -349,6 +381,12 @@
     var pair = { srcId: srcChat.id, tkId: tkChat.id, el: el, state: 'toTK', status: 'pending', phase: '', tkCount: assistantCount(tkChat) };
     /* 【自定义角色·讨论文案】目标对话是自定义角色窗时，箭头文字用「讨论中」系而不是「策划中」系 */
     try { pair.custom = !!(tkChat.el && tkChat.el._isCustomChat); } catch (e) { pair.custom = false; }
+    /* 【反驳师·红队文案】目标对话是反驳师窗时，箭头文字用「反驳中」系（优先于自定义判定） */
+    try { pair.objector = !!(tkChat.el && tkChat.el._isObjectorChat); } catch (e) { pair.objector = false; }
+    /* 【进化师·进化文案】进化师窗（_isEvolutionChat）用「进化中」系，优先级高于反驳判定 */
+    try { pair.evolution = !!(tkChat.el && tkChat.el._isEvolutionChat); } catch (e) { pair.evolution = false; }
+    /* 【验证师·终验文案】验证师窗（_isVerifierChat）用「验证中」系，优先级最高 */
+    try { pair.verifier = !!(tkChat.el && tkChat.el._isVerifierChat); } catch (e) { pair.verifier = false; }
     pair.question = firstQuestion(srcChat);
     pairs.push(pair);
     applyStatus(pair);
@@ -384,11 +422,13 @@
       // 策划师 → 原对话：回注结论（优先【策划师结论】行，无则整体回复）
       var concl = lastConclusion(tk);
       var ans = lastAnswer(tk);
-      if (!ans) { toast(pair.custom ? '自定义角色还没有结论，无法回注' : '策划师还没有结论，无法回注', false); return; }
+      if (!ans) { toast(pair.objector ? '反驳师还没有结论，无法回注' : (pair.custom ? '自定义角色还没有结论，无法回注' : '策划师还没有结论，无法回注'), false); return; }
       var msg;
       if (pair.custom) {
-        /* 【自定义角色·回注文案】自定义角色不走策划案流程：不套「策划方案·陈列/禁止开工」话术，直接中性回注结论 */
-        msg = '（自定义结论·回注）\n这是自定义角色的结论，仅供你参考，是否采纳由用户决定：\n\n' + (concl || ans);
+        /* 【自定义角色·回注文案】自定义角色不走策划案流程：不套「策划方案·陈列/禁止开工」话术，直接中性回注结论；反驳师同款中性回注 */
+        msg = pair.objector
+          ? ('（反驳结论·回注）\n这是反驳师（红队）的攻击性意见，逐条列出前提漏洞/隐藏风险/可行性问题及严重度，仅供你参考，是否据此修正方案由用户决定：\n\n' + (concl || ans))
+          : ('（自定义结论·回注）\n这是自定义角色的结论，仅供你参考，是否采纳由用户决定：\n\n' + (concl || ans));
       } else {
         msg = concl
         ? ('（策划方案·陈列）\n这是策划师回笼的方案结论，仅供汇总对比与用户裁决，【禁止直接开工】：在用户明确下达开工指令（主对话执行或派施工队）之前，不得修改任何代码文件、不得调用 plan_batch.claim 执行计划。请先做多方案对比陈列（各自目标/涉及文件/风险），并标出各方案末行的 plan_id 供派单。\n【参数已确认】以下结论中的参数与口径视为用户已确认，严禁再次 ask_user 追问这些信息：\n\n' + concl)
@@ -407,7 +447,7 @@
       // 有明确结论 → 「策划完成」；无结论（仅整体思考回注）→「已回注」
       setStatus(pair, concl ? 'done' : 'applied');
       sendTo(src, msg + takeNote(pair));
-      toast('已回注原对话；在原对话补充意见后点击箭头即可送回策划师', true);
+      toast('已回注原对话；在原对话补充意见后点击箭头即可送回' + (pair.objector ? '反驳师' : (pair.custom ? '自定义角色' : '策划师')), true);
       /* 【死代码移除】主消息已无条件消费 takeNote，fromAuto 追加分支永不触发 */
       return;
     }
@@ -421,10 +461,12 @@
     pair.phase = 'sent';
     pair.tkCount = assistantCount(tk);
     setStatus(pair, 'pending');
-    sendTo(tk, pair.custom
-      ? ('请针对以下内容按你的角色职责处理（多轮追问也可），最终在结论行给出【自定义结论】标记：\n\n' + body)
-      : ('请针对以下内容做任务策划与澄清（多轮追问也可），最终给出【策划师结论】：\n\n' + body) + takeNote(pair));
-    toast(pair.custom ? '已送自定义角色处理（进行中）' : '已送策划师策划（策划中）', true);
+    sendTo(tk, pair.objector
+      ? ('请针对以下内容做反驳（红队方案攻击）：攻击前提假设、隐藏风险、可行性漏洞。每条反驳标注严重度【高/中/低】，无实质问题则明说，不许为反驳而反驳。最终在结论行给出【反驳师结论】标记：\n\n' + body)
+      : (pair.custom
+        ? ('请针对以下内容按你的角色职责处理（多轮追问也可），最终在结论行给出【自定义结论】标记：\n\n' + body)
+        : ('请针对以下内容做任务策划与澄清（多轮追问也可），最终给出【策划师结论】：\n\n' + body)) + takeNote(pair));
+    toast(pair.objector ? '已送反驳师反驳（进行中）' : (pair.custom ? '已送自定义角色处理（进行中）' : '已送策划师策划（策划中）'), true);
   }
 
   // 回复自动检测：策划师出现新回复 → 判定已澄清/继续扩展；【自动回收】结论已出 2 秒后自动回注原对话
@@ -480,16 +522,12 @@
     try {
       var g = window.ZFConvergeArrow && window.ZFConvergeArrow.getPairs ? window.ZFConvergeArrow.getPairs() : [];
       for (var i = 0; i < g.length; i++) if (String(g[i].srcId) === String(srcId)) {
-        /* 【v24 修复·单窗不回收】membersOf 把策划+审核窗混算成员数，只派 1 个策划但源下残留 1 个
-           审核窗时也会创建收口箭头 → 此处误判"有收口"，走 gatherFor 却永远等不到就绪（收口要等
-           全部成员 sent），干等 9.5 分钟兜底，表现为"单个策划不自动回收"。
-           因此必须再校验：同角色（策划师）存活成员 ≥2 收口箭头才真正可用 */
-        var boxes = (typeof App !== 'undefined' && App.chatBoxes) || [];
-        var sameRole = 0;
-        boxes.forEach(function (c) {
-          if (c && c.el && c.el._isThinkerChat && String(c.el._thinkerSrcId) === String(srcId)) sameRole++;
-        });
-        if (sameRole >= 2) return true;
+        /* 【严格判定·无兜底】只要该源对话存在收口总箭头，一律走 gatherFor 严格等待全员。
+           删除旧的同角色≥2 校验：混合角色专家团（策划+审核+验证各1个，总成员≥2）时
+           收口箭头真实存在，旧校验误判"无收口"→ 走逐个回注降级 → 主对话忙时被吞，
+           表现为部分子对话中途单独返回。gatherFor 现已改为严格全员门槛（isSending+基线+新回复），
+           委托给它绝不会提前回收；若确实差一个成员没完成就宁可一直挂着（用户要求：不许兜底）。 */
+        return true;
       }
     } catch (e) {}
     return false;
@@ -524,7 +562,16 @@
       if (pending > 0) continue; // 还有策划窗没出结论，继续等，绝不中途返回
       /* 【v23 单角色即时回收】收口箭头只在成员≥2时创建；只剩1个策划窗时 gatherFor 永远失败，
          现在检测该源对话没有收口箭头 → 全部出结论后立即逐个回注 */
-      if (!tk_hasConverge(srcId)) {
+      /* 【v27 修复·4派2收】降级路径加账本规模守卫（与 verify-arrow v60 同口径）：派出团队登记
+         账本 expected 为全队人数，本组先齐但总箭头尚未建起时，账本 expected > 本组人数 →
+         禁止逐个回注抢跑（会绕过账本闸门提前返回，策划/审核组后被吞 → 4派2收）；
+         expected ≤ 本组人数（单派/本组即全队）时保留降级。 */
+      var _tkBiggerCrew = false;
+      try {
+        var _tkLgRec = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(srcId)] || null;
+        _tkBiggerCrew = !!(_tkLgRec && (_tkLgRec.expected || 0) > arr.length);
+      } catch (eTkLg) {}
+      if (!tk_hasConverge(srcId) && !_tkBiggerCrew) {
         var fell1 = 0;
         arr.forEach(function (p) {
           try { if (p._replied && p.el && p.el.isConnected && typeof onArrowClick === 'function') { onArrowClick(p, true); fell1++; } } catch (eF) {}
@@ -658,7 +705,7 @@
       create: function (s, q) { var r = _create(s, q); ensureLoop(); notifyMinimap(); return r; },
       getPairs: function () {
         return pairs.map(function (p) {
-          return { srcId: p.srcId, tkId: p.tkId, state: p.state, status: p.status };
+          return { srcId: p.srcId, tkId: p.tkId, state: p.state, status: p.status, custom: !!p.custom, objector: !!p.objector, evolution: !!p.evolution, verifier: !!p.verifier };
         });
       },
       /* 【输入防丢】供收口箭头回收时取走该策划窗单体箭头输入框里的补充文字（取走即清空） */
@@ -725,15 +772,23 @@
         /* 【v26 修复·重启后箭头再次丢失】120 秒上限不够：后台重启/大量对话恢复时
            DOM 挂载可远超 2 分钟，恢复循环提前放弃导致箭头全丢。放宽到 600 秒，
            正常情况仍按「恢复数==存档数」提前停，不会空转。 */
-        if (tries > 600) { clearInterval(timer); return; }
+        if (tries > 600) {
+          /* 【v27 修复·箭头消失兜底】600 秒后不再放弃：降频为每 5 秒重试一次且永不停止。
+             实测仍有用户重启后箭头消失：个别场景对话框恢复晚于 10 分钟（或后续才打开角色对话），
+             旧逻辑到点 clearInterval 后箭头永久丢失。改为无限低频重试，对话何时挂载箭头何时恢复；
+             「恢复数==存档数」的正常停止条件保留，不会空转浪费。 */
+          if (tries % 5 !== 0) return;
+        }
         var _total = 0, _done = 0;
         try { _total = (JSON.parse(raw) || []).length; } catch (e) { _total = 0; }
         try { _done = pairs.filter(function (p) { return p.el && p.el.isConnected; }).length; } catch (e) {}
         if (_total && _done >= _total) clearInterval(timer);
-        if (_total === 0) { clearInterval(timer); } // 无存档时不再空转 120 秒
+        /* 【v28 修复·弃疗口封堵】仅当存档确实为空（'[]'/'null'/无键）才停止；
+           JSON 解析异常（raw 损坏/暂时读不到）时 _total 虽为 0 但不再永久弃疗，继续低频重试 */
+        if (!hasSaved && _total === 0) { clearInterval(timer); }
       }
     }, 1000);
   })();
   // [thinker-arrow] 策划师紫色箭头模块已加载
-})();
 
+})(); 

@@ -106,6 +106,23 @@
             '<button class="hd-btn menu-btn log-panel-btn" data-act="logs" title="日志（点击展开/收起面板）">日志</button>' +
             '<button class="hd-btn prio-btn" data-act="priority" data-tier="0" data-keepopen="1" title="对话优先级（只影响同一个大模型的排队）：点击/悬停弹出档位；空闲10分钟自动降回">优先级</button>' +
             '<button class="hd-btn ctx-btn" data-act="ctxmode" data-keepopen="1" title="上下文处理（上一轮工具过程与旧回复的保留档位）：点击/悬停弹出档位">上下文</button>' +
+            // 【固定内置】引擎/工具分类不再由 relocate 运行时搬入，直接写入模板，
+            // 杜绝 DOM 搬移/重建时序导致的乱码（.eng-name/.tool-cat-name 固定文字）
+            '<div class="eng-picker-wrap hd-menu-fixed">' +
+            '<button class="eng-trigger" data-keepopen="1" title="底层引擎（对话处理管线）" style="background:none;border:none;box-shadow:none;padding:5px 8px;cursor:pointer;color:inherit;font-size:12px;font-family:inherit;display:flex;align-items:center;height:auto">' +
+            '<span class="eng-name">底层引擎</span>' +
+            '<span class="eng-arrow">▾</span>' +
+            '</button>' +
+            '<div class="eng-menu" hidden></div>' +
+            '</div>' +
+            '<div class="tool-cat-wrap hd-menu-fixed">' +
+            '<button class="tool-cat-trigger" data-keepopen="1" title="工具分类" style="background:none;border:none;box-shadow:none;padding:5px 8px;cursor:pointer;color:inherit;font-size:12px;font-family:inherit;display:flex;align-items:center;height:auto">' +
+            '<span class="tool-cat-icon" style="display:none">📄</span>' +
+            '<span class="tool-cat-name">工具分类</span>' +
+            '<span class="tool-cat-arrow">▾</span>' +
+            '</button>' +
+            '<div class="tool-cat-menu" hidden></div>' +
+            '</div>' +
             '</div>' +
             '</div>' +
             '</div>';

@@ -103,7 +103,97 @@
       b.onclick = function () { closePanel(); openRoleChat(roleName); };
       p.appendChild(b);
     });
+    appendTimersSection(p, function () { positionPanel(p, anchorBtn || st.lastAnchor); });
     positionPanel(p, anchorBtn || st.lastAnchor);
+  }
+
+  // ---------- 员工定时任务管理区（P4）：列表/启停/删/新增 ----------
+  function fmtSched(sch) {
+    if (!sch) return '';
+    if (sch.type === 'daily') return '每日 ' + (sch.time || '');
+    if (sch.type === 'interval') return '每 ' + (sch.seconds || 0) + ' 秒';
+    return '';
+  }
+  function fetchTimers(cb) {
+    fetch('/api/employee/timers').then(function (r) { return r.json(); })
+      .then(function (res) { cb((res && res.timers) || []); })
+      .catch(function () { cb([]); });
+  }
+  function timerOp(op, payload, cb) {
+    fetch('/api/employee/timers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ op: op }, payload || {}))
+    }).then(function (r) { return r.json(); }).then(function () { if (cb) cb(); }).catch(function () { if (cb) cb(); });
+  }
+  function appendTimersSection(p, done) {
+    var sec = document.createElement('div');
+    sec.className = 'bt-timers';
+    sec.style.cssText = 'border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:6px;min-width:260px;';
+    var head = document.createElement('div');
+    head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:12px;opacity:.6;margin-bottom:4px;';
+    head.innerHTML = '<span>⏰ 员工定时任务</span>';
+    var addBtn = document.createElement('button');
+    addBtn.textContent = '+ 新建';
+    addBtn.style.cssText = 'font-size:11px;padding:1px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cfd8e3;cursor:pointer;';
+    head.appendChild(addBtn);
+    sec.appendChild(head);
+    var list = document.createElement('div');
+    sec.appendChild(list);
+    addBtn.onclick = function () {
+      var name = prompt('员工名（需与团队成员名一致）：');
+      if (!name) return;
+      var promptTxt = prompt('到点要干的活（指令内容）：');
+      if (!promptTxt) return;
+      var schType = prompt('触发方式：输入 daily 或 interval', 'daily');
+      if (schType !== 'daily' && schType !== 'interval') return;
+      var sch;
+      if (schType === 'daily') {
+        var tm = prompt('每日几点触发（HH:MM）', '09:00');
+        if (!tm) return;
+        sch = { type: 'daily', time: tm };
+      } else {
+        var secN = parseInt(prompt('间隔秒数（最小 60）', '3600'), 10);
+        if (!secN || secN < 60) return;
+        sch = { type: 'interval', seconds: secN };
+      }
+      timerOp('add', { name: name, task_prompt: promptTxt, schedule: sch, box_id: '' }, function () { refresh(); });
+    };
+    function refresh() {
+      fetchTimers(function (timers) {
+        list.innerHTML = '';
+        if (!timers.length) {
+          var none = document.createElement('div');
+          none.textContent = '（暂无定时任务）';
+          none.style.cssText = 'font-size:11px;opacity:.45;padding:2px 0;';
+          list.appendChild(none);
+        }
+        timers.forEach(function (t) {
+          var row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:12px;color:#cfd8e3;padding:2px 0;';
+          var info = document.createElement('span');
+          var lr = t.last_run ? new Date(t.last_run).toLocaleString() : '未运行';
+          var st = t.last_status === 'ok' ? '✅' : (t.last_status ? '❌' : '');
+          info.textContent = (t.enabled ? '🟢' : '⚪') + ' ' + t.name + ' · ' + fmtSched(t.schedule) + ' · ' + st + lr;
+          info.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+          var tg = document.createElement('button');
+          tg.textContent = t.enabled ? '停' : '启';
+          tg.style.cssText = btnCss();
+          tg.onclick = function () { timerOp(t.enabled ? 'disable' : 'enable', { id: t.id }, refresh); };
+          var del = document.createElement('button');
+          del.textContent = '删';
+          del.style.cssText = btnCss();
+          del.onclick = function () { if (confirm('删除定时任务「' + t.name + '」？')) timerOp('remove', { id: t.id }, refresh); };
+          row.appendChild(info); row.appendChild(tg); row.appendChild(del);
+          list.appendChild(row);
+        });
+        if (done) done();
+      });
+    }
+    function btnCss() {
+      return 'font-size:11px;padding:1px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cfd8e3;cursor:pointer;';
+    }
+    p.appendChild(sec);
+    refresh();
   }
 
   function positionPanel(p, anchorBtn) {

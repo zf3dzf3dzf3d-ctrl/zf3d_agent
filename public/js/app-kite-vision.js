@@ -515,8 +515,8 @@
       const status = panel.querySelector('.kite-panel-status');
       if (!imgs.length) { status.textContent = '请先从图片/视频节点的输出圆点拖线连到左下方圆点'; return; }
       if (!prompt) { status.textContent = '请输入修改要求（可用 @图片N 引用）'; return; }
-      // v5.1.2 视频生成确认：视频成本较高，开始前必须用户点击确定
-      if (mediaType === 'video' && !_dlgConfirmSync('🎬 确认生成视频？\n\n视频生成消耗较多算力/费用，可能需要较长时间。\n\n点击「确定」开始生成，「取消」放弃。')) { status.textContent = '已取消视频生成'; return; }
+      // 【移除视频生成确认弹窗】直接生成，不再弹确认
+
       // 结果：已连结果预览则直接更新；否则右侧自动创建结果节点并连线
       if (!panel._imageNode || !state.nodes.has(panel._imageNode.id)) {
         const pr = panel.getBoundingClientRect();
@@ -566,6 +566,7 @@
   }
 
   // 双击画布空白处：直接弹出「创建对话框」双栏面板（左=文本模型，右=视觉功能），不再显示三按钮工具条
+  var _panelMo = null;
   function openDualPanels(clientX, clientY) {
     const host = document.getElementById('canvasContent') || document.body;
     // 双击弹出创建面板时立即隐藏画布中央的引导提示（不等真正创建对话框后才消失）
@@ -626,6 +627,20 @@
           if (App.store && typeof App.store === 'object' && 'zCounter' in App.store) App.store.zCounter = App.zCounter;
         }
       } catch (e) {}
+      /* 【层级修复】面板与 #zfEmptyOverlay 不在同一层叠上下文（容器 transform 隔离），
+         面板打开时给 body 加类让反应屏幕漂浮字让位；面板移除时恢复，避免空态引导被误隐藏。 */
+      try {
+        document.body.classList.add('zf-dual-panel-open');
+        if (_panelMo) { try { _panelMo.disconnect(); } catch (e0) {} }
+        _panelMo = new MutationObserver(function () {
+          if (!document.querySelector('.kite-dual-create-panel')) {
+            document.body.classList.remove('zf-dual-panel-open');
+            try { _panelMo.disconnect(); } catch (e1) {}
+            _panelMo = null;
+          }
+        });
+        _panelMo.observe(host, { childList: true, subtree: true });
+      } catch (e2) {}
     }
     return { toolbar: null };
 

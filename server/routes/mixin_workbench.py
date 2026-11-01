@@ -339,3 +339,68 @@ class MixinWorkbench(MixinBase):
             self._send_json({'ok': True, 'state': _json.loads(row[0]) if row else None})
         except Exception as e:
             self._send_json({'ok': False, 'err': str(e)}, 500)
+
+    def _handle_wb_gallery_get(self):
+        """生成记录画廊：列出 public/data/workbench/ 下全部图片/视频，按修改时间倒序"""
+        try:
+            import json as _json
+            _dir = os.path.join(BASE_DIR, 'public', 'data', 'workbench')
+            items = []
+            if os.path.isdir(_dir):
+                for fn in os.listdir(_dir):
+                    if fn.startswith('.'):
+                        continue
+                    ext = os.path.splitext(fn)[1].lower()
+                    if ext not in ('.png', '.jpg', '.jpeg', '.webp', '.gif', '.mp4', '.webm'):
+                        continue
+                    fp = os.path.join(_dir, fn)
+                    items.append({
+                        'name': fn,
+                        'url': '/data/workbench/' + fn,
+                        'video': ext in ('.mp4', '.webm'),
+                        'size': os.path.getsize(fp),
+                        'ts': os.path.getmtime(fp),
+                    })
+            items.sort(key=lambda x: -x['ts'])
+            self._send_json({'ok': True, 'items': items})
+        except Exception as e:
+            self._send_json({'ok': False, 'err': str(e), 'items': []}, 500)
+
+    def _handle_wb_thumb_get(self, query):
+        """生成记录缩略图：?f=文件名 → 320px 缓存小图（data/workbench_thumb/），避免前端直接拉全尺寸大图导致极慢"""
+        try:
+            from urllib.parse import parse_qs
+            kv = parse_qs(query)
+            fn = os.path.basename(kv.get('f', [''])[0] or '')
+            if not fn:
+                self._send_json({'ok': False, 'err': 'missing f'}, 400); return
+            _src = os.path.join(BASE_DIR, 'public', 'data', 'workbench', fn)
+            if not os.path.isfile(_src):
+                self._send_json({'ok': False, 'err': 'not found'}, 404); return
+            ext = os.path.splitext(fn)[1].lower()
+            if ext in ('.mp4', '.webm'):
+                self._send_json({'ok': False, 'err': 'video no thumb'}, 400); return
+            _thumb_dir = os.path.join(BASE_DIR, 'public', 'data', 'workbench_thumb')
+            os.makedirs(_thumb_dir, exist_ok=True)
+            tp = os.path.join(_thumb_dir, fn + '.jpg')
+            # 缓存失效：源图更新后重新生成
+            if (not os.path.isfile(tp)) or os.path.getmtime(tp) < os.path.getmtime(_src):
+                from PIL import Image as _PILImage
+                im = _PILImage.open(_src)
+                im.thumbnail((320, 320))
+                if im.mode not in ('RGB', 'L'):
+                    im = im.convert('RGB')
+                im.save(tp, 'JPEG', quality=80)
+            with open(tp, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/jpeg')
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'max-age=3600')
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            try:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            except Exception:
+                pass

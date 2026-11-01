@@ -102,6 +102,8 @@ function resize(){
   draw();
 }
 addEventListener('resize', resize);
+// 页面关闭/刷新前兜底保存视图
+addEventListener('beforeunload', ()=>{ if(tree) saveCam(); });
 
 // 展平 + 真树布局（自下而上：depth 越大越靠上；x 按叶子序号横向铺开，父居中）
 function layout(){
@@ -283,9 +285,12 @@ function hoverCard(e){
   if(e.target!==cv){ hc.style.display='none'; return; }
   const n=hitTest(e.clientX,e.clientY);
   if(!n){ hc.style.display='none'; return; }
+  // 子树统计：直接子节点数 + 全部后代数（复用 descendantIds，仅父子树不含 link）
+  const dirCnt=(n.children?n.children.length:0), subCnt=(descendantIds(n.id).size-1);
   hc.innerHTML='<b>'+esc(n.text)+'</b>'
     +'<div class="hc-path">'+esc(n.path||('id:'+n.id))+'</div>'
     +'清晰度 '+Number(n.clarity||0).toFixed(2)+' · 状态 '+(n.status||'-')+' · '+esc(n.kind||'capability')
+    +(subCnt?('<div class="hc-path">🌿 子节点：直接 '+dirCnt+' 个 · 含后代共 '+subCnt+' 个</div>'):('<div class="hc-path">🌿 叶子节点（无子节点）</div>'))
     +((n.binds||n._binds)?('<div class="hc-binds">🔗挂接：'+esc(n.binds||n._binds)+'</div>'):('<div class="hc-binds">（未挂接文件）</div>'));
   hc.style.display='block';
   hc.style.left=(e.clientX+14)+'px'; hc.style.top=(e.clientY+14)+'px';
@@ -323,7 +328,7 @@ addEventListener('mousemove', e=>{
   if(drag.mode==='link'){ linkTemp.x2=e.clientX; linkTemp.y2=e.clientY; draw(); return; }
   if(drag.mode==='pod'){ pod.cx=drag.pcx+dx; pod.cy=drag.pcy+dy; draw(); return; }
   if(drag.mode==='pan'){
-    cam.x=drag.camx-dx/cam.zoom; cam.y=drag.camy-dy/cam.zoom; draw();
+    cam.x=drag.camx-dx/cam.zoom; cam.y=drag.camy-dy/cam.zoom; saveCamThrottled(); draw();
   } else {
     // 世界位移 = 当前鼠标世界 - 按下世界，作用于整棵子树
     const w=toWorld(e.clientX,e.clientY); const ox=w.x-drag.w0.x, oy=w.y-drag.w0.y;
@@ -362,6 +367,7 @@ cv.addEventListener('wheel', e=>{
   cam.zoom=Math.max(0.2,Math.min(4,cam.zoom*f));
   cam.x=wx-(e.clientX-vcx())/cam.zoom;
   cam.y=wy-(e.clientY-vcy())/cam.zoom;
+  saveCamThrottled();
   draw();
 },{passive:false});
 // 右键拖拽舱体：屏蔽浏览器默认右键菜单
@@ -421,6 +427,18 @@ function focusSubtree(n){
 document.getElementById('unfocus').onclick=()=>{ focusSet=null; document.getElementById('focusInfo').style.display='none'; draw(); };
 document.getElementById('showLink').onchange=e=>{ showLink=e.target.checked; draw(); };
 document.getElementById('fit').onclick=fit;
+// ===== 视图记忆：cam(平移+缩放)按树持久化，重启/刷新不丢位置 =====
+function camKey(){ return 'tree_cam_'+(tree&&tree.meta?(tree.meta.subject_type||'project')+'_'+(tree.meta.subject_id||''):'default'); }
+function saveCam(){ try{ localStorage.setItem(camKey(), JSON.stringify({x:Math.round(cam.x*10)/10,y:Math.round(cam.y*10)/10,zoom:Math.round(cam.zoom*1000)/1000})); }catch(e){} }
+function restoreCam(){
+  try{ const s=JSON.parse(localStorage.getItem(camKey())||'null');
+    if(s && s.zoom){ cam.x=s.x; cam.y=s.y; cam.zoom=s.zoom; draw(); return true; }
+  }catch(e){}
+  return false;
+}
+let _lastCamSave=0;
+function saveCamThrottled(){ const now=Date.now(); if(now-_lastCamSave>2000){ _lastCamSave=now; saveCam(); } }
+
 function fit(){
   if(!nodes.length) return;
   const xs=nodes.map(n=>n.wx), ys=nodes.map(n=>n.wy);
@@ -645,7 +663,7 @@ async function load(file){
   tree=await resp.json(); buildIndex(); layout(); focusSet=null;
   document.getElementById('focusInfo').style.display='none';
   document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
-  fit();
+  if(!restoreCam()) fit();   // 有记忆视图则恢复，否则自适应居中
   startFloat();
 }
 function _togPhys(btnId, get, set){ const b=document.getElementById(btnId); if(!b) return; b.onclick=()=>{ const v=!get(); set(v); b.style.background=v?'#3a6ea5':'#21262d'; }; }
@@ -681,7 +699,7 @@ function useTree(t){
   tree=t; buildIndex(); layout(); focusSet=null;
   document.getElementById('focusInfo').style.display='none';
   document.getElementById('title').textContent=' · '+(tree.meta&&tree.meta.title||'');
-  fit();
+  if(!restoreCam()) fit();   // 有记忆视图则恢复，否则自适应居中
   startFloat();
 }
 (async function init(){

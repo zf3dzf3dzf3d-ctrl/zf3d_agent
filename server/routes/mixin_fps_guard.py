@@ -69,16 +69,22 @@ def record_fps_crime(payload):
     except Exception:
         pass
 
-    # 2) SQLite 存档 (供主脑查询)
+    # 2) SQLite 存档 (供主脑查询)。【P3 锁降级 2026-10-17】遥测类写限时抢锁：
+        # 原.with _db_lock 无超时，锁被长事务占住时此处静默堵死。抢不到(>1.5s)丢本条遥测保业务。
     try:
-        with _db_lock:
-            conn = get_db()
-            _ensure_table(conn)
-            conn.execute(
-                "INSERT INTO app_data(category, key, value) VALUES (?,?,?)",
-                ('fps_crive' if False else 'fps_crime', 'fps_%d' % int(fps), line),
-            )
-            conn.commit()
+        if not _db_lock.acquire(timeout=1.5):
+            print('[fps_guard] lock busy(>1.5s), fps crime dropped (fps=%d)' % int(fps))
+        else:
+            try:
+                conn = get_db()
+                _ensure_table(conn)
+                conn.execute(
+                    "INSERT INTO app_data(category, key, value) VALUES (?,?,?)",
+                    ('fps_crive' if False else 'fps_crime', 'fps_%d' % int(fps), line),
+                )
+                conn.commit()
+            finally:
+                _db_lock.release()
     except Exception:
         pass
     return rec

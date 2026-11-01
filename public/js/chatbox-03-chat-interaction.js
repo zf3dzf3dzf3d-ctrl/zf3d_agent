@@ -407,9 +407,16 @@ Object.assign(App, {
                         }
                     } else if (act === 'branch') {
                         // 【5.2.5 新增】🌿 Git 分支选单：新建 / 选择 / 合并到主分支
-                        if (typeof self.toggleBranchMenu === 'function') {
-                            self.toggleBranchMenu(box, chat);
-                        }
+                        // 【修复·点不开】toggleBranchMenu 只挂在 App（chatbox-branch-menu.js 末尾
+                        // App.toggleBranchMenu = toggleBranchMenu），self（bindChatBox 的 this）上
+                        // 并没有该方法。旧代码 if(typeof self.toggleBranchMenu==='function') 恒为
+                        // false → 静默跳过，面板不弹、菜单又不关（带 data-keepopen），表现为"点了
+                        // 完全没反应"。改为优先 App、回退 self，与悬停路径(chatbox-header-more.js)
+                        // 统一，确保点击必定触发。
+                        var _tbm = (typeof App !== 'undefined' && typeof App.toggleBranchMenu === 'function')
+                            ? App.toggleBranchMenu
+                            : (typeof self.toggleBranchMenu === 'function' ? self.toggleBranchMenu : null);
+                        if (_tbm) { _tbm(box, chat); }
                     }
                 });
             });
@@ -460,10 +467,19 @@ Object.assign(App, {
                 // 绑定引擎条目点击（引擎列表是动态的，重建后需重绑）
                 var _bindEngItems = function() {
                     // 右上角设置工具：打开引擎参数 / 循环配置面板（与触发按钮 title 参数区同入口）
-                    var _setBtn = engMenu.querySelector('.eng-set-btn');
-                    if (_setBtn && !_setBtn.__bound) {
-                        _setBtn.__bound = true;
-                        _setBtn.addEventListener('click', function(e) {
+                    // 【fix 2026-11 ⚙点不动】旧实现把 click 逐个绑在 .eng-set-btn 上（__bound 标记），
+                    // 但 .eng-menu 的 HTML 有两条重建路径：① engTrigger click 内 innerHTML 重建后
+                    // 会调 _bindEngItems() 重绑；② App.fillChatboxConfigWidgets() 初始/恢复填充
+                    // 也是 innerHTML 重建却【从不】调 _bindEngItems —— 该路径产出的 ⚙ 是无监听器的
+                    // 死按钮。且 chat-context-config.js injectBtn 见已有 .eng-set-btn 会直接 return，
+                    // 无人补绑 → 用户点 ⚙ 毫无反应。
+                    // 改为「菜单级事件委托」：绑在 .eng-menu 容器上，innerHTML 重建不影响委托，
+                    // 两条重建路径的 ⚙ 都能响应，且天然幂等（engMenu 节点本身不重建）。
+                    if (!engMenu.__setBtnDelegated) {
+                        engMenu.__setBtnDelegated = true;
+                        engMenu.addEventListener('click', function (e) {
+                            var setBtn = e.target.closest ? e.target.closest('.eng-set-btn') : null;
+                            if (!setBtn || !engMenu.contains(setBtn)) return;
                             e.stopPropagation();
                             engMenu.hidden = true;
                             // 优先打开本对话的循环配置面板（chat-context-config.js）
@@ -498,11 +514,8 @@ Object.assign(App, {
                             });
                             var nameEl = engTrigger.querySelector('.eng-name');
                             if (nameEl) {
-                                if (!engId) { nameEl.textContent = '默认'; }
-                                else {
-                                    var en = (typeof DB !== 'undefined' && DB.getEngines) ? DB.getEngines().filter(function(x){return x.id===engId;})[0] : null;
-                                    nameEl.textContent = en ? ((en.icon ? en.icon + ' ' : '') + en.name) : engId;
-                                }
+                                // 【固定文字】触发按钮固定显示「底层引擎」
+                                nameEl.textContent = '底层引擎';
                             }
                             Store.saveChatBox(chat);
                             Store.addLog('info', chat.id, 'engine-switch', '用户切换底层对话引擎: ' + (engId || '服务端默认'));
@@ -532,7 +545,7 @@ Object.assign(App, {
                                         var icon2 = catTrigger2.querySelector('.tool-cat-icon');
                                         var name2 = catTrigger2.querySelector('.tool-cat-name');
                                         if (icon2) icon2.textContent = newCat.icon;
-                                        if (name2) name2.textContent = targetCat;
+                                        if (name2) name2.textContent = '工具分类'; // 【固定文字】
                                     }
                                     // ===== 按新引擎重建分类下拉菜单（分类只跟随对应引擎） =====
                                     var catMenu2 = box.querySelector('.tool-cat-menu');
@@ -568,7 +581,7 @@ Object.assign(App, {
                                                     var ic2 = tr2.querySelector('.tool-cat-icon');
                                                     var nm2 = tr2.querySelector('.tool-cat-name');
                                                     if (ic2) ic2.textContent = cdef2.icon;
-                                                    if (nm2) nm2.textContent = cn2;
+                                                    if (nm2) nm2.textContent = '工具分类'; // 【固定文字】
                                                 }
                                                 catMenu2.querySelectorAll('.tool-cat-item').forEach(function (i3) {
                                                     i3.classList.toggle('active', i3.dataset.cat === cn2);
@@ -624,12 +637,14 @@ Object.assign(App, {
                         engMenu.hidden = true;
                     }
                 });
-                // 恢复按钮显示：对话快照带 _engine 时，触发按钮直接显示引擎名
-                if (chat._engine) {
-                    var en0 = (typeof DB !== 'undefined' && DB.getEngines) ? DB.getEngines().filter(function(x){return x.id===chat._engine;})[0] : null;
-                    var nameEl0 = engTrigger.querySelector('.eng-name');
-                    if (nameEl0) nameEl0.textContent = en0 ? ((en0.icon ? en0.icon + ' ' : '') + en0.name) : chat._engine;
-                }
+                // 【fix 2026-11 ⚙点不动】初始/恢复对话路径走 App.fillChatboxConfigWidgets()
+                // innerHTML 填充菜单，从不经过 engTrigger click 的重建分支，委托监听器
+                // 必须在绑定期就注册一次，否则首开菜单时 ⚙ 仍无响应（engMenu 容器节点
+                // 不随 innerHTML 重建，委托只需注册一次，幂等）。
+                _bindEngItems();
+                // 恢复按钮显示：固定文字「底层引擎」（不再显示具体引擎名）
+                var nameEl0 = engTrigger.querySelector('.eng-name');
+                if (nameEl0) nameEl0.textContent = '底层引擎';
             }
 
             // 发送消息（支持排队）
@@ -755,7 +770,7 @@ Object.assign(App, {
                         var iconEl = catTrigger.querySelector('.tool-cat-icon');
                         var nameEl = catTrigger.querySelector('.tool-cat-name');
                         if (iconEl) iconEl.textContent = newCat.icon;
-                        if (nameEl) nameEl.textContent = catName;
+                        if (nameEl) nameEl.textContent = '工具分类'; // 【固定文字】
                         catMenu.querySelectorAll('.tool-cat-item').forEach(function(i) {
                             i.classList.toggle('active', i.dataset.cat === catName);
                         });
@@ -999,6 +1014,29 @@ Object.assign(App, {
                                 // 【修复 5.3.6·对话级项目绑定】优先按对话自身绑定的项目注入，
                                 // 全局活动项目不一致时加警示行（老对话无绑定则回退全局）
                                 var _fp = (chatObj && chatObj.projectId) ? chatObj.projectId : null;
+                                // 【串台修复 5.7.0·绑定自动迁移】老对话无 projectId 时，首条消息发送瞬间
+                                // 自动绑定为当前活动项目并落库，之后 getProjectContext 走隔离分支，
+                                // 不再回退读全局文件树浏览目录（根治多窗切换串台）。
+                                if (!_fp && typeof App !== 'undefined' && App.activeProject && App.activeProject.id) {
+                                    try {
+                                        chatObj.projectId = App.activeProject.id;
+                                        _fp = chatObj.projectId;
+                                        if (typeof Store !== 'undefined' && Store.data && Store.data.chatBoxes) {
+                                            for (var _bi = 0; _bi < Store.data.chatBoxes.length; _bi++) {
+                                                if (Store.data.chatBoxes[_bi] === chatObj || (chatObj.id && Store.data.chatBoxes[_bi].id === chatObj.id)) {
+                                                    Store.data.chatBoxes[_bi].projectId = _fp; break;
+                                                }
+                                            }
+                                        }
+                                        if (typeof Store !== 'undefined' && typeof Store.save === 'function') { try { Store.save(); } catch (_se) {} }
+                                        // 【反驳师整改 v2】绑定不可静默：toast 告知用户，防"静默永久误绑"无知情渠道
+                                        try {
+                                            if (typeof App !== 'undefined' && typeof App.toast === 'function') {
+                                                App.toast('📌 本对话已绑定项目「' + (App.activeProject.name || App.activeProject.id) + '」，如不符请用📁切换器改绑');
+                                            }
+                                        } catch (_te) {}
+                                    } catch (_bme) {}
+                                }
                                 var _pctx = App.getProjectContext(_fp);
                                 var _warnLine = '';
                                 if (_fp) {
@@ -1013,7 +1051,13 @@ Object.assign(App, {
                                             if (_gids[gi] && _gids[gi] !== String(_fp) && _mism.indexOf(_gids[gi]) < 0) _mism.push(_gids[gi]);
                                         }
                                         if (_mism.length) {
-                                            _warnLine = '⚠️ 注意：全局状态(' + _mism.join('/') + ')与本对话绑定项目(' + _fp + ')不一致，请以本对话绑定的项目为准。\n';
+                                            // 【注入瘦身 S1·5.7.1】同一对话仅首次全量提示，之后缩为一行代号，防每轮重复污染上下文
+                                            if (!chatObj._projMismatchWarned) {
+                                                chatObj._projMismatchWarned = true;
+                                                _warnLine = '⚠️ 注意：全局状态(' + _mism.join('/') + ')与本对话绑定项目(' + _fp + ')不一致，请以本对话绑定的项目为准。\n';
+                                            } else {
+                                                _warnLine = '[proj-mismatch:' + _mism.join('/') + '≠' + _fp + '，首轮已全量提示]\n';
+                                            }
                                         }
                                     } catch (e2) {}
                                 }
@@ -1055,6 +1099,32 @@ Object.assign(App, {
                                             })(_pid, _docName, _pathLine);
                                         }
                                     } catch (_pde) {}
+                                    // =====【项目档案注入】读 项目/<项目名>/档案.md，追加到上下文（限2KB+开关）=====
+                                    // 开关：localStorage.zf_archive_inject = '0' 关闭（默认开启）。
+                                    // 同步返回限制：档案走异步预取+会话缓存，首轮消息若缓存未就绪则跳过（下轮自动带上），静默失败不影响发送。
+                                    try {
+                                        if (String(localStorage.getItem('zf_archive_inject')) !== '0') {
+                                            var _projName = (_pctx.project_name || '').replace(/[\\/:*?"<>|\s]+/g, '_');
+                                            if (_projName) {
+                                                App._archiveCache = App._archiveCache || {};
+                                                if (App._archiveCache[_projName]) {
+                                                    _ctxPrefix += '\n【项目档案】\n' + App._archiveCache[_projName] + '\n';
+                                                } else if (typeof callToolApi === 'function') {
+                                                    (function(_pn2) {
+                                                        fetch('/api/tools/project_record', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ action: 'read', name: '项目/' + _pn2 + '/档案' })
+                                                        }).then(function(r) { return r.json(); }).then(function(_ar) {
+                                                            var _txt = _ar && _ar.ok ? String(_ar.content || '') : '';
+                                                            if (_txt.length > 2048) _txt = _txt.slice(0, 2048) + '\n（档案超限已截断，详情请用 project_record read 查看）';
+                                                            if (_txt) App._archiveCache[_pn2] = _txt;
+                                                        }).catch(function() {});
+                                                    })(_projName);
+                                                }
+                                            }
+                                        }
+                                    } catch (_ade) {}
                                     if (_slim) {
                                         // 【阶段C 瘦身态】只留项目名+根目录两行，浏览目录/选中文件/预览选区全省
                                         _ctxPrefix = '【当前项目上下文】\n' +
@@ -1067,6 +1137,8 @@ Object.assign(App, {
                                         '当前浏览目录: ' + (_pctx.cwd || '-') + '\n';
                                     }
                                     if (_warnLine) _ctxPrefix = _warnLine + _ctxPrefix;
+                                    if (_pctx._cwd_warn) _ctxPrefix += _pctx._cwd_warn;
+                                    else if (_pctx.cwd && _pctx.root && _pctx.cwd.indexOf(_pctx.root) !== 0) _ctxPrefix += '⚠️ 当前浏览目录与项目根目录不同，文件操作请以项目根目录为准。\n';
                                     if (!_slim) {
                                     if (_pctx.selected && _pctx.selected.length) {
                                         _ctxPrefix += '用户选中的文件:\n';
@@ -1150,6 +1222,15 @@ Object.assign(App, {
                 // 如果正在发送中，加入排队（带图消息也可排队，图片随队列项一起暂存，
                 // 出队真正发送时按原样带上图片，保持排队发布顺序）
                 if (chat.isSending) {
+                    // 【中途插话不停止 ⚡】输入以「⚡ 」开头 → 直接注入当前运行中的对话（不弹窗、不排队、不打断）
+                    if (_origText && _origText.indexOf('⚡') === 0 && typeof InjectBus !== 'undefined') {
+                        var _injText = _origText.replace(/^⚡\s*/, '');
+                        InjectBus.enqueue(chat, _injText);
+                        // ⚡气泡渲染（视觉区分普通用户消息）
+                        try { self.addMsg(box, '⚡ ' + _injText, 'user', chat.modelId, false, true); } catch (e) {}
+                        try { Store.addLog('info', chat.id, 'inject', '中途插话（⚡前缀）已入队，下一步模型调用前生效: ' + _injText.substring(0, 80)); } catch (e) {}
+                        return;
+                    }
                     // 【忙碌二选一】弹窗让用户选：排队（原对话跑完后按顺序发） 或 新建对话接力（带全部上下文立即开始）
                     if (typeof App.askBusyChoice === 'function' && _origText) {
                         try {

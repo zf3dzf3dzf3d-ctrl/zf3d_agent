@@ -256,8 +256,16 @@ Object.assign(App, {
                         }, 700);
                     }
                 };
+            } else if (who === 'ai' && typeof text === 'object' && text && text.type === 'pipeline_animation' && window.PipelineAnimation) {
+                // 协作流水线动画卡片：结构化消息走专用渲染器（策划案 v1.1 P1-1 分发机制）
+                window.PipelineAnimation.render(div, text);
             } else {
                 this.setMsgContent(div, text, who);
+            }
+            // 【空消息过滤】历史里可能残留文字被清空的节点（如旧版策划审核条），
+            // 空的 .msg 会占一行高度形成"空行"，这里直接不插入（统计行等有内容的 info 不受影响）
+            if (who === 'info' && !String(text == null ? '' : text).trim()) {
+                return div;
             }
             // 工具组默认折叠为紧凑条，用户点击展开查看详情
             body.appendChild(div);
@@ -356,7 +364,7 @@ Object.assign(App, {
                 chat._cleanup.listeners.forEach(function(item) {
                     item.target.removeEventListener(item.event, item.handler);
                 });
-                // 【5.6.0】执行各模块登记的自定义清理钩子（如模型选择器浮层需从
+                // 【5.7.0】执行各模块登记的自定义清理钩子（如模型选择器浮层需从
                 // document.body 搬回原位、断开 MutationObserver），避免节点残留
                 if (Array.isArray(chat._cleanup.hooks)) {
                     chat._cleanup.hooks.forEach(function(fn) {
@@ -429,7 +437,16 @@ Object.assign(App, {
                     if (_closedNum >= _cnt) localStorage.setItem('zf3d_cb_counter', String(_closedNum));
                 }
             } catch (e2) {}
-            // 内存中立即删除 chatBox 条目，DB 也立即清理
+            // 【防复活 v2】本地关闭清单：与墓碑/revive 令牌互为冗余防线。
+            // 即使服务端墓碑被历史遗留路径清掉，重启后 restoreSession 看到清单也拒绝重建该窗口。
+            try {
+                var _cl = JSON.parse(localStorage.getItem('zf3d_closed_chats') || '{}');
+                _cl[chat.id] = Date.now();
+                // 清单只留最近 200 条，防无限膨胀
+                var _keys = Object.keys(_cl);
+                if (_keys.length > 200) { _keys.sort(function(a, b) { return _cl[a] - _cl[b]; }); _keys.slice(0, _keys.length - 200).forEach(function(k) { delete _cl[k]; }); }
+                localStorage.setItem('zf3d_closed_chats', JSON.stringify(_cl));
+            } catch (eCL2) {}
             // 快照保存在 _closedStack 中，可通过右键菜单"恢复已关闭"还原
             var self2 = this;
             Store.data.chatBoxes = Store.data.chatBoxes.filter(function(b) { return b.id !== chat.id; });
@@ -466,6 +483,29 @@ Object.assign(App, {
             if (typeof App !== 'undefined' && App._cleanupTaskListsForChat) {
                 App._cleanupTaskListsForChat(chat.id);
             }
+            // 【师徒联动】主对话关闭 → 级联关闭其派生的各师子对话
+            // （策划/审核/总结/验证/反驳/进化/施工/协作，识别口径与 chatbox-role-trace.js 一致）
+            // 子对话关闭时会递归走本函数，孙级（如总结师再派生的对话）也会被一并关闭；
+            // 源标记指向的是各自的父对话 id，不会形成回环。
+            var _selfClose = this;
+            var _childChats = [];
+            this.chatBoxes.forEach(function (_c) {
+                var _e = _c && _c.el; if (!_e) return;
+                var _src = null;
+                if (_e._isThinkerChat && _e._thinkerSrcId != null) _src = String(_e._thinkerSrcId);
+                else if (_e._isQcChat && _e._qcSrcId != null) _src = String(_e._qcSrcId);
+                else if (_e._isSummarizerChat && _e._summarizerSrcId != null) _src = String(_e._summarizerSrcId);
+                else if ((_e._isVerifierChat || _e._isObjectorChat) && _e._customSrcId != null) _src = String(_e._customSrcId);
+                else if (_e._raceSrcId != null) _src = String(_e._raceSrcId);
+                if (_src && _src === String(chat.id)) _childChats.push(_c);
+            });
+            _childChats.forEach(function (_child) {
+                try {
+                    if (!_child || _child._closed || _selfClose.chatBoxes.indexOf(_child) < 0) return;
+                    Store.addLog('info', _child.id, 'close', '主对话已关闭，联动关闭子对话');
+                    _selfClose.closeChatBox(_child);
+                } catch (eCL) {}
+            });
             // 【跨重启持久化】对话已关闭 → 清理其待发附件暂存（否则重启后会恢复出幽灵附件）
             if (typeof App !== 'undefined' && typeof App.persistChatAttachments === 'function') {
                 var _fakeBox = { id: chat.id };
@@ -579,6 +619,23 @@ Object.assign(App, {
             };
             this.chatBoxes.push(chat);
             this._updateProjectBtn(chat);
+
+            // 【防墓碑拦恢复】关闭时服务端写了墓碑（node_tombstone），本路径与 app-canvas.restoreLastClosed
+            // 是两条独立恢复入口，恢复前必须先显式 revive 清墓碑，否则后续 saveChatBox 落库会被
+            // 服务端墓碑拦截（tombstoned:true 静默丢弃），重启后手动恢复的窗口又会消失。
+            if (Store.dbOnline && typeof DB !== 'undefined' && DB._request) {
+                try {
+                    DB._request('POST', '/nodes/' + encodeURIComponent(snapshot.id) + '/revive', {})
+                        .catch(function () {}).then(function () {
+                            if (typeof Store.saveChatBox === 'function') Store.saveChatBox(chat, true);
+                        });
+                    // 【防复活 v2】显式恢复时把该节点从本地关闭清单移除（清单与两端墓碑/令牌机制互为冗余防线）
+                    try {
+                        var _cl = JSON.parse(localStorage.getItem('zf3d_closed_chats') || '{}');
+                        if (_cl[snapshot.id]) { delete _cl[snapshot.id]; localStorage.setItem('zf3d_closed_chats', JSON.stringify(_cl)); }
+                    } catch (eCL) {}
+                } catch (eRv) {}
+            }
 
             // （原 _dbCleanupTimer 已移除，DB 在关闭时立即清理，恢复时重新写入）
 

@@ -138,6 +138,20 @@ var Store = {
             return DB.getNodes();
         }).then(function(res) {
             var nodes = (res && res.ok && res.data) ? res.data : [];
+            /* 【防复活 v3 实装】本地关闭清单过滤：closeChatBox 会把 id 写入 zf3d_closed_chats，
+               但 DB 侧 canvas_nodes 可能因防抖 saveChatBox 晚于删除、或删除失败未被挂起而残留。
+               此处恢复前按清单过滤，保证总结师等已关闭的对话/子对话重启后不再被打开。 */
+            var _closedList = {};
+            try { _closedList = JSON.parse(localStorage.getItem('zf3d_closed_chats') || '{}'); } catch (eCL) { _closedList = {}; }
+            nodes = nodes.filter(function(node) {
+                if (_closedList[node.id]) {
+                    console.log('[Store] skip closed node:', node.id);
+                    /* 顺手补删 DB 残留（静默，不阻塞恢复） */
+                    try { if (typeof DB !== 'undefined' && DB.deleteNode) DB.deleteNode(node.id).catch(function() {}); } catch (eD) {}
+                    return false;
+                }
+                return true;
+            });
             if (nodes.length > 0) {
                 nodes.forEach(function(node) {
                     self.data.chatBoxes.push({

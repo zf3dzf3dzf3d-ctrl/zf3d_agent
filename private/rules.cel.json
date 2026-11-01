@@ -1,0 +1,30 @@
+{
+  "rules": [
+    {
+      "name": "route_big_ctx_to_responses_full",
+      "expr": "request.tokens > 60000",
+      "action": {
+        "protocol": "responses",
+        "ctx_mode": "full"
+      }
+    },
+    {
+      "name": "cost_guard_small_model",
+      "expr": "request.model.contains('mini') || request.model.contains('haiku')",
+      "action": {
+        "ctx_mode": "truncate"
+      }
+    },
+    {
+      "name": "stream_prefers_chat",
+      "expr": "request.stream",
+      "action": {
+        "protocol": "chat"
+      }
+    }
+  ],
+  "fallback": {
+    "protocol": "auto",
+    "ctx_mode": "truncate"
+  }
+}

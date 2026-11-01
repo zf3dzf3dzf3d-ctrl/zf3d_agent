@@ -38,6 +38,7 @@ import base64
 import hashlib
 import struct
 import secrets
+import hmac as _hmac
 import threading
 import traceback
 
@@ -476,7 +477,7 @@ class RemoteWSServer:
                 self._send_frame(cli, {'t': 'pc_cmd_result',
                                        'ok': False, 'error': 'PC 端未开启命令通道'})
                 return
-            if str(msg.get('token') or '') != str(cfg.get('token') or '') \
+            if not _hmac.compare_digest(str(msg.get('token') or ''), str(cfg.get('token') or '')) \
                     or not cfg.get('token'):
                 self._send_frame(cli, {'t': 'pc_cmd_result',
                                        'ok': False, 'error': 'token 校验失败'})

@@ -2,7 +2,7 @@
 """
 zf_proxy_billing.py — 朱峰通道代理计费网关（2026-09-20 落地）
 
-背景：此前 /api/proxy 与 /api/proxy_stream 转发朱峰通道（本机 8564 /v1 等）
+背景：此前 /api/proxy 与 /api/proxy_stream 转发朱峰通道（本机 8574 /v1 等）
 完全不鉴权、不扣费（模型 keyRef=user、noKeyRequired=true），任何智能体可
 免费白嫖 GLM 通道。本模块在代理入口补上「身份识别 + 余额预检 + 按用量扣费」。
 
@@ -84,7 +84,7 @@ def _proxy_port():
             from config import get_ai_proxy_port
             return get_ai_proxy_port()
         except Exception:
-            return 8564
+            return 8574
 
 
 def _gateway(path, payload, timeout=8):
@@ -119,7 +119,7 @@ def is_zf_channel(target_url):
         host = (u.hostname or '').lower()
         if not host:
             return False
-        # 本机网关（8564 /v1/...）
+        # 本机网关（8574 /v1/...）
         if host in ('127.0.0.1', 'localhost'):
             return True
         # 官方通道域名包含 zhufeng / zf 关键词

@@ -564,8 +564,8 @@
         const status = panel.querySelector('.kite-panel-status');
         saveImagePanelSettings(panel); // 生成时也记住本次设置
         if (!prompt) { status.textContent = '请输入提示词'; return; }
-        // v5.1.2 视频生成确认：视频成本较高，开始前必须用户点击确定
-        if (mediaType === 'video' && !_dlgConfirmSync('🎬 确认生成视频？\n\n视频生成消耗较多算力/费用，可能需要较长时间。\n\n点击「确定」开始生成，「取消」放弃。')) { status.textContent = '已取消视频生成'; return; }
+        // 【移除视频生成确认弹窗】直接生成，不再弹确认
+
         // 未拖出连线时：自动在面板右侧创建结果节点并连线（保持与生成尺寸一致的宽高比）
         if (!panel._imageNode || !state.nodes.has(panel._imageNode.id)) {
           const pr = panel.getBoundingClientRect();

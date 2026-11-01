@@ -8,8 +8,9 @@ from routes.mixin_loginstate import MixinLoginState
 
 
 from routes.mixin_file_bridge import FengkongFileBridge
+from routes.mixin_workbench import MixinWorkbench
 
-class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, FengkongFileBridge):
+class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, FengkongFileBridge, MixinWorkbench):
     def do_GET(self):
         # keep-alive 防线：GET 理论上无 body，但畸形请求可能带 Content-Length，
         # 排干以免污染连接上的下一个请求（501 "Unsupported method ('{}GET')"）
@@ -33,6 +34,44 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
                 self._send_json({'ok': False, 'err': str(e)}, 500)
             return
 
+
+        # ===== 🧪 进化实验室观测台（evolution_lab，M6）=====
+        if path in ('/api/lab/status', '/api/lab/curve', '/api/lab/journal'):
+            try:
+                sys.path.insert(0, os.path.normpath(os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), '..', 'evolution_lab')))
+                from evolution import Evolution  # noqa
+                _evo = Evolution()
+                if path == '/api/lab/status':
+                    st = {}
+                    _sf = _evo and None  # noqa
+                    try:
+                        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                          '..', 'evolution_lab', 'runner_state.json')
+                        import json as _json
+                        if os.path.isfile(_p):
+                            st = _json.loads(open(_p, encoding='utf-8').read())
+                    except Exception:
+                        pass
+                    self._send_json({'ok': True, 'state': st, 'stats': _evo.stats()})
+                elif path == '/api/lab/curve':
+                    self._send_json({'ok': True, 'curve': _evo.curve()})
+                else:
+                    _qs = parse_qs(parsed.query or '')
+                    _r = (_qs.get('round') or [''])[0]
+                    _jr = os.path.normpath(os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        '..', 'evolution_lab', 'journal'))
+                    _f = os.path.join(_jr, ('round_%s.md' % _r.zfill(4))) if _r else None
+                    if _f and os.path.isfile(_f):
+                        self._send_json({'ok': True, 'content': open(_f, encoding='utf-8').read()})
+                    else:
+                        import glob as _glob
+                        _files = sorted(_glob.glob(os.path.join(_jr, 'round_*.md')))
+                        self._send_json({'ok': True, 'rounds': [os.path.basename(x) for x in _files]})
+            except Exception as e:
+                self._send_json({'ok': False, 'error': str(e)}, 500)
+            return
 
         # ===== 审核师箭头配对：服务器端持久化（防客户端本地存储被清导致箭头全丢） =====
         if path == '/api/verify-pairs':
@@ -158,11 +197,67 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
             except Exception as e:
                 self._send_json({'ok': False, 'err': str(e)}, 500)
             return
-        # ===== 管家团角色注册表 =====
+        # ===== 工作台面板：情报小组件存取（GET 列表） =====
+        if path == '/api/workbench/widgets':
+            try:
+                from urllib.parse import parse_qs as _pq
+                _q = _pq(parsed.query)
+                import workbench_panel as _wp
+                self._send_json({'ok': True, 'widgets': _wp.list_widgets((_q.get('project') or ['default'])[0])})
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        # ===== 团队角色注册表（GET：?project=项目id 取项目团队；?templates=1 取模板库） =====
         if path == '/api/butler/team':
             try:
+                from urllib.parse import parse_qs as _pq
                 import butler_store as _bs
-                self._send_json({'ok': True, 'team': _bs.get_team()})
+                _q = _pq(parsed.query)
+                if (_q.get('templates') or ['0'])[0] == '1':
+                    self._send_json({'ok': True, 'templates': _bs.list_templates()})
+                    return
+                _pid = (_q.get('project') or ['default'])[0]
+                self._send_json({'ok': True, 'team': _bs.get_project_team(_pid), 'project': _pid})
+            except ValueError as e:
+                self._send_json({'ok': False, 'err': str(e)}, 400)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+        # ===== 接手简报（策划案六.2）：按 session_id 读对话开头片段，只读 =====
+        if path == '/api/butler/chat_brief':
+            try:
+                from urllib.parse import parse_qs as _pq
+                _q = _pq(parsed.query)
+                _sid = (_q.get('id') or [''])[0]
+                if not _sid:
+                    self._send_json({'ok': False, 'err': 'missing id'}); return
+                from db import db_read
+                rows = db_read('''
+                    SELECT role, content, created_at FROM (
+                        SELECT role, content, created_at FROM chat_history WHERE session_id = ?
+                        UNION ALL
+                        SELECT role, content, created_at FROM chat_history_archive WHERE session_id = ?
+                    ) ORDER BY created_at ASC LIMIT 4
+                ''', (_sid, _sid))
+                msgs = [{'role': r['role'], 'preview': (r['content'] or '')[:200], 'created_at': r['created_at']}
+                        for r in rows]
+                self._send_json({'ok': True, 'session_id': _sid, 'found': bool(msgs), 'brief': msgs})
+            except Exception as e:
+                # 降级：读不到时 ok=true 但 found=false，前端走 paths+summary+项目记录指引（策划案六.2）
+                self._send_json({'ok': True, 'session_id': _sid, 'found': False, 'brief': [], 'err': str(e)})
+            return
+        # ===== 数据中心：钉取数据源（GET 列表，POST 版在 api_dispatch_post.py） =====
+        if path == '/api/pins':
+            try:
+                from urllib.parse import parse_qs as _pq
+                _q = _pq(parsed.query)
+                import datasource_pins as _dp
+                try:
+                    _dp.ensure_auto_sync()  # 幂等挂自动同步（保证工作台数据持续更新）
+                    _dp.migrate_default_to((_q.get('project') or ['default'])[0])  # 历史default钉迁移到当前项目
+                except Exception: pass
+                _proj = (_q.get('project') or ['default'])[0]
+                self._send_json({'ok': True, 'pins': _dp.list_pins(_proj), 'pos': _dp.get_positions(_proj)})
             except Exception as e:
                 self._send_json({'ok': False, 'err': str(e)}, 500)
             return
@@ -185,20 +280,39 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
         if path == '/api/gate/active':
             self._handle_gate_active()
             return
+        # ===== A2 只读诊断端点：暴露 _db_lock 当前持锁线程+持有时长+实时调用栈 =====
+        # 蜂群收口 2026-10-25：写库堵死时可随时 curl 此端点，直接看见是哪个线程/
+        # 哪条业务路径在霸占全局写锁，免重启、免翻日志。纯只读不抢锁，免 token。
+        # 【安全 2026-10-25 审核整改】仅限本机回环访问：端点会回显持锁线程完整调用栈
+        # （内部代码路径/结构），不得暴露给局域网/远程客户端。
+        if path == '/api/db/lockdiag':
+            try:
+                from security import _is_loopback_request
+                if not _is_loopback_request(self):
+                    self._send_json({'ok': False, 'error': '仅限本机访问'}, 403)
+                    return
+                from config import _db_lock as _DL
+                _h = getattr(_DL, '_holder', None)
+                if _h is not None:
+                    _info = {
+                        'holder': _h.name,
+                        'held_sec': round(time.time() - getattr(_DL, '_held_since', time.time()), 1),
+                        'stack': _DL._stack_of(_h),
+                    }
+                else:
+                    _info = {'holder': None, 'note': '当前无人持锁（写库空闲）'}
+                self._send_json({'ok': True, 'data': _info})
+            except Exception as _e:
+                self._send_json({'ok': False, 'error': str(_e)})
+            return
 
         # 安全：token 认证（private/port.json 设 auth_token 才启用；默认关闭不影响使用）
         # 静态资源（非 /api/）放行并种认证 Cookie，浏览器后续请求自动携带，用户零感知
         from security import check_request_token
+        # 静态资源（非 /api/）放行并种认证 Cookie（security.auth_cookie_header），浏览器后续请求自动携带
         if path.startswith('/api/'):
             if not check_request_token(self):
                 return
-        else:
-            try:
-                from security import AUTH_TOKEN as _T
-                if _T and not check_request_token(self):
-                    return
-            except Exception:
-                pass
         # ===== 删除缓冲垃圾箱（列表） =====
         # ===== 对话池（chat_pool v1.0）：事件订阅（SSE 断点续读）+ 只读快照 + 开关探测 =====
         if path.startswith('/api/chat-pool/slot/') and path.endswith('/events'):
@@ -225,6 +339,11 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
         # ===== 循环内核化·阶段C：审批列表 =====
         if path == '/api/approval/list':
             self._handle_approval_list()
+            return
+
+        # ===== 可编排后台流水线·Jobs（状态/列表/transcript）=====
+        if path == '/api/jobs' or path.startswith('/api/jobs/'):
+            self._handle_jobs_get(path)
             return
 
         if path == '/api/cleanup/speed':
@@ -254,6 +373,22 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
                 self._send_json({'ok': False, 'err': str(e)}, 500)
             return
 
+        # ===== 眼睛按钮查看完整 key（按末4位换回真实 key）=====
+        if path == '/api/models/reveal-key':
+            try:
+                from model_config import find_key_by_tail
+                from urllib.parse import urlparse as _pu2, parse_qs as _pqs
+                _q = _pqs(_pu2(self.path).query)
+                tail = (_q.get('tail') or [''])[0].strip()
+                real = find_key_by_tail(tail) if tail else None
+                if real:
+                    self._send_json({'ok': True, 'key': real})
+                else:
+                    self._send_json({'ok': False, 'err': '未找到匹配的真实密钥'}, 404)
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+
         # 安全：/api/models/config 始终返回脱敏 key（load_models_config 默认 include_key=False）
         if path == '/api/models/config':
             from model_config import load_models_config
@@ -277,6 +412,11 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
 
         if path == '/api/health/config':
             self._handle_health_config_get()
+            return
+
+        # 【P2.2 密钥体检上墙】GET /api/keys/audit（只回指纹与红黄绿，不落明文）
+        if path == '/api/keys/audit':
+            self._handle_key_audit()
             return
 
         # 健康守护数据库持久化
@@ -329,6 +469,62 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
                 from db import get_agent_turns
                 rows = get_agent_turns(sid)
                 self._send_json({'ok': True, 'session_id': sid, 'turns': rows})
+            except Exception as e:
+                self._send_json({'ok': False, 'err': str(e)}, 500)
+            return
+
+        # ===== 后台无头对话监控：按会话聚合 agent_turns，返回活跃/最近会话 =====
+        if path == '/api/agent/monitor':
+            qs = parse_qs(parsed.query)
+            try:
+                limit = min(max(int((qs.get('limit') or ['20'])[0]), 1), 200)
+            except ValueError:
+                limit = 20
+            try:
+                from db import db_read
+                # 近 24h 有动静的会话，按最后活动倒序（只读走 db_read，不碰写锁）
+                rows = db_read('''
+                    SELECT session_id,
+                           COUNT(*) AS msg_count,
+                           SUM(CASE WHEN role='tool_call' OR role='tool' THEN 1 ELSE 0 END) AS tool_count,
+                           SUM(CASE WHEN role='error' THEN 1 ELSE 0 END) AS error_count,
+                           MAX(created_at) AS last_ts
+                    FROM agent_turns
+                    WHERE created_at > ?
+                    GROUP BY session_id
+                    ORDER BY last_ts DESC
+                    LIMIT ?''', (int(time.time()) - 86400 * 7, limit))
+                sessions = []
+                now = int(time.time())
+                for r in rows:  # db_read 返回 [dict]，按列名取值
+                    sid = r['session_id']
+                    n, tools, errs = (r.get('msg_count') or 0), (r.get('tool_count') or 0), (r.get('error_count') or 0)
+                    last_ts = r.get('last_ts')
+                    last = db_read(
+                        'SELECT role, content FROM agent_turns WHERE session_id=? ORDER BY id DESC LIMIT 1',
+                        (sid,), fetch='one')
+                    last_role = (last or {}).get('role', '')
+                    last_content = ((last or {}).get('content') or '')[:200]
+                    # 状态推断：最后一条 error → error；assistant 收尾且静默 > 10 分钟 → done；否则 running
+                    if last_role == 'error':
+                        status = 'error'
+                    elif last_role == 'assistant' and (now - int(last_ts or 0)) > 600:
+                        status = 'done'
+                    elif (now - int(last_ts or 0)) > 3600:
+                        status = 'stalled'
+                    else:
+                        status = 'running'
+                    sessions.append({
+                        'session_id': sid,
+                        'status': status,
+                        'msg_count': n or 0,
+                        'tool_count': tools or 0,
+                        'error_count': errs or 0,
+                        'last_ts': last_ts,
+                        'last_role': last_role,
+                        'last_content': last_content,
+                    })
+                self._send_json({'ok': True, 'now': now, 'sessions': sessions})
             except Exception as e:
                 self._send_json({'ok': False, 'err': str(e)}, 500)
             return
@@ -423,6 +619,12 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
             self._handle_fps_guard_list(parse_qs(parsed.query))
             return
 
+        # ===== 员工定时器管理（P4，只读列表） =====
+        if path == '/api/employee/timers':
+            from employee_scheduler import load_timers
+            self._send_json({'ok': True, 'timers': load_timers()})
+            return
+
         # ===== 备份管理 =====
         if path == '/api/backup/list':
             self._handle_backup_list()
@@ -495,15 +697,10 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
             self._handle_geo_reverse(parse_qs(parsed.query))
             return
 
-        # ===== QQ 机器人：模块已移除，返回占位响应避免 AttributeError 刷日志 =====
-        if path == '/api/qqbot/status':
-            self._send_json({'ok': True, 'running': False, 'removed': True})
-            return
-        if path == '/api/qqbot/messages':
-            self._send_json({'ok': True, 'messages': [], 'removed': True})
-            return
-        if path == '/api/qqbot/login-status':
-            self._send_json({'ok': True, 'logged_in': False, 'removed': True})
+        # ===== QQ 采集（NapCat）已卸载：/api/qq* 返回明确提示，不再假装有数据 =====
+        if path.startswith('/api/qq/') or path.startswith('/api/qqbot/'):
+            self._send_json({'ok': False, 'removed': True,
+                             'msg': 'QQ 群采集功能已卸载（NapCat 与本机 QQ 版本不兼容，停止维护）'})
             return
         # ===== zf3d AI 余额（前端顶栏/面板判断登录态依赖此路由；缺失会落入下方兜底误报 "zf3d module removed"）=====
         if path == '/api/zf3d/ai-balance':
@@ -652,6 +849,20 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
             self._handle_fs_text(parsed)
             return
 
+        # ===== Office 文档内置预览（独立模块 tools/office-viewer/office_docs.py） =====
+        if path in ('/api/fs/docx', '/api/fs/xlsx', '/api/fs/office_pdf'):
+            import sys as _sys2, os as _os2
+            _tool = _os2.path.join(_os2.path.dirname(_os2.path.dirname(_os2.path.dirname(_os2.path.abspath(__file__)))),
+                                   'tools', 'office-viewer')
+            if _tool not in _sys2.path:
+                _sys2.path.insert(0, _tool)
+            import office_docs as _od
+            _fn = {'/api/fs/docx': _od.handle_fs_docx,
+                   '/api/fs/xlsx': _od.handle_fs_xlsx,
+                   '/api/fs/office_pdf': _od.export_to_pdf}[path]
+            _fn(self, parsed)
+            return
+
         # ===== 画布参考板（PureRef 式）：保存/载入 =====
         if path == '/api/refboard-save':
             self._handle_refboard_save()
@@ -757,6 +968,12 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
         if path == '/api/workbench/state':
             self._handle_wb_state_get()
             return
+        if path == '/api/workbench/gallery':
+            self._handle_wb_gallery_get()
+            return
+        if path == '/api/workbench/thumb':
+            self._handle_wb_thumb_get(parsed.query)
+            return
         if path.startswith('/api/ext/'):
             self._handle_ext(method='GET', path=path)
             return
@@ -779,6 +996,11 @@ class MixinDispatchGet(ShareRoutesMixin, MixinLoginState, MixinDownload, Fengkon
         # ===== 数据表查看器（可视化浏览 table_memory 的表） =====
         if path == '/api/table-viewer':
             self._handle_table_viewer_get(parsed.query)
+            return
+
+        # ===== 后台任务监控（无限桌面监控卡数据源，只读） =====
+        if path == '/api/schedule':
+            self._handle_schedule_get(parsed.query)
             return
 
         # ===== 内置浏览器同域代理（iframe 直连真实网页） =====

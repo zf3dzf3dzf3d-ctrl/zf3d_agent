@@ -54,11 +54,31 @@
         return { sections: sections, score: score, sectionCount: found.length };
         }
 
+    // ===== S2 引用剥离：剥离「被引号包裹的黑名单短语」后再查黑名单（防"引用禁语原文"误伤）=====
+    // 防绕过：引号包裹的黑名单命中 ≥5 处视为塞禁语绕过，保留原文判定（密度阈值）
+    function stripQuotes(text) {
+        var t = String(text || '');
+        var quotedHits = 0;
+        var out = t;
+        for (var i = 0; i < FUZZY_BLACKLIST.length; i++) {
+            var p = FUZZY_BLACKLIST[i];
+            var re = new RegExp('[「『"\'"]' + p + '[」』"\'"]', 'g');
+            out = out.replace(re, '【引用略】'); // 整体删除「引号+短语」，防全文扫描误伤引用
+        }
+        // 统计：原文命中数 vs 剥离后命中数，差值即被引号包裹的命中数（剥离后 out 已删除短语，需按删除标记数计）
+        var removedMarks = out.split('【引用略】').length - 1;
+        quotedHits = removedMarks;
+        if (quotedHits >= 5) return t; // 高密度塞禁语 → 不信任剥离，返回原文
+        return out;
+    }
+
     /**
      * 校验审核报告。
      * @param {string} text task_complete 的 message 全文
-     * @param {object} opts 可选：{ scoreFloor: 90 }
-     * @returns {{pass:boolean, reasons:[], missing:[], score:n|null}}
+     * @param {object} opts 可选：{ scoreFloor: 90, lite: false }
+     *   lite=true：分级门禁（纯对话/策划类任务），只查「核验清单+审核结论」两部分存在且正文≥60字，
+     *   不强制五部分/200字/反驳条数，黑名单仍生效（stripQuotes 剥引号后判定）。
+     * @returns {{pass:boolean, reasons:[], missing:[], score:n|null, lite:boolean}}
      */
     function validate(text, opts) {
         opts = opts || {};
@@ -66,12 +86,61 @@
         var reasons = [];
         var missing = [];
 
+        // ===== 硬校验0（公共，full/lite 通用）：报告之前必须有答案正文（防空卷放行）=====
+        // 用户看到的是完整 message；若答案只藏在报告「实测证据」引号里，用户视角=没有答案。
+        function getAnswerBodyLen(t) {
+            var firstIdx = -1;
+            for (var fi = 0; fi < SECTIONS.length; fi++) {
+                var m0 = String(t).search(SECTIONS[fi].re);
+                if (m0 >= 0 && (firstIdx < 0 || m0 < firstIdx)) firstIdx = m0;
+            }
+            var preText = (firstIdx >= 0 ? String(t).slice(0, firstIdx) : String(t));
+            preText = preText.split('——')[0]; // 去掉「—— 审核报告 ——」这类引导行
+            return preText.replace(/[#>*`\-\s【】（）()《》\[\]:：、,，。.!？?；;'"\"“”…—]/g, '').length;
+        }
+        var NO_BODY_MSG = '审核报告之前缺少答案正文（有效内容<30字）。用户阅读的是报告之前的正文区域；答案绝不能只作为「实测证据」引文出现在核验清单里。必须先写完整答案正文，再附审核报告';
+
+        // ===== S1 lite 分支：轻量校验（纯对话/策划类任务）=====
+        if (opts.lite) {
+            var liteText = String(text || '').trim();
+            if (liteText.length < 60) {
+                return { pass: false, lite: true, reasons: ['审核报告过短（<60字，lite 模式），疑似敷衍，拒绝放行'], missing: ['逐条核验清单', '审核结论'], score: null };
+            }
+            // lite 同样强制答案正文存在（公共硬校验0）
+            if (getAnswerBodyLen(liteText) < 30) {
+                return { pass: false, lite: true, reasons: [NO_BODY_MSG], missing: ['答案正文'], score: null };
+            }
+            var liteParsed = parseReport(liteText);
+            var liteMissing = [];
+            ['checklist', 'verdict'].forEach(function (key) {
+                var s = SECTIONS.filter(function (x) { return x.key === key; })[0];
+                var body = liteParsed.sections[key];
+                if (!body || body.trim().replace(/^#+\s*/, '').replace(s.title, '').trim().length < 10) liteMissing.push(s.title);
+            });
+            if (liteMissing.length) {
+                return { pass: false, lite: true, reasons: ['lite 模式仍须含「逐条核验清单」与「审核结论」两部分（各≥10字正文），当前缺少: ' + liteMissing.join('、')], missing: liteMissing, score: liteParsed.score };
+            }
+            // lite 也要过黑名单（剥引号后判定，防引用误伤同时防绕过）
+            var liteStripped = stripQuotes(liteText);
+            for (var lb = 0; lb < FUZZY_BLACKLIST.length; lb++) {
+                if (liteStripped.indexOf(FUZZY_BLACKLIST[lb]) >= 0) {
+                    return { pass: false, lite: true, reasons: ['审核报告出现模糊表述（黑名单命中，lite 模式同样拦截）'], missing: [], score: liteParsed.score };
+                }
+            }
+            return { pass: true, lite: true, reasons: [], missing: [], score: liteParsed.score };
+        }
+
         // 报告过短直接拒（敷衍拦截第一道）
         if (!text || String(text).trim().length < 200) {
             return { pass: false, reasons: ['审核报告过短（<200字），疑似敷衍，拒绝放行'], missing: SECTIONS.map(function (s) { return s.title; }), score: null };
         }
 
         var parsed = parseReport(text);
+
+        // ===== 硬校验0：报告之前必须有答案正文（公共函数，与 lite 共用）=====
+        if (getAnswerBodyLen(text) < 30) {
+            reasons.push(NO_BODY_MSG);
+        }
 
         // ===== 硬校验1：五部分缺一不可 =====
         for (var i = 0; i < SECTIONS.length; i++) {
@@ -92,9 +161,11 @@
             reasons.push('「自我反驳」部分不足 2 条（找到 ' + itemMarks.length + ' 条）。必须主动列出至少 2 个可能有问题之处并逐一验证排除');
         }
 
-        // ===== 硬校验3：模糊表述黑名单（扫描各 section 正文）=====
+        // ===== 硬校验3：模糊表述黑名单（S2：先剥引号内 1~20 字引用再扫描，防引用禁语原文误伤）=====
+        var strippedFull = stripQuotes(text);
+        var strippedParsed = parseReport(strippedFull);
         for (var k in parsed.sections) {
-            var body2 = parsed.sections[k];
+            var body2 = (strippedParsed.sections && strippedParsed.sections[k]) || parsed.sections[k];
             for (var b = 0; b < FUZZY_BLACKLIST.length; b++) {
                 if (body2.indexOf(FUZZY_BLACKLIST[b]) >= 0) {
                     reasons.push('审核报告出现模糊表述「' + FUZZY_BLACKLIST[b] + '」（在「' + k + '」部分）。默认不通过立场：放行必须实证，禁止模糊断言');
@@ -113,24 +184,39 @@
     }
 
     /**
-     * 生成自纠指令（role=tool 注回循环）。
+     * 生成自纠指令（role=tool 注回循环）。S3：按拒绝类型附填空模板。
      * @param {object} v validate() 返回值
      * @param {number} round 当前自审轮次（从1起）
+     * @param {boolean} stuckMode 同签名卡住≥3轮
+     * @param {boolean} lite 当前任务是否 lite 分级
      */
-    function buildRetryInstruction(v, round, stuckMode) {
+    function buildRetryInstruction(v, round, stuckMode, lite) {
         var lines = [];
-        lines.push('【自审门禁】你的 task_complete 已被自审闭环拒绝（第 ' + round + ' 轮自审未通过）。');
+        lines.push('【自审门禁】你的 task_complete 已被自审闭环拒绝（第 ' + round + ' 轮自审未通过' + (lite ? '，lite 分级模式' : '') + '）。');
         if (stuckMode) {
             lines.push('⚠️ 防打转护栏：同一问题已连续 3 轮无实质进展，本轮必须更换实现路径/换思路，禁止沿用前几轮的相同修法。');
         }
         lines.push('拒绝原因：');
         for (var i = 0; i < v.reasons.length; i++) lines.push((i + 1) + '. ' + v.reasons[i]);
-        lines.push('请针对上述原因完成自纠后，重新用 task_complete 交付，并在 message 中附完整审核报告，必须包含以下五部分（缺一不放行）：');
-        lines.push('① 逐条核验清单：每条验收标准 → 实测证据（命令输出/文件行号/diff）→ 通过/不通过');
-        lines.push('② 自我反驳：以找茬者立场列 2-3 个"可能有问题之处"，逐一验证排除');
-        lines.push('③ 自我审视：是否偷懒/绕过（删测试、改预期、口头声称）？有无未验证假设？');
-        lines.push('④ 问题定位：不通过必须写清哪个文件哪一行、为什么错、怎么改');
-        lines.push('⑤ 审核结论：默认不通过立场，放行必须实证；出现"应该没问题/大致可以"等模糊表述直接判自审失败');
+        lines.push('重要：最终消息的结构必须是「先答案正文 → 后审核报告」。先用正文完整回答用户的问题，再用 —— 审核报告 —— 分隔线附五部分报告；审核报告只是交付自证，不能替代答案。');
+        if (lite) {
+            lines.push('请按以下模板补全（lite 分级模式：仅核验清单+审核结论，各≥10字正文，总长≥60字）：');
+            lines.push('【逐条核验清单】');
+            lines.push('- 验收标准：… → 证据：…（命令输出/文件行号/diff）→ 通过/不通过');
+            lines.push('【审核结论】');
+            lines.push('…（明确判定+依据；模糊表述会直接拦截）');
+        } else {
+            lines.push('请针对上述原因完成自纠后，重新用 task_complete 交付，并按以下模板附完整审核报告（缺一不放行）：');
+            lines.push('【① 逐条核验清单】');
+            lines.push('- 验收标准1：… → 实测证据：…（命令输出/文件行号/diff）→ 通过');
+            lines.push('【② 自我反驳】（至少 2 条）');
+            lines.push('- 疑点1：… → 验证：…，排除');
+            lines.push('- 疑点2：… → 验证：…，排除');
+            lines.push('【③ 自我审视】未删测试/未改预期/未绕过门禁；无未验证假设（逐项说明）');
+            lines.push('【④ 问题定位】不通过时写清哪个文件哪一行、为什么错、怎么改；通过时写"无"');
+            lines.push('【⑤ 审核结论】明确判定通过/不通过 + 实证依据');
+            lines.push('注意：不要把黑名单模糊短语原文写进报告——虽已做引号引用剥离，但剥离有密度上限，直接避免使用最稳妥。');
+        }
         lines.push('注意：这是无限自循环，没有外部兜底，不通过就会一直循环，直到审核报告真实通过为止。');
         return lines.join('\n');
     }
@@ -139,9 +225,10 @@
     window.SelfGate = {
         parseReport: parseReport,
         validate: validate,
+        stripQuotes: stripQuotes,
         buildRetryInstruction: buildRetryInstruction,
         SECTIONS: SECTIONS,
         FUZZY_BLACKLIST: FUZZY_BLACKLIST,
-        version: '2.2'
+        version: '3.0'
     };
 })();

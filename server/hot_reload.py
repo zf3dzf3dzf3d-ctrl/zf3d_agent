@@ -84,13 +84,18 @@ class HotReloader:
         'routes/mixin_media.py': 'routes.mixin_media',
         'routes/mixin_ext.py': 'routes.mixin_ext',
         'routes/mixin_zf3d.py': 'routes.mixin_zf3d',
+        # 【2026-10-28 补】工作台 mixin 此前漏配监视，改完必须重启才生效 → 加入级联重载
+        'routes/mixin_workbench.py': 'routes.mixin_workbench',
         'zf3d_commands.py': 'zf3d_commands',
         'zf3d_heartbeat.py': 'zf3d_heartbeat',
         'git_branch_api.py': 'git_branch_api',
         'routes/mixin_browser.py': 'routes.mixin_browser',
         'routes/mixin_demo.py': 'routes.mixin_demo',
         'routes/mixin_gate.py': 'routes.mixin_gate',
+        # 【2026-10-22 补】jobs 后台流水线 mixin 此前漏配监视，改完必须重启才生效 → 加入级联重载
+        'routes/mixin_jobs.py': 'routes.mixin_jobs',
         'chat_gate.py': 'chat_gate',
+        'butler_store.py': 'butler_store',
         'routes/mixin_docs.py': 'routes.mixin_docs',
         'routes/mixin_briefing.py': 'routes.mixin_briefing',
         # 循环内核化（阶段B/C）：Loop-S 内核循环与路由
@@ -98,6 +103,11 @@ class HotReloader:
         'routes/mixin_loop_s.py': 'routes.mixin_loop_s',
         'browser_plugin/engine.py': 'browser_plugin.engine',
         'browser_plugin/engine_seg2.py': 'browser_plugin.engine_seg2',
+        # extensions 扩展子系统（dsh 桥等），在项目根 extensions/ 目录
+        '../extensions/__init__.py': 'extensions',
+        '../extensions/dsh/__init__.py': 'extensions.dsh',
+        '../extensions/ui_registry.py': 'extensions.ui_registry',
+        '../extensions/market.py': 'extensions.market',
         # tools 包及其子模块（修改任一工具处理器时热重载）
         # tools/ 在项目根目录，路径相对于 server_dir 的上一级
     }
@@ -365,6 +375,14 @@ class HotReloader:
         for fn in changed_files:
             mod_name = self.PY_MODULES.get(fn)
             if mod_name and mod_name.startswith('browser_plugin.'):
+                to_reload.append((fn, mod_name))
+
+        # extensions/ 扩展子系统（dsh 桥等）：extensions.dsh 变更时级联重载 extensions 包
+        for fn in changed_files:
+            mod_name = self.PY_MODULES.get(fn)
+            if mod_name and mod_name.startswith('extensions'):
+                if mod_name != 'extensions' and 'extensions' not in {m for _, m in to_reload}:
+                    to_reload.append(('../extensions/__init__.py', 'extensions'))
                 to_reload.append((fn, mod_name))
 
         # browser_plugin 分段文件（engine_seg*.py）变更：级联重载 browser_plugin.engine

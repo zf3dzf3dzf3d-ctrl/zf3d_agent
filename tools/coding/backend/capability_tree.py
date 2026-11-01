@@ -10,11 +10,17 @@ P0 不含侦测器、不含编辑 UI；只证明"能种树、加节点、写库�
 import os
 import re
 import json
+import math
 import time
 import sqlite3
+
+_cos, _sin = math.cos, math.sin
 from tools.coding.backend.base import ToolContext
 
 TOOL_NAME = 'capability_tree'
+# move 回写后重导出用：render 记住当前文件名/today_only，move 落库后按同样参数重导出
+_cur_render_file = None
+_cur_today_only = False
 
 
 def _db_path(ctx):
@@ -132,6 +138,102 @@ def _repath_subtree(c, node_id, new_path):
         _repath_subtree(c, k['id'], child_path)
 
 
+# ===== 方案A：统一为「一棵全局涌现树」 =====
+# 涌现侦测器建候选不再按对话 chat_id 分树（旧行为导致候选与画布割裂、画布永远看不到候选）。
+# 全部候选统一归到固定 subject（project / _emergence），并落盘到画布默认加载的同一个 maps 文件，
+# 这样侦测建候选、confirm、reject 后画布经 liveTick(2s) 自动热刷新。
+EMERGE_SUBJECT_TYPE = 'project'
+EMERGE_SUBJECT_ID = '_emergence'
+
+
+def _render_subject(c, ctx, st, sid, fname, today_only=False):
+    """把指定 subject 的 DB 树导出为 maps/<fname>.emergence.tree.json，返回 (文件名, 节点数)。
+    render action / _emergence 侦测 / confirm / reject 共用此落盘逻辑（单一真源）。
+    today_only=True 时只导出【今日创建】的节点 + 根节点 + 它们的祖先链（防太乱）。
+    祖先闭包（反驳①修复）：昨日父被滤掉时，今日子节点会成孤儿根断树；
+    这里取全量后在 Python 侧向上补全今日节点的祖先链，保持树形完整。"""
+    midnight = time.mktime(time.strptime(time.strftime('%Y-%m-%d'), '%Y-%m-%d'))
+    all_rows = [dict(r) for r in c.execute(
+        'SELECT id,parent_id,text,path,depth,clarity,status,icon,kind,x,y,created_at'
+        ' FROM capability WHERE subject_type=? AND subject_id=? ORDER BY id',
+        (st, sid)).fetchall()]
+    all_by_id = {r['id']: r for r in all_rows}
+    keep = set()
+    for r in all_rows:
+        if r['parent_id'] is None or (today_only and (r['created_at'] or 0) >= midnight):
+            keep.add(r['id'])
+    if not today_only:
+        keep = set(all_by_id.keys())
+    else:
+        # 祖先闭包：今日节点的父链全部补入（父不因昨日创建而丢失）
+        for r in all_rows:
+            if r['id'] not in keep:
+                continue
+            cur = r['parent_id']
+            while cur is not None and cur in all_by_id and cur not in keep:
+                keep.add(cur)
+                cur = all_by_id[cur]['parent_id']
+    nodes = [dict(all_by_id[i]) for i in sorted(keep)]
+    by_id = {n['id']: dict(n, children=[]) for n in nodes}
+    roots = []
+    for n in nodes:
+        item = by_id[n['id']]
+        pid = n['parent_id']
+        if pid and pid in by_id:
+            by_id[pid]['children'].append(item)
+        else:
+            roots.append(item)
+    links = [dict(r) for r in c.execute(
+        'SELECT id,src,dst,kind FROM capability_link').fetchall()]
+    # 只保留两端都在本 subject 可见节点集合内的连线（防跨 subject / 被过滤节点的悬空线）
+    ids = set(by_id.keys())
+    links = [l for l in links if l['src'] in ids and l['dst'] in ids]
+    # 坐标回填已删除（治本 2026-10-31）：原逻辑给 null 坐标节点按黄金角回填 ±250 内小圈坐标，
+    #   被前端 viewer.html 误判为"用户拖拽钉位"照单全收，导致整树挤成一小团。
+    #   现输出 x/y=null，由前端半手工兜底（围绕已钉位父节点散开）+ 星云布局接管。
+    #   注意：前端前端兜底公式（viewer.html L206-208）与旧回填公式同源，坐标不跳变。
+    tree = {
+        'meta': {'title': '涌现能力树', 'subject_type': st, 'subject_id': sid,
+                 'created': time.strftime('%Y-%m-%d'), 'today_only': bool(today_only)},
+        'roots': roots,
+        'links': links,
+    }
+    outdir = os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps')
+    os.makedirs(outdir, exist_ok=True)
+    safe = re.sub(r'[^\w\-]', '_', fname) + '.emergence.tree.json'
+    with open(os.path.join(outdir, safe), 'w', encoding='utf-8') as f:
+        json.dump(tree, f, ensure_ascii=False, indent=2)
+    return safe, len(nodes)
+
+
+def _render_emerge(c, ctx):
+    """侦测/确认/驳回后，把全局涌现树落盘到画布默认文件（EMERGE_SUBJECT_ID）。
+    画布只展示今日科技点（根 + 今日创建节点），历史点留在 DB 不删，避免画面太乱。"""
+    try:
+        return _render_subject(c, ctx, EMERGE_SUBJECT_TYPE, EMERGE_SUBJECT_ID, EMERGE_SUBJECT_ID, today_only=False)
+    except Exception as e:
+        # 不再静默吞错：落 stderr 便于排查（渲染失败会导致画布停留在旧树）
+        import sys, traceback
+        print('[capability_tree] _render_emerge failed:', e, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return None
+
+
+def _write_eye(ctx, state, reason='', event=None):
+    """眼睛事件源（P0-1）：树变化时落盘 maps/eye.json，viewer 轮询驱动 👁/🌑 状态机。
+    state: open=睁眼(树在生长) closed=闭眼(休眠慢呼吸)；event: recycle 回收条等一次性事件。"""
+    try:
+        outdir = os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps')
+        os.makedirs(outdir, exist_ok=True)
+        data = {'state': state, 'reason': reason, 'ts': _now()}
+        if event:
+            data['event'] = event
+        with open(os.path.join(outdir, 'eye.json'), 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
 def handle(body, ctx):
     action = (body.get('action') or '').strip()
     if not action:
@@ -139,6 +241,7 @@ def handle(body, ctx):
     _init(ctx)
     st, sid = _sub_filter(body)
     c = _conn(ctx)
+    global _cur_render_file, _cur_today_only
     try:
         if action == 'seed':
             text = (body.get('text') or '').strip()
@@ -199,6 +302,7 @@ def handle(body, ctx):
             c.execute('INSERT INTO emergence_event(cap_id,kind,delta_clarity,detail,created_at) VALUES(?,?,?,?,?)',
                       (cid, 'evidence', delta, detail, t))
             c.commit()
+            _write_eye(ctx, 'open', 'evidence#' + str(cid))
             ctx.send_json({'ok': True, 'action': 'evidence', 'id': cid, 'clarity': new_cl})
             return
 
@@ -273,7 +377,41 @@ def handle(body, ctx):
                             _repath_subtree(c, iid, np)
                             repathed.append({'id': iid, 'path': np})
             c.commit()
-            ctx.send_json({'ok': True, 'action': 'move', 'updated': len(items), 'repathed': repathed})
+            _move_reexport_err = None
+            # 外科手术式保存：直接在目标 JSON 文件里只更新被拖动节点的 x/y，
+            # 不做全量重导出（重导出会因 today_only 过滤/布局差异覆盖整棵树，
+            # 历史上多次导致「拖完一刷新又回原位/节点丢失」）。
+            _tgt_file = body.get('file') or _cur_render_file or (sid or 'default')
+            _fname = re.sub(r'\.emergence\.tree\.json$', '', _tgt_file)
+            try:
+                _fp = os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps',
+                                   re.sub(r'[^\w\-]', '_', _fname) + '.emergence.tree.json')
+                _d = json.load(open(_fp, encoding='utf-8'))
+                _movemap = {it['id']: it for it in items}
+                _hit = [0]
+
+                def _patch(ns):
+                    for n in ns:
+                        if n.get('id') in _movemap:
+                            it = _movemap[n['id']]
+                            n['x'] = it['x']; n['y'] = it['y']
+                            _hit[0] += 1
+                        _patch(n.get('children', []))
+                _patch(_d.get('roots', []))
+                if _hit[0]:
+                    json.dump(_d, open(_fp, 'w', encoding='utf-8'), ensure_ascii=False)
+                else:
+                    raise RuntimeError('no node patched in %s' % _fp)
+            except Exception as _e:
+                # 兜底：文件补丁失败才走全量重导出（参数来自文件自身 meta）
+                try:
+                    _meta = json.load(open(_fp, encoding='utf-8')).get('meta', {})
+                    # 2026-10-31 防今日小树复发：一律 False 全量导出，不信任旧文件的 today_only meta
+                    _render_subject(c, ctx, st, sid, _fname, today_only=False)
+                except Exception as _e2:
+                    _move_reexport_err = 'patch:%s reexport:%s' % (_e, _e2)
+            ctx.send_json({'ok': True, 'action': 'move', 'updated': len(items), 'repathed': repathed,
+                           'reexport_error': _move_reexport_err})
             return
 
         if action == 'context':
@@ -313,6 +451,7 @@ def handle(body, ctx):
                       (cid, 'emerge', delta, detail, t))
             c.commit()
             pending = c.execute('SELECT COUNT(*) n FROM emergence_event WHERE kind=\'emerge\' AND notified=0').fetchone()['n']
+            _write_eye(ctx, 'open', 'emerge#' + str(cid))
             ctx.send_json({'ok': True, 'action': 'emerge', 'pending': int(pending)})
             return
 
@@ -339,9 +478,13 @@ def handle(body, ctx):
                 r = c.execute('SELECT clarity FROM capability WHERE id=?', (cid,)).fetchone()
                 if r:
                     new_cl = max(0.0, min(1.0, r['clarity'] + float(e['delta_clarity'] or 0.05)))
-                    c.execute('UPDATE capability SET clarity=?,updated_at=? WHERE id=?', (new_cl, _now(), cid))
+                    # 今日确认的节点视为今日活跃（created_at 刷新），否则昨日建今日确认的点会被 today_only 滤掉
+                    c.execute('UPDATE capability SET clarity=?,created_at=?,updated_at=? WHERE id=?', (new_cl, _now(), _now(), cid))
             c.execute('UPDATE emergence_event SET notified=1 WHERE id=?', (eid,))
             c.commit()
+            _render_emerge(c, ctx)   # 方案A：确认即落盘，画布经 liveTick 自动刷新
+            _write_eye(ctx, 'open', 'confirm#' + str(eid),
+                       {'kind': 'recycle', 'text': (body.get('note') or (ev.get('detail') if ev else '') or ''), 'event_id': eid})
             ctx.send_json({'ok': True, 'action': 'confirm', 'event_id': eid, 'cap_id': cid, 'clarity': new_cl})
             return
 
@@ -351,6 +494,7 @@ def handle(body, ctx):
                 ctx.send_json({'ok': False, 'error': 'reject 需要 event_id'}); return
             c.execute('UPDATE emergence_event SET notified=1 WHERE id=?', (eid,))
             c.commit()
+            _render_emerge(c, ctx)   # 方案A：驳回即落盘（节点已删，画布同步移除）
             ctx.send_json({'ok': True, 'action': 'reject', 'event_id': eid})
             return
 
@@ -382,38 +526,18 @@ def handle(body, ctx):
 
         if action == 'render':
             # 产出 emergence.tree.json（嵌套树 + 顶层 links[]），落 public/canvas/进化树/maps/
-            rows = c.execute(
-                'SELECT id,parent_id,text,path,depth,clarity,status,icon,kind,x,y'
-                ' FROM capability WHERE subject_type=? AND subject_id=? ORDER BY id',
-                (st, sid)).fetchall()
-            nodes = [dict(r) for r in rows]
-            by_id = {n['id']: dict(n, children=[]) for n in nodes}
-            roots = []
-            for n in nodes:
-                item = by_id[n['id']]
-                pid = n['parent_id']
-                if pid and pid in by_id:
-                    by_id[pid]['children'].append(item)
-                else:
-                    roots.append(item)
-            links = [dict(r) for r in c.execute(
-                'SELECT id,src,dst,kind FROM capability_link').fetchall()]
-            tree = {
-                'meta': {'title': body.get('title') or ('进化树-' + (sid or st)),
-                         'subject_type': st, 'subject_id': sid,
-                         'created': time.strftime('%Y-%m-%d')},
-                'roots': roots,
-                'links': links,
-            }
-            outdir = os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps')
-            os.makedirs(outdir, exist_ok=True)
-            fname = re.sub(r'[^\w\-]', '_', (body.get('file') or (sid or 'default'))) + '.emergence.tree.json'
-            fp = os.path.join(outdir, fname)
-            with open(fp, 'w', encoding='utf-8') as f:
-                json.dump(tree, f, ensure_ascii=False, indent=2)
+            # 单一真源：统一走 _render_subject（含连线过滤，防历史节点全量打回画布）
+            # 2026-10-31 收敛防复发：today_only 一律 False 全量导出，不再接受显式传参（最后一个残留入口）
+            fname, n_count = _render_subject(
+                c, ctx, st, sid,
+                body.get('file') or (sid or 'default'),
+                today_only=False)
+            _cur_render_file = fname; _cur_today_only = False
+            _write_eye(ctx, 'open', 'render')
             ctx.send_json({'ok': True, 'action': 'render', 'file': fname,
                            'url': '/canvas/进化树/viewer.html?file=' + fname,
-                           'node_count': len(nodes), 'path': fp})
+                           'node_count': n_count,
+                           'path': os.path.join(ctx.base_dir, 'public', 'canvas', '进化树', 'maps', fname)})
             return
 
         if action == 'unlink':

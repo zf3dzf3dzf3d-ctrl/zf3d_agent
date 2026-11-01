@@ -40,6 +40,11 @@ class UpdateChecker:
         self.backup_server = update_cfg.get("backup_server", "")
         self.oss_base = update_cfg.get("oss_base", "https://zf3d-img.oss-cn-guangzhou.aliyuncs.com/agent/release/")
         self.checksum_url = update_cfg.get("checksum_url", "")  # 校验和独立通道地址（可选，独立于更新包下载地址）
+        self.require_checksum = bool(update_cfg.get("require_checksum", True))  # 专项1：强校验开关（默认强制）
+        self.allow_rollback = bool(update_cfg.get("allow_rollback", False))  # 专项1：版本号防回滚（默认拒绝降级安装）
+        self.update_channel = update_cfg.get("channel", "stable")  # 专项3：灰度通道 stable/beta/internal
+        self.gray_ratio = float(update_cfg.get("gray_ratio", 1.0))  # 专项3：灰度放量比例 0~1，1.0=全量
+        self.gray_device_key = update_cfg.get("gray_device_key", "")  # 专项3：灰度分流键（缺省用机器指纹）
         self.current_version = update_cfg.get("current_version", self.config.get("version", "5.2.5"))
         self.check_interval_hours = update_cfg.get("check_interval_hours", 24)
         self.project_root = Path(self.config.get("project_root", "."))
@@ -47,7 +52,7 @@ class UpdateChecker:
         self._cached_result = None
 
     def check_update(self, force: bool = False) -> dict:
-        """多源检查是否有新版本，依次尝试备用服务器 → Gitee → GitHub"""
+        """多源检查是否有新版本，依次尝试 OSS → 自建服务器 → Gitee → GitHub"""
         if not force and self._cached_result and self._last_check_time:
             elapsed_hours = (datetime.now() - self._last_check_time).total_seconds() / 3600
             if elapsed_hours < self.check_interval_hours:
@@ -71,6 +76,11 @@ class UpdateChecker:
                     result["source"] = source_name
                     if not has_update:
                         result["message"] = f"已是最新版本（{source_name}）"
+                    # 专项3：灰度放量门控——非全量时按设备分流键决定是否放行
+                    elif has_update and not self._gray_gate(result):
+                        result["has_update"] = False
+                        result["gray_hold"] = True
+                        result["message"] = f"新版本 {result['latest_version']} 灰度放量中，本机暂未命中（channel={self.update_channel}, ratio={self.gray_ratio}）"
                     self._cached_result = result
                     self._last_check_time = datetime.now()
                     self._consecutive_failures = 0
@@ -195,7 +205,9 @@ class UpdateChecker:
             # SHA256 完整性校验（校验和从独立通道获取，不与更新包同源，防篡改）
             checksum_error = self._verify_checksum(zip_path)
             if checksum_error:
-                return {"success": False, "error": checksum_error}
+                # 专项1：默认强校验——未配置校验和通道时拒绝安装（可显式关闭）
+                if self.require_checksum or checksum_error != "SKIP_NO_CHANNEL":
+                    return {"success": False, "error": checksum_error if checksum_error != "SKIP_NO_CHANNEL" else "未配置 checksum_url 且 require_checksum 已开启，拒绝安装（可在 config.update.require_checksum=false 临时关闭）"}
 
             # 解压
             extract_dir = temp_dir / "extracted"
@@ -235,6 +247,11 @@ class UpdateChecker:
             # 更新配置文件版本号
             self._update_config_version()
 
+            # 专项1：版本号防回滚最终确认（以包内实际版本号为准）
+            rb_err = self.check_no_rollback(new_version if (new_version := self._detect_package_version(new_root)) else self._cached_result.get("latest_version", "") if self._cached_result else "")
+            if rb_err:
+                raise RuntimeError(rb_err)
+
             # 清理旧备份（只保留最近1个）
             self._cleanup_old_backups()
 
@@ -243,12 +260,18 @@ class UpdateChecker:
             return {"success": True, "message": "更新完成，请刷新页面以加载新版本"}
 
         except Exception as e:
-            # 回滚
+            # 专项2：安装/自检失败自动回滚（恢复上一版本），并标注回滚结果
+            rollback_ok = None
             if backup_dir and backup_dir.exists():
-                self._restore_project(backup_dir, self.project_root)
+                try:
+                    self._restore_project(backup_dir, self.project_root)
+                    rollback_ok = True
+                except Exception as re_err:
+                    rollback_ok = False
+                    e = RuntimeError(f"{e}；且回滚失败: {re_err}（可用 server/backup_version.py 备用版本并排启动恢复）")
             if temp_dir:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-            return {"success": False, "error": f"更新失败: {e}"}
+            return {"success": False, "rolled_back": rollback_ok, "error": f"更新失败: {e}"}
 
     def _sha256_of_file(self, path: Path) -> str:
         h = hashlib.sha256()
@@ -279,7 +302,7 @@ class UpdateChecker:
                 print(f"[auto-update] 警告: 回退获取 .sha256 失败（{url}）: {e}，本次更新跳过 SHA256 校验")
         if not expected:
             print("[auto-update] 警告: 未配置 checksum_url，本次更新跳过 SHA256 校验")
-            return ""
+            return "SKIP_NO_CHANNEL"
         # 兼容 "<sha256>  filename" 格式
         actual = self._sha256_of_file(zip_path)
         expected_hash = expected.split()[0].lower()
@@ -354,6 +377,49 @@ class UpdateChecker:
             return 0
         except (ValueError, AttributeError):
             return 0
+
+    # =====================================================================
+    # 专项1：版本号防回滚 —— 新版本号必须严格大于当前版本才允许安装
+    # =====================================================================
+    def check_no_rollback(self, new_version: str) -> str:
+        """返回空串表示允许安装；返回错误信息表示拒绝降级"""
+        if self.allow_rollback:
+            return ""
+        if self._compare_version(new_version, self.current_version) <= 0:
+            return f"拒绝回滚安装：目标版本 {new_version} 不高于当前版本 {self.current_version}（如确需降级请在 config.update.allow_rollback=true）"
+        return ""
+
+    # =====================================================================
+    # 专项3：灰度放量门控 —— stable/beta/internal 通道 + 比例分流
+    # =====================================================================
+    def _device_hash(self) -> str:
+        """稳定的设备分流键：优先配置，缺省用机器指纹（用户名+机器名）"""
+        if self.gray_device_key:
+            return hashlib.sha256(self.gray_device_key.encode("utf-8")).hexdigest()
+        import getpass, socket
+        raw = f"{getpass.getuser()}@{socket.gethostname()}"
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _gray_gate(self, result: dict) -> bool:
+        """决定本机是否命中灰度放量。internal 通道全放，beta 走比例，stable 默认全量。"""
+        if self.update_channel == "internal":
+            return True
+        if self.gray_ratio >= 1.0:
+            return True
+        if self.gray_ratio <= 0.0:
+            return False
+        bucket = int(self._device_hash()[:8], 16) / 0xFFFFFFFF  # 归一化到 0~1
+        return bucket < self.gray_ratio
+
+    def _detect_package_version(self, package_root: Path) -> str:
+        """从更新包内的 private/config.json 或 package.json 读取版本号（防回滚用）"""
+        for cand in (package_root / "private" / "config.json", package_root / "package.json"):
+            try:
+                if cand.exists():
+                    return self._clean_version(json.loads(cand.read_text(encoding="utf-8-sig")).get("version", ""))
+            except Exception:
+                continue
+        return ""
 
     def _find_project_root(self, directory: Path) -> Path or None:
         """在解压目录中查找项目根目录（包含 public/ 或 server/ 的目录）"""

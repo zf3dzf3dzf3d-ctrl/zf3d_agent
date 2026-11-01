@@ -669,6 +669,8 @@ Object.assign(App, {
                 _lastT = 0; // 消费兜底计数，防止重复触发
                 var inC = _inCanvas(e.target);
                 if (!inC) return;
+                // 【v7.4】随手标题上双击不弹创建面板（双击应是编辑标题）
+                if (e.target.closest && e.target.closest('.quick-note')) return;
                 e.preventDefault();
                 openCreatePanels(e.clientX, e.clientY, e.target);
             });
@@ -680,6 +682,8 @@ Object.assign(App, {
                 if (Date.now() < (window._qcSuppressUntil||0)) { _lastT = 0; return; } // 长按/兜底刚弹出，抑制紧随的 click
                 var inC = _inCanvas(e.target);
                 if (!inC) { _lastT = 0; return; }
+                // 【v7.4】随手标题上双击不弹创建面板（兜底通道同样排除）
+                if (e.target.closest && e.target.closest('.quick-note')) { _lastT = 0; return; }
                 var now = Date.now();
                 var gap = now - _lastT;
                 var dx = Math.abs(e.clientX - _lastX), dy = Math.abs(e.clientY - _lastY);
@@ -1140,10 +1144,15 @@ Object.assign(App, {
                 }
             };
             if (typeof DB !== 'undefined' && DB.online) {
-                DB.getNode(rec.id).then(function(node) {
-                    if (node) { restore(node); }
-                    else { restore(rec.node || null); }
-                }).catch(function() { restore(rec.node || null); });
+                // 【防重启复活】先显式清除服务端墓碑（POST /nodes/{id}/revive），
+                // 否则后续 saveNode 会被服务端墓碑拦截，导致重启后再次消失。
+                var reviveP = (DB._request && DB._request('POST', '/nodes/' + encodeURIComponent(rec.id) + '/revive', {})) || Promise.resolve();
+                Promise.resolve(reviveP).catch(function() {})
+                    .then(function() { return DB.getNode(rec.id); })
+                    .then(function(node) {
+                        if (node) { restore(node); }
+                        else { restore(rec.node || null); }
+                    }).catch(function() { restore(rec.node || null); });
             } else {
                 restore(rec.node || null);
             }

@@ -113,6 +113,87 @@ class MixinSettingsBrain(MixinBase):
             elif act == 'group_assign':
                 # 角色进/出组：{role_id, group_id}（group_id 空 = 出组）
                 self._send_json({'ok': rdb.assign_role_group(body.get('role_id'), body.get('group_id'))})
+            elif act == 'expert_auto_generate':
+                # 专家团 F5：行业库无匹配专家时，调模型自动生成 N 个专家并归档到指定分组
+                _hint = str(body.get('hint') or '').strip()[:200]
+                _gname = (str(body.get('group_name') or '').strip()[:40]) or '专家团'
+                try:
+                    _count = int(body.get('count') or 3)
+                except Exception:
+                    _count = 3
+                _count = max(3, min(8, _count))
+                try:
+                    import json as _json
+                    import re as _re
+                    from brain.main_brain import _call_llm
+                    # 找/建同名分组
+                    _gid = ''
+                    for g in rdb.get_groups():
+                        if str(g.get('name')) == _gname:
+                            _gid = str(g.get('id'))
+                            break
+                    if not _gid:
+                        _gid = str(rdb.add_group(_gname).get('id'))
+                    sys_p = (
+                        '你是行业专家配置助手。用户给出一个行业或需求主题，请为该主题配置 %d 名该领域资深专家。'
+                        '要求：\n'
+                        '1. 全部使用简体中文；\n'
+                        '2. 每位专家给出 name（2-6字身份名，如 摄像师/灯光师/导演，不要重名）'
+                        '和 prompt（该专家的专业人设：身份定位+擅长+说话风格，30-80字）；\n'
+                        '3. 只输出一个 JSON 数组，形如 [{"name":"...","prompt":"..."}]，不要任何解释、不要代码块标记。'
+                    ) % _count
+                    user_p = '行业/需求主题：%s' % _hint
+                    raw = _call_llm(BASE_DIR, [
+                        {'role': 'system', 'content': sys_p},
+                        {'role': 'user', 'content': user_p}],
+                        max_tokens=800, temperature=0.8) or ''
+                    m = _re.search(r'\[[\s\S]*\]', raw)
+                    arr = _json.loads(m.group(0)) if m else []
+                    created = []
+                    for it in arr:
+                        if not isinstance(it, dict):
+                            continue
+                        nm = str(it.get('name') or '').strip()[:60]
+                        pm = str(it.get('prompt') or '').strip()
+                        if not nm or not pm:
+                            continue
+                        r = rdb.add_role(nm, pm, '🎓', '', _gid)
+                        if r:
+                            created.append(r)
+                        if len(created) >= _count:
+                            break
+                    if created:
+                        self._send_json({'ok': True, 'roles': created, 'group_id': _gid, 'group_name': _gname})
+                    else:
+                        self._send_json({'ok': False, 'error': 'AI 未能生成有效专家，请重试或先手动建立该行业分组'})
+                except Exception as e2:
+                    self._send_json({'ok': False, 'error': '专家自动生成失败：%s' % e2})
+            elif act == 'expert_plan':
+                # 专家团 F7：把"是否需要专家派驻 + 匹配哪个分组"交给 AI 判断（不再用前端关键词表）
+                _hint = str(body.get('hint') or '').strip()[:300]
+                _gnames = [str(x.get('name') or '') for x in (body.get('groups') or []) if isinstance(x, dict) and x.get('name')]
+                if not _hint:
+                    self._send_json({'ok': False, 'error': 'hint 为空'}); return
+                try:
+                    import json as _json
+                    import re as _re
+                    from brain.main_brain import _call_llm
+                    sys_p = (
+                        '你是专家团调度员。根据用户需求判断：是否需要派出行业专家来辅助？'
+                        + (('现有专家分组：' + '、'.join(_gnames) + '。') if _gnames else '当前没有已建分组。')
+                        + '只输出一个 JSON 对象，形如 {"need": true/false, "group": "分组名或空串"}：'
+                        'need=该需求是否需要专业领域专家辅助，由你自行综合判断；'
+                        'group=从上面分组中选最匹配的一个名字，没有合适的就输出空串。不要任何解释。'
+                    )
+                    raw = _call_llm(BASE_DIR, [
+                        {'role': 'system', 'content': sys_p},
+                        {'role': 'user', 'content': '需求：%s' % _hint[:300]}],
+                        max_tokens=120, temperature=0.2) or ''
+                    m = _re.search(r'\{[\s\S]*\}', raw)
+                    obj = _json.loads(m.group(0)) if m else {}
+                    self._send_json({'ok': True, 'need': bool(obj.get('need')), 'group': str(obj.get('group') or '')})
+                except Exception as e2:
+                    self._send_json({'ok': False, 'error': '专家团调度判断失败：%s' % e2})
             elif act == 'top':
                 # 置顶/取消置顶：{id, top}
                 self._send_json({'ok': rdb.set_role_top(body.get('id'), bool(body.get('top')))})

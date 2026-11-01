@@ -832,7 +832,7 @@ Object.assign(App, {
                         var ic = trig.querySelector('.tool-cat-icon');
                         var nm = trig.querySelector('.tool-cat-name');
                         if (ic) ic.textContent = catObj.icon || '📄';
-                        if (nm) nm.textContent = srcToolCat;
+                        if (nm) nm.textContent = '工具分类'; // 【固定文字】
                         // 重建下拉菜单并高亮当前分类
                         var menu = trig.nextElementSibling;
                         if (menu) {

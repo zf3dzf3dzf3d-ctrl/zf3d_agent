@@ -283,7 +283,7 @@ def _proxy_port():
             return _v
     except Exception:
         pass
-    return 8564  # 兜底默认=本版本端口段末（5.6.x=8560-8564，唯一事实来源是 private/port.json）
+    return 8574  # 兜底默认=本版本端口段末（5.7.x=8570-8574，唯一事实来源是 private/port.json）
 
 PROXY_PORT = _proxy_port()
 
@@ -527,6 +527,17 @@ def main():
     from hot_reload import init_hot_reloader
     init_hot_reloader(server, DBHandler, server_dir, PUBLIC_DIR)
 
+    # [僵尸回收] 服务启动时清理上个进程遗留的 running/queued 流水线任务，
+    # 使面板「进行中」计数准确（daemon worker 随进程重启已死，状态却卡住）
+    try:
+        import db as _db0
+        _reclaimed = _db0.reconcile_jobs_on_startup()
+        if _reclaimed and not QUIET_CONSOLE:
+            print(f'[Server] 启动回收僵尸流水线任务 {len(_reclaimed)} 个: {_reclaimed}')
+    except Exception as e:
+        if not QUIET_CONSOLE:
+            print(f'[Server] 僵尸任务回收失败(不影响主服务): {e}')
+
     # 启动远程控制信令 WebSocket 服务（8516，remote/ 包）
     try:
         from remote.ws_server import start_remote_ws
@@ -584,6 +595,44 @@ def main():
                 pool_resume.recover_on_boot()
             except Exception as _pre:
                 print('[Server] pool_resume 启动扫描异常: %s' % _pre)
+            # 【Jobs 断点自愈】启动后把被僵尸回收(reconcile 标 failed)的中断任务自动重跑。
+            # daemon worker 随进程重启已死，jobs 状态卡在 queued/running，已被上方
+            # reconcile_jobs_on_startup 回收为 failed；此处按原 cfg 重新拉起（保持原
+            # job_id/session 续写流水线）。开关在 private/port.json 加 "jobs_auto_resume": false 关闭。
+            def _jobs_recover_on_boot(reclaimed_ids):
+                try:
+                    _cfg = {}
+                    _pj = os.path.join(BASE_DIR, 'private', 'port.json')
+                    if os.path.exists(_pj):
+                        with open(_pj, 'r', encoding='utf-8-sig') as _f:
+                            _cfg = json.load(_f)
+                    if _cfg.get('jobs_auto_resume') is False:
+                        print('[JobsRecover] 已按 port.json 配置关闭自动恢复')
+                        return
+                    import db as _db
+                    from routes.mixin_jobs import _run_pipeline_worker
+                    n = 0
+                    for jid in (reclaimed_ids or []):
+                        row = _db.get_job(jid) or {}
+                        try:
+                            cfg = json.loads(row.get('cfg_json') or '{}')
+                        except Exception:
+                            cfg = {}
+                        if not (row.get('goal') or cfg.get('goal')):
+                            print('[JobsRecover] 跳过 %s：无 goal 无法重跑' % jid)
+                            continue
+                        cfg['goal'] = row.get('goal') or cfg.get('goal')
+                        cfg['session'] = row.get('session_id') or cfg.get('session') or ('pl-' + str(int(time.time())))
+                        cwd = os.path.abspath(cfg.pop('_cwd', None) or BASE_DIR)
+                        threading.Thread(target=_run_pipeline_worker,
+                                         args=(jid, cfg, cwd), daemon=True).start()
+                        n += 1
+                        print('[JobsRecover] 已重新拉起中断任务 %s' % jid)
+                    if n:
+                        print('[JobsRecover] 共恢复 %d 个中断任务' % n)
+                except Exception as _jre:
+                    print('[JobsRecover] 启动扫描异常: %s' % _jre)
+            threading.Thread(target=_jobs_recover_on_boot, args=(_reclaimed,), daemon=True).start()
             # 本机 AI 代理网关(8787)兜底自启：朱峰模型全部流量经此转发，
             # 没起来用户端表现为 WinError 10061 且无法自救，必须启动即保证在跑
             try:
@@ -619,10 +668,22 @@ def main():
                 network_guard.start_heartbeat_probe()
             except Exception as _hbe:
                 print('[Server] 心跳探针启动失败(不影响启动):', _hbe)
+            # 【卡死自动取证】>90s 无进度自动 py-spy dump（P2.2 防复发机制）
+            try:
+                import stuck_watch
+                stuck_watch.start()
+            except Exception as _swe:
+                print('[Server] 卡死取证看门狗启动失败(不影响启动):', _swe)
 
         import threading as _post_thr
         _post_thr.Thread(target=_post_boot_tasks, name='post-boot',
                          daemon=True).start()
+        # 【首开提速 2026-10-27】缩略图后台预热（320px/WebP，单飞+限频，失败不影响启动）
+        try:
+            from routes.mixin_project_fs import start_thumb_warmup
+            start_thumb_warmup()
+        except Exception as _tw:
+            print('[Server] 缩略图预热线程启动失败(不影响启动):', _tw)
         server.serve_forever()
     except KeyboardInterrupt:
         print('\n[Server] 正在停止...')

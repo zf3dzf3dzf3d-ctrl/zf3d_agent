@@ -204,7 +204,7 @@ Object.assign(App, {
         var pins = self._getPins();
         var idx = -1;
         for (var i = 0; i < pins.length; i++) if (self._norm(pins[i]) === cwd) { idx = i; break; }
-        // 【5.6.x 修复】当当前浏览目录是钉住项的【子目录】时，按钮显示"取消钉住"，
+        // 【5.7.x 修复】当当前浏览目录是钉住项的【子目录】时，按钮显示"取消钉住"，
         // 但旧逻辑只用 cwd 精确匹配 pins，匹配不到 → 什么也没删却提示"已取消钉住"。
         // 修复：回退到 _currentPinOf()（最长前缀匹配的生效钉住项）来取消。
         if (idx < 0) {
@@ -245,7 +245,7 @@ Object.assign(App, {
         var btn = document.getElementById('ftPinBtn');
         if (!btn) return;
         var pins = this._getPins(), pinned = false;
-        // 【5.6.x 修复】只用"cwd 是否等于钉住项或在其之内"判断；此前用
+        // 【5.7.x 修复】只用"cwd 是否等于钉住项或在其之内"判断；此前用
         // _isUnderDir(pins[i], this._ftCwd)（钉住项在 cwd 之下）方向反了：
         // 浏览到钉住项目的【子目录】时按钮不显示已钉住。
         for (var i = 0; i < pins.length; i++) if (this._isUnderDir(this._ftCwd, pins[i]) || this._isUnderDir(pins[i], this._ftCwd)) { pinned = true; break; }
@@ -305,7 +305,7 @@ Object.assign(App, {
             DB.linkFolder(pid, cur).catch(function() {});
         }
     },
-    // 【5.6.0 反馈修复】检测目录是否仍存在。
+    // 【5.7.0 反馈修复】检测目录是否仍存在。
     // 【卡死修复】原实现用同步 XHR（xhr.open(..., false)），会冻结整个页面：
     // 若钉住路径指向慢盘/网络盘/已断开的路径，请求期间 UI 全部无响应（点击没反应、箭头展不开）。
     // 现改为异步 fetch + 回调，绝不再阻塞主线程。
@@ -356,7 +356,7 @@ Object.assign(App, {
     _activatePinProject: function(p) {
         var self = this;
         p = self._norm(p);
-        // 【5.6.0 反馈修复】无论后续是否发生实际切换，点击钉住项必须有立即视觉反馈，
+        // 【5.7.0 反馈修复】无论后续是否发生实际切换，点击钉住项必须有立即视觉反馈，
         // 否则 cwd 已在项目内时树内容无变化，用户会误以为"点了没反应/卡死"
         try {
             var flashNode = null;
@@ -996,7 +996,7 @@ _bindSidebar: function(tree) {
 
     // ===== 树展开/收起 =====
     _expandAncestors: function(dirPath) {
-        // 逐级展开祖先（【5.6.0 修复】止步于文件树根 _ftRoot，不再一路预取到盘符根：
+        // 逐级展开祖先（【5.7.0 修复】止步于文件树根 _ftRoot，不再一路预取到盘符根：
         // 之前浏览深层目录会逐级请求 /api/fs/browse 一直打到 F:\ 根目录（文件巨多），是面板巨卡的主因之一）
         var self = this;
         var key = self._norm(dirPath);
@@ -2272,7 +2272,11 @@ _bindSidebar: function(tree) {
         }
         // 【修复 5.0.5】启动后未打开过文件树/项目面板时，_ftProjId 为空但 App.activeProject
         // 已有统一活动项目 → 直接采用活动项目并同步到文件树状态，避免上下文显示"(未指定)"
-        if (!self._ftProjId && typeof App !== 'undefined' && App.activeProject && (App.activeProject.id || App.activeProject.name)) {
+        // 【串台修复 5.7.0·回退段防污染】仅当文件树当前浏览的项目===活动项目时才采用全局
+        // 浏览目录；否则保持 _ftRoot 为空走 folder_path 兜底，防止把别的项目的浏览目录注入成 cwd。
+        var _apOk = (typeof App !== 'undefined' && App.activeProject && App.activeProject.id);
+        var _apMismatch = _apOk && self._ftProjId && String(self._ftProjId) !== String(App.activeProject.id);
+        if (!self._ftProjId && !_apMismatch && typeof App !== 'undefined' && App.activeProject && (App.activeProject.id || App.activeProject.name)) {
             var _apid = String(App.activeProject.id || '');
             var _apname = App.activeProject.name || '';
             var _found = false;
@@ -2332,11 +2336,25 @@ _bindSidebar: function(tree) {
                 _pvs = { path: _tp.path, name: _tp.name, text: _val.slice(_s, _e), line_start: _ls, line_end: _le };
             }
         }
+        // 【串台修复 5.7.0 v2】浏览项目≠活动项目时：无条件把 cwd/root 回退到活动项目 folder_path
+        // 并加警示（原 indexOf 前缀判断在"浏览项目内部目录"场景恒 false，防护失效——反驳师实锤）。
+        var _cwdOut = self._ftCwd || '';
+        var _warnCwd = '';
+        if (_apMismatch) {
+            var _apRoot = '';
+            try {
+                if (App.activeProject && App.activeProject.folder_path) _apRoot = self._norm(App.activeProject.folder_path);
+            } catch (e) {}
+            if (!_apRoot && self._ftProjId && String(self._ftProjId) === String(App.activeProject.id)) _apRoot = self._ftRoot || '';
+            _warnCwd = '⚠️ 全局浏览目录(' + _cwdOut + ')属于其他项目，已回退为本项目根目录，文件操作请以本目录为准。\n';
+            _cwdOut = _apRoot || '';
+        }
         return {
             project_id: self._ftProjId,
             project_name: self._ftProjName || '',
             root: self._ftProjId ? (self._ftRoot || '') : (self._ftRoot || pin || ''),
-            cwd: self._ftCwd || '',
+            cwd: _cwdOut,
+            _cwd_warn: _warnCwd,
             selected: selFiles,
             selection_mode: self._ftSelMode || 'replace',
             preview_selection: _pvs

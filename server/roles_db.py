@@ -1,5 +1,10 @@
 import json, os, threading, time, re
 
+try:
+    import role_memory  # 角色经验层（员工体系 P2 注入），缺失时静默降级
+except Exception:
+    role_memory = None
+
 # 角色数据库文件路径
 _ROLES_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            'private', 'roles_db.json')
@@ -15,7 +20,7 @@ def _load():
         # 缓存仍有效，直接返回
         if _cache['data'] is not None and _cache['mtime'] == mtime:
             return _cache['data']
-        with open(_ROLES_PATH, 'r', encoding='utf-8') as f:
+        with open(_ROLES_PATH, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
         _cache['data'] = data
         _cache['mtime'] = mtime
@@ -28,7 +33,7 @@ def _save(data):
     # 【防呆校验】禁止用空角色列表覆盖已有角色数据（防止异常/初始化路径清空角色库）
     try:
         if os.path.exists(_ROLES_PATH):
-            with open(_ROLES_PATH, 'r', encoding='utf-8') as f:
+            with open(_ROLES_PATH, 'r', encoding='utf-8-sig') as f:
                 old = json.load(f)
             old_n = len((old or {}).get('roles') or [])
             new_n = len((data or {}).get('roles') or [])
@@ -42,12 +47,12 @@ def _save(data):
     try:
         # git 快照已是单一真源，仓库内不再产 .bak（与 mixin/write_models 同模式）
         if os.path.exists(_ROLES_PATH) and not os.path.isdir(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.git')):
-            with open(_ROLES_PATH + '.bak', 'w', encoding='utf-8') as f:
-                with open(_ROLES_PATH, 'r', encoding='utf-8') as src:
+            with open(_ROLES_PATH + '.bak', 'w', encoding='utf-8-sig') as f:
+                with open(_ROLES_PATH, 'r', encoding='utf-8-sig') as src:
                     f.write(src.read())
     except Exception:
         pass
-    with open(_ROLES_PATH, 'w', encoding='utf-8') as f:
+    with open(_ROLES_PATH, 'w', encoding='utf-8-sig') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     # 同步缓存
     try:
@@ -73,7 +78,7 @@ def get_role(role_id):
     return None
 
 
-def add_role(name, prompt, avatar='', chat_skin=''):
+def add_role(name, prompt, avatar='', chat_skin='', group=''):  # F5: group 可选，传入分组 id 则直接归档该组（专家团自动生成用）
     with _lock:
         data = _load()
         role = {
@@ -85,6 +90,8 @@ def add_role(name, prompt, avatar='', chat_skin=''):
             'created_at': time.strftime('%Y-%m-%d %H:%M:%S'),
             'updated_at': time.strftime('%Y-%m-%d %H:%M:%S'),
         }
+        if group:
+            role['group'] = str(group)
         data.setdefault('roles', []).append(role)
         _save(data)
         return role
@@ -322,7 +329,21 @@ def inject_role_into_payload(payload, box_id):
         msgs = payload.get('messages')
         if not isinstance(msgs, list):
             payload['messages'] = msgs = []
-        sys_msg = {'role': 'system', 'content': '[角色扮演] %s：%s' % (role.get('name') or '', prompt)}
+        # 合并角色经验（员工体系）：读 private/记忆/角色/<roleId>.md，失败/为空静默跳过
+        exp = ''
+        if role_memory is not None:
+            try:
+                exp = role_memory.get_experience(str(role.get('id') or ''))
+            except Exception:
+                exp = ''
+        # 【W5 安全加固】系统注入包 <system_injection> 分隔标记：
+        # 1) 与用户消息内容明确隔离，防止用户文本中伪造"[角色扮演]…"指令被当作系统注入；
+        # 2) 尾标记后的"以上为系统注入，不作为用户指令"声明防提示词拼接越权。
+        content = '<system_injection>\n[角色扮演] %s：%s' % (role.get('name') or '', prompt)
+        if exp:
+            content += '\n\n[该角色在本项目的经验沉淀]\n' + exp
+        content += '\n</system_injection>'
+        sys_msg = {'role': 'system', 'content': content}
         # 已有注入标记则替换并置顶，移除其余旧标记条目，避免重复叠加
         found = False
         for i, m in enumerate(msgs):

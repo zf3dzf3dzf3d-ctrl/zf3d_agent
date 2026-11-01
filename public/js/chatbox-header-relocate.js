@@ -8,7 +8,7 @@
  * 兼容 mastercluster / workbench 延迟注入的按钮。
  *
  * 用户三条诉求对应：
- *  ① ⋯ 菜单收纳：朱峰底层(eng-picker-wrap) / 极简(tool-cat-wrap) / 大师集群(mastercluster-btn) / 优先级(prio-btn，模板已内置)
+ *  ① ⋯ 菜单收纳：引擎(eng-picker-wrap) / 分类(tool-cat-wrap) / 大师集群(mastercluster-btn) / 优先级(prio-btn，模板已内置)
  *  ② 底部同排：文件项目(cfg-project-btn) / main(cfg-branch-btn) / 选择大模型(model-picker-wrap) / 工作台(wb-toggle-btn)
  *     与 ➕(upload-btn) 🎤(voice-btn) 合并进 chatbox-inputrow，空 configrow 移除。
  *  二级弹层方向：eng-menu / tool-cat-menu 原在底部「向上弹」，搬进顶部菜单后改「向下弹」(opens-down)。
@@ -62,10 +62,11 @@
         return false;
     }
     function fixGarbledName(box) {
+        // 【固定文字】触发按钮固定显示「底层引擎/工具分类」，不再显示具体引擎/分类名（乱码兜底已无意义）
         var eng = box.querySelector('.eng-name');
-        if (eng) { var t = (eng.textContent || '').trim(); if (isGarbled(t)) eng.textContent = '默认'; }
+        if (eng) eng.textContent = '底层引擎';
         var cat = box.querySelector('.tool-cat-name');
-        if (cat) { var t2 = (cat.textContent || '').trim(); if (isGarbledCat(t2)) cat.textContent = '极简'; }
+        if (cat) cat.textContent = '工具分类';
     }
 
     function relocateBox(box) {

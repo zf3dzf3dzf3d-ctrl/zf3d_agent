@@ -59,7 +59,7 @@
     height: 100vh !important; 
 } 
 /* ===== canvas-overview integration (app-canvas-overview.js v1) ===== */
-body.zf-overview-mode .ov-selected { outline: 2px solid #4f8cff !important; outline-offset: 3px; box-shadow: 0 0 0 5px rgba(79,140,255,.25) !important; }
+body.zf-overview-mode .ov-selected { --zw: var(--ov-zoom, 1); outline: calc(4px / var(--zw)) solid #4f8cff !important; outline-offset: calc(4px / var(--zw)); box-shadow: 0 0 0 calc(7px / var(--zw)) rgba(79,140,255,.35), 0 0 18px rgba(79,140,255,.45) !important; }
 body.zf-overview-mode .chatbox { user-select: none; }
 /* ===== 缩小整理模式（总览态）鼠标形状跟随 =====
    左键：空白处=框选(crosshair)、节点=拖动(move)；右键：平移(grabbing)。

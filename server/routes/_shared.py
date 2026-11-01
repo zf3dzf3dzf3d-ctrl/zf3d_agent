@@ -122,6 +122,60 @@ def _ssrf_check_url(url):
         return False
 
 
+# ===== 死代理探测：本机回环代理(如Clash)挂起时会导致所有上游请求卡死 =====
+_proxy_dead_checked = False
+_proxy_dead = False
+def _loopback_proxy_dead():
+    """快速探测系统代理是否为本机回环端口且已死（1.5s 连不上即判死，结果缓存）。"""
+    global _proxy_dead_checked, _proxy_dead
+    if _proxy_dead_checked:
+        return _proxy_dead
+    _proxy_dead_checked = True
+    _proxy_dead = False
+    try:
+        px = urllib.request.getproxies()
+        host = port = None
+        for scheme in ('https', 'http'):
+            u = px.get(scheme)
+            if u:
+                p = urlparse(u)
+                h = p.hostname or ''
+                if h in ('127.0.0.1', '::1', 'localhost'):
+                    host, port = '127.0.0.1', p.port or (80 if scheme == 'http' else 443)
+                    break
+        if host:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1.5)
+            try:
+                s.connect((host, port))
+                connect_ok = True
+            except Exception:
+                connect_ok = False
+                _proxy_dead = True
+                print('[Proxy] 检测到本机回环代理 %s:%s 已失联，本次运行将绕过代理直连上游' % (host, port))
+            finally:
+                s.close()
+            # 端口连得上 ≠ 代理可用：半死代理（端口监听但转发挂死）会让请求悬挂数分钟。
+            # 再做一次真实 HTTP 验证（3s 超时），不通即判死，永久绕过。
+            if connect_ok:
+                try:
+                    proxy_url = px.get('http') or px.get('https')
+                    probe_opener = urllib.request.build_opener(urllib.request.ProxyHandler({
+                        'http': proxy_url, 'https': proxy_url}))
+                    probe_req = urllib.request.Request(
+                        'http://www.msftconnecttest.com/connecttest.txt', method='HEAD')
+                    probe_opener.open(probe_req, timeout=3)
+                except Exception:
+                    _proxy_dead = True
+                    print('[Proxy] 本机回环代理 %s:%s 端口可连但转发验证失败(3s)，判定为半死代理，本次运行绕过直连上游' % (host, port))
+    except Exception:
+        pass
+    return _proxy_dead
+
+def _direct_opener():
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=_SSL_CTX))
+
 # ===== 上游请求重试：吸收网络抖动（SSL 中断/连接重置） =====
 def _urlopen_retry(req, timeout, attempts=6, backoff=1.0, tag='Proxy'):
     """带重试的 urlopen。仅对"连接阶段"瞬时故障重试（此时请求未到达上游，重放安全）：
@@ -130,8 +184,11 @@ def _urlopen_retry(req, timeout, attempts=6, backoff=1.0, tag='Proxy'):
     - HTTP 502/503/504 Bad Gateway：网关瞬时故障，连接阶段即返回，重放安全
     超时不重试（重试会让等待时间翻倍）。重试全部失败后把最后一个异常抛给调用方。"""
     last = None
+    _skip_proxy = _loopback_proxy_dead()
     for i in range(max(1, attempts)):
         try:
+            if _skip_proxy:
+                return _direct_opener().open(req, timeout=timeout)
             return urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX)
         except urllib.error.HTTPError as e:
             if e.code in (502, 503, 504) and i < attempts - 1:
@@ -146,14 +203,8 @@ def _urlopen_retry(req, timeout, attempts=6, backoff=1.0, tag='Proxy'):
             last = e
             reason = getattr(e, 'reason', e)
             if isinstance(reason, socket.timeout):
-                # 超时不再直接放弃：多数是本机代理(如Clash)出站挂死，
-                # 绕过代理直连往往可用。落到循环外直连兜底（登录等短请求重放安全）。
-                if i < attempts - 1:
-                    print('[%s] 上游超时，%.1fs 后重试(%d/%d)' % (
-                        tag, backoff, i + 1, attempts - 1))
-                    time.sleep(backoff)
-                    backoff *= 2
-                    continue
+                # 超时多为本机代理(如Clash)出站挂死：立刻绕过代理直连兜底，
+                # 不再空转重试（走死代理重试只会让等待时间翻倍）。
                 break
             if i < attempts - 1:
                 print('[%s] 上游连接失败，%.1fs 后重试(%d/%d): %s' % (
@@ -166,9 +217,7 @@ def _urlopen_retry(req, timeout, attempts=6, backoff=1.0, tag='Proxy'):
     # 代理挂掉但直连可用时，这一次兜底可以救回请求，根治断网。
     try:
         print('[%s] 重试耗尽，尝试绕过代理直连兜底...' % tag)
-        direct_opener = urllib.request.build_opener(
-            urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=_SSL_CTX))
-        return direct_opener.open(req, timeout=timeout)
+        return _direct_opener().open(req, timeout=timeout)
     except Exception as e2:
         print('[%s] 直连兜底也失败: %s' % (tag, str(e2)[:160]))
         raise last

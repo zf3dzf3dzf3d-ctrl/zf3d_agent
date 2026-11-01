@@ -161,11 +161,19 @@ def sync():
     if not site_models:
         return {"ok": False, "msg": "网站配置为空，跳过同步（安全保护）"}
 
+    local = None
     try:
         with open(MODELS_FILE, "r", encoding="utf-8") as f:
-            local = json.load(f)
+            _loaded = json.load(f)
+        if isinstance(_loaded, dict):
+            local = _loaded
     except Exception:
-        local = {"models": []}
+        local = None
+    if local is None:
+        # 【防覆盖加固】读取失败/JSON 损坏时绝不能按空配置继续——
+        # 否则写盘阶段会把本地自配模型全部抹掉（10-26/10-29 两次模型消失根因）。
+        # 此处直接跳过同步并报警，保留现场待人工恢复（backups 目录有历史备份）。
+        return {"ok": False, "msg": "本地 models.json 读取失败或损坏，已跳过同步以保护本地自配模型（请从 public/config/backups 恢复）"}
     models = local.get("models", [])
 
     # 【自愈保护】补齐每条模型的必要字段，防止"再次消失"：
@@ -180,6 +188,12 @@ def sync():
     # 【用户默认优先】同步前先记住本地各类型的默认模型 id（用户在设置面板手动选择过）。
     # 官方下发的 default 标记只能在"该类型还没有任何默认"时生效，
     # 否则每次同步/启动都会把用户选择的默认模型覆盖回官网默认（用户选 B 又变回 A 的根因）。
+    # 【visible 持久化】同步前先记住本地各条目的 visible（设置面板眼睛开关），重建官方条目时回填，
+    # 否则每次重启同步都会把用户隐藏的模型重新显示出来（visible 重启丢失根因）。
+    local_visible = {}  # id -> visible
+    for _m in models:
+        if isinstance(_m, dict) and "visible" in _m and _m.get("id"):
+            local_visible[_m["id"]] = bool(_m["visible"])
     def _dtype(m):
         t = str(m.get("modelType") or "").lower()
         if t in ("", "chat", "text"):
@@ -273,6 +287,13 @@ def sync():
                 pass  # 用户默认仍存在，尊重用户选择
             else:
                 entry["isDefault"] = True
+        # 【visible 持久化】回填本地用户在设置面板的眼睛开关状态（隐藏/显示），重启同步不丢失。
+        # 撞名条目 id 被加了 -zf 后缀，需同时回查原 id。
+        _v = local_visible.get(mid)
+        if _v is None and mid.endswith("-zf"):
+            _v = local_visible.get(mid[:-3])
+        if _v is not None:
+            entry["visible"] = _v
         synced.append(entry)
 
     def _normalize(m):
@@ -310,6 +331,16 @@ def sync():
     for m in zf_entries:
         _normalize(m)
     local["models"] = models
+    # 【写盘前快照】每次同步写盘前自动留一份时间戳备份，万一同步逻辑出错可即时回滚
+    try:
+        import shutil, time as _time
+        _bk_dir = os.path.join(BASE, "public", "config", "backups")
+        os.makedirs(_bk_dir, exist_ok=True)
+        _bk_path = os.path.join(_bk_dir, "models-auto-%s.json" % _time.strftime("%Y%m%d-%H%M%S"))
+        if os.path.exists(MODELS_FILE):
+            shutil.copy2(MODELS_FILE, _bk_path)
+    except Exception:
+        pass
     with open(MODELS_FILE, "w", encoding="utf-8") as f:
         json.dump(local, f, ensure_ascii=False, indent=2)
     # 同步官方条目到独立文件：合并 site_models 顺序（保留历史非官方直连条目——它们属于本地文件，不在此处理）

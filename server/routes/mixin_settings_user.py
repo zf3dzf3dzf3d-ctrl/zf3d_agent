@@ -261,7 +261,9 @@ class MixinSettingsUser(MixinBase):
             raw = self._cached_body(length) if length > 0 else b'{}'
             data = json.loads(raw.decode('utf-8') or '{}')
             combo = int(data.get('combo', 0))
-            out = {'combo': combo, 'ts': _time_mod.time()}
+            _iv = data.get('intervals')
+            out = {'combo': combo, 'ts': _time_mod.time(),
+                   'intervals': (_iv[-60:] if isinstance(_iv, list) else [])}
             path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.combo_state.json')
             tmp = path + '.tmp'
             with open(tmp, 'w', encoding='utf-8') as f:

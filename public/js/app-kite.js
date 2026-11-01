@@ -462,11 +462,22 @@ function _dlgPrompt(msg, val){
     /* 早期定义开关函数（模块作用域，init 即生效）：
        因悬停不再自动弹面板，菜单「风筝统计」必须在面板"第一次构建"前就能调用到打开函数，
        故此处先行定义，避免 __kiteOpenHeadPanel 仅在面板 inner 构建后才存在导致的"首次点击无响应"。 */
+    /* 【恢复原模式】统计面板（solo）关闭后，还原打开前的挂件模式（如"全部关闭"） */
+    function _restoreSoloPrevMode() {
+        try {
+            var _prev = window.__kiteSoloPrevMode;
+            window.__kiteSoloPrevMode = null;
+            if (_prev && window.ZFKiteModes && typeof window.ZFKiteModes.setMode === 'function') {
+                window.ZFKiteModes.setMode(_prev);
+            }
+        } catch (e) {}
+    }
     window.__kiteCloseOverview = function () {
         overviewClosed = true;
         var p = root && root.querySelector('.kite-head-overview');
         if (p) { p.classList.remove('open'); p._szDirty = true; }
         if (root) root.classList.remove('kite-panel-solo');   /* 退出 solo：恢复风筝本体 */
+        _restoreSoloPrevMode();
     };
     window.__kiteOpenHeadPanel = function () {
         overviewClosed = false;
@@ -655,6 +666,23 @@ function _dlgPrompt(msg, val){
            重建丢监听；按在操作按钮(关闭/复制)上不启动拖拽，移动<3px 视为点击不影响按钮。 */
         if (!panel._dragBound) {
             panel._dragBound = true;
+            /* 【位置记忆】面板构建时若 localStorage 有保存过的位置，立刻恢复（覆盖 CSS 的 fixed 底部居中） */
+            try {
+                var _savedPos = JSON.parse(localStorage.getItem('zf_kite_overview_pos') || 'null');
+                if (_savedPos && typeof _savedPos.left === 'number' && typeof _savedPos.top === 'number') {
+                    var _r0 = panel.getBoundingClientRect();
+                    var _vw = window.innerWidth || 1280, _vh = window.innerHeight || 800;
+                    var _sl = Math.min(Math.max(_savedPos.left, 4), Math.max(4, _vw - _r0.width - 4));
+                    var _st = Math.min(Math.max(_savedPos.top, 4), Math.max(4, _vh - _r0.height - 4));
+                    panel.style.setProperty('left', _sl + 'px', 'important');
+                    panel.style.setProperty('top', _st + 'px', 'important');
+                    panel.style.setProperty('bottom', 'auto', 'important');
+                    panel.style.setProperty('right', 'auto', 'important');
+                    panel.style.setProperty('transform', 'none', 'important');
+                    panel._pinned = true; panel._posDone = true; panel._szDirty = false; panel._vpDirty = false;
+                    panel._lx = _sl; panel._ly = _st;
+                }
+            } catch (e1) {}
             panel.addEventListener('pointerdown', function (e) {
                 var handle = e.target.closest && e.target.closest('.kho2-head__row');
                 if (!handle || handle.classList.contains('kho2-head__row--chips')) return;   /* 仅标题行可拖 */
@@ -681,6 +709,10 @@ function _dlgPrompt(msg, val){
                 function up() {
                     document.removeEventListener('pointermove', mv);
                     document.removeEventListener('pointerup', up);
+                    /* 【位置记忆】拖拽结束后把面板位置写入 localStorage，刷新/重启后恢复 */
+                    if (moved) {
+                        try { localStorage.setItem('zf_kite_overview_pos', JSON.stringify({ left: panel._lx, top: panel._ly })); } catch (e2) {}
+                    }
                 }
                 document.addEventListener('pointermove', mv);
                 document.addEventListener('pointerup', up);
@@ -712,6 +744,14 @@ function _dlgPrompt(msg, val){
             panel._szDirty = true;
             /* 关闭统计时退出 solo：恢复风筝本体显示 */
             if (root) root.classList.remove('kite-panel-solo');
+            /* 【恢复原模式】统计面板打开前若临时切入了 kite（如从"全部关闭"），关闭时还原 */
+            try {
+                var _prev = window.__kiteSoloPrevMode;
+                window.__kiteSoloPrevMode = null;
+                if (_prev && window.ZFKiteModes && typeof window.ZFKiteModes.setMode === 'function') {
+                    window.ZFKiteModes.setMode(_prev);
+                }
+            } catch (e) {}
         };
         /* 需求4：菜单「风筝统计」直达打开面板（绕开悬停依赖），配合 solo 隐藏风筝本体只显示统计 */
         window.__kiteOpenHeadPanel = function () {
@@ -945,13 +985,21 @@ function _dlgPrompt(msg, val){
             if (running) {
                 if (n._lastActive === undefined) n._lastActive = Date.now();
                 var stalled = (Date.now() - n._lastActive) > STALL_MS;
-                if (stalled !== !!n._stall) {
-                    n._stall = stalled;
-                    n.el.classList.toggle('stall', stalled);
-                    if (stalled) {
-                        try {
-                            if (window.App && App._showStormToast) App._showStormToast('「' + (n.chat.title || n.chatId) + '」已超过 3 分钟无响应，风筝节点红色闪烁，请检查该对话');
-                        } catch (e) {}
+                /* 【防闪烁】连续 2 个检测周期都判定停滞才算真停滞，防止单次抖动导致红色闪烁/提示反复弹出 */
+                n._stallTicks = stalled ? (n._stallTicks || 0) + 1 : 0;
+                var stalledConfirmed = stalled && n._stallTicks >= 2;
+                if (stalledConfirmed !== !!n._stall) {
+                    n._stall = stalledConfirmed;
+                    n.el.classList.toggle('stall', stalledConfirmed);
+                    if (stalledConfirmed) {
+                        /* 【防闪烁】同一节点 60 秒内只弹一次风暴提示，防止停滞↔恢复振荡时提示轰炸 */
+                        var _nowTick = Date.now();
+                        if (!n._stallToastAt || (_nowTick - n._stallToastAt) > 60000) {
+                            n._stallToastAt = _nowTick;
+                            try {
+                                if (window.App && App._showStormToast) App._showStormToast('「' + (n.chat.title || n.chatId) + '」已超过 3 分钟无响应，风筝节点红色闪烁，请检查该对话');
+                            } catch (e) {}
+                        }
                         /* 【响应缓慢处理】弹窗让用户选择：确定=打断对话让其继续工作；等待=继续观察并清零计时 */
                         if (!n._stallAsked) {
                             n._stallAsked = true;   // 每次停滞只问一次，避免弹窗轰炸
@@ -1582,6 +1630,21 @@ function _dlgPrompt(msg, val){
             } catch (err) {}
             var target = hit(e.clientX, e.clientY);
             if (!target) return;
+            /* 【修复·压住按钮点不动】风筝头/节视觉上盖住下层按钮（如「底层引擎/工具分类/大模型」）时，
+               elementFromPoint 命中的是风筝自身 → isForegroundEl 视为画布层放行 → 点击被代理吞掉，
+               表现为按钮闪烁（风筝命中高亮）却点不动。此处临时关闭风筝 pointerEvents 再探一层：
+               下面若是可交互控件，则本次点击整体放行给下层按钮（不代理、不 preventDefault），
+               pointerup 后恢复风筝交互。 */
+            var underEl = null;
+            try {
+                root.style.pointerEvents = 'none';
+                underEl = document.elementFromPoint(e.clientX, e.clientY);
+            } catch (err) { root.style.pointerEvents = ''; }
+            if (underEl && isInteractiveEl(underEl)) {
+                window.__kitePassthrough = true; // pointerup/pointercancel 时恢复风筝交互
+                return;
+            }
+            root.style.pointerEvents = '';
             active = target;
             armPhysics(); // 代理转发同样算"手拖拽"：打开物理闸，松手后由 window pointerup 关闭
             window.__kiteProxyDrag = true; // 标记：正在拖拽风筝（头/身体），阻止画布空白平移
@@ -1597,6 +1660,8 @@ function _dlgPrompt(msg, val){
             active.dispatchEvent(makeEvent('pointermove', e));
         }, true);
         function finish(e) {
+            // 【压住按钮点不动·修复】放行模式（pointerEvents 已被关掉）时恢复风筝交互后直接返回
+            if (window.__kitePassthrough) { window.__kitePassthrough = false; try { root && (root.style.pointerEvents = ''); } catch (err) {} return; }
             if (!active) return;
             var inside = e.target && e.target.closest && e.target.closest('.kite-dragon');
             if (!inside) active.dispatchEvent(makeEvent(e.type, e));
@@ -1607,6 +1672,8 @@ function _dlgPrompt(msg, val){
         document.addEventListener('pointercancel', finish, true);
         // 兜底：窗口失焦/切换标签页时拖拽中断，防止 __kiteProxyDrag 残留导致画布平移永久失效
         window.addEventListener('blur', function () {
+            // 【压住按钮点不动·修复】失焦时若处于放行模式也恢复风筝交互
+            if (window.__kitePassthrough) { window.__kitePassthrough = false; try { root && (root.style.pointerEvents = ''); } catch (err) {} }
             if (active) { try { active.dispatchEvent(makeEvent('pointerup', { clientX: 0, clientY: 0, pointerId: 1, button: 0 })); } catch (err) {} active = null; }
             window.__kiteProxyDrag = false;
         });
@@ -1653,6 +1720,7 @@ function _dlgPrompt(msg, val){
                     overviewClosed = true;
                     overview.classList.remove('open');
                     if (root) root.classList.remove('kite-panel-solo');
+                    _restoreSoloPrevMode();
                 }
                 return;
             }
@@ -1661,6 +1729,7 @@ function _dlgPrompt(msg, val){
             overviewClosed = true;
             overview.classList.remove('open');
             if (root) root.classList.remove('kite-panel-solo');
+            _restoreSoloPrevMode();
         }, true);
         installPointerProxy();
         // 初始锚点：有存档则锚点已在 loadAnchor 中恢复；无存档时用屏幕比例默认位

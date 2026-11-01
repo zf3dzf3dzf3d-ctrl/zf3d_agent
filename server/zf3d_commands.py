@@ -35,7 +35,7 @@ def _load_zf_proxy_port():
         from config import get_ai_proxy_port
         return get_ai_proxy_port()
     except Exception:
-        return 8564
+        return 8574
 
 _ZF_PROXY_PORT = _load_zf_proxy_port()
 
@@ -378,6 +378,20 @@ def _handle_new_chat(cmd):
                     conn.execute('INSERT INTO sessions (id, name, created_at, updated_at) VALUES (?,?,?,?)',
                                  (sid, name, int(_t.time() * 1000), int(_t.time() * 1000)))
                     conn.commit()
+        # 【提速 2026-10-27】不再排全局 _db_lock：单行 INSERT 开独立短连接
+        # + 3s busy_timeout 直接写（WAL 下安全），避免被长事务堵 8s；失败回退 _db_write。
+        try:
+            import sqlite3 as _sq
+            from config import DB_PATH as _dbp
+            _conn = _sq.connect(_dbp, timeout=3)
+            try:
+                _conn.execute('PRAGMA busy_timeout=3000')
+                _w(_conn)
+            finally:
+                _conn.close()
+            _log('远程新建会话: %s（直连快写）' % sid)
+            return json.dumps({'session_id': sid, 'name': name}), 1
+        except Exception:
             _db_write(_w)
             _log('远程新建会话: %s' % sid)
             return json.dumps({'session_id': sid, 'name': name}), 1

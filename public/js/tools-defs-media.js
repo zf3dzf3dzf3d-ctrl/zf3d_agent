@@ -295,6 +295,43 @@ window.registerToolDefs({
           "required": ["action"]
         }
       }
+    },
+    "video_status": {
+      "type": "function",
+      // E2 元数据样板：cost_hint(成本提示) / risk_level(风险级) / avg_ms 由 tool_stats.json 动态聚合，不在静态定义写
+      "cost_hint": "free",
+      "risk_level": "low",
+      "function": {
+        "name": "video_status",
+        "description": "查看视频生成各渠道的可用状态（渠道列表/可用性/密钥情况）。无参数。",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    "mobile_control": {
+      "type": "function",
+      "cost_hint": "local",
+      "risk_level": "medium",
+      "function": {
+        "name": "mobile_control",
+        "description": "手机控制（ADB）。devices=列出已连接设备；screenshot=手机截屏；ui=读取屏幕控件；tap=点击坐标；swipe=滑动；text=输入文本；key=按键；app=应用操作(启动/关闭/列表)；shell=手机 shell 命令；wifi=查看无线状态。",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "description": "devices/screenshot/ui/tap/swipe/text/key/app/shell/wifi 之一" },
+            "device": { "type": "string", "description": "目标设备序列号（多设备时指定，单设备可省略）" },
+            "x": { "type": "number", "description": "tap：点击 X 坐标" },
+            "y": { "type": "number", "description": "tap：点击 Y 坐标" },
+            "text": { "type": "string", "description": "text：要输入的文本；shell：要执行的命令" },
+            "key": { "type": "string", "description": "key：按键名，如 home/back/volume_up" },
+            "pkg": { "type": "string", "description": "app：应用包名" }
+          },
+          "required": ["action"]
+        }
+      }
     }
   },
   categories: {} // 分类统一在 tools-defs-categories.js 注册

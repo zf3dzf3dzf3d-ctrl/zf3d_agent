@@ -30,7 +30,10 @@ PORT = _api_port()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE_PATH = os.path.join(BASE_DIR, 'private', 'network_guard_state.json')
-STATE_LOCK = threading.Lock()
+# 【2026-10-26 死锁修复】必须是可重入 RLock：report()/report_restart_result() 持锁期间
+# 调 _state() 会再次拿同一把锁（network_guard.py:87），普通 Lock 同线程重入即永久自死锁，
+# 实测把整个对话池的 slot 锁连带卡死（用户发消息无响应无报错）。
+STATE_LOCK = threading.RLock()
 
 # 【方案C·P1-3】状态内存化：断网计时是高频读写路径（每次上游请求都触发 report()），
 # 旧实现每次都读+写 JSON 文件，引入磁盘 IO 和锁竞争。

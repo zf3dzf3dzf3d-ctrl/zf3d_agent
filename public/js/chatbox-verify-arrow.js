@@ -47,6 +47,18 @@
    * ============================================================ */
   // 【兜底放宽】锚点与数字之间允许夹杂 ：：** 等 markdown/标点（原仅 \s* 会漏判「【审核评分】：**85**」）
   var SCORE_ANCHOR = /【审核评分】[^\d]{0,6}(\d{1,3})\s*(?:\/\s*100)?/;
+  /* 【角色锚点扩展】优化师/安全师复用同一评分管线，但用专属锚点区分角色；
+     日志记录 role 字段（老数据读侧默认 'qc'），审核闸门读数处只认 role==='qc' 防污染 */
+  var SCORE_ANCHOR_POLISHER = /【优化评分】[^\d]{0,6}(\d{1,3})\s*(?:\/\s*100)?/;
+  var SCORE_ANCHOR_SECURITY = /【安全评分】[^\d]{0,6}(\d{1,3})\s*(?:\/\s*100)?/;
+  function vaParseRoleScore(ans) {
+    var s = String(ans || ''), m;
+    if ((m = s.match(SCORE_ANCHOR_POLISHER))) return { role: 'polisher', score: _vaClampScore(m[1]) };
+    if ((m = s.match(SCORE_ANCHOR_SECURITY))) return { role: 'security', score: _vaClampScore(m[1]) };
+    if ((m = s.match(SCORE_ANCHOR))) return { role: 'qc', score: _vaClampScore(m[1]) };
+    return null;
+  }
+  function _vaClampScore(v) { var n = parseInt(v, 10); return (isNaN(n) || n < 0 || n > 100) ? null : n; }
   function vaPassLine() {
     var v = (typeof window !== 'undefined') ? window.ZF_PASS_LINE : null;
     return (typeof v === 'number' && v >= 0 && v <= 100) ? v : 60;
@@ -67,7 +79,8 @@
   /* 【评分日志 · 供后期总结】每个任务每轮评分追加到独立累计日志 localStorage，
      跨对话持久保存，总结环节可经 window.ZFVerifyArrow.getScoreLog()/scoreSummary() 读取。 */
   var SCORE_LOG_KEY = 'zf_verify_score_log_v1';
-  /* 【审核健全性 v4·阈值常量化】≥80 分直接通过的阈值提为常量，后续调阈值只改这里 */
+  /* 【审核健全性 v5】旧「≥80 分直接通过」阈值已废除（AUTO_PASS_SCORE 保留仅为兼容引用，
+     判定逻辑已不再使用它；后续若彻底无用可删）。 */
   var AUTO_PASS_SCORE = 80;
   function vaAppendScoreLog(rec) {
     try {
@@ -77,6 +90,37 @@
       localStorage.setItem(SCORE_LOG_KEY, JSON.stringify(arr));
     } catch (e) {}
   }
+
+  /* 【优化师/安全师评分落日志】独立轻量轮询：新角色子窗出现含专属锚点的回复时，
+     追加评分日志（role 区分），不进审核判定管线（FAIL_RE 不作用于新角色窗）；
+     缺锚点仅 console.warn，防评分链路静默断流（进化师建议三）。 */
+  var _roleScoreSeen = {}; // chatId -> 最后已记录的 assistant 回复数，防重复
+  setInterval(function () {
+    try {
+      var boxes = (typeof App !== 'undefined' && App.chatBoxes) || [];
+      boxes.forEach(function (c) {
+        if (!c || !c.el || !c.history || c.isSending) return;
+        var isP = c.el._isPolisherChat, isS = c.el._isSecurityChat;
+        if (!isP && !isS) return;
+        var role = isP ? 'polisher' : 'security';
+        var cnt = 0;
+        c.history.forEach(function (h) { if (h && h.role === 'assistant' && !h._meta) cnt++; });
+        if (cnt <= (_roleScoreSeen[c.id] || 0)) return;
+        _roleScoreSeen[c.id] = cnt;
+        var ans = '';
+        for (var i = c.history.length - 1; i >= 0; i--) {
+          var h2 = c.history[i];
+          if (h2 && h2.role === 'assistant' && !h2._meta) { ans = String(h2.content || ''); break; }
+        }
+        var rs = vaParseRoleScore(ans);
+        if (rs && rs.role === role && typeof rs.score === 'number') {
+          vaAppendScoreLog({ t: Date.now(), srcId: (isP ? c.el._polisherSrcId : c.el._securitySrcId) || '', qcId: c.id, round: cnt, score: rs.score, passLine: 60, pass: rs.score >= 60, role: role });
+        } else {
+          console.warn('[ZFVerifyArrow] ' + (isP ? '优化师' : '安全师') + '窗(' + c.id + ')最新回复缺少评分锚点【' + (isP ? '优化' : '安全') + '评分】NN，评分链路可能断流');
+        }
+      });
+    } catch (e) {}
+  }, 5000);
   function vaScoreSummary() {
     var arr = [];
     try { arr = JSON.parse(localStorage.getItem(SCORE_LOG_KEY) || '[]'); } catch (e) { return { total: 0, rounds: 0, avg: null, tasks: 0 }; }
@@ -101,9 +145,10 @@
     };
   }
 
-  /* 【自动回收修复】读取数量弹窗勾选的一次性标志（60 秒内有效），审核员箭头此前从未消费该标志导致勾选无效 */
+  /* 【2026-11-01 按用户要求：彻底移除自动返回】autoGatherOn 恒返回 false，审核自动回收链路全部停用，只保留手动点箭头回收 */
   function autoGatherOn() {
-    try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 600000); } catch (e) { return false; }
+    return false;
+    /* 原逻辑存档： try { var t = window._zfAutoGatherNext; return !!(t && (Date.now() - t) < 600000); } catch (e) { return false; } */
   }
 
   // 【v7】清洗问题文本：剥掉"【当前项目上下文】…---上下文结束---"等注入包装与各种前缀，只留用户真正的问题
@@ -182,13 +227,18 @@
   }
 
   // 与审核员素材包发送链路完全一致：addMsg + history.push + sendToModel
+  /* 【v8 返回成功失败】原实现内部吞掉一切异常且无返回值，调用方 catch 永远接不到
+     （v7 的 catch(eG) 是死代码）——消息没送到但调用方照样翻向。现返回 true/false，
+     调用方（gather 回注等）据此决定是否翻向，杜绝「假返回」。 */
   function sendTo(chat, text) {
     try {
       App.addMsg(chat.el, text, 'user', chat.modelId);
       chat.history.push({ role: 'user', content: text });
       App.sendToModel(chat.el, chat);
+      return true;
     } catch (e) {
       try { Store.addLog('error', chat.id, 'verify-arrow', '发送失败: ' + e.message); } catch (e2) {}
+      return false;
     }
   }
 
@@ -305,10 +355,9 @@
         p.rounds = d.rounds || 0;
         // 【v4】恢复时回填问题标签（有记录用记录，无记录重新从原对话历史提取）
         p.question = d.question || firstQuestion(src);
-        /* 【自动重审 PR1】恢复自驱动闭环：create() 仅在凭证有效期内才自动置 autoloop，
-           跨对话/刷新后凭证已过期，须用持久化的 autoloop 标志回填，保证闭环续跑；
-           同时回填指纹护栏历史与 srcCount 基线（防恢复后 detectSrcModified 误判"修改完成"） */
-        if (d.autoloop) p.autoloop = true;
+        /* 【2026-11-01 彻底移除自动返回】不再回填 autoloop 闭环标志（自动编排器已停用，
+           回填会导致旧配对刷新后静默挂起等待一个永不运行的编排器）；指纹/评分等状态照常恢复 */
+        /* 原逻辑存档： if (d.autoloop) p.autoloop = true; */
         p.fpHistory = d.fpHistory || [];
         p._lastFailAns = d.lastFailAns || '';
         /* 【评分机制】恢复评分、及格线与轨迹 */
@@ -317,7 +366,8 @@
         p.scoreHistory = d.scoreHistory || [];
         if (d.srcCount) p.srcCount = d.srcCount;
         p._lastHasFail = !!d.lastHasFail;
-        if (d.autoloop) { try { p.el.dataset.autoloop = 'on'; } catch (e) {} }
+        /* 【2026-11-01 彻底移除自动返回】不再点亮 autoloop 视觉状态 */
+        /* 原逻辑存档： if (d.autoloop) { try { p.el.dataset.autoloop = 'on'; } catch (e) {} } */
         applyStatus(p);
         restored++;
       }
@@ -473,10 +523,29 @@
     return note ? '\n\n【补充新要求】\n' + note : '';
   }
 
+  /* 【忙闲判据 v59】与 detectSrcModified/自动链路 L947 同源三重判据：
+     工具循环「调用工具→等结果」间隙 isSending 短暂 false，仅查它不够，
+     需同时看 _thinking / abortController / queue 队列任一存活 */
+  function isChatBusy(chat) {
+    return !!(chat && (chat.isSending || chat._thinking ||
+      chat.abortController || (chat.queue && chat.queue.length)));
+  }
+
   function onArrowClick(pair, fromAuto) {
     var src = findChat(pair.srcId);
     var qc = findChat(pair.qcId);
     if (!src || !qc) { if (pair.el) pair.el.remove(); return; }
+
+    /* 【忙守卫 v59·修反驳师高项①】手动点击（fromAuto 为空）时先检查目标忙闲：
+       忙时直接 return，不动状态、不消费 note——修掉旧缺陷「先置 revising/reviewing
+       再 sendTo 被忙拦截，状态与实际不一致且回注丢失」。自动链路自带重试，不受影响。 */
+    if (!fromAuto) {
+      var _busyTarget = (pair.state === 'toQC') ? src : qc;
+      if (isChatBusy(_busyTarget)) {
+        toast('对方还在忙，等空闲后再点箭头传送', false);
+        return;
+      }
+    }
 
     if (pair.state === 'toQC') {
       // 审核员 → 原对话：复制审核员答案给原对话
@@ -561,31 +630,18 @@
        命中任一错误语义即 hasFail=true（不再因回复里出现"通过"字样而豁免——
        审核员若一边写"通过"一边列问题，以"有问题"为准打回）。 */
     var ansCheck = String(ans).replace(NEG_RE, '');
-    /* 【审核健全性 v2·分级判定】旧逻辑只要回复含任何"问题类"词就打回，导致 80+ 高分
-       因审核员附带"建议优化/可改进"等弱建议字样也被打回。现改为三级：
+    /* 【审核健全性 v5·废除80分直接通过】用户明确：不再有「≥80 分自动通过」规则。
+       判定统一为两级：
        ① 有分且 < 及格线 → 直接打回（分数优先）；
-       ② 有分且 ≥80（高分）→ 仅命中"强不合格语义"（FAIL_STRICT_RE：不通过/不合格/
-          需要修改/❌/报错 等，即审核员明确判某项不合格）才打回；弱建议词不再触发打回；
-       ③ 其余（60~79 分或无分）→ 沿用原 FAIL_RE 全词判定（其中任何项目不合格都打回）。 */
+       ② 其余（≥及格线或无分）→ 沿用 FAIL_RE 全词判定（回复中任何项目不合格都打回）。
+       高分附带弱建议不再被豁免，也不因高分直接通过——必须等全组结论齐步后由编排器统一收口。 */
     var _score = vaParseScore(ans);
     var _pass = vaPassLine();
-    /* 【审核健全性 v3·明确打回词收窄】此前 90 分审核只要附带"建议优化/发现一处小遗漏/需要修改"等
-       弱表述也会被 FAIL_STRICT_RE 打回重审（表现为两位审核 90+ 分仍二审）。现收窄为：
-       80+ 高分仅当审核员明确判负（不通过/未通过/不合格/打回/❌/报错/运行失败 等）才打回；
-       "需要修改/需修复/存在…问题/发现…遗漏"等弱表述降级为建议，不再触发重审。 */
-    /* 【审核健全性 v4·80分直接通过（写死）】审核员给出 ≥80 分 → 无条件直接通过，
-       不再匹配任何打回词（连"不通过/不合格/❌"等强不合格语义也以分数为准）。
-       理由：分数是审核员的最终量化结论，高分附带的问题字样按建议处理。
-       分数 < 及格线仍必打回；无分或 <80 分沿用原词判定。 */
-    var FAIL_STRICT_RE = /(不通过|未通过|不合格|不及格|打回|需打回|❌|✗|报错|出错了|运行失败|执行失败|测试未通过)/;
-    var _ansForFail = ansCheck;
     var hasFail;
     if (_score !== null && _score < _pass) {
       hasFail = true;                                  // ① 低于及格线：必打回
-    } else if (_score !== null && _score >= AUTO_PASS_SCORE) {
-      hasFail = false;                                 // ② ≥80 分（AUTO_PASS_SCORE）：写死直接通过，忽略一切打回词
     } else {
-      hasFail = FAIL_RE.test(_ansForFail);             // ③ 常规：任一项目不合格即打回
+      hasFail = FAIL_RE.test(ansCheck);                // ② 常规：任一项目不合格即打回（80 分不再豁免）
     }
     var scoreFail = (_score !== null && _score < _pass);
     if (scoreFail) hasFail = true;
@@ -594,21 +650,11 @@
     if (_score !== null) {
       if (!Array.isArray(pair.scoreHistory)) pair.scoreHistory = [];
       pair.scoreHistory.push({ round: pair.rounds, score: _score, pass: _score >= _pass }); // 评分轨迹，供收口/总结
-      /* 【分数平台期收口 v1】连续 2 轮评分都 ≥80 且差值 ≤3 分 → 判定为收敛（分数已进入
-         平台期，继续打回只会产生"85→83→86"式微调循环，浪费轮次）。此时强制视为通过：
-         hasFail 覆盖为 false，走正常 PASS 收口链路（汇总回注主对话），评审建议随
-         _autoExtras 草稿一并带回，不丢失审核员意见。注意：若本轮命中强不合格语义
-         （FAIL_STRICT_RE），说明审核员明确指出实质缺陷，仍以缺陷为准不豁免。 */
-      if (!hasFail && _score >= 80 && pair.scoreHistory.length >= 2) {
-        var _prevRec = pair.scoreHistory[pair.scoreHistory.length - 2];
-        if (_prevRec && typeof _prevRec.score === 'number' && _prevRec.score >= 80 && Math.abs(_prevRec.score - _score) <= 3) {
-          hasFail = false;
-          scoreFail = false;
-          pair._plateauPass = true; // 标记平台期通过，供 toast/收口文案说明
-        }
-      }
+      /* 【审核健全性 v5·废除平台期豁免】不再有「连续2轮≥80分视为通过」——
+         平台期不再强制通过，判定一律以①分数不及格 / ②打回词 为准，
+         由编排器等全组结论齐步后统一收口，杜绝高分提前返回。 */
       /* 每轮评分写入独立累计日志（供后期总结，跨对话持久） */
-      try { vaAppendScoreLog({ t: Date.now(), srcId: pair.srcId, qcId: pair.qcId, round: pair.rounds, score: _score, passLine: _pass, pass: _score >= _pass }); } catch (e) {}
+      try { vaAppendScoreLog({ t: Date.now(), srcId: pair.srcId, qcId: pair.qcId, round: pair.rounds, score: _score, passLine: _pass, pass: _score >= _pass, role: 'qc' }); } catch (e) {}
     }
     /* 【v37 打回不吞绿】把本轮真实判定记在 pair 上，供收口事件 zf-multi-gathered 按结论上色
        （此前收口"已汇总"会把所有单箭头无差别刷成绿色 modified，58 分不及格也照样全绿） */
@@ -662,6 +708,14 @@
        同一源对话、同一张自动回收凭证下的全部审核窗都回复完毕（= 全部审核结束）后，
        才一起自动点击箭头批量回注原对话；凭证将过期（9.5 分钟）仍有窗口未回时，只回收已完成部分 */
     pair._replied = true; //【修复】标记必须挂在 pair 对象上，齐步回收 L431/442 判断的是 q._replied/p._replied；此前误写为局部变量 var _replied 导致标记失效、自动回收不触发
+    /* 【v14 收口权唯一化·P1】回复完成只上报，不自主回注：①账本 markReturned 幂等入账（真相源，
+       无监听者也不丢）；②派发 zf:crew-member-done 事件（只加速不作唯一通道）。收口回注权从此
+       垄断在总箭头 gatherFor（有总箭头时）/本组唯一收口者（canGather 核销齐时），角色模块绝不各回各的 */
+    try {
+      var Ld = window.ZFDispatchLedger;
+      if (Ld && typeof Ld.markReturned === 'function') Ld.markReturned(pair.srcId, pair.qcId);
+    } catch (eRD) {}
+    try { document.dispatchEvent(new CustomEvent('zf:crew-member-done', { detail: { srcId: String(pair.srcId), memberId: String(pair.qcId), src: 'verify-arrow' } })); } catch (eRE) {}
   }
 
   // 位置/方向随对话移动持续更新（requestAnimationFrame 逐帧跟随，平移/缩放不再滞后）
@@ -671,7 +725,14 @@
     var src = findChat(pair.srcId);
     if (!src) return;
     // 【v27 同理】原对话仍在流式/重试中，半截内容不算"修改完成"；并清空稳定计时
-    if (src.isSending) { pair._srcSettleAt = 0; return; }
+    /* 【v58 防提前返回·循环存活判据】仅看 isSending 不够：Agent 工具循环在「调用工具→等结果」
+       的长间隙里 isSending 会短暂为 false，若该工具执行超过 3.5s（run_code/wait 等很常见），
+       旧判据即误判"修改完成"→ 箭头提前返回复审（表现为"验证师还没改完，箭头就返回了"）。
+       现补充项目内已有的"循环仍在跑"标志：abortController / queue 队列 / _thinking，
+       任一存活都视为仍在工作，清空稳定计时继续等待。 */
+    var _srcBusy = !!(src.isSending || src._thinking || src.abortController ||
+      (src.queue && src.queue.length));
+    if (_srcBusy) { pair._srcSettleAt = 0; return; }
     var nowCount = assistantCount(src);
     if (nowCount <= (pair.srcCount || 0)) return;
     /* 【v38 核心修复·防提前二轮】本体是 Agent 工具循环，每个工具 turn 都会新增一条 assistant
@@ -728,7 +789,61 @@
     } catch (eAE) {}
     return out;
   }
+  /* 【语音提醒 v2】收口回注完成时播报「向老板汇报做完了啥」风格趣味语料（用户 2026-10-31 新要求），
+     30 条不重复随机抽一条 + 拼上实际人数/角色摘要；优先系统 TTS 模块，回退本地 speechSynthesis */
+  var GATHER_LINES = [
+    '老板，收工啦！{n} 位成员的结论都已回注主对话，请您过目。',
+    '老大老大，活干完了！{n} 份结论已经摆上桌面，就等您拍板。',
+    '报告老板！蜂群全员交卷，{n} 位一个不落，全在主对话里了。',
+    '咚咚咚~ {n} 位小伙伴的成果已送达，请您验收！',
+    '老板驾到~ 收口完成，{n} 份答卷整整齐齐，请查阅！',
+    '集合完毕！{n} 位成员的结论已回注，一个都没跑丢。',
+    '老板，本队任务达成！{n} 份结论已入账，随时恭候您的指示。',
+    '叮~您的团队快递已签收：{n} 份结论，请开箱验货！',
+    '大事办妥了老板！{n} 位成员全体交卷，掌声在哪里~',
+    '老板请看：{n} 份结论已全部回注主对话，齐活儿！',
+    '收工哨已吹响！{n} 位干将的成果都到碗里来了。',
+    '老板，您的小队凯旋！{n} 份战报已呈上，请御览。',
+    '全员到齐！{n} 份结论已回注，谁也没偷懒。',
+    '老板老板，好消息：{n} 位成员的活儿全部完成并回注啦！',
+    '报告！{n} 份结论运送完毕，主对话已签收，请查收。',
+    '完工！{n} 位成员的手艺都在主对话里，就差您一句话了。',
+    '老板，蜂群收口成功！{n} 份蜜酿好了，快来尝尝。',
+    '叮咚~ {n} 份成果打包完毕，已放到您的主对话门口。',
+    '老板请验收：{n} 位成员，{n} 份结论，一个萝卜一个坑，全齐！',
+    '鸣金收兵！{n} 位将士的捷报已传回大本营。',
+    '老板，摊牌了：{n} 份结论全在这，品质杠杠的。',
+    '收口仪式完成！{n} 份结论已入主对话，请您剪彩。',
+    '老板，{n} 位成员排队交作业，一条不少，请点卯~',
+    '您的团队已充电完毕：{n} 份结论满格送达！',
+    '老板，好消息不断：{n} 份结论安全回注，任务圆满！',
+    '号外号外！{n} 位成员集体交差，成绩单已送达主对话。',
+    '老板您瞧好：{n} 份结论已铺开，条条都是干货。',
+    '圆满！{n} 位成员的智慧结晶已汇总，请您过目定夺。',
+    '老板，团队收工打卡成功！{n} 份结论已就位，等您审阅。',
+    '收官！{n} 份结论如约而至，主对话里已备好茶水，请慢用。'
+  ];
+  function speakGatherNotice(text, count) {
+    try {
+      var _msg = text;
+      if (!_msg) {
+        var _tpl = GATHER_LINES[Math.floor(Math.random() * GATHER_LINES.length)];
+        _msg = _tpl.replace(/\{n\}/g, String(count || '全体'));
+      }
+      if (window.TTS && typeof TTS.speak === 'function' && TTS.isEnabled && TTS.isEnabled()) {
+        try { TTS.speak(_msg); return; } catch (eT1) {}
+      }
+      if (!('speechSynthesis' in window)) return;
+      var u = new SpeechSynthesisUtterance(_msg);
+      u.lang = 'zh-CN';
+      u.rate = 1.1;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    } catch (eS2) {}
+  }
   function autoLoopGather() {
+    /* 【2026-11-01 按用户要求：彻底移除自动返回】自动重审/自动回注编排器停用，只保留手动操作 */
+    return;
     try {
       // 按源对话分组收集所有存活 autoloop 配对
       var bySrc = {};
@@ -758,10 +873,35 @@
             var _sc = (typeof q.score === 'number') ? ('（评分 ' + q.score + '/' + (q.passLine || vaPassLine()) + '）') : '';
             return '▶ ' + _nm + _sc + '：审核通过';
           });
+          /* 【安全兜底·回注引用化】成员原文/草稿回注前统一截断，防超长与异常输出放大注入面 */
+          function _clipNote(t, max) { t = String(t == null ? '' : t).trim(); return t.length > max ? t.slice(0, max) + '…（超长已截断）' : t; }
           /* 【自动/手动对齐】全通过收口同样带回草稿与箭头输入框补充 */
           ps.forEach(function (q) { var _ex = _autoExtras(q.qcId); if (_ex.length) _passLines = _passLines.concat(_ex); });
+          /* 【v13 修复·返回信息缺员】混编团队（审核+策划+优化等）时 zf_dispatch_ledger 登记的是全员，
+             本函数 ps 只含审核员 → 回注只有审核师信息。按账本并集兜底收集其余成员结论 */
+          try {
+            var _recP = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(sid)] || null;
+            if (_recP && (_recP.memberIds || []).length) {
+              var _haveP = {};
+              ps.forEach(function (q) { _haveP[String(q.qcId)] = 1; });
+              (_recP.memberIds || []).forEach(function (id) {
+                var _mid = String(id);
+                if (_haveP[_mid]) return;
+                var chX = (typeof findChat === 'function') ? findChat(_mid) : null;
+                if (!chX || !chX.el) return;
+                _haveP[_mid] = 1;
+                var nameX = chX.el._swarmLabel || '成员';
+                var ansX = (typeof lastAnswer === 'function') ? _clipNote(lastAnswer(chX), 1500) : '';
+                if (ansX) _passLines.push('▶ ' + nameX + '：\n' + ansX);
+                var _taX = chX.el.querySelector('textarea');
+                var _drX = _taX ? _taX.value.trim() : '';
+                if (_drX) _passLines.push('✎ ' + nameX + '（用户手动补充，未发送）：\n' + _clipNote(_drX, 2000));
+              });
+            }
+          } catch (eLP) {}
           try {
             sendTo(_srcP0, '【自动重审收口】所有审核员已审核通过（共 ' + _passLines.length + ' 位）。审核蜂群已全员确认任务达标，请继续/收口，不要再重复追问已确认信息：\n\n' + _passLines.join('\n\n'));
+            speakGatherNotice(null, _passLines.length);
           } catch (eS) {}
           ps.forEach(function (q) { q._autoPending = ''; q.state = 'toSrc'; q._loopDone = true; setStatus(q, 'passed'); });
           try { document.dispatchEvent(new CustomEvent('zf-multi-gathered', { detail: { srcId: sid, manual: true } })); } catch (eEv) {}
@@ -784,14 +924,35 @@
           var _srcP = findChat(sid);
           if (_srcP && _srcP.isSending) continue;
           ps.forEach(function (q) { q._loopDone = true; });
+          /* 【安全兜底·回注引用化】成员原文/草稿回注前统一截断，防超长与异常输出放大注入面 */
+          function _clipNote(t, max) { t = String(t == null ? '' : t).trim(); return t.length > max ? t.slice(0, max) + '…（超长已截断）' : t; }
           var _verdicts = ps.map(function (q) {
             var qcP = findChat(q.qcId);
             var _nm = (qcP && qcP.el && qcP.el._swarmLabel) || '审核员';
-            var _ans = (qcP ? lastAnswer(qcP) : '').slice(0, 1500);
+            var _ans = _clipNote(qcP ? lastAnswer(qcP) : '', 1500);
             return '▶ ' + _nm + '：' + (_ans.trim() || '审核通过');
           });
+          /* 【v13 修复·返回信息缺员】混编团队按账本并集兜底收集其余成员结论 */
+          try {
+            var _recP2 = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(sid)] || null;
+            if (_recP2 && (_recP2.memberIds || []).length) {
+              var _haveP2 = {};
+              ps.forEach(function (q) { _haveP2[String(q.qcId)] = 1; });
+              (_recP2.memberIds || []).forEach(function (id) {
+                var _mid = String(id);
+                if (_haveP2[_mid]) return;
+                var chY = (typeof findChat === 'function') ? findChat(_mid) : null;
+                if (!chY || !chY.el) return;
+                _haveP2[_mid] = 1;
+                var nameY = chY.el._swarmLabel || '成员';
+                var ansY = (typeof lastAnswer === 'function') ? lastAnswer(chY).slice(0, 1500).trim() : '';
+                if (ansY) _verdicts.push('▶ ' + nameY + '：\n' + ansY);
+              });
+            }
+          } catch (eLP2) {}
           try {
             sendTo(_srcP, '【自动重审收口】所有审核员已审核通过（共 ' + _verdicts.length + ' 位' + _scText + '）。以下是各审核员最终结论，请据此确认任务已达标并继续/收口，不要再重复追问已确认信息：\n\n' + _verdicts.join('\n\n'));
+            speakGatherNotice(null, _verdicts.length);
           } catch (eS) {}
           notifyMinimap(); persist();
           try { document.dispatchEvent(new CustomEvent('zf-autoloop-done', { detail: { srcId: sid, rounds: Math.max.apply(null, ps.map(function (q) { return q.rounds || 0; })), scores: _scTag, scoreHistory: (ps[0].scoreHistory || []) } })); } catch (e) {}
@@ -804,6 +965,48 @@
         var allVerdict = ps.every(function (q) {
           return q.status === 'passed' || q.status === 'suspended' || q.status === 'revising' || q.status === 'modified' || q._autoPending === 'review';
         });
+        /* 【混编团队·总箭头优先 v6】派出团队面板一次派出多个不同角色（策划/审核/验证/自定义混编）时，
+           该源对话存在混编总箭头（ZFConvergeArrow mixed pair）。若放任各角色编排器（本函数/策划/施工队）
+           各自等稳定后回注，先完成的角色会提前单独 sendTo 主对话 → 表现为"审核师完成就自己回去了"。
+           修复：检测到存在混编总箭头时，本函数只负责把本轮结论标记 _autoPending='gather'（等齐步），
+           实际回注委托给总箭头 gatherFor——它按 memberCounts 基线判定"全部成员都有新回复"才收口，
+           天然实现"等所有角色都完事后一起返回"。仅当总箭头不存在时才走下方原有的自主回注路径。 */
+        var _mixedConverge = false;
+        try {
+          if (window.ZFConvergeArrow && window.ZFConvergeArrow.getPairs) {
+            var _cps = window.ZFConvergeArrow.getPairs();
+            for (var _ci = 0; _ci < _cps.length; _ci++) {
+              if (String(_cps[_ci].srcId) === String(sid)) { _mixedConverge = true; break; }
+            }
+          }
+        } catch (eMc) {}
+        if (_mixedConverge) {
+          /* 该源对话由总箭头接管收口：非 passed/suspended 的配对若已出结论则挂 gather 排队，
+             交给总箭头 gatherFor 一次性回注（按账本 canGather 核销门槛判定全员齐），此处绝不一方先走。
+             【v14 收口权唯一化·P1】新增账本兜底：总箭头尚未建起（错峰开出竞态）但账本 expected >
+             本组审核员数时，同样禁止自主回注——只上报 done 事件等总箭头/收口者统一收口，
+             杜绝「审核组先完成就单独 sendTo」的提前回收。直接 continue 跳过本 sid 的自主回注分支。 */
+          continue;
+        }
+        /* 【v14 收口权唯一化·P1】总箭头不在场时的账本守卫：混编团队（账本 expected >
+           本组人数）时本编排器同样无权自主 sendTo——这是"提前回收"病根的最后一条旁路。
+           等总箭头建起（setInterval 1s 内）后由 gatherFor 收口；无账本登记（单角色）
+           保留原有自主回注，不引入卡死。 */
+        var _crewBigger = false;
+        try {
+          var _lgRec3 = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(sid)] || null;
+          _crewBigger = !!(_lgRec3 && (_lgRec3.expected || 0) > ps.length);
+        } catch (eLg3) {}
+        if (_crewBigger) {
+          ps.forEach(function (q) {
+            try {
+              var Ld3 = window.ZFDispatchLedger;
+              if (Ld3 && typeof Ld3.markReturned === 'function' && q.status !== 'suspended') Ld3.markReturned(sid, q.qcId);
+            } catch (eMR3) {}
+          });
+          try { document.dispatchEvent(new CustomEvent('zf:crew-member-done', { detail: { srcId: String(sid), count: ps.length, src: 'verify-arrow-autoloop' } })); } catch (eRE3) {}
+          continue;
+        }
         // 最近结论时间稳定判据
         var latestVerdict = ps.reduce(function (m, q) { return Math.max(m, q._verdictAt || 0); }, 0);
         var stable = (now - latestVerdict) > _loopStableMs;
@@ -834,10 +1037,30 @@
           /* 【自动/手动对齐】打回回注同样带回草稿与箭头输入框补充 */
           gatherSet.forEach(function (q) { _lines = _lines.concat(_autoExtras(q.qcId)); });
           var _gmsg = '这是审核蜂群本轮的打回汇总（共 ' + _lines.length + ' 位审核员给出修改意见）。请逐条对比各方意见，明确说明采纳哪些、不采纳哪些及理由，然后据此修改，不要重复向用户追问已确认信息：\n\n' + _lines.join('\n\n');
-          try { sendTo(_src, _gmsg); } catch (eG) {}
-          gatherSet.forEach(function (q) {
+          /* 【发送失败不翻向 v7】sendTo 抛错（审核窗已关等）时不再吞错后照常翻向——
+             那会造成「消息没送到但箭头显示已返回」的状态与事实不一致（即用户投诉的
+             提前转回去形态之一）。失败时保持原状态，toast 提示，跳过本组本轮处理。 */
+          try { if (!sendTo(_src, _gmsg)) throw new Error('sendTo 返回失败'); } catch (eG) {
+            toast('⚠️ 打回汇总发送失败，箭头方向未变更，下轮自动重试', false);
+            continue;
+          }
+          /* 【箭头方向一致 v6·整组同帧翻向】回注后不只翻 gatherSet——同组所有仍指向审核窗
+             （state==='toQC'）的配对一律同帧翻成 toSrc，杜绝「个别配对异常未挂 gather 队列
+             导致箭头方向分裂（一个向左一个向右）」。异常配对状态保持原样不动（只翻方向）。 */
+          ps.forEach(function (q) {
+            if (q.state === 'toQC') q.state = 'toSrc';
+            if (gatherSet.indexOf(q) === -1) {
+              /* 【箭头一致 v7·防复审死锁】非本轮回注成员：翻方向的同时，若其状态仍参与审核
+                 （非 passed/suspended），必须补挂 _autoPending='review'——否则 review 阶段
+                 needReview.every() 因它缺 review 标记而永假，整组复审永不触发（v6 引入的死锁面）。
+                 passed/suspended 的本就不在复审队列，不动。
+                 【语义说明 v8】此处不看该配对本轮是否真出过结论：状态异常的配对一并拖入复审
+                 是为保整组 reviewAll 可达的取舍——多审一次无害，缺标记则全组卡死。
+                 正常出过结论的成员本就带 _autoPending='gather'，不会命中此补挂。 */
+              if (q.status !== 'passed' && q.status !== 'suspended' && !q._autoPending) q._autoPending = 'review';
+              return;
+            }
             q._autoPending = '';
-            q.state = 'toSrc';
             q.srcCount = assistantCount(_src || {});
             /* 【箭头一致 v3】先回注再挂起：同指纹连续 2 轮的配对在此刻才终态化 suspended
                （此前是回复瞬间直接挂起、箭头钉死在 toQC 不跟组返回）。回注消息已带上它的意见，
@@ -883,15 +1106,12 @@
     try {
       var g = window.ZFConvergeArrow && window.ZFConvergeArrow.getPairs ? window.ZFConvergeArrow.getPairs() : [];
       for (var i = 0; i < g.length; i++) if (String(g[i].srcId) === String(srcId)) {
-        /* 【v26 修复·单窗不回收】membersOf 把策划+审核窗混算成员数，只派 1 个审核但源下残留 1 个
-           策划窗时也会创建收口箭头 → 此处误判"有收口"，走 gatherFor 却永远等不到就绪，干等 9.5
-           分钟兜底，表现为"单个审核不自动回收"。必须再校验：同角色（审核员）存活成员 ≥2 才算有收口 */
-        var boxes = (typeof App !== 'undefined' && App.chatBoxes) || [];
-        var sameRole = 0;
-        boxes.forEach(function (c) {
-          if (c && c.el && c.el._isQcChat && String(c.el._qcSrcId) === String(srcId)) sameRole++;
-        });
-        if (sameRole >= 2) return true;
+        /* 【严格判定·无兜底】只要该源对话存在收口总箭头，一律走 gatherFor 严格等待全员。
+           删除旧的同角色≥2 校验：混合角色专家团（策划+审核+验证各1个，总成员≥2）时
+           收口箭头真实存在，旧校验误判"无收口"→ 走逐条 sendTo 降级 → 绕过总箭头全员门槛，
+           表现为部分子对话中途单独返回。gatherFor 现已改为严格全员门槛
+           （isSending + 基线 + 新回复三项缺一不可），绝不提前收口；未全员完成就宁可一直挂。 */
+        return true;
       }
     } catch (e) {}
     return false;
@@ -935,10 +1155,33 @@
          现改为与 autoLoopGather 同口径：把本组全部已回复审核员的结论「汇总成一条」一次性 sendTo，
          天然同时返回、不被忙拆散；随后逐个把箭头翻成 toSrc/待修改（方向反转，状态一致），
          并派发 zf-multi-gathered 让中间箭头/小地图同步。主对话忙（isSending）时不消费凭证，下一帧再试。 */
-      if (!p_hasConverge(srcId)) {
+      /* 【v60 修复·4派2收】降级路径加账本规模守卫：派出团队（crew-panel）登记账本 expected 为
+         全队人数（如 2审核+2策划=4）。本组（如审核组 2 人）先齐但收口总箭头尚未建起（错峰开出
+         + setInterval 1s 建箭头的时间窗竞态）时，旧逻辑 p_hasConverge=false 直接整组 sendTo →
+         绕过账本闸门提前回注，策划组后被主对话忙拦截 → 实测「4派2收」。
+         守卫：账本 expected > 本组人数 = 还有别组未回，禁止降级抢跑，等总箭头建起走 gatherFor；
+         expected ≤ 本组人数（单派/本组即全队）时保留降级，不引入卡死。 */
+      var _biggerCrew = false;
+      try {
+        var _lgRec = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(srcId)] || null;
+        _biggerCrew = !!(_lgRec && (_lgRec.expected || 0) > arr.length);
+      } catch (eLg) {}
+      /* 【v14 收口权唯一化·P1】降级路径（无总箭头）不再无闸自主回注：必须 canGather（账本
+         回收+核销 ≥ expected）才放行——把「谁有权 sendTo」收归账本门槛，杜绝 4派2收复发；
+         无登记（无账）保留旧行为，单派不引入卡死。 */
+      var _degradeOK = true;
+      try {
+        var Ldg = window.ZFDispatchLedger;
+        var _lgRec2 = JSON.parse(localStorage.getItem('zf_dispatch_ledger') || '{}')[String(srcId)] || null;
+        if (_lgRec2 && Ldg && typeof Ldg.canGather === 'function') _degradeOK = Ldg.canGather(srcId);
+      } catch (eLg) {}
+      if (!p_hasConverge(srcId) && !_biggerCrew && _degradeOK) {
         var _csrc = findChat(srcId);
         if (!_csrc) continue;                     // 源对话已不在，保留凭证待下一帧/由 tick 清理失效箭头
-        if (_csrc.isSending) continue;            // 主对话忙，不在此刻注入，避免首条把后续挤掉/吞掉
+        /* 【v58 同 detectSrcModified】工具循环间隙 isSending=false 不代表改完/空闲：
+           abortController/queue/_thinking 任一存活仍在工作，不消费凭证，下一帧再试 */
+        if (_csrc.isSending || _csrc._thinking || _csrc.abortController ||
+            (_csrc.queue && _csrc.queue.length)) continue; // 主对话忙，不在此刻注入，避免首条把后续挤掉/吞掉
         var _toGather = arr.filter(function (p) { return p._replied && p.state === 'toQC'; });
         if (!_toGather.length) {                  // 无可回注内容：直接消费凭证，避免空凭证反复重试
           arr.forEach(function (p) { p._gatherTs = ts; p._replied = false; });
@@ -1084,19 +1327,18 @@
            不跟随返回、方向还指着审核窗"（数据已回注、箭头没翻）。结论既然已随收口汇总回注，
            方向必须同步翻回源对话；只是 passed 不改判 revising，保持通过色，不算待修改。 */
         var _wasPassed = (p.status === 'passed');
-        /* 【跟随返回修复】中间/收口箭头自动返回时，本体箭头此前因 autoloop 被整条 return 跳过，
-           表现为"中间箭头返回、本体没跟随"。autoloop 抢占风险仅在它正排队等编排器回注
-           (_autoPending==='gather') 时存在——此时必须留在 toQC 等编排器执行；其余 autoloop 情形
-           (用户手动点收口箭头触发回注，未排队) 则让本体跟随翻转方向，与收口保持一致。
-           【手动点击跟随修复】用户手动点大箭头时同样带 manual：既然用户已经手动收口，
-           编排器的排队已无意义，清掉 _autoPending 并强制小箭头跟随反转，杜绝"点大箭头小箭头不动"。 */
-        if (p.autoloop && p._autoPending === 'gather' && !_manual) return;
-        if (_manual) p._autoPending = '';
+        /* 【2026-11-01 子箭头跟随修复】旧守卫 `if (p.autoloop && p._autoPending === 'gather' && !_manual) return;`
+           会让"自动路径收口(manual=false)时挂着 gather 排队的子箭头整条跳过不翻转"，
+           而编排器 autoLoopGather 已被停用（函数开头 return），排队永远无人消费
+           → 大箭头转回去了、审核子箭头永久钉死指向审核窗（本次用户投诉症状）。
+           现改为：无论手动/自动收口，子箭头一律跟随大箭头同帧翻转；
+           _autoPending（gather/review 排队）随翻转一并清空——编排器已停用，
+           残留排队只会造成后续状态错乱。suspended 挂起态仍保持不动。 */
+        p._autoPending = '';
         p.state = 'toSrc';
         p.srcCount = assistantCount(findChat(p.srcId) || {});
-        /* 【箭头一致 v4·排队守卫补充】清掉 review 排队：用户已手动收口，编排器的复审排队
-           同样无意义（收口回注的内容就是最新结论），否则会出现"手动收口后编排器又擅自发复审"的双驱动冲突。 */
-        if (_manual && p._autoPending === 'review') p._autoPending = '';
+        /* 【箭头一致 v4】清残留排队：编排器已停用，任何 _autoPending 残留都会造成状态错乱 */
+        p._autoPending = '';
         /* 关键修复：不再无差别刷成 modified(绿·修改完成)。收口刚刚把汇总建议送回原对话，
            此刻原对话还没改，正确语义是"待修改"。而 detectSrcModified 开头
            `if (pair.status !== 'revising') return;`，一旦被刷成 modified 就永不再执行，

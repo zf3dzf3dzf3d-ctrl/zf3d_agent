@@ -151,7 +151,8 @@ Object.assign(App, {
                 //      对 ts>now 恒为真（负数）→ 凭证污染期内（约3分钟）所有「非 autoloop」配对分组回收
                 //      被整体跳过，连与指挥链无关的用户手动派单自动回收也被阻断（跨功能副作用）。
                 //      延长有效期不该靠凭证时间戳，autoloop 配对本就由 autoLoopGather 独立接管（不依赖凭证）。
-                try { window._zfAutoGatherNext = rvAuto ? Date.now() : 0; } catch (eG) {}
+            /* 【2026-11-01 彻底移除自动返回】凭证永不写入 */
+            try { window._zfAutoGatherNext = 0; window._zfGatherExpireWarned = false; } catch (e) {}
                 // 【批次起点】本次派单的时间下界；review_wait 用 pair._createdAt >= 它 过滤，
                 //   排除目标对话上「历史遗留、与本次派单无关」的审核配对（否则误判/空转到超时）
                 var _rvBatchStart = Date.now();
@@ -292,13 +293,18 @@ Object.assign(App, {
             if (action === 'close') {
                 var targetId = args.chat_id || '';
                 if (targetId === 'all') {
+                    // 【误关防护·v2】关闭所有对话属高危操作（cb337 事故教训），必须显式 confirm:true
+                    if (args.confirm !== true) {
+                        return { success: false, tool: 'chat_manage',
+                            message: '已拒绝 close all：关闭画布上全部对话是高危操作，会连带销毁用户正在使用的窗口。确需全关请显式传 confirm:true；只想关自己请用 chat_id:"self"。' };
+                    }
                     // 关闭所有对话
                     var count = self.chatBoxes.length;
                     var toClose = self.chatBoxes.slice(); // 复制数组
                     toClose.forEach(function(c) {
                         self.closeChatBox(c);
                     });
-                    return { success: true, message: '已关闭所有 ' + count + ' 个对话', tool: 'chat_manage' };
+                    return { success: true, message: '已关闭所有 ' + count + ' 个对话（confirm 确认放行）', tool: 'chat_manage' };
                 }
                 // 关闭指定对话
                 // 【指挥链 G5】chat_id='self' = 关闭"发起本条命令的对话自己"（callerId 由 tools-04-execute 透传）
@@ -327,6 +333,21 @@ Object.assign(App, {
                 if (_busy || _verifying) {
                     return { success: false, tool: 'chat_manage', chat_id: targetId,
                         message: '已拒绝关闭对话 [' + targetId + ']：' + (_busy ? '仍在回复或队列未清空' : '尚有未出结论的审核配对') + '。请先 wait / review_wait 收尾，避免销毁现场。' };
+                }
+                // 【误关防护·v2】关闭"别人的窗"须确认：目标是发起方自己之外的窗口、且窗内有真实消息（历史≥2 或画布窗有 DOM 消息）时，
+                // 必须显式 confirm:true 才允许关。空窗/无内容窗可直接关（不影响清理测试窗的正常场景）。
+                // 背景：cb337 事故——某对话用 chat_manage.close 关掉了用户正在用的他窗，消息被转入归档、画布节点被删。
+                if (!isSelf && args.confirm !== true) {
+                    var _hasContent = false;
+                    try {
+                        var _histLen = Array.isArray(target.history) ? target.history.length : 0;
+                        var _domMsgs = target.el ? target.el.querySelectorAll('.msg, .message, .chat-msg').length : 0;
+                        _hasContent = (_histLen >= 2) || (_domMsgs >= 1);
+                    } catch (eC) {}
+                    if (_hasContent) {
+                        return { success: false, tool: 'chat_manage', chat_id: targetId,
+                            message: '已拒绝关闭对话 [' + targetId + ']：这不是发起方自己的窗口，且窗内已有消息内容（关窗会把消息转入归档并删除画布节点，用户可能正在使用）。如果确认要关，请显式传 confirm:true 并说明原因；只想关自己请用 chat_id:"self" + last_step:true。' };
+                    }
                 }
                 // 护栏①「先 flush 结果」：关窗前强制落盘 + 抓最后一条回复留档（关窗后仍可在记录/历史中查到）
                 var _flushed = '', _flushOk = false;

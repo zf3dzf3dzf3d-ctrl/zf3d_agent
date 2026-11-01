@@ -41,7 +41,7 @@
     }
 
     function toast(msg) {
-        if (typeof window.zfToast === 'function') { window.zfToast(msg); return; }
+        if (typeof window.zfToast === 'function' && window.zfToast !== toast) { window.zfToast(msg); return; }
         var t = document.createElement('div');
         t.textContent = msg;
         t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:999999;background:rgba(20,24,32,.92);color:#ffe9a8;font-size:13px;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,220,120,.45);pointer-events:none;transition:opacity .3s;';
@@ -76,6 +76,8 @@
     }, true);
 
     function boot() { applyScale(loadScale()); }
+    // 【2026-10-23】把样式化 toast 挂为全局 zfToast，替换原生 alert 弹窗（后台任务等页面复用）
+    window.zfToast = toast;
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
     } else {

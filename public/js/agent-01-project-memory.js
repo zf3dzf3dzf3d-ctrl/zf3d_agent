@@ -255,6 +255,30 @@ Object.assign(App, {
                 var _hm0 = result[_hi];
                 if (_hm0 && _hm0.role === 'user' && typeof _hm0.content === 'string' && _hm0.content.indexOf('【当前项目上下文】') !== -1) { _lastCtxIdx = _hi; break; }
             }
+            // ===== 【第二批瘦身】最新轮上下文 diff 注入 =====
+            // 最新一条上下文块若与上次发送快照（项目/根目录/浏览目录签名）相同，则压为一行 diff 占位；
+            // 变化时才全量注入并更新快照。快照按 chatId 存内存，任何解析异常兜底全量注入（宁多勿缺）。
+            try {
+                if (_lastCtxIdx >= 0) {
+                    var _lastCtxMsg = result[_lastCtxIdx];
+                    var _blkM = _lastCtxMsg.content.match(_ctxRe);
+                    if (_blkM && _blkM[0].indexOf('---上下文结束---') !== -1) { // 仅处理完整块，残缺块保守不动
+                        var _sig = ((_blkM[0].match(/项目: *([^\n]+)/) || [])[1] || '') + '|' +
+                                   ((_blkM[0].match(/根目录: *([^\n]+)/) || [])[1] || '') + '|' +
+                                   ((_blkM[0].match(/当前浏览目录: *([^\n]+)/) || [])[1] || '');
+                        if (typeof window !== 'undefined') {
+                            if (!window._ctxDiffCache) window._ctxDiffCache = {};
+                            var _cid = (chat && (chat.id || chat.chatId)) || 'default';
+                            if (window._ctxDiffCache[_cid] === _sig) {
+                                _lastCtxMsg.content = _lastCtxMsg.content.replace(_ctxRe,
+                                    '【当前项目上下文】[与上轮完全相同（项目/根目录/浏览目录均未变化），不再重复注入；需要时用 tree_dir/list_dir 确认]\n');
+                            } else {
+                                window._ctxDiffCache[_cid] = _sig; // 有变化：全量注入并刷新快照
+                            }
+                        }
+                    }
+                }
+            } catch (e) {}
             for (var _hi2 = 0; _hi2 < result.length; _hi2++) {
                 if (_hi2 === _lastCtxIdx) continue;
                 var _hm = result[_hi2];
@@ -487,7 +511,7 @@ Object.assign(App, {
                 for (var j = 0; j < idx.length - 1; j++) {
                     var k = idx[j];
                     var c = _msgText(filtered[k]);
-                    filtered[k].content = '【历史答案已截断】本轮次之前的 AI 回复（共' + c.length + '字）已按用户选择丢弃，如需查看历史结论请说明，或调用相关对话记录工具检索。';
+                    filtered[k].content = '【历史答案已截断】此前AI回复(' + c.length + '字)已丢弃，可调对话记录工具检索。'; // 【注入瘦身 S2·5.7.1】
                 }
             } else if (mode === 'minimal') {
                 // 2 极简保留：最近1条全保留，其余每条截断到约500字
@@ -545,7 +569,7 @@ Object.assign(App, {
             try {
                 var statusBar = document.createElement('div');
                 statusBar.className = 'zf-role-status';
-                statusBar.style.cssText = 'margin:0 0 4px;padding:3px 8px;border-radius:6px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                statusBar.style.cssText = 'display:none;margin:0;padding:0;font-size:11px;';
                 wrap.insertBefore(statusBar, wrap.firstChild);
                 var _updateStatus = function() {
                     try {
@@ -618,7 +642,10 @@ Object.assign(App, {
                 var actions = [
                     { id: 'thinker-expand', name: '策划', tip: '新开对话帮你把问题想清楚、扩展成完整方案，可一键回注执行' },
                     { id: 'race-team', name: '施工队', tip: '多窗口分工协作，把计划拆给多个 AI 一起干' },
+                    { id: 'objector-expand', name: '反驳', tip: '新开对话做红队反驳：攻击前提假设/隐藏风险/可行性漏洞，可一键回注' },
+                    { id: 'evolutionist-expand', name: '进化', tip: '新开对话生成《进化建议书》：对项目给出一条或多条真正的进化建议（对象/改什么/为什么/预期收益/落地方式），可一键回注' },
                     { id: 'obj-verify', name: '审核', tip: '新开对话独立检查结果、找 bug 并给出修复建议' },
+                    { id: 'verifier-expand', name: '验证', tip: '新开对话做终验：只看结果是否真正解决用户原始问题，输出【验证评分】（角色库：验证师）' },
                     { id: 'summarizer', name: '总结', tip: '把任务经验和结论沉淀成记录文件，方便以后复用' },
                     { id: 'custom-role', name: '自定', tip: '自定义角色：说一句叮嘱，AI 就按你的要求角色干活' },
                     { id: 'supervisor-toggle', name: '监督', tip: '开关：实时监督 AI 施工（乱改/乱删/空转就报警），再点一次关闭' },
@@ -633,13 +660,17 @@ Object.assign(App, {
                     if (o.id === 'race-team') return;
                     /* 【v5.5.5】监督师已改为默认常开，按钮隐藏（后端逻辑保留不受影响） */
                     if (o.id === 'supervisor-toggle') return;
+                    /* 【派出团队收口】七个角色入口统一收进对话区下方的「🐝 派出团队」面板
+                       （chatbox-crew-panel.js：点卡通小人加数量 + 一句话 + 大派出按钮）；
+                       此处只隐藏旧按钮，点击逻辑（下方 onclick 分支）与 _askCount 等全部保留，可随时回切 */
+                    if (['thinker-expand', 'objector-expand', 'evolutionist-expand', 'obj-verify', 'verifier-expand', 'summarizer', 'custom-role'].indexOf(o.id) !== -1) return;
                     var btn = document.createElement('button');
                     btn.textContent = o.name;
                     btn.title = o.tip;
                     /* 【派出角标修复】挂角色 key 后立即设 position:relative（角标 absolute 锚点），
                        并在下方每次重写 cssText 时保留它，否则角标会飘到外层容器右上角 */
-                    if (o.id === 'thinker-expand' || o.id === 'obj-verify' || o.id === 'race-team' || o.id === 'custom-role') {
-                        btn.setAttribute('data-spawn-role', ({ 'thinker-expand': '策划师', 'obj-verify': '审核员', 'race-team': '施工队', 'custom-role': '自定义' })[o.id]);
+                    if (o.id === 'thinker-expand' || o.id === 'obj-verify' || o.id === 'race-team' || o.id === 'custom-role' || o.id === 'objector-expand' || o.id === 'evolutionist-expand') {
+                        btn.setAttribute('data-spawn-role', ({ 'thinker-expand': '策划师', 'obj-verify': '审核员', 'race-team': '施工队', 'custom-role': '自定义', 'objector-expand': '反驳师', 'evolutionist-expand': '进化师' })[o.id]);
                         self._renderSpawnBadge(btn, chat);
                     }
                     var _normalCss = 'position:relative;cursor:pointer;padding:4px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.32);background:rgba(255,255,255,.05);color:rgba(255,255,255,.88);font-size:11.5px;white-space:nowrap;flex:0 0 auto;text-align:center;min-width:48px;';
@@ -728,6 +759,24 @@ Object.assign(App, {
                             self._askCount('审核员', function (n) {
                                 for (var i = 0; i < n; i++) { (function (i) { setTimeout(function () { self._objectiveVerify(box, chat); }, i * 500); })(i); }
                             }, chat);
+                        } else if (o.id === 'objector-expand') {
+                            // 🔴 反驳师：与策划师/审核员一致，仅空闲时强制收尾；新开对话独立做红队反驳
+                            try { if (!chat.isSending && self._onSendComplete) self._onSendComplete(box, chat); } catch (e) {}
+                            self._askCount('反驳师', function (n) {
+                                for (var i = 0; i < n; i++) { (function (i) { setTimeout(function () { self._objectorExpand(box, chat); }, i * 500); })(i); }
+                            }, chat);
+                        } else if (o.id === 'evolutionist-expand') {
+                            // 🧬 进化师：与反驳师同链路，仅换角色配置；新开对话对项目给出一条或多条真正的进化建议（《进化建议书》）
+                            try { if (!chat.isSending && self._onSendComplete) self._onSendComplete(box, chat); } catch (e) {}
+                            self._askCount('进化师', function (n) {
+                                for (var i = 0; i < n; i++) { (function (i) { setTimeout(function () { self._evolutionistExpand(box, chat); }, i * 500); })(i); }
+                            }, chat);
+                        } else if (o.id === 'verifier-expand') {
+                            // 🧪 验证师：与反驳师/进化师同链路，仅换角色配置（角色库 r1793051038878，流水线：…→审核→【验证】）
+                            try { if (!chat.isSending && self._onSendComplete) self._onSendComplete(box, chat); } catch (e) {}
+                            self._askCount('验证师', function (n) {
+                                for (var i = 0; i < n; i++) { (function (i) { setTimeout(function () { self._verifierExpand(box, chat); }, i * 500); })(i); }
+                            }, chat);
                         } else if (o.id === 'race-team') {
                             /* 【v5.5.0】赛马模式暂不开放，点击施工队直接走协作开工（不再弹双选） */
                             try { if (!chat.isSending && self._onSendComplete) self._onSendComplete(box, chat); } catch (e) {}
@@ -786,6 +835,10 @@ Object.assign(App, {
                 });
                     // 【简化】「⋯」更多菜单已移除；撤销改为「本任务总耗时」行尾的小按钮（agent-02-loop-core.js 任务完成时插入）
                 wrap.appendChild(row);
+                /* 【空白条修复】旧角色按钮（策划/审核/验证/总结/自定/监督）已全部收进
+                   「🐝 派出团队」面板并在此隐藏，若一排按钮全空则整行 display:none，
+                   否则会留一条带背景色的空白条挂在派出团队面板下面 */
+                try { if (!btns.children.length) { row.style.display = 'none'; /* wrap 自身有 padding+背景，内部全空时会渲染成空白条，必须一并隐藏 */ wrap.style.display = 'none'; } } catch (_he) {}
             })();
 
             // 二次验证成功过的任务：重建按钮行后补回「✓ 已验证」+ 第二排「查看验证」按钮
@@ -800,6 +853,7 @@ Object.assign(App, {
                     _lastAssistant.content.indexOf('二次验证成功') >= 0 ||
                     chat._verifiedOnce) &&
                     typeof self._markVerifyButton === 'function') {
+                    wrap.style.display = ''; // 841行在按钮全空时隐藏了wrap，此路径必须恢复显示，否则验证按钮被连带隐藏
                     body.appendChild(wrap);
                     self._markVerifyButton(box);
                     return;
@@ -1100,12 +1154,13 @@ Object.assign(App, {
             '<span style="font-size:11px;opacity:.45;">回车即派</span>' +
             '</div>' +
             '</div>' +
-            /* ── 组2：回收方式 ── */
-            '<div style="border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">' +
-            '<div style="font-size:11px;opacity:.55;margin-bottom:8px;">回收</div>' +
-            '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ffe0b2;cursor:pointer;margin-bottom:4px;">' +
-            '<input type="checkbox" class="_askcount-auto" style="cursor:pointer;">♻ ' + (roleLabel === '审核员' ? '自动回收重审核（有问题自动二审，直至合格）' : '自动回收（全员答完自动回注一次）') + '</label>' +
-            '</div>' +
+            /* ── 组2：回收方式 ── 【2026-11-01 彻底移除自动返回】自动回收勾选框本版本隐藏（功能已停用，展示即误导）；逻辑保留 */
+            /* ('<div style="border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">' +
+             '<div style="font-size:11px;opacity:.55;margin-bottom:8px;">回收</div>' +
+             '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ffe0b2;cursor:pointer;margin-bottom:4px;">' +
+             '<input type="checkbox" class="_askcount-auto" style="cursor:pointer;">♻ ' + (roleLabel === '审核员' ? '自动回收重审核（有问题自动二审，直至合格）' : '自动回收（全员答完自动回注一次）') + '</label>' +
+             '</div>') + */
+            ('') +
             /* ── 组2.5：策划师专属——【v5.5.0】施工队相关选项本版本隐藏，以后再开发；逻辑保留不受影响 ── */
             /* (roleLabel === '策划师'
                 ? '<div style="border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px 12px;margin-bottom:12px;">' +
@@ -1170,8 +1225,8 @@ Object.assign(App, {
         } catch (eTg) {}
         function fire(n) {
             if (done) return; done = true;
-            /* 【自动回收 v2】存时间戳而非布尔：三种箭头（策划/审核/施工队）各自读取，60 秒内有效，避免多箭头抢消费或标志永久残留 */
-            try { window._zfAutoGatherNext = (autoChk && autoChk.checked) ? Date.now() : 0; window._zfGatherExpireWarned = false; } catch (e) {}
+            /* 【2026-11-01 彻底移除自动返回】凭证永不写入；存储键 zf_auto_gather 保留仅作历史痕迹 */
+            try { window._zfAutoGatherNext = 0; window._zfGatherExpireWarned = false; } catch (e) {}
             n = Math.max(1, Math.min(20, parseInt(n, 10) || 1));
             /* 【执行方式】策划师弹窗里选的“后期归谁干”，存一次性标志供 _thinkerExpandSend 消费（60秒有效） */
             try {
@@ -1311,7 +1366,10 @@ Object.assign(App, {
                 if (key === '策划师' && el._isThinkerChat && String(el._thinkerSrcId) === String(chat.id)) n++;
                 else if (key === '审核员' && el._isQcChat && String(el._qcSrcId) === String(chat.id)) n++;
                 else if (key === '施工队' && el._raceSrcId && String(el._raceSrcId) === String(chat.id)) n++;
-                else if (key === '自定义' && el._isCustomChat && String(el._customSrcId) === String(chat.id)) n++;
+                else if (key === '优化师' && el._isPolisherChat && String(el._polisherSrcId) === String(chat.id)) n++;
+                else if (key === '安全师' && el._isSecurityChat && String(el._securitySrcId) === String(chat.id)) n++;
+                else if (key === '自定义' && el._isCustomChat && !el._isObjectorChat && !el._isVerifierChat && String(el._customSrcId) === String(chat.id)) n++;
+                else if (key === '反驳师' && el._isObjectorChat && String(el._customSrcId) === String(chat.id)) n++;
             });
             return n;
         } catch (e) { return -1; }
@@ -1407,7 +1465,7 @@ Object.assign(App, {
         opts.forEach(function (op) {
             var item = document.createElement('div');
             item.style.cssText = 'padding:10px 14px;margin:6px 0;border-radius:9px;background:rgba(171,71,188,.12);border:1px solid rgba(171,71,188,.35);color:#fff;font-size:14px;cursor:pointer;';
-            item.innerHTML = '<div style="font-weight:bold;">' + op.name + '</div><div style="font-size:11px;opacity:.75;margin-top:3px;">' + op.desc + '</div>';
+            item.innerHTML = '<div style="font-weight:bold;">' + String(op.name).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }) + '</div><div style="font-size:11px;opacity:.75;margin-top:3px;">' + String(op.desc).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }) + '</div>';
             item.addEventListener('mouseenter', function () { item.style.background = 'rgba(171,71,188,.28)'; });
             item.addEventListener('mouseleave', function () { item.style.background = 'rgba(171,71,188,.12)'; });
             item.addEventListener('click', function () { mask.remove(); op.go(); });
@@ -1750,13 +1808,18 @@ Object.assign(App, {
         _qcConcls = _qcConcls.filter(function (c) { var k = c.slice(0, 80); if (_seenQ[k]) return false; _seenQ[k] = 1; return true; }).slice(-3);
         // 项目路径
         var _projPath = '';
+        var _projName = '';
         var _pid = chat.projectId || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || (typeof App !== 'undefined' && App._activeProjectId) || '';
         var _projSrc = (typeof App !== 'undefined' && App._projAllProjects) ? App._projAllProjects : (typeof Store !== 'undefined' && Store.data && Store.data.projects ? Store.data.projects : []);
         if (_projSrc && _pid) {
             for (var _pi = 0; _pi < _projSrc.length; _pi++) {
-                if (String(_projSrc[_pi].id) === String(_pid)) { _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
+                if (String(_projSrc[_pi].id) === String(_pid)) { _projName = _projSrc[_pi].name || _projSrc[_pi].title || ''; _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
             }
         }
+        /* 【四要素溯源】项目名/对话主题/时间/所属智能体——结论回注时必须全部带上 */
+        var _chatTitle = String(chat.title || '');
+        try { if (!_chatTitle && chat.el) { var _te0 = chat.el.querySelector('.title'); if (_te0) _chatTitle = String(_te0.textContent || '').trim(); } } catch (eT2) {}
+        var _nowStr = (function () { var _d = new Date(); function _p2(n) { return (n < 10 ? '0' : '') + n; } return _d.getFullYear() + '-' + _p2(_d.getMonth() + 1) + '-' + _p2(_d.getDate()) + ' ' + _p2(_d.getHours()) + ':' + _p2(_d.getMinutes()); })();
         var _projTree = '';
         var _finishSend = function () { self._summarizerExpandSend(box, chat, { projPath: _projPath, firstQ: _firstQ, thinkerConcls: _thinkerConcls, qcConcls: _qcConcls, finalReply: _finalReply, projTree: _projTree, mode: chat._summarizerMode || 'work' }); };
         if (_projPath) {
@@ -1959,7 +2022,14 @@ Object.assign(App, {
                             var _boxes2 = (_app && _app.chatBoxes) || [];
                             for (var _ci2 = 0; _ci2 < _boxes2.length; _ci2++) {
                                 var _b = _boxes2[_ci2]; if (!_b || !_b.el) continue;
-                                var _bSrc = _b.el._summarizerSrcId || _b.el._qcSrcId || _b.el._thinkerSrcId;
+                                /* 【加固】不再逐一枚举 SrcId（易漏新角色），通用扫描 el 上所有 *_SrcId 属性，
+                                   覆盖 _summarizer/_qc/_thinker/_custom/_expert/_race 及未来新增派生窗 */
+                                var _bSrc = null;
+                                try {
+                                    for (var _ak in _b.el) {
+                                        if (/SrcId$/.test(_ak) && _b.el[_ak]) { _bSrc = _b.el[_ak]; break; }
+                                    }
+                                } catch (eAK) {}
                                 var _isChild = (_bSrc && String(_bSrc) === _srcId);
                                 var _isParent = (_b === _srcChat);
                                 if (_isChild || _isParent) _toClose.push(_b);
@@ -2139,6 +2209,367 @@ Object.assign(App, {
     /* ==================== 🎭 自定义万能角色：新开对话 + 上下文素材包 + 用户叮嘱 ==================== */
     /* 不预设职业：素材包 = 原对话完整上下文 + 用户一句话【用户叮嘱】，角色自己按叮嘱变形。
        回收走统一前缀「（自定义素材包 /【自定义任务】」，主对话零改动消化。复刻策划师 _thinkerExpand 链路。 */
+    /* 【进化师】复用反驳师派出链路，仅换角色配置（角色库 r_evolutionist_001，位置：反驳→进化→审核） */
+    _evolutionistExpand: function(box, chat) {
+        this._objectorExpand(box, chat, {
+            briefKey: 'zf_evolutionist_brief',
+            defBrief: '针对本次任务暴露的问题与项目现状，给出一次真正的进化建议（对象/改什么/为什么/预期收益/落地方式），每次至少一条明确建议，无可建议须写清理由；建议须基于实据（本次策划案/反驳报告/调查黑板/复盘的具体问题，或课题池中反复出现的模式）；维护课题池 project_record append「进化/课题池」（课题名/出处/复现次数/状态）；无否决权，建议由审核与用户裁决；不改他人黑板条目只 append。',
+            label: '进化师',
+            title: '🧬 进化师',
+            titleKey: '进化师',
+            toastIcon: '🧬',
+            srcFlag: '_isEvolutionChat',
+            taskHead: '【进化师任务】你是进化师（🧬 进化提案角色，流水线位置：策划→反驳→【进化】→审核）：针对本次任务与项目现状给出一次真正的、可落地的《进化建议书》（对象/改什么/为什么/预期收益/落地方式），每次至少一条明确建议；建议须基于实据；无否决权，不阻塞流水线。',
+            dutyHead: '== 进化职责 ==',
+            conclTag: '【进化师结论】',
+            conclNote: '（这条会通过统一前缀回注原对话）'
+        });
+    },
+
+    /* 【验证师】复用反驳师派出链路，仅换角色配置（角色库 r1793051038878，流水线位置：…→审核→【验证】→总结） */
+    /* ==================== 优化师/安全师（复用 _objectorExpand 派出通道） ==================== */
+    _polisherExpand: function(box, chat) {
+        this._objectorExpand(box, chat, {
+            briefKey: 'zf_polisher_brief',
+            defBrief: '在现有产出基础上做艺术加工：消除冗余表达、提升文字流畅度与结构美感；不改变结论与事实，不推倒重来；每处改动注明理由。完成后必须单独一行输出【优化评分】NN（0-100）。', 
+            label: '优化师',
+            title: '✨ 优化师',
+            titleKey: '优化师',
+            toastIcon: '✨',
+            srcFlag: '_isPolisherChat',
+            taskHead: '【优化师任务】你是优化师（✨ 打磨角色）：在现有产出基础上做艺术加工——消除冗余表达、提升文字流畅度与结构美感。铁律：不改变结论与事实、不推倒重来、不重新调查；每处改动注明理由。你的产出是对现有内容的最小化精修，不是替代方案。完成后必须单独一行输出【优化评分】NN（0-100），对你优化后的整体质量自评打分。',
+            dutyHead: '== 优化职责（你的任务） ==',
+            conclTag: '【优化师结论】',
+            conclNote: '（这条会通过统一前缀回注原对话）'
+        });
+    },
+    _securityExpand: function(box, chat) {
+        this._objectorExpand(box, chat, {
+            briefKey: 'zf_security_brief',
+            defBrief: '只审查代码安全性，只审不改：注入/XSS/命令注入/路径穿越/敏感信息泄漏/权限越权/不安全依赖等；每条发现标注严重度【高/中/低】并给出文件与行号证据；无发现则明说。完成后必须单独一行输出【安全评分】NN（0-100，无高危≥85）。禁止直接修改任何代码。',
+            label: '安全师',
+            title: '🔒 安全师',
+            titleKey: '安全师',
+            toastIcon: '🔒',
+            srcFlag: '_isSecurityChat',
+            taskHead: '【安全师任务】你是安全师（🔒 只审不改角色）：对项目代码做安全性检查——注入/XSS/命令注入/路径穿越/敏感信息泄漏（密钥、token）/权限越权/不安全依赖等。铁律：只审不改，禁止修改任何代码文件；每条发现标注严重度【高/中/低】并给出文件与行号证据；无实质发现也要明确说明。完成后必须单独一行输出【安全评分】NN（0-100，无高危问题≥85）。',
+            dutyHead: '== 安全职责（你的任务） ==',
+            conclTag: '【安全师结论】',
+            conclNote: '（这条会通过统一前缀回注原对话）'
+        });
+    },
+
+    _verifierExpand: function(box, chat) {
+        this._objectorExpand(box, chat, {
+            briefKey: 'zf_verifier_brief',
+            defBrief: '终验本次任务的最终产出是否真正解决了用户的原始问题：列预期清单逐条对照并给依据。【强制实测】验证方式默认必须是 A) 实测查证——真正拉起交付物：代码改动必须用 run_code 实际运行/构建/跑测试并附退出码；文档必须用 read_file 读回核对；网页必须用 browser_control 实开验证；文件产物必须用 file_info/read_file 实查存在与内容；接口/网络类交付物可用 run_code 发 curl/脚本请求实测；配置/数据类可用 run_code 查询数据库或解析 JSON 实查——一切以"亲手运行过、亲眼看到输出"为准，鼓励组合多种程序交叉验证（运行+浏览器+读回+查库），不要只挑一种省事手段；严禁只凭素材包里的文字就下"已验证"结论；只有交付物是纯讨论/纯文本且无任何可执行/可打开的产物时，才允许 B) 仅文本比对，且必须在结论第一行标注"⚠️未实测"。结论二值（可交付 / 不可交付，不可交付时列明缺什么、建议退回给谁）；逐条核验后必须输出【验证评分】NN（0-100，及格线60）：与用户预期不符每条-20，无标尺来源声明-10，未实测却冒充实测-30（一票否决），实测证据齐全+10，自我反驳≥2条+5；评分≥60放行，<60退回重做；终验结论用 project_record(action=write, name="验证/主题名") 落盘。',
+            label: '验证师',
+            title: '🧪 验证师',
+            titleKey: '验证师',
+            toastIcon: '🧪',
+            srcFlag: '_isVerifierChat',
+            taskHead: '【验证师任务】你是验证师（🧪 终验角色，流水线位置：策划→反驳→进化→审核→【验证】）：只看结果不看过程，核验前序角色给出的最终产出是否真正解决了用户的原始问题、符合用户预期。【强制实测】默认验证方式必须是"实测查证"：代码改动→用 run_code 真正运行/构建/跑测试，附命令输出与退出码；文档→read_file 读回核对；网页→browser_control 实开验证；文件产物→file_info/read_file 实查；接口/网络类→run_code 发请求实测；配置/数据类→查库/解析 JSON 实查；鼓励组合多种程序交叉验证（运行+浏览器+读回+查库），不要只挑一种省事手段。严禁只读素材包文字就宣布"验证通过"——那属于假验证，会被一票否决。只有交付物确实无任何可执行/可打开产物时才允许仅文本比对，且必须在结论首行标注"⚠️未实测"。结论二值：可交付 / 不可交付（列明缺什么、退回给谁）；必须输出【验证评分】NN（0-100，及格线60，假验证一票否决-30）；终验结论用 project_record(action=write, name="验证/主题名") 落盘。素材包下方的"项目路径"就是交付物所在地，请直接用工具去实地查证。',
+            dutyHead: '== 验证职责（你的任务） ==',
+            conclTag: '【验证师结论】',
+            conclNote: '（这条会通过统一前缀回注原对话）'
+        });
+    },
+
+    _objectorExpand: function(box, chat, cfg) {
+        /* 角色配置：默认=反驳师（红队）；进化师经第三参传入自己的配置 */
+        cfg = cfg || {};
+        var _isEvo = !!cfg.briefKey && cfg.briefKey !== 'zf_objector_brief';
+        var _ROLE = cfg.label || '反驳师';
+        var _briefKey = cfg.briefKey || 'zf_objector_brief';
+        var _defBrief = cfg.defBrief || '攻击前提假设、隐藏风险与可行性漏洞；每条反驳标注严重度【高/中/低】；无实质问题则明说，不许为反驳而反驳。';
+        var _title = cfg.title || '🔴 反驳师';
+        var _toastIcon = cfg.toastIcon || '🔴';
+        var _taskHead = cfg.taskHead || '【反驳师任务】你是反驳师（红队）：专门对当前方案/结论发起攻击性质疑——找出它的前提漏洞、隐藏风险、可行性问题、被忽略的反例。你的价值在于挑刺，但必须讲证据、讲逻辑，不许为反驳而反驳；若确无实质问题，也要明确说明并指出最薄弱的假设。';
+        var _dutyHead = cfg.dutyHead || '== 反驳职责（你的任务） ==';
+        var _conclTag = cfg.conclTag || '【反驳师结论】';
+        var _srcFlag = cfg.srcFlag || '_isObjectorChat';
+        var self = this;
+        // 消费一次性叮嘱标志（_askCount fire 时写入，60 秒有效；多窗派出共享同一叮嘱）
+        var _note = '';
+        var _cnAtt = { imgs: [], pastes: [] };
+        try {
+            var _cn = window._zfCustomNoteNext;
+            if (_cn && _cn.note && (Date.now() - (_cn.ts || 0) < 60000)) {
+                _note = String(_cn.note).trim();
+                _cnAtt.imgs = (_cn.imgs || []).slice();
+                _cnAtt.pastes = (_cn.pastes || []).slice();
+            }
+            if (_note) window._zfCustomNoteNext = null; // 首窗消费
+        } catch (eN) {}
+        if (!_note) {
+            // 【修复 2026-10-31】有本次叮嘱时不得被旧 brief/默认文案覆盖（与 _customExpand 口径一致）；
+            // 仅当无叮嘱时才回退到 localStorage brief 或默认职责
+            _note = String(localStorage.getItem(_briefKey) || '') || _defBrief;
+        }
+        if (!_note) {
+            // 进化师/反驳师不依赖用户叮嘱，固定职责
+            return;
+        }
+        try { localStorage.setItem(_briefKey, _note); } catch (e) {}
+        // 收集原对话上下文（与策划师同口径：全量问答、跳过各类素材包消息）
+        var _firstQ = '';
+        var _allPairs = [];
+        var _cur = null;
+        for (var _i = 0; _i < chat.history.length; _i++) {
+            var _h = chat.history[_i];
+            if (!_h) continue;
+            if (_h.role === 'assistant' && !_h._meta) {
+                if (_cur) { _cur.a = (_cur.a ? _cur.a + '\n' : '') + (_h.content || ''); }
+                continue;
+            }
+            var _tc = _msgText(_h);
+            if (_h.role === 'user' && !_h._guardInject && !_h._verifyRound && !_h._continueRound && !_h._thinkerRound && !_h._summarizerRound && !_h._customRound && _tc.indexOf('（策划师素材包') !== 0 && _tc.indexOf('（总结师素材包') !== 0 && _tc.indexOf('（审核员素材包') !== 0 && _tc.indexOf('（自定义素材包') !== 0) {
+                _cur = { q: _tc, a: '' };
+                _allPairs.push(_cur);
+                if (!_firstQ) _firstQ = _tc;
+            }
+        }
+        if (!_allPairs.length) {
+            /* 【空对话放行 2026-10-31】派出团队允许空对话+一句叮嘱直接派出（叮嘱即任务来源）；
+               下游 firstQ/完整对话记录均为条件注入，无内容时自动省略，不再拦截 */
+            Store.addLog('info', chat.id, 'custom', _ROLE + '：原对话无消息，以一句话叮嘱为任务直接派出');
+        }
+        var _srcRoleName = '';
+        try {
+            var _sr = JSON.parse(localStorage.getItem('zf_role_chat_' + chat.id) || 'null');
+            if (_sr && _sr.name) _srcRoleName = String(_sr.name);
+        } catch (e) {}
+        var _projPath = '';
+        var _projName = '';
+        var _pid = chat.projectId || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || (typeof App !== 'undefined' && App._activeProjectId) || '';
+        var _projSrc = (typeof App !== 'undefined' && App._projAllProjects) ? App._projAllProjects : (typeof Store !== 'undefined' && Store.data && Store.data.projects ? Store.data.projects : []);
+        if (_projSrc && _pid) {
+            for (var _pi = 0; _pi < _projSrc.length; _pi++) {
+                if (String(_projSrc[_pi].id) === String(_pid)) { _projName = _projSrc[_pi].name || _projSrc[_pi].title || ''; _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
+            }
+        }
+        /* 【四要素溯源】项目名/对话主题/时间/所属智能体——结论回注时必须全部带上 */
+        var _chatTitle = String(chat.title || '');
+        try { if (!_chatTitle && chat.el) { var _te0 = chat.el.querySelector('.title'); if (_te0) _chatTitle = String(_te0.textContent || '').trim(); } } catch (eT2) {}
+        var _nowStr = (function () { var _d = new Date(); function _p2(n) { return (n < 10 ? '0' : '') + n; } return _d.getFullYear() + '-' + _p2(_d.getMonth() + 1) + '-' + _p2(_d.getDate()) + ' ' + _p2(_d.getHours()) + ':' + _p2(_d.getMinutes()); })();
+        // ===== 组装素材包 =====
+        var lines = [];
+        lines.push(_taskHead);
+        lines.push('');
+        lines.push(_dutyHead);
+        lines.push(_note);
+        /* 【粘贴附件】把 @图N / @粘贴N 卡片对应的实际素材追加进素材包 */
+        try {
+            if (_cnAtt.imgs && _cnAtt.imgs.length) {
+                lines.push('');
+                lines.push('== 附带图片 ==');
+                _cnAtt.imgs.forEach(function (m) { lines.push('@图' + m.n + '：(见本条消息附带的第 ' + m.n + ' 张图片)'); });
+            }
+            if (_cnAtt.pastes && _cnAtt.pastes.length) {
+                lines.push('');
+                lines.push('== 附带粘贴内容 ==');
+                _cnAtt.pastes.forEach(function (m) {
+                    lines.push('@粘贴' + m.n + ' 开始 >>>');
+                    lines.push(String(m.text));
+                    lines.push('<<< @粘贴' + m.n + ' 结束');
+                });
+            }
+        } catch (eAtt2) {}
+        lines.push('');
+        lines.push('== 项目路径 ==');
+        lines.push(_projPath || '（未提供）');
+        if (_srcRoleName) lines.push('原对话角色：' + _srcRoleName + '（新对话已继承该角色人设与口吻，请以同一角色身份行事）');
+        if (_firstQ) lines.push('任务最初的问题（源头）：' + String(_firstQ).replace(/\s+/g, ' ').trim().slice(0, 800));
+        var _pairs = _allPairs;
+        if (_pairs.length) {
+            lines.push('');
+            lines.push('== 完整对话记录（原对话全部用户提问与 AI 回答，按时间正序） ==');
+            var _PAIR_Q_MAX = 2000, _PAIR_A_HEAD = 1200, _PAIR_A_TAIL = 1200;
+            var _PAIR_TOTAL_BUDGET = 80000;
+            var _est = 0;
+            _pairs.forEach(function (p) { _est += Math.min(String(p.q || '').length, _PAIR_Q_MAX) + Math.min(String(p.a || '').length, _PAIR_A_HEAD + _PAIR_A_TAIL); });
+            var _overBudget = _est > _PAIR_TOTAL_BUDGET;
+            if (_overBudget) lines.push('（注：原对话轮次极多，已按预算压缩——较近轮次保留完整内容，更早轮次仅保留摘要）');
+            var _half = Math.floor(_pairs.length / 2);
+            _pairs.forEach(function (p, i) {
+                var _q = String(p.q || '').replace(/\s+/g, ' ').trim();
+                var _a = String(p.a || '').trim();
+                var _over = false;
+                if (_overBudget && i < _half) {
+                    _over = true;
+                    _q = _q.slice(0, 300) + (_q.length > 300 ? '…（截断）' : '');
+                    _a = _a.slice(0, 200) + (_a.length > 200 ? '…（摘要）' : '');
+                }
+                if (!_over && _q.length > _PAIR_Q_MAX) _q = _q.slice(0, _PAIR_Q_MAX) + '…（截断）';
+                lines.push('');
+                lines.push('【第 ' + (i + 1) + ' 轮 · 用户】' + _q);
+                if (_a) {
+                    var _cut = _over ? _a : (_a.length > (_PAIR_A_HEAD + _PAIR_A_TAIL) ? (_a.slice(0, _PAIR_A_HEAD) + '\n……（中间省略）……\n' + _a.slice(-_PAIR_A_TAIL)) : _a);
+                    lines.push('【第 ' + (i + 1) + ' 轮 · AI】' + _cut);
+                } else {
+                    lines.push('【第 ' + (i + 1) + ' 轮 · AI】（该问题尚未被回答）');
+                }
+            });
+            lines.push('');
+            lines.push('（共 ' + _pairs.length + ' 轮问答，以上为原对话完整脉络）');
+        }
+        lines.push('');
+        lines.push('== 你的任务 ==');
+        lines.push('1. 通读上方职责与完整对话记录，锁定任务的核心前提与关键步骤；');
+        lines.push('2. 若项目路径有效，允许使用工具（read_file/search_in_files/run_code 等）实地调查取证，用证据支撑每条结论，不凭空臆测；');
+        lines.push('3. 若任务需要修改代码文件，修改完成后执行 git 保存：cd 到「== 项目路径 ==」目录，git add -A 后按「[答] 改动摘要(涉及文件名)」格式提交（20字内）；不需要改代码的任务跳过本条；');
+        lines.push('4. 多名' + _ROLE + '并行时，你是其中之一，输出保持独立判断，不要假设能看到其他' + _ROLE + '的结论；');
+        lines.push('5. 【调查黑板规范】多名' + _ROLE + '的调查结论统一落盘共享黑板，防止各查各的乱套：');
+        lines.push('   - 开工前先用 project_record 的 list/search 查看「调查黑板」目录是否已有同类调查，避免重复劳动；');
+        lines.push('   - 你的调查结论/产出用 project_record append 追加到「调查黑板」下按任务命名的板子（文件名格式：调查-<任务主题>-<日期YYYYMMDD>，如 调查-根目录垃圾文件-20261015）；');
+        lines.push('   - 板子内只追加不修改已有内容（append-only），每条结论一行，格式：【结论】<编号> <一句话结论>（涉及文件/证据简注）；');
+        lines.push('   - 完成时在「_索引.md」板追加一行索引：| <日期时间> | <板子名> | <一句话查了什么> |，供后来者快速了解已查内容；');
+        lines.push('   - 黑板是共享读+受约束写：读自由（任何人可 list/read 全部板子），写只许 append 到自己的板子和索引行，严禁改写/删除他人条目。');
+        lines.push('6. 完成后，最后必须单独一行以「' + _conclTag + '」开头，用编号条目列出你的核心结论（单行内完成），供主对话一键回收。');
+        lines.push('   ⚠️ 结论行必须携带四要素溯源头（缺一不可）：项目名、对话主题、时间、所属智能体。');
+        lines.push('   格式示例：' + _conclTag + '【项目：' + (_projName || '（项目名）') + '｜对话：' + (_chatTitle || '（对话主题）') + '｜时间：' + _nowStr + '｜智能体：' + (_ROLE || '（智能体名）') + '】①结论X；②结论Y；③结论Z' + (cfg.conclNote || '（这条会通过统一前缀回注原对话）'));
+        var _prompt = lines.join('\n');
+        // ===== 新开对话（复刻策划师链路：定位/继承/箭头/发送） =====
+        var selfApp = (typeof App !== 'undefined') ? App : null;
+        if (!selfApp || typeof selfApp.createChatBox !== 'function') {
+            Store.addLog('error', chat.id, 'custom', '反驳师失败：无法创建新对话');
+            self._stepToast('反驳师失败：无法创建新对话', false);
+            return;
+        }
+        var canvasArea = document.getElementById('canvasArea');
+        var _srcL = NaN, _srcT = NaN;
+        try { if (window._zfFocusActive && window.zfFocusMode && typeof window.zfFocusMode.isOn === 'function' && window.zfFocusMode.isOn()) { window.zfFocusMode.set(false); } } catch (eZF) {}
+        try {
+            var _sc0 = (window.App && typeof App.canvasScale === 'function') ? (App.canvasScale() || 1) : 1;
+            if (!(_sc0 > 0)) _sc0 = 1;
+            var _cv0 = (window.App && typeof App.canvasGetView === 'function') ? (App.canvasGetView() || { x: 0, y: 0 }) : { x: 0, y: 0 };
+            var _r0 = chat.el.getBoundingClientRect();
+            var _caR0 = canvasArea ? canvasArea.getBoundingClientRect() : { left: 0, top: 0 };
+            _srcL = Math.round((_r0.left - _caR0.left - (_cv0.x || 0)) / _sc0);
+            _srcT = Math.round((_r0.top - _caR0.top - (_cv0.y || 0)) / _sc0);
+        } catch (eSrc0) {}
+        var _stL = parseFloat(chat.el && chat.el.style.left), _stT = parseFloat(chat.el && chat.el.style.top);
+        if (isFinite(_stL) && isFinite(_stT) && (isNaN(_srcL) || isNaN(_srcT) || Math.abs(_srcL - _stL) + Math.abs(_srcT - _stT) > 1500)) { _srcL = _stL; _srcT = _stT; }
+        if (isNaN(_srcL)) _srcL = parseInt(chat.el && chat.el.style.left, 10) || 0;
+        if (isNaN(_srcT)) _srcT = parseInt(chat.el && chat.el.style.top, 10) || 0;
+        var _srcW = (chat.el && chat.el.offsetWidth) || 420;
+        var _srcH = 520;
+        try {
+            var _sc = (window.App && typeof App.canvasScale === 'function') ? (App.canvasScale() || 1) : 1;
+            if (!(_sc > 0)) _sc = 1;
+            if (chat && chat.el && chat.el.offsetHeight) _srcH = chat.el.offsetHeight / _sc;
+        } catch (e) {}
+        var _cIdx = 0;
+        try { _cIdx = Math.max(0, ((window.ZFSwarm && window.ZFSwarm.nextIdxFor) ? window.ZFSwarm.nextIdxFor(chat.id, 'custom') : 1) - 1); } catch (eIdx) {}
+        var _cX = _srcL + _srcW + 10 + _cIdx * 20, _cY = _srcT + _srcH + 10 + _cIdx * 20;
+        if (!isFinite(_cX)) _cX = 120;
+        if (!isFinite(_cY)) _cY = 120;
+        var _srcMid = '';
+        try {
+            _srcMid = (typeof App !== 'undefined' && typeof App._toolMasterResolveModelId === 'function') ? (App._toolMasterResolveModelId(chat) || '') : '';
+        } catch (e) {}
+        if (!_srcMid) _srcMid = chat.modelId || '';
+        var newChat = selfApp.createChatBox(_cX, _cY, _srcMid || null, true);
+        if (!newChat) {
+            self._stepToast(_ROLE + '失败：新对话创建被拦截（窗口数量限制）', false);
+            return;
+        }
+        try {
+            var _pinFn = function () {
+                try {
+                    if (!newChat.el || !document.body.contains(newChat.el)) return;
+                    var _curL = parseFloat(newChat.el.style.left), _curT = parseFloat(newChat.el.style.top);
+                    var _dL = Math.abs(_curL - _cX), _dT = Math.abs(_curT - _cY);
+                    if ((_dL > 1 || _dT > 1) && Math.max(_dL, _dT) < 400) {
+                        newChat.el.style.left = _cX + 'px';
+                        newChat.el.style.top = _cY + 'px';
+                    }
+                } catch (ePin) {}
+            };
+            _pinFn();
+            [0, 60, 200, 450, 800].forEach(function (ms) { setTimeout(_pinFn, ms); });
+        } catch (ePin0) {}
+        // 定位/存活标记（存活口径：_isCustomChat + _customSrcId）
+        try {
+            newChat.el._isCustomChat = true;
+            /* 【角色标记·动态化】按 cfg.srcFlag 设置角色标记：进化师(_isEvolutionChat)仍保留反驳师存活口径 _isObjectorChat；验证师(_isVerifierChat)只带自己的标记，不归入进化/反驳 */
+            newChat.el[_srcFlag] = true;
+            if (_srcFlag === '_isObjectorChat' || _srcFlag === '_isEvolutionChat') newChat.el._isObjectorChat = true;
+            /* 【优化师/安全师】专属 SrcId 标记，供收口箭头/存活统计按角色识别 */
+            if (_srcFlag === '_isPolisherChat') newChat.el._polisherSrcId = chat.id;
+            if (_srcFlag === '_isSecurityChat') newChat.el._securitySrcId = chat.id;
+            newChat.el._customSrcId = chat.id;
+            // 【收口箭头】自定义角色也进蜂群注册表：≥2 个自定义角色时自动出现总收口箭头
+            try { window.ZFSwarm && window.ZFSwarm.register(newChat.id, 'custom', chat.id, 0); } catch (eRegC) {}
+        } catch (e) {}
+        // 配置完全继承（角色/项目/引擎/模型/思考强度/压缩/工具分类），与策划师同款
+        try {
+            var _srcRole = null;
+            try { _srcRole = JSON.parse(localStorage.getItem('zf_role_chat_' + chat.id) || 'null'); } catch (e) {}
+            var _inheritPid = chat.projectId || (typeof App !== 'undefined' && App._activeProjectId) || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || '';
+            if (_inheritPid) {
+                newChat.projectId = _inheritPid;
+                for (var i = 0; i < Store.data.chatBoxes.length; i++) {
+                    if (Store.data.chatBoxes[i].id === newChat.id) { Store.data.chatBoxes[i].projectId = _inheritPid; break; }
+                }
+                try { if (typeof DB !== 'undefined' && DB.setNodeProject) DB.setNodeProject(newChat.id, _inheritPid).catch(function () {}); } catch (e) {}
+                try { if (typeof selfApp._updateProjectBtn === 'function') selfApp._updateProjectBtn(newChat); } catch (e) {}
+            }
+            try {
+                if (chat._engine) newChat._engine = String(chat._engine);
+                if (chat.modelId && typeof Models !== 'undefined' && Models.get && Models.get(chat.modelId)) newChat.modelId = chat.modelId;
+                if (chat._modelIdOverride) newChat._modelIdOverride = String(chat._modelIdOverride);
+                if (chat._reasoningEffort !== undefined && chat._reasoningEffort !== null) newChat._reasoningEffort = String(chat._reasoningEffort || '');
+                if (chat._compressMode) newChat._compressMode = chat._compressMode;
+                if (chat._historyMode) newChat._historyMode = chat._historyMode;
+                if (typeof Tools !== 'undefined' && Tools.chatCategories && Tools.chatCategories[chat.id]) Tools.chatCategories[newChat.id] = Tools.chatCategories[chat.id];
+                try { if (typeof newChat._refreshModelPickerBtn === 'function') newChat._refreshModelPickerBtn(); } catch (e2) {}
+                Store.saveChatBox(newChat, true);
+            } catch (e2) {}
+            // 继承原对话角色（不指定专属角色分组；自定义=角色由叮嘱决定，人设口吻继承原对话即可）
+            if (_srcRole && _srcRole.id) {
+                try {
+                    localStorage.setItem('zf_role_chat_' + newChat.id, JSON.stringify(_srcRole));
+                    try { if (typeof selfApp._refreshRoleBadge === 'function') selfApp._refreshRoleBadge(newChat.el); } catch (e3) {}
+                    try {
+                        var _titleEl = newChat.el && newChat.el.querySelector('.title');
+                        if (_titleEl) { _titleEl.textContent = _title; _titleEl.title = _ROLE + '对话：' + _note.slice(0, 40); }
+                    } catch (e3) {}
+                    try { if (typeof Theme !== 'undefined' && Theme.applyToBox && newChat.el) Theme.applyToBox(newChat.el, _srcRole.chat_skin || ''); } catch (e3) {}
+                } catch (e3) {}
+            }
+        } catch (e) {}
+        try {
+            var _objTitle = newChat.el && newChat.el.querySelector('.title');
+            if (_objTitle && _objTitle.textContent.indexOf(_ROLE) < 0) { _objTitle.textContent = _title; _objTitle.title = _ROLE + '对话：' + _note.slice(0, 40); }
+        } catch (eOt) {}
+        Store.addLog('info', chat.id, 'custom', _ROLE + '已发起：新对话 ' + newChat.id + '，职责「' + _note.slice(0, 50) + '」，素材包 ' + _prompt.length + ' 字');
+        self._stepToast(_toastIcon + ' ' + _ROLE + '已发起：' + _note.slice(0, 24), true);
+        // 方向箭头（复用紫色回注通道）
+        try {
+            if (window.ZFThinkerArrow && typeof window.ZFThinkerArrow.create === 'function') window.ZFThinkerArrow.create(chat, newChat);
+        } catch (e) {}
+        setTimeout(function () {
+            try {
+                if (typeof selfApp.addMsg === 'function') selfApp.addMsg(newChat.el, '（' + _ROLE + '素材包，共 ' + _prompt.length + ' 字' + ((_cnAtt.imgs && _cnAtt.imgs.length) ? '，附图片x' + _cnAtt.imgs.length : '') + '）', 'user', newChat.modelId);
+                var _cMsg;
+                if (_cnAtt.imgs && _cnAtt.imgs.length) {
+                    var _cParts = [];
+                    _cnAtt.imgs.forEach(function (m) { _cParts.push({ type: 'image_url', image_url: { url: m.dataUrl } }); });
+                    _cParts.push({ type: 'text', text: _prompt });
+                    _cMsg = { role: 'user', content: _cParts, _customRound: true, _objectorRound: true };
+                } else {
+                    _cMsg = { role: 'user', content: _prompt, _customRound: true, _objectorRound: true };
+                }
+                newChat.history.push(_cMsg);
+                Store.addLog('info', newChat.id, 'custom', _ROLE + '素材包已注入并发送');
+                selfApp.sendToModel(newChat.el, newChat);
+            } catch (e) {
+                Store.addLog('error', newChat.id, 'custom', _ROLE + '素材包发送异常: ' + e.message);
+            }
+        }, 400);
+    },
+
     _customExpand: function(box, chat) {
         var self = this;
         // 消费一次性叮嘱标志（_askCount fire 时写入，60 秒有效；多窗派出共享同一叮嘱）
@@ -2179,9 +2610,9 @@ Object.assign(App, {
             }
         }
         if (!_allPairs.length) {
-            Store.addLog('warn', chat.id, 'custom', '自定义角色失败：原对话没有任何用户内容');
-            self._stepToast('自定义角色失败：请先在对话里说点什么', false);
-            return;
+            /* 【空对话放行 2026-10-31】派出团队允许空对话+一句叮嘱直接派出（叮嘱即任务来源）；
+               下游 firstQ/完整对话记录均为条件注入，无内容时自动省略，不再拦截 */
+            Store.addLog('info', chat.id, 'custom', '自定义角色：原对话无消息，以一句话叮嘱为任务直接派出');
         }
         var _srcRoleName = '';
         try {
@@ -2189,13 +2620,18 @@ Object.assign(App, {
             if (_sr && _sr.name) _srcRoleName = String(_sr.name);
         } catch (e) {}
         var _projPath = '';
+        var _projName = '';
         var _pid = chat.projectId || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || (typeof App !== 'undefined' && App._activeProjectId) || '';
         var _projSrc = (typeof App !== 'undefined' && App._projAllProjects) ? App._projAllProjects : (typeof Store !== 'undefined' && Store.data && Store.data.projects ? Store.data.projects : []);
         if (_projSrc && _pid) {
             for (var _pi = 0; _pi < _projSrc.length; _pi++) {
-                if (String(_projSrc[_pi].id) === String(_pid)) { _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
+                if (String(_projSrc[_pi].id) === String(_pid)) { _projName = _projSrc[_pi].name || _projSrc[_pi].title || ''; _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
             }
         }
+        /* 【四要素溯源】项目名/对话主题/时间/所属智能体——结论回注时必须全部带上 */
+        var _chatTitle = String(chat.title || '');
+        try { if (!_chatTitle && chat.el) { var _te0 = chat.el.querySelector('.title'); if (_te0) _chatTitle = String(_te0.textContent || '').trim(); } } catch (eT2) {}
+        var _nowStr = (function () { var _d = new Date(); function _p2(n) { return (n < 10 ? '0' : '') + n; } return _d.getFullYear() + '-' + _p2(_d.getMonth() + 1) + '-' + _p2(_d.getDate()) + ' ' + _p2(_d.getHours()) + ':' + _p2(_d.getMinutes()); })();
         // ===== 组装素材包 =====
         var lines = [];
         lines.push('【自定义任务】你是一个自定义角色：不预设职业，职责完全由下方「用户叮嘱」决定——叮嘱是写诗就当写手，叮嘱是审核就当审核员，叮嘱是翻译就当翻译。请严格按叮嘱行事，不要越界做叮嘱之外的事。');
@@ -2424,10 +2860,10 @@ Object.assign(App, {
                 _firstQ = _allPairs[0].q; // 第一条真实用户提问就是首问
             }
         }
+        /* 【空对话放行】允许没有任何历史问答的对话直接派出策划师：
+           素材包会自动省略「完整对话记录」章节，策划师以项目上下文+叮嘱为准，可先向用户追问澄清 */
         if (!_allPairs.length) {
-            Store.addLog('warn', chat.id, 'thinker', '策划师失败：原对话没有任何用户问题可扩展');
-            self._stepToast('策划师失败：请先在对话里提出一个问题', false);
-            return;
+            Store.addLog('info', chat.id, 'thinker', '策划师：原对话暂无用户问题，以空对话模式派出（由策划师先追问澄清）');
         }
         var _srcRoleName = '';
         try {
@@ -2435,13 +2871,18 @@ Object.assign(App, {
             if (_sr && _sr.name) _srcRoleName = String(_sr.name);
         } catch (e) {}
         var _projPath = '';
+        var _projName = '';
         var _pid = chat.projectId || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || (typeof App !== 'undefined' && App._activeProjectId) || '';
         var _projSrc = (typeof App !== 'undefined' && App._projAllProjects) ? App._projAllProjects : (typeof Store !== 'undefined' && Store.data && Store.data.projects ? Store.data.projects : []);
         if (_projSrc && _pid) {
             for (var _pi = 0; _pi < _projSrc.length; _pi++) {
-                if (String(_projSrc[_pi].id) === String(_pid)) { _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
+                if (String(_projSrc[_pi].id) === String(_pid)) { _projName = _projSrc[_pi].name || _projSrc[_pi].title || ''; _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
             }
         }
+        /* 【四要素溯源】项目名/对话主题/时间/所属智能体——结论回注时必须全部带上 */
+        var _chatTitle = String(chat.title || '');
+        try { if (!_chatTitle && chat.el) { var _te0 = chat.el.querySelector('.title'); if (_te0) _chatTitle = String(_te0.textContent || '').trim(); } } catch (eT2) {}
+        var _nowStr = (function () { var _d = new Date(); function _p2(n) { return (n < 10 ? '0' : '') + n; } return _d.getFullYear() + '-' + _p2(_d.getMonth() + 1) + '-' + _p2(_d.getDate()) + ' ' + _p2(_d.getHours()) + ':' + _p2(_d.getMinutes()); })();
         // 素材加厚：异步拉取项目目录浅层树 + 最近修改文件前 20（策划师先调查后策划）
         // 【审核补齐】第三项：原对话任务清单状态
         var _projTree = '', _recentFiles = '', _taskListInfo = '';
@@ -2909,7 +3350,8 @@ Object.assign(App, {
             var _qcRound = 0, _lastPassAll = false;
             try {
                 var _log = JSON.parse(localStorage.getItem('zf_verify_score_log_v1') || '[]');
-                var _rs = _log.filter(function (r) { return String(r.srcId) === String(chat.id); });
+                /* 【角色隔离】只认审核(role==='qc')的评分，优化师/安全师分数不参与轮次计数与高分锁收口；老数据无 role 字段默认按审核处理 */
+                var _rs = _log.filter(function (r) { return String(r.srcId) === String(chat.id) && (r.role === undefined || r.role === null || r.role === 'qc'); });
                 _qcRound = _rs.length; // 每个审核员每轮一条 → 即审核员回复总数，可作轮次近似（双审则 ×2）
                 if (_rs.length >= 2) {
                     var _lastTwo = _rs.slice(-2);
@@ -2973,13 +3415,18 @@ Object.assign(App, {
             if (_sr && _sr.name) _srcRoleName = String(_sr.name);
         } catch (e) {}
         var _projPath = '';
+        var _projName = '';
         var _pid = chat.projectId || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || (typeof App !== 'undefined' && App._activeProjectId) || '';
         var _projSrc = (typeof App !== 'undefined' && App._projAllProjects) ? App._projAllProjects : (typeof Store !== 'undefined' && Store.data && Store.data.projects ? Store.data.projects : []);
         if (_projSrc && _pid) {
             for (var _pi = 0; _pi < _projSrc.length; _pi++) {
-                if (String(_projSrc[_pi].id) === String(_pid)) { _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
+                if (String(_projSrc[_pi].id) === String(_pid)) { _projName = _projSrc[_pi].name || _projSrc[_pi].title || ''; _projPath = _projSrc[_pi].folder_path || _projSrc[_pi].path || _projSrc[_pi].folder || ''; break; }
             }
         }
+        /* 【四要素溯源】项目名/对话主题/时间/所属智能体——结论回注时必须全部带上 */
+        var _chatTitle = String(chat.title || '');
+        try { if (!_chatTitle && chat.el) { var _te0 = chat.el.querySelector('.title'); if (_te0) _chatTitle = String(_te0.textContent || '').trim(); } } catch (eT2) {}
+        var _nowStr = (function () { var _d = new Date(); function _p2(n) { return (n < 10 ? '0' : '') + n; } return _d.getFullYear() + '-' + _p2(_d.getMonth() + 1) + '-' + _p2(_d.getDate()) + ' ' + _p2(_d.getHours()) + ':' + _p2(_d.getMinutes()); })();
         try {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/api/tools/verify_brief', true);

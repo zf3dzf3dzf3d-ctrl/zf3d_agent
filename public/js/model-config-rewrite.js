@@ -491,11 +491,33 @@ function _dlgPrompt(msg, val){
     }
   }
 
+  function _revealMaskedKey(input, button) {
+    // 眼睛按钮查看全文：若输入框里是脱敏掩码（••••xxxx / ****xxxx），向服务端换回真实 key
+    var v = String(input.value || '').trim();
+    var isMasked = (v.indexOf('••••') !== -1) || /^\*{4}/.test(v) || /(^|\*)\*{4}/.test(v);
+    if (!isMasked) return Promise.resolve();
+    var tail = v.slice(-4);
+    return fetch('/api/models/reveal-key?tail=' + encodeURIComponent(tail))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok && j.key) { input.value = j.key; }
+        else if (button) { button.title = '完整密钥不可用'; toast('未能取回完整密钥：' + ((j && j.err) || '未知错误'), 'error'); }
+      })
+      .catch(function (e) { toast('取回完整密钥出错：' + e.message, 'error'); });
+  }
+
   function toggleInlineKey(item, button) {
     var input = item.querySelector('[data-inline-field="apiKey"]');
     if (!input) return;
-    input.type = input.type === 'password' ? 'text' : 'password';
-    button.classList.toggle('is-shown', input.type === 'text');
+    if (input.type === 'password') {
+      Promise.resolve(_revealMaskedKey(input, button)).then(function () {
+        input.type = 'text';
+        button.classList.toggle('is-shown', true);
+      });
+      return;
+    }
+    input.type = 'password';
+    button.classList.remove('is-shown');
   }
 
   function testInline(item) {
@@ -642,7 +664,7 @@ function _dlgPrompt(msg, val){
       if (event.target.closest('[data-mc-add]')) { openEditor(null); return; }
       if (event.target.closest('[data-mc-cancel]')) { hideEditor(); return; }
       if (event.target.closest('[data-mc-save]')) { saveEditor(); return; }
-      if (event.target.closest('[data-mc-key-toggle]')) { var input = $('[data-mc-field="apiKey"]', root); input.type = input.type === 'password' ? 'text' : 'password'; event.target.closest('[data-mc-key-toggle]').classList.toggle('is-shown', input.type === 'text'); return; }
+      if (event.target.closest('[data-mc-key-toggle]')) { var input = $('[data-mc-field="apiKey"]', root); if (input) { if (input.type === 'password') { Promise.resolve(_revealMaskedKey(input, event.target.closest('[data-mc-key-toggle]'))).then(function () { input.type = 'text'; event.target.closest('[data-mc-key-toggle]').classList.add('is-shown'); }); } else { input.type = 'password'; event.target.closest('[data-mc-key-toggle]').classList.remove('is-shown'); } } return; }
       if (event.target.closest('[data-mc-id-add]')) { var selAdd = $('[data-mc-field="modelId"]', root); addModelIdPrompt(selAdd, editingId || editingModelIds); return; }
       if (event.target.closest('[data-mc-id-del]')) { var selDel = $('[data-mc-field="modelId"]', root); removeSelectedModelId(selDel, editingId || editingModelIds); return; }
       // 模型配置管家：全局浮动聊天窗（不再每个模型一套）

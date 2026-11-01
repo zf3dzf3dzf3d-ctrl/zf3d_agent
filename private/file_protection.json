@@ -1,0 +1,21 @@
+{
+  "critical": [
+    "server.py",
+    "security.py",
+    "config.py",
+    "db.py",
+    "tools/coding/backend/write.py",
+    "tools/coding/backend/replace_text.py",
+    "tools/coding/backend/_file_protect.py",
+    "tools/coding/backend/_preflight.py",
+    "tools/coding/backend/_pathguard.py"
+  ],
+  "readonly": [
+    "private/file_protection.json"
+  ],
+  "anchors": {
+    "server.py": [
+      "def main"
+    ]
+  }
+}
