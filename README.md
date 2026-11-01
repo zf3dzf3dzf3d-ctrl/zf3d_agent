@@ -101,3 +101,109 @@
 
 - 📄 文档中心：[docs/INDEX.md](docs/INDEX.md)（全部文档与主题索引，两跳可达）
 - 🏥 区域健康度台账：各区域（安全运维/服务/大脑/工具/浏览器/记忆/界面/群体/多模态/文档）的进化策划案与健康度台账，见 `docs/INDEX.md`「进化与台账」节及 project_record 检索。
+
+---
+
+# ZhuFeng Agent Unlimited — Introduction (English)
+
+> 📄 Docs: [Software Introduction](docs/软件介绍-5.8.0.md) · [Version Changes](docs/版本变化-5.8.0.md) · [User Guide](docs/使用帮助-5.8.0.md)
+
+## What is this
+
+Agents are laid flat on an infinite canvas workbench: multi-role collaboration, multi-round iteration, and multiple tasks completed in parallel with high quality. You can keep dozens of windows running smoothly at the same time.
+
+Ordinary agents fight alone — we are a **multi-role task force**.
+
+Hundreds of conversation tasks per day on average. Efficient and lag-free: the moment you have an idea, you can start working without waiting for a window to compute.
+
+## Multi-role pipeline
+
+- **Multiple planners**: Your single goal is expanded by multiple planning windows into multiple angles, then refined over multiple planning rounds to make each task more complete and reliable.
+- **Multiple reviewers**: Multiple review rounds can raise a task from an initial score below 60 to above 90 before it passes.
+- **Summarizer**: Preserves all accumulated work so nothing is ever lost, and remembers every step of every change.
+
+A user's question flows through **multi-planning → multi-role execution (optional) → self-check (self-refutation) → multi-review → summarizer wrap-up** to complete the entire process.
+
+On this infinite canvas you can run a dozen questions at once, with dozens of windows kept alive by planners and reviewers — no conflicts, no lag, smooth networking.
+
+## Elegant design
+
+### Lane system (chat_gate v4)
+Keeps multi-session traffic flowing. Each "lane" is an independent send channel managing communication with one LLM provider:
+- Automatic lane selection and elastic scaling — dozens of concurrent sessions stay smooth;
+- AIMD adaptive control (like network congestion control: slow start, back off on trouble, accelerate on recovery);
+- Priority scheduling + network backoff; when one channel is rate-limited it switches lanes automatically, and rejected requests can be force-recovered;
+- Full monitoring with real-time snapshots of every lane.
+
+### Conversation pool (chat_pool)
+Always keeps the handshake with the LLM alive. Ownership of every request stays with the server:
+- Slot-based hosting: every conversation occupies a persistent slot in the pool — erasable and reusable;
+- Resumable streaming: reply events buffer into the slot first, so a disconnected browser reconnects with a cursor and receives everything; switching conversations needs no re-read;
+- Request idempotency: a Wi-Fi blip and retry will never double-bill;
+- Built-in connection pooling reduces repeated handshake overhead.
+
+### Guardian system (watchdog + supervisor)
+Multiple layers of protection, fully unattended.
+
+### Swarm dispatch (dispatch_swarm)
+Tasks fan out to windows like a swarm and execute collaboratively, supporting massive window concurrency and resumable runs.
+
+## Clean conversations, zero clutter
+
+Your questions, the AI's answers, and the AI's interim replies — what you see is the cleanest possible interface, with none of the messy tool internals.
+
+## Easy to operate
+
+Ask one question, click a few review/planning arrows, and you never need to type anything in between — the task gets done beautifully. In fact, more thoroughly than a human would consider on their own.
+
+## Advantages of the infinite canvas
+
+- A question, once asked, is never lost as long as it stays open; quick titles help you remember what it was.
+- Search any conversation window at any time; the minimized organize mode shows the big picture for fast cleanup.
+- Box-select to add reviewers, add planners, or close windows — working at super speed.
+- The canvas holds more than chats: browser, 3D engine, video, and PPT nodes are all part of the workbench.
+- Mini-map + one-click auto-layout + command palette — hundreds of windows, perfectly organized.
+
+## What you can build with ZhuFeng Agent
+
+If today you complete tasks with single-chat or multi-chat agents —
+
+then try ZhuFeng Agent, and you can:
+- Quickly add multiple planners for broader ideas and multiple reviewers for repeated audits, until your plan has no holes left;
+- Fix that stubborn bug in minutes by clicking review a few times, instead of debugging for hours.
+
+## Mobile
+
+Not just for PCs — it works on phones too. ZhuFeng Agent Unlimited supports mobile access:
+- Dual systems: mobile agent + remote-desktop agent;
+- Open the remote control in a phone browser; the desktop UI auto-adapts to small screens with a portrait-optimized layout;
+- Conversation pool + resumable streaming: Wi-Fi/cell switches on the road won't lose replies or double-bill;
+- Multi-role tasks started on your PC can be tracked and collected from your phone — tasks keep running while you're away;
+- Your canvas ideas follow you anywhere: assign tasks and read replies on the go.
+
+## 🌱 Capability Evolution Tree
+
+Today's workbench remembers "what you said and what the AI answered." What we're building is the ability to see "what you have actually done and what capabilities you have grown."
+
+Ordinary AI assistants are **memory-type** — they faithfully record every question and conversation (Karpathy-style "context notes"), but the thicker the record, the more it reads like a log, drifting away from "what this person is actually capable of."
+
+We build the **emergent type** — it doesn't start from "what you said," but automatically crystallizes your capabilities from the tasks you repeatedly and genuinely complete:
+
+- While the AI executes a task, it recognizes "which capability this step used" and proposes growing it onto a capability tree;
+- You confirm, and it takes root, grows, and sharpens on the tree; ignore it, and it naturally decays and fades;
+- What you get in the end is not a pile of chat logs, but a **capability evolution tree grown from your real actions**.
+
+In one sentence: **We don't record what you said — we grow what you did.**
+
+This closed loop — auto-crystallizing capabilities from real behavior → human confirmation → natural forgetting — has no fully equivalent product in the open-source ecosystem today: engineers building memory graphs don't do "self-cognition," and capability-map tools rely on manual entry instead of automatic emergence. We aim to fill exactly that intersection.
+
+Its significance is not "everyone must use it," but that when someone wants to see their long-term growth trajectory clearly — instead of drowning in chat logs — this is currently one of the few solutions available.
+
+## Our pursuit
+
+We keep researching more capable agents and benchmark against no one. We pursue one thing: solving every user's problem fast, and we strive to make every task succeed.
+
+## 📚 Docs & ledgers
+
+- 📄 Doc center: [docs/INDEX.md](docs/INDEX.md) (full document and topic index, two clicks away)
+- 🏥 Regional health ledgers: evolution plans and health ledgers for each region (security-ops / services / brain / tools / browser / memory / UI / swarm / multimodal / docs) — see the "Evolution & Ledgers" section of `docs/INDEX.md` and project_record search.
