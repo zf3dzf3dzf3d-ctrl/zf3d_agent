@@ -200,6 +200,21 @@
           "y": null,
           "created_at": 1793621786.6302817,
           "children": []
+        },
+        {
+          "id": 489,
+          "parent_id": 26,
+          "text": "【结论】没有修改过。刚用浏览器实测查了该仓库的已",
+          "path": "涌现能力总树/【结论】没有修改过。刚用浏览器实测查了该仓库的已",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793624712.1807802,
+          "children": []
         }
       ]
     }
