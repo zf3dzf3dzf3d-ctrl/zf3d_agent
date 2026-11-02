@@ -41,3 +41,6 @@ _trash_public_backup/
 server/_trash_public_backup/
 *.pma
 
+
+server/browser_plugin/data/
+
