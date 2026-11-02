@@ -125,6 +125,21 @@
           "y": null,
           "created_at": 1793607772.2502463,
           "children": []
+        },
+        {
+          "id": 484,
+          "parent_id": 26,
+          "text": "调查结论：「明文传输密码」的说法不完全准确，但调",
+          "path": "涌现能力总树/调查结论：「明文传输密码」的说法不完全准确，但调",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793608201.1920586,
+          "children": []
         }
       ]
     }
