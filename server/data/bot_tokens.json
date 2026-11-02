@@ -1,0 +1,41 @@
+{
+  "qq": {
+    "api_base": "",
+    "access_token": "",
+    "listen_port": 0,
+    "allowed_users": [],
+    "allowed_groups": [],
+    "_state": "uninstalled"
+  },
+  "telegram": {
+    "token": "",
+    "allowed_users": []
+  },
+  "wechat": {
+    "app_id": "",
+    "app_secret": "",
+    "token": "",
+    "listen_port": 8072,
+    "allowed_users": []
+  },
+  "engine": "openclaw_style",
+  "rate_limit": {
+    "per_chat_per_min": 10
+  },
+  "billing": false,
+  "whitelist": {
+    "telegram": {
+      "users": [],
+      "chats": []
+    },
+    "qq": {
+      "users": [],
+      "chats": []
+    },
+    "wechat": {
+      "users": [],
+      "chats": []
+    }
+  },
+  "_说明": "QQ 群采集已卸载（2026-10-26，NapCat 与本机 QQ 9.9.36 注入不兼容，全套文件已移入 system/trash/20261026_qq_uninstall）。qq 段仅保留空配置占位，供 bot_gateway 白名单结构兼容；如需重启 QQ 方案请重新评估版本兼容性，勿直接复用旧配置。"
+}

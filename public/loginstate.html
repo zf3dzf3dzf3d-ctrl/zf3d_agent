@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录态管理</title>
+<style>
+  :root { --bg:#0f1420; --card:#1a2233; --line:#2a3550; --txt:#dde5f5; --dim:#8a97b5; --acc:#4f8cff; --ok:#3fbf7f; --err:#e05555; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif; padding:24px; }
+  .wrap { max-width:860px; margin:0 auto; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .tip { color:var(--dim); font-size:12px; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin-bottom:10px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input { background:#0b101c; border:1px solid var(--line); border-radius:6px; color:var(--txt); padding:7px 10px; font-size:13px; }
+  input:focus { outline:1px solid var(--acc); }
+  button { background:var(--acc); color:#fff; border:0; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; }
+  button:hover { filter:brightness(1.15); }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--dim); padding:3px 10px; font-size:12px; }
+  button.ghost:hover { color:var(--txt); border-color:var(--acc); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; word-break:break-all; }
+  th { color:var(--dim); font-weight:normal; font-size:12px; }
+  .empty { color:var(--dim); text-align:center; padding:24px 0; }
+  #toast { position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 18px; font-size:13px; opacity:0; transition:.25s; pointer-events:none; z-index:9; }
+  #toast.show { opacity:1; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  .tag { display:inline-block; background:#223055; border-radius:4px; padding:0 8px; font-size:11px; color:var(--dim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍪 登录态管理</h1>
+  <div class="tip">跨工作台共享的登录态（cookies+localStorage，机器绑定加密存储）与浏览器整档快照（IE缓存模式）。工作台 AI 也可通过 credentials_* / profile_mode_* / auto_relogin 动作调用。</div>
+
+  <div class="card">
+    <h2>📋 登录态列表</h2>
+    <div class="row">
+      <input id="restoreSession" placeholder="恢复到工作台（默认 default）" style="flex:1 1 220px">
+      <button class="ghost" onclick="loadList()">🔄 刷新</button>
+    </div>
+    <div id="vaultWarn" style="display:none;background:#3a2f12;color:#d9b45a;padding:6px 10px;border-radius:6px;margin-bottom:10px;font-size:12px">⚠️ 密码库接口不可达，🔑 库存账号标注暂不可用（登录态列表本身不受影响）</div>
+    <table id="tbl">
+      <thead><tr><th>工作台</th><th>域名</th><th>Cookies</th><th>保存时间</th><th>备注</th><th>操作</th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>💾 浏览器档案快照（IE缓存模式）</h2>
+    <div class="tip">把整个浏览器 profile（含缓存/IndexedDB）打包成档案，还原最彻底。保存/还原前建议先关闭该工作台的浏览器会话。</div>
+    <div class="row">
+      <input id="profileName" placeholder="档案名（如 zf3d-main）" style="flex:1 1 200px">
+      <button onclick="profileSave()">打包保存当前 profile</button>
+      <button class="ghost" onclick="loadProfiles()">🔄 刷新列表</button>
+    </div>
+    <table>
+      <thead><tr><th>档案名</th><th>时间</th><th>大小</th><th>操作</th></tr></thead>
+      <tbody id="ptbody"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+function toast(msg, isErr){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show'+(isErr?' err':' ok');
+  setTimeout(()=>t.className='',2600);
+}
+async function api(path, body){
+  const opt = body ? {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)} : {};
+  const r = await fetch(path, opt);
+  return r.json();
+}
+function esc(s){ return String(s??'').replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// 密码库联动：按域名索引库存账号（domain → 账号列表）
+let _vaultMap = {};
+async function loadVault(){
+  try{
+    const r=await api('/api/loginstate/vault_list');
+    _vaultMap={};
+    (r.items||[]).forEach(v=>{
+      const d=(v.site||v.domain||'').replace(/^https?:\/\//,'').replace(/\/.*$/,'').toLowerCase();
+      if(!d) return;
+      (_vaultMap[d]=_vaultMap[d]||[]).push(v.username||v.user||'?');
+    });
+  }catch(e){
+    console.warn('[loginstate] 密码库不可达，🔑标注降级：', e);
+    const bar=document.getElementById('vaultWarn');
+    if(bar) bar.style.display='block';
+  }
+}
+function vaultTag(domain){
+  const d=String(domain||'').toLowerCase();
+  const names=_vaultMap[d]||_vaultMap[d.replace(/^www\./,'')]||[];
+  return names.length?` <span class="tag" title="密码库有账号，失效时可自动重登">🔑 ${esc(names.join(','))}</span>`:'';
+}
+
+async function loadList(){
+  const tb=document.getElementById('tbody');
+  try{
+    const r=await api('/api/loginstate/list');
+    const items=r.items||[];
+    if(!items.length){ tb.innerHTML='<tr><td colspan="6" class="empty">暂无登录态。在某个工作台让 AI 登录网站后调 credentials_save 即可保存。</td></tr>'; return; }
+    tb.innerHTML=items.map(it=>`<tr>
+      <td><span class="tag">${esc(it.session)}</span></td>
+      <td>${esc(it.domain)}${vaultTag(it.domain)}</td>
+      <td>${it.cookies} 条</td>
+      <td>${esc(it.saved_at||'')}</td>
+      <td>${esc(it.note||'')}</td>
+      <td><button class="ghost" onclick="restoreOne('${esc(it.key)}')">恢复到工作台</button>
+          <button class="ghost" onclick="delOne('${esc(it.key)}')">删除</button></td>
+    </tr>`).join('');
+  }catch(e){ tb.innerHTML='<tr><td colspan="6" class="err">加载失败: '+esc(e)+'</td></tr>'; }
+}
+async function restoreOne(key){
+  const session=document.getElementById('restoreSession').value.trim()||'default';
+  const r=await api('/api/loginstate/',{action:'restore',key,session});
+  toast(r.ok?('已恢复 '+key+' → '+session+'（页面刷新后生效）'):('失败: '+(r.err||r.error)), !r.ok);
+  if(r.ok) loadList();
+}
+async function delOne(key){
+  if(!confirm('确定删除登录态 '+key+' ？'))return;
+  const r=await api('/api/loginstate/',{action:'delete',key});
+  toast(r.ok?'已删除':('失败: '+(r.err||r.error)), !r.ok);
+  loadList();
+}
+async function loadProfiles(){
+  const tb=document.getElementById('ptbody');
+  try{
+    const r=await api('/api/loginstate/profiles');
+    const items=r.items||r.states||[];
+    if(!items.length){ tb.innerHTML='<tr><td colspan="4" class="empty">暂无档案快照。</td></tr>'; return; }
+    tb.innerHTML=items.map(p=>{
+      const name=p.name||p.key||'';
+      const size=p.size_mb!=null?(p.size_mb+' MB'):(p.size||'-');
+      return `<tr><td>${esc(name)}</td><td>${esc(p.saved_at||p.time||'')}</td><td>${esc(size)}</td>
+        <td><button class="ghost" onclick="profileRestore('${esc(name)}')">还原</button>
+            <button class="ghost" onclick="profileDelete('${esc(name)}')">删除</button></td></tr>`;
+    }).join('');
+  }catch(e){ tb.innerHTML='<tr><td colspan="4" class="err">加载失败: '+esc(e)+'</td></tr>'; }
+}
+async function profileSave(){
+  const name=document.getElementById('profileName').value.trim();
+  if(!name){ toast('请先填档案名',true); return; }
+  toast('正在打包 profile，可能需要十几秒…');
+  const r=await api('/api/loginstate/',{action:'profile_save',name});
+  toast(r.ok?'档案已保存':('失败: '+(r.err||r.error)), !r.ok);
+  if(r.ok) loadProfiles();
+}
+async function profileRestore(name){
+  if(!confirm('确定把档案 '+name+' 还原到浏览器 profile？建议先关闭浏览器会话。'))return;
+  const r=await api('/api/loginstate/',{action:'profile_restore',name});
+  toast(r.ok?'档案已还原，重新打开浏览器即生效':('失败: '+(r.err||r.error)), !r.ok);
+}
+async function profileDelete(name){
+  if(!confirm('确定删除档案 '+name+' ？'))return;
+  const r=await api('/api/loginstate/',{action:'profile_delete',name});
+  toast(r.ok?'已删除':('失败: '+(r.err||r.error)), !r.ok);
+  loadProfiles();
+}
+loadVault().then(()=>{ loadList(); loadProfiles(); });
+</script>
+</body>
+</html>

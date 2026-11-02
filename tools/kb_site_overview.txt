@@ -1,0 +1,17 @@
+朱峰社区(zf3d.com)是十余年专注原创3D教程的学习平台，正在转型为AIGC内容平台。
+
+网站核心模块：
+1. 视频教程(Prclassi.asp)：10280课时，449个系列，覆盖3DMax/Maya/Blender/ZBrush/Houdini/UE5/Unity等软件
+2. 图文教程(jiaocheng.asp)：21265篇
+3. 作品展示(zuopin_fenlei.asp)：19586件作品
+4. 模型库(moxingku.asp)：按人物/怪物/场景/武器等分类
+5. 转载教程(shipinjiaocheng_fenlei.asp)：2453个转载视频
+6. 软件下载(Prclassi_rjxz.asp)：3D相关软件插件
+7. 材质贴图(caizhi_fenlei.asp)：2465套材质资源
+8. 论坛(bbs_class.asp)：含问答/综合/原画/游戏/建筑/动画/影视/外包/招聘/求职板块
+9. 招聘(zhaopin.asp)：221条招聘信息
+10. 求职(qiuzhi.asp)：3798条求职信息
+11. 消息中心：社区帮助/社区信息/社区公告等
+12. AIGC社区(aigc_list.asp)：AI生成内容专区，分4类——AI图片(100)/AI视频(101)/AI游戏(102)/AI软件(103)，支持大图浏览(aigc_viewer.asp)、评分、点赞，用户可在publish.asp?type=article&aigc=1发布AIGC作品
+13. 桌面智能体(agent.asp)：ZF3D Agent是Windows桌面AI程序，8大功能——AI数字员工/动画工坊(VIP)/节点工作流/ComfyUI出图/文件管理/联网搜索/3D软件桥接/股票分析，仅支持Windows
+14. 手机远程控制(agent_remote.asp)：手机通过网站中继远程操控桌面智能体

@@ -1,0 +1,51 @@
+/* ===== 画布贝塞尔连线 CurveLayer ===== */
+.curve-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 10000px;
+    height: 10000px;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 1; /* 介于画布背景和对话气泡之间 */
+}
+.curve-layer path {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    pointer-events: stroke;
+    cursor: pointer;
+    transition: stroke-width 0.15s, opacity 0.15s;
+}
+.curve-layer .curve-path {
+    stroke: url(#curveGradient);
+    opacity: 0.75;
+}
+.curve-layer .curve-path.animated {
+    stroke-dasharray: 2000;
+    stroke-dashoffset: 2000;
+    animation: curveDraw 0.7s ease-out forwards;
+}
+@keyframes curveDraw {
+    to { stroke-dashoffset: 0; }
+}
+.curve-layer path.curve-hit {
+    stroke: transparent;
+    stroke-width: 16;
+    opacity: 0;
+}
+.curve-layer:hover .curve-path {
+    opacity: 1;
+    stroke-width: 3.2;
+}
+.curve-layer .curve-endpoint {
+    fill: #9b6dd6;
+    stroke: #fff;
+    stroke-width: 1.5;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.curve-layer:hover .curve-endpoint {
+    opacity: 1;
+}
+/* 渐变定义在 SVG 内联（兼容所有浏览器） */

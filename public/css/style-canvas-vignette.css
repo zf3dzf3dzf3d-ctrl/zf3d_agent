@@ -1,0 +1,19 @@
+/* ===== 画布光罩：中心明亮、四周微微渐暗（纯视觉层，不拦截任何交互） ===== */
+.canvas-vignette {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1; /* 高于网格/内容层，低于 UI 控件 */
+    /* 中心一圈轻微提亮（暖白聚光感），向外自然过渡到半透明深色 */
+    background:
+        radial-gradient(ellipse 55% 50% at 50% 50%,
+            rgba(255, 255, 255, 0.055) 0%,
+            rgba(255, 255, 255, 0.025) 40%,
+            rgba(255, 255, 255, 0) 68%),
+        radial-gradient(ellipse 120% 110% at 50% 50%,
+            rgba(0, 0, 0, 0) 45%,
+            rgba(0, 0, 0, 0.10) 75%,
+            rgba(0, 0, 0, 0.20) 100%);
+    mix-blend-mode: normal;
+    will-change: opacity;
+}

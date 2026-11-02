@@ -1,0 +1,41 @@
+[
+ {
+  "name": "evo-gate-2h",
+  "code": "cd /d \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\" && \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\python\\python.exe\" \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\tests\\regression\\gate.py\" > \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\tests\\regression\\last_gate_run.log\" 2>&1",
+  "interval": 7200.0,
+  "command_timeout": 300.0,
+  "max_times": 0,
+  "stop_on_success": false,
+  "stop_on_output": "",
+  "times_executed": 1,
+  "last_exit_code": 0,
+  "last_executed_at": "2026-10-31 22:18:50",
+  "started_at": "2026-10-31 22:18:35"
+ },
+ {
+  "name": "evo-patrol-6h",
+  "code": "cd /d \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\" && \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\python\\python.exe\" \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\tests\\regression\\patrol.py\" > \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\tests\\regression\\last_patrol_run.log\" 2>&1",
+  "interval": 21600.0,
+  "command_timeout": 300.0,
+  "max_times": 0,
+  "stop_on_success": false,
+  "stop_on_output": "",
+  "times_executed": 1,
+  "last_exit_code": 1,
+  "last_executed_at": "2026-10-31 22:18:36",
+  "started_at": "2026-10-31 22:18:35"
+ },
+ {
+  "name": "biz_p0_deadline_probe",
+  "code": "\"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\python\\python.exe\" \"F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0\\biz_p0_deadline_probe.py\"",
+  "interval": 21600.0,
+  "command_timeout": 300.0,
+  "max_times": 0,
+  "stop_on_success": false,
+  "stop_on_output": "",
+  "times_executed": 1,
+  "last_exit_code": 0,
+  "last_executed_at": "2026-10-31 21:35:39",
+  "started_at": "2026-10-31 21:35:38"
+ }
+]

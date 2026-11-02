@@ -1,0 +1,35 @@
+{
+  "title": "社区用户统计",
+  "sheets": [
+    {
+      "name": "月度注册",
+      "columns": [
+        { "key": "month", "title": "月份" },
+        { "key": "reg", "title": "新增注册", "type": "number" },
+        { "key": "active", "title": "活跃用户", "type": "number" },
+        { "key": "rate", "title": "活跃率", "type": "number", "format": "percent" }
+      ],
+      "rows": [
+        { "month": "2026-01", "reg": 120, "active": 860, "rate": 0.72 },
+        { "month": "2026-02", "reg": 158, "active": 940, "rate": 0.75 },
+        { "month": "2026-03", "reg": 203, "active": 1120, "rate": 0.78, "_style": { "bg": "#e8f5e9" } },
+        { "month": "2026-04", "reg": 245, "active": 1310, "rate": 0.81 },
+        { "month": "2026-05", "reg": 289, "active": 1560, "rate": 0.84, "_style": { "bg": "#e8f5e9", "bold": true } }
+      ]
+    },
+    {
+      "name": "渠道来源",
+      "columns": [
+        { "key": "src", "title": "来源渠道" },
+        { "key": "cnt", "title": "用户数", "type": "number" },
+        { "key": "note", "title": "备注" }
+      ],
+      "rows": [
+        { "src": "搜索引擎", "cnt": 412, "note": "SEO 起效" },
+        { "src": "社区推荐", "cnt": 388, "note": "老用户带新" },
+        { "src": "直播推广", "cnt": 156, "note": "周三场效果最好" },
+        { "src": "其他", "cnt": 59 }
+      ]
+    }
+  ]
+}

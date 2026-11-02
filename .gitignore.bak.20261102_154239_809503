@@ -1,0 +1,41 @@
+# ===== 运行时数据 / 日志 / 数据库 =====
+server/logs/
+*.log
+*.jsonl.tmp
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+server/data/browser_profile/
+
+# ===== 隐私与密钥（最高优先级，严禁入库）=====
+private/api_keys.json
+private/internal_secret.txt
+server/private/internal_secret.txt
+private/billing/
+private/chat_pool_resume.json
+private/port.json.bak*
+private/port.json
+
+# ===== 浏览器痕迹 / 插件数据 =====
+browser_plugin/data/
+public/项目记录/网站档案/
+
+# ===== 记忆 / 隐私目录 =====
+private/记忆/
+private/系统记忆/
+
+# ===== 临时/物证 archive（S2 双落：原件暂存，首commit后再裁决）=====
+archive/
+_tmp_*
+tmp_*
+*.bak
+*.bak-*
+
+# ===== 内嵌解释器 / 大型二进制 =====
+python/
+
+# ===== 系统杂物 =====
+Thumbs.db
+desktop.ini
+node_modules/
+__pycache__/

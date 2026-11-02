@@ -1,0 +1,1 @@
+VERIFY id=r1793051038878 order=7.5 prompt_len=581 CLAUSES_OK=True ORDERS=[5, 6, 6.5, 6.75, 7, 7.5, 11, 13, 14] BAK_EXISTS=True

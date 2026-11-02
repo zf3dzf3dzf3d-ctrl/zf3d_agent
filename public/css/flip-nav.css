@@ -1,0 +1,36 @@
+/* ===== 对话框左右翻页按钮（app-chatbox-flip-nav.js）===== */
+.flip-nav-btn{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:26px; height:44px; line-height:42px; text-align:center;
+  font-size:22px; color:#8a93a6;
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);
+  border-radius:8px; cursor:pointer; z-index:30;
+  user-select:none; opacity:0;
+  transition:opacity .15s, background .15s, color .15s;
+  pointer-events:none;
+}
+.chatbox:hover > .flip-nav-btn,
+.chatbox.active > .flip-nav-btn{ opacity:1; pointer-events:auto; }
+.flip-nav-btn:hover{ background:rgba(255,255,255,.18); color:#e6e9f0; }
+/* ---- 左按钮（样式一：左侧贴边圆角、偏青色调） ---- */
+.flip-nav-prev{
+  left:-39px;                 /* 原 -14px，向外推 25px */
+  border-radius:10px 3px 3px 10px;
+  color:#7fd4c1;
+  background:rgba(60,160,140,.14);
+  border-color:rgba(127,212,193,.25);
+}
+.flip-nav-prev:hover{
+  background:rgba(60,160,140,.30); color:#d8fff4;
+}
+/* ---- 右按钮（样式二：右侧贴边圆角、偏橙色调） ---- */
+.flip-nav-next{
+  right:-39px;                /* 原 -14px，向外推 25px */
+  border-radius:3px 10px 10px 3px;
+  color:#e8b06a;
+  background:rgba(200,140,60,.14);
+  border-color:rgba(232,176,106,.25);
+}
+.flip-nav-next:hover{
+  background:rgba(200,140,60,.30); color:#fff1da;
+}

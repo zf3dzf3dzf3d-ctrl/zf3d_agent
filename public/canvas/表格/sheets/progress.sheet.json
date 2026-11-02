@@ -1,0 +1,20 @@
+{
+  "title": "项目进度表",
+  "sheets": [
+    {
+      "name": "模块进度",
+      "columns": [
+        { "key": "mod", "title": "模块" },
+        { "key": "owner", "title": "负责人" },
+        { "key": "pct", "title": "完成度", "type": "number", "format": "percent" },
+        { "key": "status", "title": "状态" }
+      ],
+      "rows": [
+        { "mod": "HTML 演示播放器", "owner": "模型", "pct": 1.0, "status": "已完成", "_style": { "bg": "#e8f5e9" } },
+        { "mod": "大模型表格", "owner": "模型", "pct": 1.0, "status": "已完成", "_style": { "bg": "#e8f5e9" } },
+        { "mod": "大模型 Word", "owner": "模型", "pct": 0.6, "status": "进行中", "_style": { "bg": "#fff3cd" } },
+        { "mod": "画布节点接入", "owner": "模型", "pct": 0.3, "status": "进行中", "_style": { "bg": "#fff3cd" } }
+      ]
+    }
+  ]
+}

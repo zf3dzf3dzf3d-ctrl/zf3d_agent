@@ -1,0 +1,8 @@
+609 '    hooks = {'
+641 '    def _swarm_exec_wrap(tool_calls, _ctx):'
+646 '        if rest:'
+679 '    _swarm_orig_exec = _swarm_exec_wrap'
+795 '    _mcp_orig_exec = _mcp_exec_wrap'
+816 '    # 重绑定调用点：下游 while 循环统一调 _mcp_exec_wrap，此处让其落到最外层包装'
+817 '    _mcp_exec_wrap = _sys_exec_wrap'
+1019 '        results = _mcp_exec_wrap(tool_calls, ctx) or []'

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="UTF-8">
+<title>核心功能包综合 Demo — 标题→游戏→暂停→结束→存档</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0c12;color:#9fd;font-family:Consolas,monospace}
+  #wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
+  canvas{background:#0a0c12;border:1px solid #234;border-radius:6px;cursor:crosshair}
+  #log{width:840px;height:120px;overflow-y:auto;font-size:12px;color:#6c8;background:#0d1018;border:1px solid #234;border-radius:6px;padding:6px}
+  #log b{color:#fc6}
+  h3{margin:4px 0 0;color:#8df;font-weight:normal}
+</style>
+</head>
+<body>
+<button onclick="location.href='index.html'" style="position:fixed;right:10px;top:10px;z-index:60;cursor:pointer;
+  background:rgba(20,28,44,.85);border:1px solid rgba(255,110,70,.55);color:#ffb9a0;
+  padding:5px 14px;border-radius:8px;font-family:monospace;font-size:12px;letter-spacing:2px"
+  title="返回引擎主菜单">✕ 退出</button>
+<div id="wrap">
+  <h3>核心功能包综合 Demo：标题界面 → 游戏(碰撞/摄像机/配置/存档) → ESC 暂停 → 死亡结束 → 存档读档</h3>
+  <canvas id="cv" width="840" height="520"></canvas>
+  <div id="log"></div>
+</div>
+<script src="engine.js"></script>
+<script src="input.js"></script>
+<script src="audio.js"></script>
+<script src="core.js"></script>
+<script>
+"use strict";
+/* ---------- 基础设施 ---------- */
+const canvas = document.getElementById("cv");
+const renderer = new Renderer(canvas);
+const input = new Input(canvas);
+const audio = new AudioSys();
+const cfg = new Config();
+const logEl = document.getElementById("log");
+function log(msg){ const d=document.createElement("div"); d.innerHTML=msg; logEl.appendChild(d); logEl.scrollTop=1e9; }
+
+/* ---------- 输入映射（步骤9：动作绑定，可改键） ---------- */
+input.bind("up","KeyW","ArrowUp"); input.bind("down","KeyS","ArrowDown");
+input.bind("left","KeyA","ArrowLeft"); input.bind("right","KeyD","ArrowRight");
+input.bind("shoot","Space"); input.bind("pause","Escape");
+log("<b>输入映射</b>: WASD/方向键移动, 空格射击, ESC 暂停 (已通过 input.bind 动作层绑定)");
+
+/* ---------- 实体定义（步骤1/2：Entity + 对象池） ---------- */
+class Player extends Entity {
+  constructor(){ super(); this.hp=100; this.radius=14; this.fireCd=0; this.tag("player"); }
+  update(dt){
+    const sp = cfg.get("player.speed",160);
+    let dx=0,dy=0;
+    if(input.isDown("left"))dx--; if(input.isDown("right"))dx++;
+    if(input.isDown("up"))dy--; if(input.isDown("down"))dy++;
+    if(dx||dy){ const l=Math.hypot(dx,dy); this.x+=dx/l*sp*dt; this.y+=dy/l*sp*dt; }
+    this.fireCd-=dt;
+    if(input.isDown("shoot") && this.fireCd<=0){
+      this.fireCd=0.18;
+      const b=game.em.spawn(Bullet, this.x, this.y-18); b.vy=-cfg.get("bullet.speed",320);
+      audio.play("shoot",0.4);
+    }
+  }
+}
+class Bullet extends Entity {
+  constructor(){ super(); this.radius=4; this.vy=0; this.tag("bullet"); }
+  update(dt){ this.y+=this.vy*dt; if(this.y<-30) this.dead=true; }
+}
+class Enemy extends Entity {
+  constructor(){ super(); this.radius=12; this.hp=2; this.tag("enemy"); }
+  update(dt){
+    const p=game.player;
+    const dx=p.x-this.x, dy=p.y-this.y, l=Math.hypot(dx,dy)||1;
+    const sp=cfg.get("enemy.speed",60);
+    this.x+=dx/l*sp*dt; this.y+=dy/l*sp*dt;
+  }
+  onDestroy(){ /* 对象池回收，无泄漏 */ }
+}
+
+/* ---------- 游戏主场景（碰撞/摄像机/UI/存档 全上） ---------- */
+const game = {
+  em:null, col:null, ui:null, hpbar:null, score:0, player:null, cam:null,
+  spawnT:0, time:0
+};
+const sceneGame = new Scene("game");
+sceneGame.onEnter = () => {
+  game.em = sceneGame.em;
+  game.col = new CollisionSystem();
+  game.ui = new UIManager(input);
+  game.player = game.em.add(new Player());
+  game.player.x=420; game.player.y=420; game.player.hp=cfg.get("player.hp",100);
+  game.score=0; game.spawnT=0; game.time=0;
+  game.cam = new CameraEx(420,420,1);
+  game.cam.follow(game.player);
+  game.cam.setDeadzone(cfg.get("camera.deadzoneW",40), cfg.get("camera.deadzoneH",40));
+  game.hpbar = game.ui.add(new HPBar({x:12,y:12,w:220,h:16,max:cfg.get("player.hp",100),value:game.player.hp}));
+  // 碰撞注册（步骤7：solid/trigger 区分 + onHit 回调）
+  game.col.add(game.player, {type:"circle", r:game.player.radius}, {solid:true});
+  sceneGame._hooks=[
+    // 玩家子弹 vs 敌人
+    game.col.add({get x(){return -1e9},get y(){return -1e9}},{type:"circle",r:0},{}) , // 占位无
+  ];
+  sceneGame._hooks.pop();
+  // 每帧动态绑定：子弹/敌人成对注册（demo 规模简单直接）
+  log("<b>场景 game</b> onEnter：实体/碰撞/UI/摄像机 全部就绪");
+};
+sceneGame.update = (dt) => {
+  game.time+=dt;
+  game.em.update(dt);
+  // 动态生成敌人（间隔走配置表）
+  game.spawnT-=dt;
+  if(game.spawnT<=0){
+    game.spawnT=cfg.get("enemy.spawnInterval",1.2);
+    const e=game.em.spawn(Enemy, 40+Math.random()*760, 40+Math.random()*200);
+    game.col.add(e, {type:"circle", r:e.radius}, {
+      tag:"enemy",
+      onEnter:(o)=>{ if(o.has("bullet")){ e.hp--; e.dead=true; o.dead=true; audio.play("hit");
+        game.score+=cfg.get("ui.scorePerKill",10);
+        game.cam.shakeFor(cfg.get("camera.shakeOnHit",12)*0.4); } }
+    });
+    // 子弹 vs 敌人检测：逐子弹注册太重，这里用敌人 onEnter 内手查附近子弹
+  }
+  // 碰撞：玩家子弹逐个检测敌人（demo 规模 O(n*m)）
+  for(const b of game.em.byTag("bullet")){
+    for(const e of game.col.items){ if(e.tag!=="enemy"||e.entity.dead)continue;
+      const dx=b.x-e.entity.x, dy=b.y-e.entity.y, r=b.radius+e.shape.r;
+      if(dx*dx+dy*dy<r*r && !b.dead){ if(e.onEnter) e.onEnter(b); break; }
+    }
+  }
+  // 玩家 vs 敌人（触发器伤害）
+  for(const e of game.col.items){
+    if(e.tag!=="enemy"||e.entity.dead)continue;
+    const p=game.player, en=e.entity;
+    const dx=p.x-en.x, dy=p.y-en.y, r=p.radius+e.shape.r;
+    if(dx*dx+dy*dy<r*r){
+      p.hp-=cfg.get("enemy.damage",10); game.hpbar.set(p.hp);
+      game.cam.shakeFor(cfg.get("camera.shakeOnHit",12));
+      audio.play("explode"); en.dead=true;
+      if(p.hp<=0){ log("<b>玩家死亡</b> → 切换 gameover 场景"); sm.change("gameover"); return; }
+    }
+  }
+  game.col.update();
+  game.cam.update(dt, canvas.width, canvas.height);
+  game.ui.update(dt);
+  if(input.pressed("pause")){ sm.push("pause"); return; }
+};
+sceneGame.render = (r) => {
+  // 简易网格背景（体现相机移动）
+  const b=game.cam.bounds();
+  for(let gx=Math.floor(b.left/80)*80; gx<b.right; gx+=80)
+    for(let gy=Math.floor(b.top/80)*80; gy<b.bottom; gy+=80)
+      r.rect(gx+2,gy+2,76,76,[0.05,0.06,0.09]);
+  for(const e of game.em.list){
+    if(e.dead)continue;
+    let c=[0.2,0.9,0.4];
+    if(e.has("enemy"))c=[0.95,0.3,0.3];
+    if(e.has("bullet"))c=[1,0.9,0.3];
+    const [sx,sy]=game.cam.worldToScreen(e.x,e.y);
+    const sz=(e.radius||10)*2*game.cam.zoom;
+    r.rect(sx-sz/2,sy-sz/2,sz,sz,c);
+  }
+  // HUD（屏幕坐标，不随相机）
+  r.rect(canvas.width-190,10,180,30,[0.08,0.09,0.13]);
+  if(renderer.text) renderer.text("得分 "+game.score, canvas.width-100, 25, 16, [1,0.9,0.4],"center","middle");
+  game.ui.render(r);
+};
+
+/* ---------- 标题场景 ---------- */
+const sceneTitle = new Scene("title");
+sceneTitle.onEnter = () => {
+  sceneTitle.ui = new UIManager(input);
+  sceneTitle.ui.add(new Button({x:340,y:220,w:160,h:44,text:"开始游戏",onClick:()=>{ audio.play("ui"); sm.change("game"); }}));
+  sceneTitle.ui.add(new Button({x:340,y:280,w:160,h:44,text:"读取存档",onClick: async ()=>{
+    audio.play("ui");
+    const s = await Save.load("demo_slot");
+    if(s){ pendingSave=s; log("<b>读档成功</b>: 分数="+s.score+" → 开始游戏"); sm.change("game"); }
+    else log("没有存档（先玩一局并死亡自动存档）");
+  }}));
+  log("<b>场景 title</b> onEnter：标题界面（按钮组件来自 core.ui）");
+};
+sceneTitle.update = (dt) => sceneTitle.ui.update(dt);
+sceneTitle.render = (r) => {
+  r.rect(0,0,canvas.width,canvas.height,[0.05,0.07,0.12]);
+  if(renderer.text){
+    renderer.text("核心功能包 Demo", canvas.width/2, 120, 36, [0.5,0.9,1],"center","middle");
+    renderer.text("Entity / Scene / Save / Audio / UI / Collision / Camera / Input / Config", canvas.width/2, 170, 13, [0.4,0.55,0.7],"center","middle");
+  }
+  sceneTitle.ui.render(r);
+};
+
+/* ---------- 暂停场景（栈式 push/pop，步骤3/11） ---------- */
+const scenePause = new Scene("pause");
+scenePause.onEnter = () => {
+  scenePause.ui = new UIManager(input);
+  scenePause.ui.add(new Button({x:340,y:220,w:160,h:44,text:"继续",onClick:()=>{ audio.play("ui"); sm.pop(); }}));
+  scenePause.ui.add(new Button({x:340,y:280,w:160,h:44,text:"回标题",onClick:()=>{ audio.play("ui"); sm._stack.length=0; sm.change("title"); }}));
+  scenePause.ui.add(new Button({x:340,y:340,w:160,h:44,text:"存档",onClick: async ()=>{ audio.play("ui");
+    await Save.save("demo_slot",{score:game.score,hp:game.player.hp,t:Date.now()});
+    log("<b>已存档</b> → localStorage + 服务端 /api/save (SQLite)");
+  }}));
+  log("<b>场景 pause</b> onEnter（游戏场景 onPause，冻结在栈里）");
+};
+scenePause.update = (dt) => { scenePause.ui.update(dt); if(input.pressed("pause")) sm.pop(); };
+scenePause.render = (r) => {
+  if(sceneGame.em){ // 底层画面定格（画一次当前实体）
+    sceneGame.render(r);
+  }
+  r.rect(0,0,canvas.width,canvas.height,[0,0,0.35]);
+  if(renderer.text) renderer.text("已暂停 (ESC 继续)", canvas.width/2, 160, 24, [1,1,1],"center","middle");
+  scenePause.ui.render(r);
+};
+
+/* ---------- 结束场景（自动存档） ---------- */
+const sceneOver = new Scene("gameover");
+sceneOver.onEnter = async () => {
+  sceneOver.ui = new UIManager(input);
+  sceneOver.ui.add(new Button({x:340,y:300,w:160,h:44,text:"再来一局",onClick:()=>{ audio.play("ui"); sm.change("game"); }}));
+  sceneOver.ui.add(new Button({x:340,y:360,w:160,h:44,text:"回标题",onClick:()=>{ audio.play("ui"); sm.change("title"); }}));
+  const s={score:game.score,hp:0,t:Date.now()};
+  await Save.save("demo_slot",s);
+  log("<b>场景 gameover</b> onEnter：得分 "+game.score+" 已自动存档(JSON+SQLite 双通道)");
+};
+sceneOver.update = (dt) => sceneOver.ui.update(dt);
+sceneOver.render = (r) => {
+  r.rect(0,0,canvas.width,canvas.height,[0.15,0.03,0.05]);
+  if(renderer.text) renderer.text("游戏结束  得分:"+game.score, canvas.width/2, 200, 30, [1,0.6,0.6],"center","middle");
+  sceneOver.ui.render(r);
+};
+
+/* ---------- 场景管理器（步骤3） ---------- */
+const sm = new SceneManager(null);
+sm.register(sceneTitle); sm.register(sceneGame); sm.register(scenePause); sm.register(sceneOver);
+
+/* ---------- 音频 BGM（步骤5：合成 BGM 通道演示） ---------- */
+let bgmTimer=null;
+function startBgm(){
+  if(bgmTimer)return;
+  audio.setVolume("music",0.5);
+  const notes=[262,330,392,330,262,392,523,392];
+  let i=0;
+  bgmTimer=setInterval(()=>{
+    if(!audio.ctx||audio.ctx.state!=="running")return;
+    // 简易 8bit 循环旋律走 music 通道
+    const t=audio.ctx.currentTime, o=audio.ctx.createOscillator(), g=audio.ctx.createGain();
+    o.type="triangle"; o.frequency.value=notes[i%notes.length];
+    g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+    o.connect(g); g.connect(audio.musicGain); o.start(t); o.stop(t+0.3); i++;
+  },300);
+  log("<b>BGM</b>: 8bit 循环旋律已启动（music 音量分组 0.5，可 audio.setVolume('music',x) 独立调节）");
+}
+
+/* ---------- 配置表加载 + 热更（步骤10/12） ---------- */
+(async () => {
+  try { await cfg.load("config/game-config.json"); }
+  catch(e){ cfg.set({player:{hp:100,speed:160},enemy:{speed:60,damage:10}}); }
+  log("<b>配置表</b>已加载: player.hp="+cfg.get("player.hp")+" enemy.damage="+cfg.get("enemy.damage"));
+  cfg.watch("config/game-config.json", (c)=>{
+    log("<b>配置热更生效!</b> player.hp="+c.get("player.hp")+" enemy.speed="+c.get("enemy.speed")+"（无需重启）");
+    if(game.hpbar) game.hpbar.max=c.get("player.hp",100);
+  }, 2000);
+})();
+
+/* ---------- 主循环 ---------- */
+window.addEventListener("pointerdown", ()=>{ startBgm(); }, {once:true});
+sm.change("title");
+let last=performance.now(), fps=new Fps(document.createElement("div"));
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  sm.update(dt);
+  renderer.begin(); sm.render(renderer); renderer.end();
+  fps.tick();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

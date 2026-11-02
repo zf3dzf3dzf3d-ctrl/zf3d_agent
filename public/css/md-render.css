@@ -1,0 +1,56 @@
+/* ===== ZFMD 统一渲染层配套样式 v1（桌面 + 手机版共用一份，唯一 md 排版来源） =====
+ * 所有经 ZFMD 渲染的内容统一包在 .zfmd 容器内；工具卡/面板等紧凑场景再做局部覆写。
+ * 只用主题变量，跟随深浅主题自动适配。 */
+.zfmd { word-break: break-word; overflow-wrap: anywhere; }
+.zfmd > *:first-child { margin-top: 0; }
+.zfmd > *:last-child { margin-bottom: 0; }
+.zfmd p { margin: 0.35em 0; }
+.zfmd h1, .zfmd h2, .zfmd h3, .zfmd h4, .zfmd h5, .zfmd h6 {
+    margin: 0.7em 0 0.35em; font-weight: 700; line-height: 1.35; color: var(--text);
+}
+.zfmd h1 { font-size: 1.35em; }
+.zfmd h2 { font-size: 1.22em; }
+.zfmd h3 { font-size: 1.12em; }
+.zfmd h4 { font-size: 1.05em; }
+.zfmd strong { font-weight: 700; color: var(--text); }
+.zfmd em { font-style: italic; }
+.zfmd del { text-decoration: line-through; opacity: 0.75; }
+.zfmd ul, .zfmd ol { margin: 0.35em 0; padding-left: 1.5em; }
+.zfmd li { margin: 0.15em 0; }
+.zfmd a { color: var(--accent, #4a99a0); text-decoration: none; }
+.zfmd a:hover { text-decoration: underline; }
+.zfmd code {
+    font-family: var(--font-mono, Consolas, 'Courier New', monospace);
+    font-size: 0.92em; padding: 1px 5px; border-radius: 4px;
+    background: var(--bg3, rgba(128,128,128,0.16)); color: var(--text);
+}
+.zfmd pre {
+    margin: 0.5em 0; padding: 9px 11px; border-radius: 7px; overflow: auto;
+    background: var(--code-bg, var(--bg3, rgba(128,128,128,0.16)));
+    border: 1px solid var(--border, rgba(128,128,128,0.22));
+    font-size: 0.88em; line-height: 1.5;
+}
+.zfmd pre code {
+    display: block; padding: 0; border-radius: 0; background: none;
+    white-space: pre; word-break: normal; overflow-wrap: normal;
+}
+.zfmd blockquote {
+    margin: 0.5em 0; padding: 0.2em 0.8em; border-left: 3px solid var(--accent, #4a99a0);
+    background: var(--bg3, rgba(128,128,128,0.08)); color: var(--text2, var(--text));
+}
+.zfmd table { border-collapse: collapse; margin: 0.5em 0; width: auto; max-width: 100%; font-size: 0.92em; }
+.zfmd th, .zfmd td { border: 1px solid var(--border, rgba(128,128,128,0.28)); padding: 4px 9px; text-align: left; }
+.zfmd th { background: var(--bg3, rgba(128,128,128,0.14)); font-weight: 700; }
+.zfmd hr { border: none; border-top: 1px solid var(--border, rgba(128,128,128,0.28)); margin: 0.7em 0; }
+.zfmd img, .zfmd video { max-width: 100%; height: auto; border-radius: 7px; }
+
+/* 紧凑场景：工具卡头部简述（单行，禁止撑高 header） */
+.tool-wrap__brief .zfmd, .tool-wrap__brief .zfmd p { display: inline; margin: 0; }
+.tool-wrap__brief strong { color: var(--text); }
+
+/* 工具卡结果正文：沿用卡片等宽小字号，但恢复 md 结构化排版 */
+.tool-wrap__result .zfmd { font-size: inherit; }
+.tool-wrap__result .zfmd pre { font-size: 0.95em; }
+
+/* 纯文本兜底容器（marked 未就绪且未启用块解析时） */
+.zfmd--plain { white-space: pre-wrap; }

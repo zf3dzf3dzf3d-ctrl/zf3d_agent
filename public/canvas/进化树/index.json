@@ -1,0 +1,7 @@
+{
+  "title": "万物进化树",
+  "files": [
+    { "file": "_emergence.emergence.tree.json", "title": "涌现能力总树（今日科技点）" },
+    { "file": "demo.emergence.tree.json", "title": "Demo进化树（代码自检能力）" }
+  ]
+}

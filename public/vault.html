@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密码库</title>
+<style>
+  :root { --bg:#0f1420; --card:#1a2233; --line:#2a3550; --txt:#dde5f5; --dim:#8a97b5; --acc:#4f8cff; --ok:#3fbf7f; --err:#e05555; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif; padding:24px; }
+  .wrap { max-width:860px; margin:0 auto; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .tip { color:var(--dim); font-size:12px; margin-bottom:16px; }
+  .tip b { color:var(--ok); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row > * { min-width:0; }
+  input { background:#0b101c; border:1px solid var(--line); border-radius:6px; color:var(--txt); padding:7px 10px; font-size:13px; }
+  input:focus { outline:1px solid var(--acc); }
+  .f-site { flex:2 1 200px; } .f-user { flex:1.5 1 140px; } .f-pwd { flex:1.5 1 140px; } .f-note { flex:2 1 200px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:6px; padding:7px 16px; font-size:13px; cursor:pointer; }
+  button:hover { filter:brightness(1.15); }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--dim); padding:3px 10px; font-size:12px; }
+  button.ghost:hover { color:var(--txt); border-color:var(--acc); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); font-size:13px; word-break:break-all; }
+  th { color:var(--dim); font-weight:normal; font-size:12px; }
+  .empty { color:var(--dim); text-align:center; padding:24px 0; }
+  #toast { position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 18px; font-size:13px; opacity:0; transition:.25s; pointer-events:none; z-index:9; }
+  #toast.show { opacity:1; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔐 密码库</h1>
+  <div class="tip" id="encTip">加密状态检测中…</div>
+
+  <div class="card">
+    <div class="row">
+      <input class="f-site" id="site" placeholder="网址/站点（如 https://www.zf3d.com）">
+      <input class="f-user" id="username" placeholder="用户名/账号">
+      <input class="f-pwd" id="password" type="password" placeholder="密码（留空=不改）">
+      <input class="f-note" id="note" placeholder="备注（可选）">
+      <button onclick="save()">保存</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <span style="color:var(--dim);font-size:13px">已存账号</span>
+      <button class="ghost" onclick="load()">刷新</button>
+    </div>
+    <div id="list"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = isErr ? 'var(--err)' : 'var(--ok)';
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+async function load() {
+  const r = await (await fetch('/api/vault/list')).json();
+  document.getElementById('encTip').innerHTML = r.encrypted
+    ? '✅ 密码已加密存储（cryptography/Fernet）'
+    : '⚠️ 未检测到 cryptography 库，当前为混淆存储。可执行：python -m pip install cryptography 升级为强加密';
+  const el = document.getElementById('list');
+  if (!r.ok || !r.items.length) { el.innerHTML = '<div class="empty">暂无账号，先在上面添加一条吧</div>'; return; }
+  el.innerHTML = '<table><tr><th>站点</th><th>账号</th><th>密码</th><th>备注</th><th>更新时间</th><th></th></tr>' +
+    r.items.map(it => `<tr>
+      <td>${esc(it.site)}</td><td>${esc(it.username)}</td>
+      <td>${it.has_password ? '••••••' : '<span class=dim>无</span>'}</td>
+      <td>${esc(it.note || '')}</td><td style="color:var(--dim);font-size:12px">${esc(it.updated_at || '')}</td>
+      <td><button class="ghost" onclick="del('${esc(it.site)}','${esc(it.username)}')">删除</button></td>
+    </tr>`).join('') + '</table>';
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+async function save() {
+  const site = document.getElementById('site').value.trim();
+  const username = document.getElementById('username').value.trim();
+  if (!site || !username) { toast('站点和账号必填', true); return; }
+  const body = {
+    action: 'save', site, username,
+    password: document.getElementById('password').value,
+    note: document.getElementById('note').value.trim()
+  };
+  const r = await (await fetch('/api/vault/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })).json();
+  if (r.ok) {
+    toast(r.updated ? '已更新' : '已添加');
+    document.getElementById('password').value = '';
+    document.getElementById('note').value = '';
+    load();
+  } else toast(r.err || '保存失败', true);
+}
+async function del(site, username) {
+  if (!confirm('确定删除 ' + username + ' @ ' + site + ' ?')) return;
+  const r = await (await fetch('/api/vault/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', site, username }) })).json();
+  toast(r.removed ? '已删除' : '未找到', !r.removed);
+  load();
+}
+load();
+</script>
+</body>
+</html>

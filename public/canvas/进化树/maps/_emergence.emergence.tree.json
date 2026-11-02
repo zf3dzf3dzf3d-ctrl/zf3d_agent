@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "title": "涌现能力树",
+    "subject_type": "project",
+    "subject_id": "_emergence",
+    "created": "2026-11-02",
+    "today_only": true
+  },
+  "roots": [
+    {
+      "id": 26,
+      "parent_id": null,
+      "text": "涌现能力总树",
+      "path": "涌现能力总树",
+      "depth": 0,
+      "clarity": 0.5,
+      "status": "seed",
+      "icon": "",
+      "kind": "capability",
+      "x": -115.52,
+      "y": 41.09,
+      "created_at": 1792639723.1134536,
+      "children": [
+        {
+          "id": 477,
+          "parent_id": 26,
+          "text": "安全审查完成（只审不改，零代码改动）。范围：se",
+          "path": "涌现能力总树/安全审查完成（只审不改，零代码改动）。范围：se",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793585314.3458872,
+          "children": []
+        },
+        {
+          "id": 478,
+          "parent_id": 26,
+          "text": "科技树渲染已按你的要求改为「只显示今日节点」 *",
+          "path": "涌现能力总树/科技树渲染已按你的要求改为「只显示今日节点」 *",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793586891.451377,
+          "children": []
+        },
+        {
+          "id": 479,
+          "parent_id": 26,
+          "text": "✅ 策划案完成并已落盘：private/记忆/策",
+          "path": "涌现能力总树/✅ 策划案完成并已落盘：private/记忆/策",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793591058.3979478,
+          "children": []
+        },
+        {
+          "id": 480,
+          "parent_id": 26,
+          "text": "终验结论：可交付。用户原问题「查代码安全、代码环",
+          "path": "涌现能力总树/终验结论：可交付。用户原问题「查代码安全、代码环",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793602558.4296339,
+          "children": []
+        },
+        {
+          "id": 481,
+          "parent_id": 26,
+          "text": "✅ 蜂群第1轮收口完成，结论已落盘共享黑板「调查",
+          "path": "涌现能力总树/✅ 蜂群第1轮收口完成，结论已落盘共享黑板「调查",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793602958.4327059,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "links": []
+}

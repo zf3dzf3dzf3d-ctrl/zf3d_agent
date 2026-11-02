@@ -1,0 +1,20 @@
+{
+ "crew_id": "crew-20261031-01",
+ "project_root": "",
+ "branch": "site/crew/crew-20261031-01",
+ "created_at": 1793436613.6079278,
+ "slices": [
+  {
+   "id": "auto",
+   "title": "自动拆片（由首个施工窗补全）",
+   "files": [],
+   "brief": "本片为占位兜底。首个施工窗开工时必须先自行拆分任务为若干分片，用 /api/crew/slices-upsert 整体替换分片清单后再认领施工。",
+   "status": "pending",
+   "claimed_by": null,
+   "claimed_at": null,
+   "done_summary": null
+  }
+ ],
+ "windows": {},
+ "task_md": "private/记忆/施工任务-20261031-165013.md"
+}

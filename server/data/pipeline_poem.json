@@ -1,0 +1,10 @@
+{
+  "goal": "在当前工作目录（用户桌面）创建文件「一首诗.txt」，写入一首你原创的关于「智能体蜂群协作」的中文现代诗（12行以内，需有标题）。写完确认文件存在。",
+  "planners": 2,
+  "builders": 1,
+  "reviewers": 2,
+  "review_pass_score": 80,
+  "summarize": true,
+  "session": "pl-poem-test",
+  "context": "产物必须是桌面上可见的「一首诗.txt」文件"
+}

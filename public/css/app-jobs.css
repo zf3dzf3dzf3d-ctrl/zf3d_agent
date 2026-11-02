@@ -1,0 +1,166 @@
+/* 后台 Jobs 监控面板（方案A 自包含抽屉）——墨黑中性灰，零依赖主题变量回退 */
+#zfJobsFab {
+  position: fixed; right: 18px; bottom: 120px; z-index: 9990;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #1c1f26; color: #ffd27a;
+  border: 2px solid #3a7d5c; cursor: pointer;
+  font-size: 22px; line-height: 52px; text-align: center;
+  box-shadow: 0 0 14px rgba(58,125,92,.65), 0 2px 10px rgba(0,0,0,.6); user-select: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+#zfJobsFab:hover { transform: scale(1.08); border-color: #4fa87a; box-shadow: 0 0 20px rgba(79,168,122,.8), 0 2px 12px rgba(0,0,0,.6); }
+#zfJobsFab .zf-jobs-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #5a5a62; color: #fff; font-size: 11px;
+  line-height: 18px; padding: 0 4px; }
+
+#zfJobsDrawer {
+  /* 【2026-10-22 调整】不再全屏到顶，默认下移避开右上角「关闭/最小化」那一排窗口按钮；
+     支持拖拽移动（标题栏把手）+ 右下角缩放（resize） */
+  position: fixed; top: 40px; right: 8px; height: calc(100% - 52px); width: 460px; max-width: 96vw;
+  min-width: 300px; min-height: 260px;
+  background: var(--zf-bg, #060607); color: var(--zf-text, #c8c8cc);
+  border: 1px solid var(--zf-border, #1a1a1f); border-radius: 8px; z-index: 9995;
+  display: none; flex-direction: column; font-size: 13px; overflow: hidden;
+  resize: both; box-shadow: 0 6px 24px rgba(0,0,0,.6); }
+#zfJobsDrawer.open { display: flex; }
+#zfJobsDrawer.dragging { transition: none; user-select: none; }
+.zf-jobs-bar { display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+  border-bottom: 1px solid var(--zf-border, #1a1a1f); }
+.zf-jobs-bar h3 { margin: 0; font-size: 14px; flex: 1; font-weight: 600;
+  cursor: move; user-select: none; }
+.zf-jobs-bar h3::before { content: '\2837\FE0E '; opacity: .5; }  /* 拖拽把手提示 */
+.zf-jobs-btn { background: var(--zf-card, #111114); color: var(--zf-text, #c8c8cc);
+  border: 1px solid var(--zf-border, #1a1a1f); border-radius: 6px; padding: 5px 10px;
+  cursor: pointer; font-size: 12px; }
+.zf-jobs-btn:hover { border-color: var(--zf-acc, #8a8a92); }
+.zf-jobs-btn.primary { background: var(--zf-acc, #8a8a92); color: #0a0a0c; border-color: transparent; }
+.zf-jobs-toggle { font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+.zf-jobs-list { flex: 1; overflow-y: auto; padding: 8px; }
+.zf-jobs-card { background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+.zf-jobs-card:hover { border-color: var(--zf-acc, #8a8a92); }
+.zf-jobs-card.sel { border-color: var(--zf-acc, #8a8a92); }
+.zf-jobs-goal { font-weight: 600; margin-bottom: 6px; word-break: break-all; }
+.zf-jobs-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #7a7a82; }
+.zf-jobs-st { padding: 1px 8px; border-radius: 10px; font-size: 11px; color: #fff; }
+
+.zf-jobs-detail { border-top: 1px solid var(--zf-border, #1a1a1f); max-height: 55%;
+  overflow-y: auto; padding: 12px 14px; margin: 0 0 8px 0; background: rgba(255,255,255,0.03);
+  border-left: 2px solid var(--zf-border, #1a1a1f); display: none; }
+.zf-jobs-detail.show { display: block; }
+.zf-jobs-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.zf-jobs-tab { padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  border: 1px solid var(--zf-border, #1a1a1f); background: var(--zf-card, #111114); }
+.zf-jobs-tab.sel { border-color: var(--zf-acc, #8a8a92); color: #fff; }
+.zf-jobs-transcript .tr-row { margin-bottom: 10px; padding: 8px 10px; border-radius: 6px;
+  background: var(--zf-card, #111114); border-left: 3px solid var(--zf-acc, #8a8a92); }
+.zf-jobs-transcript .tr-role { font-size: 11px; color: #8a8a92; margin-bottom: 4px; font-weight: 600; }
+.zf-jobs-transcript .tr-body { white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+.zf-jobs-transcript .tr-fold { color: var(--zf-acc, #8a8a92); cursor: pointer; font-size: 11px; }
+.zf-jobs-kv { display: grid; grid-template-columns: 76px 1fr; gap: 4px 8px; font-size: 12px; margin-bottom: 10px; }
+.zf-jobs-kv .k { color: #7a7a82; }
+.zf-jobs-empty { text-align: center; color: #6a6a72; padding: 40px 0; }
+
+/* 新建任务弹窗 */
+#zfJobsModal { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 9996;
+  display: none; align-items: center; justify-content: center; }
+#zfJobsModal.open { display: flex; }
+.zf-jobs-form { background: var(--zf-bg, #060607); border: 1px solid var(--zf-border, #1a1a1f);
+  border-radius: 8px; padding: 18px; width: 380px; max-width: 92vw; }
+.zf-jobs-form h4 { margin: 0 0 12px; font-size: 14px; }
+.zf-jobs-form label { display: block; margin-bottom: 10px; font-size: 12px; }
+.zf-jobs-form textarea, .zf-jobs-form input[type=text] { width: 100%; box-sizing: border-box;
+  background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f); color: var(--zf-text, #c8c8cc);
+  border-radius: 6px; padding: 7px 9px; font-size: 13px; font-family: inherit; }
+.zf-jobs-form .row3 { display: flex; gap: 8px; }
+.zf-jobs-form .row3 > div { flex: 1; }
+.zf-jobs-form .adv { margin-top: 6px; border-top: 1px dashed var(--zf-border, #1a1a1f); padding-top: 8px; }
+.zf-jobs-form .sw { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 6px; }
+.zf-jobs-form .acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* 【2026-10-22 新增】新建任务附件区：粘贴/选择的图片、文本以卡片展示，可关闭 */
+.zf-jobs-form .attzone { margin: 4px 0 10px; border-top: 1px dashed var(--zf-border, #1a1a1f); padding-top: 8px; }
+.zf-jobs-form .att-title { font-size: 12px; color: var(--zf-text, #c8c8cc); margin-bottom: 6px; }
+.zf-jobs-form .att-pick { float: right; padding: 3px 8px; font-size: 11px; }
+.zf-jobs-form .att-note { color: #7a7a82; font-size: 11px; margin-bottom: 0; }
+.zf-jobs-att-hint { font-size: 11px; color: #7a7a82; margin: 2px 0 6px; }
+.zf-jobs-atts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.zf-jobs-att { position: relative; border: 1px solid var(--zf-border, #1a1a1f);
+  border-radius: 6px; background: var(--zf-card, #111114); padding: 6px; max-width: 160px; }
+.zf-jobs-att img { display: block; max-width: 148px; max-height: 110px; border-radius: 4px; }
+.zf-jobs-att .att-text { font-size: 12px; color: var(--zf-text, #c8c8cc); max-width: 148px;
+  max-height: 90px; overflow: hidden; white-space: pre-wrap; word-break: break-all; }
+.zf-jobs-att .att-x { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px;
+  line-height: 16px; text-align: center; border-radius: 50%; background: #8a3a3a; color: #fff;
+  border: none; cursor: pointer; font-size: 12px; padding: 0; }
+.zf-jobs-att .att-x:hover { background: #b04a4a; }
+.zf-jobs-att .att-cap { font-size: 10px; color: #7a7a82; margin-top: 3px; word-break: break-all; }
+
+/* [P1 审核续跑回路] await_review 裁决续跑区 */
+.zf-jobs-resume { margin-top: 12px; padding: 12px; border: 1px solid #8a6d2b;
+  border-radius: 8px; background: rgba(138,109,43,.08); }
+.zf-jobs-resume .rz-title { font-size: 12px; color: #c2a24a; margin-bottom: 8px; line-height: 1.5; }
+.zf-jobs-resume textarea { width: 100%; box-sizing: border-box; resize: vertical;
+  background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f);
+  color: var(--zf-text, #c8c8cc); border-radius: 6px; padding: 7px 9px;
+  font-size: 13px; font-family: inherit; }
+.zf-jobs-resume .rz-acts { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.zf-jobs-resume .rz-hint { font-size: 12px; color: #8a8a92; }
+.zf-jobs-resume button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ===================== [P2 增强样式] ===================== */
+/* ① 筛选 + ② 搜索 工具条 */
+.zf-jobs-filter { display: flex; gap: 8px; padding: 8px 14px;
+  border-bottom: 1px solid var(--zf-border, #1a1a1f); flex-wrap: wrap; }
+.zf-jobs-select, .zf-jobs-search {
+  background: var(--zf-card, #111114); color: var(--zf-text, #c8c8cc);
+  border: 1px solid var(--zf-border, #1a1a1f); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; font-family: inherit; }
+.zf-jobs-select { flex: 0 0 auto; }
+.zf-jobs-search { flex: 1 1 140px; min-width: 120px; }
+.zf-jobs-select:focus, .zf-jobs-search:focus { outline: none; border-color: var(--zf-acc, #8a8a92); }
+
+/* ③ 失败重跑区 */
+.zf-jobs-retry { margin-top: 12px; padding: 12px; border: 1px solid #8a3a3a;
+  border-radius: 8px; background: rgba(138,58,58,.08);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.zf-jobs-retry .rz-hint { font-size: 12px; color: #8a8a92; }
+.zf-jobs-retry button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ④ 详情阶段进度条 */
+.zf-jobs-stage { margin-bottom: 10px; }
+.zf-jobs-stage .sg-track { height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--zf-card, #111114); border: 1px solid var(--zf-border, #1a1a1f); }
+.zf-jobs-stage .sg-fill { height: 100%; background: var(--zf-acc, #8a8a92);
+  transition: width .3s ease; }
+.zf-jobs-stage .sg-cells { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.zf-jobs-stage .sg { font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  border: 1px solid var(--zf-border, #2a2a30); color: var(--zf-text, #6a6a72); }
+.zf-jobs-stage .sg.on { border-color: #4a7a4a; color: #6fae6f; background: rgba(74,122,74,.12); }
+.zf-jobs-stage .sg-note { font-size: 11px; color: var(--zf-text, #6a6a72); margin-top: 4px; }
+
+/* ⑤ transcript 角色配色（按 tr-row 左色条区分） */
+.tr-row { border-left: 3px solid transparent; }
+.tr-row.r-user   { border-left-color: #3a7d5c; background: rgba(58,125,92,.06); }
+.tr-row.r-build  { border-left-color: #4a6a8a; background: rgba(74,106,138,.06); }
+.tr-row.r-review { border-left-color: #8a6d2b; background: rgba(138,109,43,.06); }
+.tr-row.r-system { border-left-color: #5a5a62; background: rgba(90,90,98,.06); }
+.tr-row.r-unknown{ border-left-color: #2a2a30; }
+.tr-row.r-user   .tr-role { color: #6fae8f; }
+.tr-row.r-build  .tr-role { color: #7fa0c0; }
+.tr-row.r-review .tr-role { color: #c2a24a; }
+.tr-row.r-system .tr-role { color: #9a9aa2; }
+
+/* ⑥ 移动端适配 */
+@media (max-width: 600px) {
+  #zfJobsDrawer { width: 100vw; max-width: 100vw; }
+  #zfJobsFab { right: 12px; bottom: 86px; width: 42px; height: 42px; line-height: 42px; font-size: 18px; }
+  .zf-jobs-bar { flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .zf-jobs-bar h3 { flex: 1 1 100%; }
+  .zf-jobs-filter { padding: 8px 10px; }
+  .zf-jobs-search { flex: 1 1 100%; }
+  .zf-jobs-detail { padding: 10px; }
+  .zf-jobs-stage .sg-cells { gap: 4px; }
+}

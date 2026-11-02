@@ -1,0 +1,30 @@
+# -*- coding: utf-8 -*-
+# 一次性：把涌现树 JSON 过滤为"今日新增"（保留今日节点的祖先链），today_only=True
+import json, time, io, sys
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+P = r'F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.8.0\public\canvas\进化树\maps\_emergence.emergence.tree.json'
+d0 = time.mktime(time.strptime(time.strftime('%Y-%m-%d'), '%Y-%m-%d'))
+
+d = json.load(open(P, encoding='utf-8'))
+raw = d.get('raw') or d  # 原始全量可能备份在 raw 键
+tree = d if 'roots' in d else raw
+
+today, keep_ids = set(), set()
+def walk(n, path):
+    is_today = bool(n.get('created_at') and n['created_at'] >= d0)
+    if is_today: today.add(n['id'])
+    newpath = path + ({n['id']} if is_today else set())
+    keep_ids |= newpath
+    for c in n.get('children', []): walk(c, newpath)
+for r in tree['roots']: walk(r, set())
+
+def prune(n):
+    n['children'] = [prune(c) for c in n.get('children', []) if c['id'] in keep_ids]
+    return n
+tree['roots'] = [prune(r) for r in tree['roots']]
+tree['meta']['today_only'] = True
+tree['meta']['exported_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+
+json.dump(tree, open(P, 'w', encoding='utf-8'), ensure_ascii=False)
+print('今日新增节点 =', len(today), '保留(含祖先) =', len(keep_ids))

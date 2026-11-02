@@ -1,0 +1,49 @@
+{
+  "target": "https://example.com",
+  "scanned_at": "2026-09-28T06:15:36",
+  "basic": {
+    "final_url": "https://example.com/",
+    "status_code": 200,
+    "headers": {
+      "Date": "Sun, 27 Sep 2026 22:15:33 GMT",
+      "Content-Type": "text/html",
+      "Transfer-Encoding": "chunked",
+      "Connection": "keep-alive",
+      "Server": "cloudflare",
+      "last-modified": "Sat, 26 Sep 2026 09:10:30 GMT",
+      "allow": "GET, HEAD",
+      "Age": "3",
+      "cf-cache-status": "HIT",
+      "Content-Encoding": "gzip",
+      "CF-RAY": "a41dde246b91f6b1-LAX"
+    },
+    "redirect_chain": [],
+    "ip": "104.20.23.154",
+    "title": "Example Domain",
+    "server": "cloudflare"
+  },
+  "fingerprints": [
+    "Cloudflare",
+    "Cloudflare CDN"
+  ],
+  "tls": {
+    "https": true,
+    "subject": "example.com",
+    "issuer": "SSL Corporation",
+    "not_after": "Dec 25 22:56:35 2026 GMT"
+  },
+  "sensitive_paths": [],
+  "dns": {
+    "A": "104.20.23.154",
+    "MX": [
+      "0, mail exchanger = (root)"
+    ],
+    "NS": [
+      "elliott.ns.cloudflare.com",
+      "hera.ns.cloudflare.com"
+    ],
+    "TXT": []
+  },
+  "disclaimer": "本工具仅限授权安全评估用途",
+  "duration_sec": 3.8
+}

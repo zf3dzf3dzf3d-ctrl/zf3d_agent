@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>太空射击 · AI生成第一个游戏</title>
+<style>
+  html,body{margin:0;height:100%;background:#05070e;color:#9df;font-family:Consolas,monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  canvas{background:#05070e;border:1px solid #234;border-radius:6px}
+  #hud{font-size:13px;color:#6c8}
+</style>
+</head>
+<body>
+<canvas id="cv" width="720" height="520"></canvas>
+<div id="hud">← → / A D 移动 · 空格 射击 · 死亡后按 空格 重开</div>
+<script src="/engine2d/input.js"></script>
+<script src="/engine2d/core.js"></script>
+<script src="telemetry.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

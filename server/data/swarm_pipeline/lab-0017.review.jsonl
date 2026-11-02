@@ -1,0 +1,4 @@
+{"round": 1, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 404, "at": 1793419315}
+{"round": 1, "reviewer_no": 2, "score": 72, "verdict": "reject", "len": 10825, "at": 1793419315}
+{"round": 2, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 124, "at": 1793419671}
+{"round": 2, "reviewer_no": 2, "score": 88, "verdict": "pass", "len": 8316, "at": 1793419671}

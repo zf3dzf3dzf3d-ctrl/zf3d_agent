@@ -1,0 +1,1 @@
+{"batch_id": "sw-feaac7b887", "status": "lost", "created_at": "1792744447.8296375", "tasks": [{"id": "st-1-0a0f52", "goal": "（策划师素材包·后台流水线】总任务：在 server 目录写一个 hello_fix.txt 文件，内容为 fix-ok\n请独立调查代码并产出策划案（目标/涉及文件/风险/结论）。只调查不改代码。\n项", "role": "任务计划", "status": "lost", "error": ""}]}

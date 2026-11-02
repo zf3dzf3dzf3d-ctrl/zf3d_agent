@@ -1,0 +1,51 @@
+; });
+  // 合并正则（长键优先）
+  var RE = new RegExp(KEYS.map(function (k) {
+    return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }).join("|"), "g");
+
+  function replaceInText(node) {
+    var text = node.nodeValue;
+    if (!text || !/[^\x00-\x7F]/.test(text)) return;
+    RE.lastIndex = 0;
+    if (!RE.test(text)) return;
+    RE.lastIndex = 0;
+    var html = text.replace(RE, function (m) { return MAP[m] || m; });
+    var span = document.createElement("span");
+    span.className = "zf-icons";
+    span.innerHTML = html;
+    node.parentNode.replaceChild(span, node);
+  }
+
+  function walk(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        var p = n.parentNode;
+        if (!p || p.nodeName === "SCRIPT" || p.nodeName === "STYLE" || p.nodeName === "TEXTAREA") return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var nodes = [], n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(replaceInText);
+  }
+
+  function start() {
+    walk(document.body);
+    var mo = new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        m.addedNodes.forEach(function (n) {
+          if (n.nodeType === 3) replaceInText(n);
+          else if (n.nodeType === 1 && !n.classList.contains("zf-icons")) walk(n);
+        });
+        if (m.type === "characterData" && m.target.nodeType === 3) replaceInText(m.target);
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+

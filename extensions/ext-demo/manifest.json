@@ -1,0 +1,8 @@
+{
+  "id": "ext-demo",
+  "title": "扩展示例面板",
+  "icon": "🧩",
+  "type": "panel",
+  "url": "/api/ext/ext-demo/page",
+  "tipIdle": "阶段B 示例：panel 抽屉 + 动态 api"
+}

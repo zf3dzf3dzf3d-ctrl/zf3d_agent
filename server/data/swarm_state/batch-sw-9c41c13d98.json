@@ -1,0 +1,1 @@
+{"batch_id": "sw-9c41c13d98", "status": "lost", "created_at": "1792726404.927862", "tasks": [{"id": "st-1-c535e8", "goal": "（策划师素材包·后台流水线】总任务：为「server/routes/mixin_jobs.py 的 /api/jobs/submit 接口」设计一套任务超时自动回收方案（纯方案调查，不写代码，不修改任", "role": "任务计划", "status": "lost", "error": ""}]}

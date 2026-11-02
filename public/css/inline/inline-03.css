@@ -1,0 +1,13 @@
+
+        /* 毛玻璃永久关闭（不区分急速/普通），避免切换急速时界面闪变 */
+        *, *::before, *::after {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        html.turbo *, html.turbo *::before, html.turbo *::after {
+            animation: none !important;
+            transition: none !important;
+        }
+        html.turbo #bootScreen { display: none !important; }
+        html.turbo #zfKiteRoot, html.turbo [id*="kite"]:not(#kiteToggleBtn):not(#kiteToggleBtn *) { display: none !important; }
+    

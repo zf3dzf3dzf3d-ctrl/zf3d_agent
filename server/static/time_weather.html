@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>时间天气系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: transparent !important;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .card {
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 24px;
+    padding: 40px 56px;
+    text-align: center;
+    color: #fff;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  }
+  .weather-icon { font-size: 64px; }
+  .weather-desc { font-size: 20px; opacity: 0.9; margin-top: 6px; }
+  .weather-text { font-size: 14px; opacity: 0.75; margin-top: 6px; line-height: 1.6; }
+  .temp { font-size: 42px; font-weight: 600; margin: 10px 0 4px; }
+  #time {
+    font-size: 56px;
+    font-weight: 700;
+    margin-top: 18px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s, text-shadow 0.2s;
+  }
+  #time:hover {
+    transform: scale(1.04);
+    text-shadow: 0 0 18px rgba(255,255,255,0.6);
+  }
+  #time:active { transform: scale(0.97); }
+  .hint { font-size: 13px; opacity: 0.6; margin-top: 10px; }
+  #ampm { font-size: 20px; margin-left: 6px; color: #ffe08a; }
+  #date { margin-top: 8px; font-size: 16px; opacity: 0.85; }
+  #time .hour-hl { color: #ff4d4f; text-shadow: 0 0 12px rgba(255,77,79,0.6); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="weather-icon" id="wIcon">☀️</div>
+  <div class="temp" id="temp">26°C</div>
+  <div class="weather-desc" id="wDesc">晴</div>
+  <div class="weather-text" id="wText">--</div>
+  <div id="time" title="点击切换 12 / 24 小时制">--:--</div>
+  <div id="date">--</div>
+  <div class="hint">点击时间可切换 12 / 24 小时制</div>
+</div>
+
+<script>
+// ===== 时间部分：点击切换 12/24 小时制 =====
+let use24h = true;
+const timeEl = document.getElementById('time');
+const ampmEl = document.createElement('span');
+ampmEl.id = 'ampm';
+timeEl.appendChild(ampmEl);
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours();
+  let suffix = '';
+  if (!use24h) {
+    suffix = h < 6 ? '凌晨' : h < 9 ? '早上' : h < 12 ? '上午' : h < 13 ? '中午' : h < 18 ? '下午' : '晚上';
+    h = h % 12;
+    if (h === 0) h = 12;
+  }
+  const base = pad(h) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  // 小时数字用高亮色突出显示
+  timeEl.innerHTML = '<span class="hour-hl">' + pad(h) + '</span>' + base.slice(2);
+  ampmEl.textContent = suffix;
+
+  const week = ['日','一','二','三','四','五','六'][now.getDay()];
+  document.getElementById('date').textContent =
+    `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${week}`;
+}
+
+timeEl.addEventListener('click', () => {
+  use24h = !use24h;
+  updateClock();
+});
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== 天气部分（演示数据，可接真实 API） =====
+const weathers = [
+  { icon: '☀️', desc: '晴',   temp: 26, text: '今天阳光明媚，紫外线较强，外出记得防晒补水。', bg: 'linear-gradient(135deg,#1a2a6c,#2a5298)' },
+  { icon: '⛅', desc: '多云', temp: 22, text: '云层较厚，天气舒适宜人，适合外出散步活动。', bg: 'linear-gradient(135deg,#4b6cb7,#182848)' },
+  { icon: '🌧️', desc: '小雨', temp: 18, text: '正在下小雨，路面湿滑，出门请携带雨具注意安全。', bg: 'linear-gradient(135deg,#3a4a5c,#1c2530)' },
+  { icon: '❄️', desc: '小雪', temp: -3, text: '气温较低有小雪，注意防寒保暖，出行小心路滑。', bg: 'linear-gradient(135deg,#4f6d8f,#22374d)' },
+  { icon: '🌙', desc: '夜间晴', temp: 15, text: '夜色晴朗，微风清凉，适合早点休息做个好梦。', bg: 'linear-gradient(135deg,#0f2027,#2c5364)' }
+];
+let wi = 0;
+function applyWeather() {
+  const w = weathers[wi];
+  document.getElementById('wIcon').textContent = w.icon;
+  document.getElementById('temp').textContent = w.temp + '°C';
+  document.getElementById('wDesc').textContent = w.desc;
+  document.getElementById('wText').textContent = w.text;
+  // document.body.style.background = w.bg;  // 已禁用：保持页面透明，不再强制填充背景色
+}
+setInterval(() => { wi = (wi + 1) % weathers.length; applyWeather(); }, 8000);
+applyWeather();
+</script>
+</body>
+</html>

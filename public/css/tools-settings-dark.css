@@ -1,0 +1,137 @@
+/* ===== 工具设置面板-暗色主题（与场景暗黑系统统一） ===== */
+/* 背景色跟随场景暗黑系统：#1a1a2e 系，覆盖 tools-settings.css 的浅色默认值 */
+
+/* 兜底：确保深色变量一定存在（即使场景 :root 变量未传入） */
+:root,
+.tools-settings,
+.tools-settings-panel {
+    --bg: #1a1a2e;
+    --bg-card: #1e1e2e;
+    --bg-hover: #252535;
+    --border: #333344;
+    --text: #ffffff;
+    --text2: #b8b8cc;
+    --blue: #0984e3;
+    --blue-soft: #1c2a4a;
+}
+
+.tools-settings-panel,
+.tools-settings {
+    background: var(--bg, #1a1a2e);
+    color: var(--text, #ffffff);
+    border-color: var(--border, #333344);
+}
+
+.tools-settings-panel .tools-settings-header,
+.tools-settings-header {
+    background: var(--bg-card, #1e1e2e);
+    border-color: var(--border, #333344);
+    color: var(--text, #ffffff);
+}
+
+.tools-settings-sidebar,
+.tools-settings-categories,
+.tools-settings-cat-list {
+    background: var(--bg-card, #1e1e2e);
+    border-color: var(--border, #333344);
+}
+
+.tools-settings-cat-item {
+    background: transparent;
+    color: var(--text2, #b8b8cc);
+    border-color: transparent;
+}
+.tools-settings-cat-item:hover {
+    background: var(--bg-hover, #252535);
+    color: var(--text, #ffffff);
+}
+.tools-settings-cat-item.active,
+.tools-settings-cat-item.selected {
+    background: var(--bg-hover, #252535);
+    color: var(--blue, #0984e3);
+    border-color: var(--blue, #0984e3);
+}
+
+/* 工具卡片：统一深色 */
+.tools-settings-tool-card,
+.tools-settings-tool-item,
+.tools-settings-tool-group .tool-item,
+.tools-settings .tool-card,
+.tools-settings .tool-item {
+    background: var(--bg-card, #1e1e2e);
+    border-color: var(--border, #333344);
+    color: var(--text, #ffffff);
+}
+.tools-settings-tool-card:hover,
+.tools-settings-tool-item:hover,
+.tools-settings .tool-card:hover,
+.tools-settings .tool-item:hover {
+    background: var(--bg-hover, #252535);
+    border-color: var(--blue, #0984e3);
+    color: var(--text, #ffffff);
+}
+.tools-settings-tool-card.selected,
+.tools-settings-tool-item.selected,
+.tools-settings .tool-card.selected,
+.tools-settings .tool-item.selected {
+    background: var(--bg-hover, #252535);
+    border-color: var(--blue, #0984e3);
+    box-shadow: 0 0 0 1px var(--blue, #0984e3);
+}
+
+.tools-settings-tool-card .tools-settings-tool-name,
+.tools-settings .tool-card .tool-name,
+.tools-settings .tool-item .tool-name {
+    color: var(--text, #ffffff);
+}
+.tools-settings-tool-card .tools-settings-tool-desc,
+.tools-settings .tool-card .tool-desc,
+.tools-settings .tool-item .tool-desc {
+    color: var(--text2, #b8b8cc);
+}
+
+/* 复选框深色 */
+.tools-settings-tool-checkbox {
+    background: var(--bg, #1a1a2e);
+    border-color: #5a5a70;
+}
+
+/* 分组/区块标题 */
+.tools-settings-group-title,
+.tools-settings-section-title,
+.tools-settings-cat-title {
+    color: var(--text, #ffffff);
+}
+
+/* 说明文字 */
+.tools-settings-tip,
+.tools-settings-desc,
+.tools-settings-hint {
+    color: var(--text2, #b8b8cc);
+}
+
+/* 搜索框/输入框 */
+.tools-settings-search,
+.tools-settings input[type="text"],
+.tools-settings input[type="search"] {
+    background: var(--bg, #1a1a2e);
+    border-color: var(--border, #333344);
+    color: var(--text, #ffffff);
+}
+.tools-settings-search::placeholder,
+.tools-settings input::placeholder {
+    color: #6a6a80;
+}
+
+/* 统计/数量徽标 */
+.tools-settings-count,
+.tools-settings-badge {
+    background: var(--bg-hover, #252535);
+    color: var(--text2, #b8b8cc);
+    border-color: var(--border, #333344);
+}
+
+/* 空状态 */
+.tools-settings-empty {
+    color: var(--text2, #b8b8cc);
+}

@@ -1,0 +1,383 @@
+[pipeline] 阶段1/5 策划 ×1
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 策划批次 sw-1f0d4a8d42 全部 1 份成功
+  策划案1：1853 字
+[pipeline] 阶段2/5 收口裁决
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 429 Client Error: Too Many Requests for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 400 Client Error: Bad Request for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 收口失败，挂起重试直到成功: 500 Server Error: Internal Server Error for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+[pipeline] 阶段2.5/5 反驳师 ×1
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次未收口（累积成功0/1，运行中1），继续等待
+[pipeline] 反驳师批次 sw-c0cbd30e94 全部 1 份成功
+  反驳报告1：2454 字
+[pipeline] 决策断点：收口裁决已陈列，等待用户裁决
+=== EXIT CODE: 3
+=== STAGES: {"converge": {"len": 2223}, "objectors": {"ok": 1, "total": 1}, "decision_gate": {"paused": true}}
+=== HAS OBJECTION BLOCK: False
+=== SESSION: pl-a1a2-on-1792730218

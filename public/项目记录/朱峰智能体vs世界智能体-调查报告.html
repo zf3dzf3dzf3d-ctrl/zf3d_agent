@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>朱峰智能体 vs 世界其他智能体 —— 调查报告</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #0f1117; color: #d8dce6; line-height: 1.75; padding: 40px 16px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 28px; color: #fff; text-align: center; margin-bottom: 6px; }
+  .sub { text-align: center; color: #8a92a6; font-size: 14px; margin-bottom: 36px; }
+  h2 { font-size: 20px; color: #ffb84d; margin: 36px 0 14px; padding-left: 12px; border-left: 4px solid #ffb84d; }
+  h3 { font-size: 16px; color: #7ec8ff; margin: 18px 0 8px; }
+  p { margin-bottom: 10px; }
+  .card { background: #171a23; border: 1px solid #262b38; border-radius: 10px; padding: 18px 22px; margin-bottom: 16px; }
+  .ev { background: #10131b; border-left: 3px solid #4da3ff; padding: 10px 14px; margin: 10px 0; font-size: 13.5px; color: #9fb6d8; font-family: Consolas, monospace; border-radius: 0 6px 6px 0; white-space: pre-wrap; }
+  .tag { display: inline-block; background: #2a2f3d; color: #ffb84d; font-size: 12px; padding: 2px 10px; border-radius: 12px; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid #2a2f3d; padding: 8px 12px; text-align: left; }
+  th { background: #1c2029; color: #ffb84d; }
+  td:first-child { color: #7ec8ff; white-space: nowrap; }
+  .concl { background: linear-gradient(135deg, #1d2331, #171a23); border: 1px solid #3a4a6b; border-radius: 10px; padding: 22px; margin-top: 24px; }
+  .concl b { color: #ffb84d; }
+  .weak { color: #ff8a8a; }
+  ul { padding-left: 22px; margin-bottom: 10px; }
+  li { margin-bottom: 6px; }
+  code { background: #22262f; padding: 1px 6px; border-radius: 4px; font-size: 13px; color: #7ec8ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>朱峰智能体 vs 世界其他智能体</h1>
+  <div class="sub">代码级实证调查报告 · 基于 server/ 源码实读（文件+行号证据） · 2026</div>
+
+  <h2>一、多模型请求调度：车道闸门（chat_gate v4）</h2>
+  <div class="card">
+    <p>朱峰给所有大模型请求加了一道<span class="tag">唯一闸门</span>，像 TCP 拥塞控制一样管理几十个并发会话。</p>
+    <div class="ev">server/_gate_state.py:6-34
+"chat_gate v4 —— 模型分组多车道 + AIMD 自适应调度（所有大模型请求的唯一闸门）"
+- 按接口域名把模型瓜分到互不相交的车道组（智谱/火山方舟各走各的道）
+- AIMD：失败→放行间隔指数退避×2；变慢→收紧×1.5；成功→×0.75 回落（:15-17）
+- v4.5 两档优先级：⚡加速（别人×3 减速）/ ⚡让道（别人让停+20秒独占期）
+- v4.7 锁追踪：拿锁超 8 秒自动打印持有者线程名/位置（:50-55）</div>
+    <p><b>对比</b>：ChatGPT/Claude 网页版单会话流无调度问题；LangChain/AutoGen 让用户自己处理限流；朱峰在单机本地实现了网络级拥塞控制调度。</p>
+  </div>
+
+  <h2>二、对话池：请求所有权归服务器（chat_pool）</h2>
+  <div class="card">
+    <div class="ev">server/chat_pool.py:1-16（共 928 行完整实现）
+"槽位(Slot)=对话框在池中的常驻位置，游戏对象池语义"
+"Turn 幂等（Wi-Fi 瞬断重发不重复计费）"
+"事件先落槽位 seq 单调递增，断线带 cursor 续读——请求所有权在服务器手里"
+分工铁律："chat_gate=交警（谁先走），池=车队+仓库"，含防死锁锁序约定</div>
+    <p><b>对比</b>：主流智能体的流式回复绑在浏览器 SSE 上，断网即废；朱峰请求托管服务端，手机弱网重连照收不丢、不重复扣费（手机版/ 目录实存）。</p>
+  </div>
+
+  <h2>三、蜂群调度（dispatch_swarm）</h2>
+  <div class="card">
+    <div class="ev">server/dispatch_swarm_seg1.py:5,29,74
+"对话内并发子任务派发（蜂群）"
+批量状态持久化 data/swarm_state/batch-&lt;id&gt;.json，重启后 _recover_batches_on_boot() 自动恢复
+ThreadPoolExecutor(max_workers=MAX_WORKERS) 跑批</div>
+    <p>不是文档宣传语，是带断点续跑的完整实现。</p>
+  </div>
+
+  <h2>四、团队流水线 + 验收门禁</h2>
+  <div class="card">
+    <p>策划 / 施工 / 优化 / 安全 4 专家并发 → 反驳师挑刺 → 验证师交叉实测（不合格一票否决）→ 裁决拍板。</p>
+    <div class="ev">实存代码：converge_validator.py（收敛验证）、score_parser.py（打分解析）、
+employee_scheduler.py（员工调度）、roles_db.py（角色库）、swarm_solve_exam.py</div>
+    <p><b>对比</b>：AutoGen 有多 Agent 对话但无验收门禁；Cline/Cursor 单 Agent 自查。朱峰核心主张——"活干没干好不是 AI 自己说了算"——有 validator + scorer 代码支撑。</p>
+  </div>
+
+  <h2>五、能力进化树 / 科技树：自称且确无对标</h2>
+  <div class="card">
+    <div class="ev">README.md 原文："这套'从实际行为自动结晶能力 → 人确认 → 自然遗忘'的闭环，
+目前在开源生态里没有完全对标的产品——做记忆图谱的工程师不做自我认知，
+做能力树的工具靠手动录入而非自动涌现。"</div>
+    <p>实存代码：growth_engine.py、backfill_growth.py、zf3d_canvas.db。AI 每学会新本事，科技树上长出新节点，画布位置自动记忆。</p>
+  </div>
+
+  <h2>六、八层守护体系</h2>
+  <div class="card">
+    <p>实存文件：<code>watchdog.py</code> <code>supervisor.py</code> <code>stuck_watch.py</code> <code>idle_auto_restart.py</code> <code>health_liveness.py</code> <code>fs_sentinel.py</code> <code>network_guard.py</code> <code>thread_dump.py</code></p>
+    <p><b>对比</b>：其他桌面智能体产品基本只有"挂了重启"一级守护；朱峰是任务自愈、卡住干预、空闲巡逻、心跳上报、挂了拉起的多层体系。</p>
+  </div>
+
+  <h2>七、其他实证差异总表</h2>
+  <table>
+    <tr><th>维度</th><th>主流智能体</th><th>朱峰（实证）</th></tr>
+    <tr><td>形态</td><td>云端 SaaS</td><td>本地绿色免安装，密钥存本地保护目录（secure_store.py / vault.py）</td></tr>
+    <tr><td>界面</td><td>聊天列表</td><td>无限画布（app.js 拆 10 模块），对话/浏览器/视频/PPT 都是节点</td></tr>
+    <tr><td>垂直整合</td><td>无</td><td>3dsmax / Houdini / ComfyUI 深度 MCP 对接（zhufeng_mcp_server.py 实存），源于 3D 社区基因</td></tr>
+    <tr><td>计费透明</td><td>黑盒</td><td>zf_billing.py + 数据中心卡片，额度余额随时可见</td></tr>
+    <tr><td>资产迁移</td><td>不支持</td><td>external_agent_import.py 万能导入其他 AI 工具聊天记录</td></tr>
+    <tr><td>多设备</td><td>各自 App</td><td>手机浏览器遥控 + 双机配对码互控（remote/ 手机版/ 实存）</td></tr>
+  </table>
+
+  <div class="concl">
+    <h3>结论：本质区别在三层</h3>
+    <ul>
+      <li><b>① 基础设施层</b>：车道闸门 + 对话池，把"几十个 AI 会话并发不断流"做成操作系统级调度（AIMD / 粘性哈希 / 幂等 / 断点续读），全球智能体产品中罕见；</li>
+      <li><b>② 组织层</b>：多角色流水线 + 独立验证师/反驳师 + 验收门禁，把"AI 说完成"变成"实测通过才算完成"；</li>
+      <li><b>③ 成长层</b>：能力进化树，从真实行为自动结晶能力而非手动录入，开源生态确无完全对标。</li>
+    </ul>
+    <p class="weak">短板如实说：强在工程与流程，不在模型本身（模型全靠外部 API）；生态与社区体量远小于 OpenAI / Anthropic。</p>
+  </div>
+</div>
+</body>
+</html>

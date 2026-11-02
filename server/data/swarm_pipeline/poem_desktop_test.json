@@ -1,0 +1,12 @@
+{
+  "goal": "在桌面 C:\\Users\\Administrator\\Desktop 生成一首诗：写一个文件《朱峰智能体之春.txt》，内容为不少于8行的中文原创诗，主题是'蜂群智能体流水线'（策划、施工、审核、总结各环节入诗），写完确认文件存在。",
+  "cwd": "F:\\朱峰社区智能体无限_新版本\\朱峰社区智能体无限_5.7.0",
+  "session": "pl-poem-desktop-001",
+  "planners": {"count": 2, "model": "千问"},
+  "builders": {"count": 1, "model": "千问"},
+  "reviewers": {"count": 2, "model": "千问"},
+  "review_pass_score": 80,
+  "summarize": true,
+  "max_review_rounds": 3,
+  "context": "纯写诗任务，无代码改动，只允许在桌面创建一个txt文件"
+}

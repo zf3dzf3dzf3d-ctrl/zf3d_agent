@@ -1,0 +1,5 @@
+{"round": 1, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 54, "at": 1793415373}
+{"round": 1, "reviewer_no": 2, "score": null, "verdict": "unknown", "len": 36, "at": 1793415373}
+{"round": 2, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 61, "at": 1793417036}
+{"round": 2, "reviewer_no": 2, "score": 58, "verdict": "reject", "len": 6633, "at": 1793417036}
+{"round": 2, "reviewer_no": 0, "score": null, "verdict": "forced_pass_on_max_rounds", "len": 0, "at": 1793417036}

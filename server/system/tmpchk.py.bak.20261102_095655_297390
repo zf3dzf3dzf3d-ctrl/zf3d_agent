@@ -1,0 +1,23 @@
+# -*- coding: utf-8 -*-
+import json, io, sys, time, os
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+def cnt(n):
+    return 1 + sum(cnt(c) for c in n.get('children', []))
+for f in ['_emergence.emergence.tree.json', '_emergence_emergence_tree_json.emergence.tree.json']:
+    fp = os.path.join('public', 'canvas', '进化树', 'maps', f)
+    d = json.load(open(fp, encoding='utf-8'))
+    n = sum(cnt(r) for r in d['roots'])
+    ch = d['roots'][0].get('children', []) if d['roots'] else []
+    print(f, '| nodes=', n, '| today_only=', d['meta'].get('today_only'))
+    print('  mtime=', time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(fp))), '| 子节点数=', len(ch))
+    if ch:
+        newest = max(c.get('created_at', 0) for c in ch)
+        print('  最晚节点时间=', time.strftime('%Y-%m-%d %H:%M', time.localtime(newest)))
+# DB 今日节点数
+import sqlite3
+c = sqlite3.connect('private/db/zf3d_canvas.db')
+mid = time.mktime(time.strptime(time.strftime('%Y-%m-%d'), '%Y-%m-%d'))
+r = c.execute("SELECT count(*) FROM capability WHERE subject_id='_emergence' AND created_at>=?", (mid,)).fetchone()
+t = c.execute("SELECT count(*) FROM capability WHERE subject_id='_emergence'").fetchone()
+print('DB 今日节点=', r[0], '| DB 总节点=', t[0])
+print('今天日期=', time.strftime('%Y-%m-%d'))

@@ -1,0 +1,59 @@
+
+/* ---------- 补充特效样式：流星/雨/萤火虫/雪花 ---------- */
+.bg-meteor {
+    position: absolute;
+    width: 140px; height: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.9));
+    border-radius: 2px;
+    pointer-events: none;
+    transform: rotate(35deg);
+    animation: bgMeteorFall linear forwards;
+    filter: drop-shadow(0 0 4px rgba(255,255,255,0.6));
+}
+@keyframes bgMeteorFall {
+    0%   { transform: translate(0,0) rotate(35deg); opacity: 1; }
+    100% { transform: translate(-60vw, 80vh) rotate(35deg); opacity: 0; }
+}
+.bg-rain {
+    position: absolute;
+    width: 1.5px; height: 22px;
+    background: linear-gradient(180deg, rgba(160,200,255,0), rgba(160,200,255,0.7));
+    pointer-events: none;
+    animation: bgRainFall linear forwards;
+}
+@keyframes bgRainFall {
+    0%   { transform: translateY(-30px); opacity: 0.9; }
+    100% { transform: translateY(110vh); opacity: 0.2; }
+}
+.bg-firefly {
+    position: absolute;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,240,150,0.95), rgba(255,200,60,0.4) 60%, transparent);
+    box-shadow: 0 0 8px 2px rgba(255,220,100,0.5);
+    pointer-events: none;
+    animation: bgFireflyFloat ease-in-out infinite alternate, bgFireflyBlink 2.4s ease-in-out infinite;
+}
+@keyframes bgFireflyFloat {
+    0%   { transform: translate(0,0); }
+    50%  { transform: translate(40px,-50px); }
+    100% { transform: translate(-30px,-110px); }
+}
+@keyframes bgFireflyBlink {
+    0%,100% { opacity: 0.15; }
+    50%     { opacity: 0.95; }
+}
+.bg-snow {
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.85);
+    box-shadow: 0 0 4px rgba(255,255,255,0.6);
+    pointer-events: none;
+    animation: bgSnowFall linear forwards;
+}
+@keyframes bgSnowFall {
+    0%   { transform: translateY(-20px) translateX(0); opacity: 0.9; }
+    50%  { transform: translateY(55vh) translateX(40px); opacity: 0.8; }
+    100% { transform: translateY(110vh) translateX(-20px); opacity: 0.2; }
+}

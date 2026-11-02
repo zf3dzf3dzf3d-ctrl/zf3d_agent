@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>布娃娃小人 · engine2d</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1520;color:#fff;font-family:Consolas,monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  canvas{border:1px solid #345;border-radius:6px;cursor:grab}
+  #hud{font-size:13px;color:#cde;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="cv" width="860" height="520"></canvas>
+<div id="hud">拖拽身体任意部位甩动 · A/D 左右走 · W/空格 跳 · F 抛起自己 · R 重置<br>Verlet 积分 + 距离约束 + 地面摩擦碰撞</div>
+<script src="/engine2d/audio.js"></script>
+<script src="/engine2d/games/ragdoll/game.js"></script>
+</body>
+</html>

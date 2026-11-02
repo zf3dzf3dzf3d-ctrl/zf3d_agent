@@ -1,0 +1,225 @@
+/* 由 style.css 拆分而来（保持原顺序，勿调整引入顺序） */
+/* ========== 浮层与弹窗基础样式（从 4.2.1 照搬） ========== */
+.overlay.show{display:flex !important}
+.overlay.modal{background:transparent}
+.modal{position:relative;background:var(--bg-card,#1e1e2e);border:1px solid var(--border,#333344);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-width:90vw;max-height:90vh;display:none;flex-direction:column;overflow:hidden}
+.overlay.show .modal{display:flex}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border,#333344);background:var(--bg-card,#1e1e2e);flex-shrink:0}
+.modal-header h2,.modal-header h3{margin:0;font-size:15px;font-weight:600;color:var(--text,#fff)}
+.modal-close{background:none;border:none;color:var(--text2,#b8b8cc);font-size:20px;cursor:pointer;padding:4px 10px;border-radius:4px;line-height:1;transition:all .2s}
+.modal-close:hover{background:var(--bg-hover,#252535);color:var(--text,#fff)}
+.modal-body{padding:16px 18px;overflow-y:auto;flex:1;min-height:0;color:var(--text,#fff)}
+.modal-footer{padding:12px 18px;border-top:1px solid var(--border,#333344);background:var(--bg-card,#1e1e2e);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+[data-theme="light"] .modal{background:#fff;border-color:#e0e0e0;box-shadow:0 20px 60px rgba(0,0,0,0.25)}
+[data-theme="light"] .modal-header{background:#fff;border-bottom-color:#e0e0e0}
+[data-theme="light"] .modal-header h2,[data-theme="light"] .modal-header h3{color:#1a1a2e}
+[data-theme="light"] .modal-body{color:#1a1a2e}
+[data-theme="light"] .modal-footer{background:#fff;border-top-color:#e0e0e0}
+[data-theme="light"] .modal-close{color:#666}
+[data-theme="light"] .modal-close:hover{background:#f0f0f0;color:#1a1a2e}
+/* ========== 设置弹窗专用布局（左侧导航 + 右侧内容） ========== */
+.settings-modal{
+    width:90vw;max-width:960px;height:85vh;max-height:780px;
+    display:flex !important;flex-direction:row;padding:5px;gap:5px;
+    background:var(--bg-card,#1e1e2e);border-radius:12px;overflow:hidden;
+    position:relative;
+}
+/* JS 拖拽调整整体大小时的内联样式（宽度/高度/左右上下由 resize handle 写入） */
+.settings-modal.is-user-resized{
+    width:auto !important;max-width:none !important;
+    height:auto !important;max-height:none !important;
+}
+/* 右下角拖拽柄：调整整个对话框的宽度和高度 */
+.settings-resize-handle{
+    position:absolute;right:0;bottom:0;width:18px;height:18px;z-index:12;
+    cursor:nwse-resize;touch-action:none;
+    display:flex;align-items:flex-end;justify-content:flex-end;
+    padding:2px;opacity:.45;transition:opacity .15s;
+}
+.settings-resize-handle:hover{opacity:1}
+.settings-resize-handle::before{
+    content:'';display:block;width:10px;height:10px;
+    border-right:2px solid var(--text-secondary,#888);
+    border-bottom:2px solid var(--text-secondary,#888);
+    border-bottom-right-radius:3px;
+}
+body.settings-resizing{user-select:none;cursor:nwse-resize}
+/* 拖拽/缩放期间禁用所有过渡，保证鼠标位移与面板几何 1:1 跟手 */
+.settings-modal.settings-no-anim, .settings-modal.settings-no-anim *{transition:none !important}
+/* ==== 背景统一：浅色主题下强制跟随对话框(--bg-card)，
+   压过上方 [data-theme="light"] .modal{background:#fff}（同特异度、源码靠后胜出）==== */
+[data-theme="light"] .settings-modal{background:var(--bg-card,#ffffff)}
+body.settings-resizing .settings-content{pointer-events:none}
+/* ===== 八向边缘缩放热区（n/s/e/w/ne/nw/se/sw），覆盖在 modal 四边四角 ===== */
+.settings-edge-n,.settings-edge-s,.settings-edge-e,.settings-edge-w,
+.settings-edge-ne,.settings-edge-nw,.settings-edge-se,.settings-edge-sw{
+    position:absolute;z-index:13;touch-action:none;
+}
+.settings-edge-n{left:10px;right:10px;top:0;height:8px;cursor:ns-resize}
+.settings-edge-s{left:10px;right:10px;bottom:0;height:8px;cursor:ns-resize}
+.settings-edge-e{top:10px;bottom:10px;right:0;width:8px;cursor:ew-resize}
+.settings-edge-w{top:10px;bottom:10px;left:0;width:8px;cursor:ew-resize}
+.settings-edge-ne{top:0;right:0;width:16px;height:16px;cursor:nesw-resize}
+.settings-edge-nw{top:0;left:0;width:16px;height:16px;cursor:nwse-resize}
+.settings-edge-se{bottom:0;right:0;width:16px;height:16px;cursor:nwse-resize}
+.settings-edge-sw{bottom:0;left:0;width:16px;height:16px;cursor:nesw-resize}
+/* 顶部三向热区需高于平移条(z-index:20)才可命中 */
+.settings-edge-n,.settings-edge-ne,.settings-edge-nw{z-index:21}
+.settings-close-btn{
+    position:absolute;top:12px;right:12px;z-index:10;
+    width:32px;height:32px;border:none;background:transparent;
+    font-size:20px;line-height:1;cursor:pointer;
+    color:var(--text-secondary,#666);border-radius:6px;
+    transition:background .2s,color .2s;
+}
+.settings-close-btn:hover{background:var(--bg-hover,rgba(0,0,0,0.06));color:var(--text-primary,#1a1a2e)}
+.settings-nav{
+    width:var(--settings-nav-width,200px);min-width:120px;max-width:45vw;flex-shrink:0;background:transparent;
+    border-right:1px solid var(--border-color,#e5e7eb);
+    display:flex;flex-direction:column;padding:12px 0;overflow-y:auto;
+}
+.settings-nav-resize{
+    position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:11;touch-action:none;
+    left:var(--settings-nav-width,200px);margin-left:-4px;
+}
+.settings-nav-resize:hover,.settings-nav-resize.is-dragging{background:rgba(99,102,241,0.25)}
+/* 顶部拖拽条：按住可平移整个设置窗口 */
+.settings-drag-bar{
+    position:absolute;top:0;left:0;right:0;height:22px;z-index:20;
+    display:flex;align-items:center;justify-content:center;
+    cursor:grab;touch-action:none;user-select:none;
+    background:linear-gradient(to bottom,rgba(99,102,241,0.08),transparent);
+}
+.settings-drag-bar.is-dragging{cursor:grabbing}
+.settings-drag-bar-dots{
+    width:48px;height:5px;border-radius:3px;
+    background:var(--border-color,#e5e7eb);opacity:.8;
+    transition:background .2s,width .2s;
+}
+.settings-drag-bar:hover .settings-drag-bar-dots,
+.settings-drag-bar.is-dragging .settings-drag-bar-dots{background:rgba(99,102,241,.65);width:72px}
+.settings-nav-header{
+    padding:12px 20px;font-size:16px;font-weight:600;
+    color:var(--text-primary,#1a1a2e);border-bottom:1px solid var(--border-color,#e5e7eb);
+    margin-bottom:8px;
+}
+.settings-nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 20px;cursor:pointer;user-select:none;
+    color:var(--text-secondary,#555);font-size:14px;
+    transition:background .15s,color .15s;border-left:3px solid transparent;
+}
+.settings-nav-item:hover{background:var(--bg-hover,rgba(0,0,0,0.04));color:var(--text-primary,#1a1a2e)}
+.settings-nav-item.active{
+    background:var(--bg-hover,rgba(99,102,241,0.08));color:#6366f1;
+    border-left-color:#6366f1;font-weight:500;
+}
+.settings-nav-icon{font-size:16px;width:20px;text-align:center}
+.settings-content{
+    flex:1;overflow-y:auto;padding:24px 28px;
+    background:transparent;
+}
+.settings-tab{display:none}
+.settings-tab.active{display:block}
+.settings-content h3,.settings-content .settings-section-title{
+    margin:0 0 16px;font-size:18px;font-weight:600;color:var(--text-primary,#1a1a2e);
+}
+.settings-content .field{margin-bottom:14px}
+.settings-content .field label{
+    display:block;margin-bottom:6px;font-size:13px;
+    color:var(--text-secondary,#555);font-weight:500;
+}
+.settings-content input[type=text],.settings-content input[type=password],
+.settings-content input[type=number],.settings-content select,.settings-content textarea{
+    width:100%;padding:8px 12px;border:1px solid var(--border-color,#d1d5db);
+    border-radius:6px;background:var(--bg,#fff); /* 统一：--bg-input未定义，改用对话框输入约定var(--bg) */
+    color:var(--text-primary,#1a1a2e);font-size:14px;
+    box-sizing:border-box;
+}
+.settings-content input:focus,.settings-content select:focus,.settings-content textarea:focus{
+    outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.1);
+}
+.settings-content .btn{
+    padding:8px 16px;border:1px solid var(--border-color,#d1d5db);
+    background:var(--bg-card,#fff);color:var(--text-primary,#1a1a2e); /* --bg-primary未定义，暗色会露白底，改用面板同底 */
+    border-radius:6px;cursor:pointer;font-size:14px;
+    transition:background .15s,border-color .15s;
+}
+.settings-content .btn:hover{background:var(--bg-hover,rgba(0,0,0,0.04));border-color:#6366f1}
+.settings-content .btn-primary{background:#6366f1;color:#fff;border-color:#6366f1}
+.settings-content .btn-primary:hover{background:#4f46e5;border-color:#4f46e5}
+/* 暗色模式适配（背景统一：导航列不再加深色底，与对话框同底） */
+[data-theme="dark"] .settings-nav{background:transparent;border-right-color:#2d3142}
+[data-theme="dark"] .settings-nav-header{color:#e5e7eb;border-bottom-color:#2d3142}
+[data-theme="dark"] .settings-nav-item{color:#9ca3af}
+[data-theme="dark"] .settings-nav-item:hover{background:rgba(255,255,255,0.04);color:#e5e7eb}
+/* 待开发（禁用）导航项：不可点击 + 角标 */
+.settings-nav-item.is-disabled-tab{cursor:not-allowed;opacity:.55;pointer-events:none}
+.settings-nav-item.is-disabled-tab:hover{background:none;color:var(--text-secondary,#555)}
+.settings-nav-badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:8px;background:#f59e0b;color:#fff;flex-shrink:0}
+[data-theme="dark"] .settings-nav-badge{background:#b45309}
+[data-theme="dark"] .settings-content{background:transparent}
+[data-theme="dark"] .settings-content input[type=text],[data-theme="dark"] .settings-content input[type=password],
+[data-theme="dark"] .settings-content input[type=number],[data-theme="dark"] .settings-content select,[data-theme="dark"] .settings-content textarea{
+    background:var(--bg,#1a1a2e);border-color:#2d3142;color:#e5e7eb; /* --bg-input未定义，改用对话框输入约定var(--bg) */
+}
+[data-theme="dark"] .settings-content input::placeholder,[data-theme="dark"] .settings-content textarea::placeholder{color:#6b7280}
+[data-theme="dark"] .settings-close-btn{color:#9ca3af}
+[data-theme="dark"] .settings-close-btn:hover{background:rgba(255,255,255,0.08);color:#e5e7eb}
+/* 响应式：小屏时侧栏变上下布局 */
+@media (max-width:768px){
+.settings-modal{flex-direction:column;width:95vw;height:90vh}
+.settings-nav{width:auto !important;max-width:none}
+.settings-nav-resize{display:none}
+    .settings-nav{width:100%;max-height:120px;border-right:none;border-bottom:1px solid var(--border-color,#e5e7eb);flex-direction:row;overflow-x:auto}
+    .settings-nav-header{display:none}
+    .settings-nav-item{flex-shrink:0;border-left:none;border-bottom:3px solid transparent}
+    .settings-nav-item.active{border-left-color:transparent;border-bottom-color:#6366f1}
+}
+
+/* ===== 模型配置面板按钮（去白底，适配暗色） ===== */
+.mc-btn,.mc-act{
+    background:transparent !important;
+    color:var(--text-primary,#e5e7eb) !important;
+    border:1px solid var(--border-color,#3a3f55) !important;
+    border-radius:6px !important;
+    padding:5px 12px !important;
+    font-size:13px !important;
+    cursor:pointer !important;
+    transition:all .15s !important;
+    font-family:inherit !important;
+    line-height:1.4 !important;
+    box-shadow:none !important;
+    text-shadow:none !important;
+}
+.mc-btn:hover,.mc-act:hover{
+    background:rgba(99,102,241,0.12) !important;
+    border-color:#6366f1 !important;
+    color:#a5b4fc !important;
+}
+.mc-btn:active,.mc-act:active{transform:translateY(1px)}
+.mc-btn-save{background:linear-gradient(135deg,#6366f1,#8b5cf6) !important;color:#fff !important;border-color:transparent !important}
+.mc-btn-save:hover{background:linear-gradient(135deg,#5558e6,#7c4fea) !important;color:#fff !important;border-color:transparent !important}
+.mc-btn-cancel{color:var(--text-secondary,#9ca3af) !important}
+.mc-btn-test{color:#60a5fa !important;border-color:rgba(96,165,250,0.4) !important}
+.mc-btn-test:hover{background:rgba(96,165,250,0.12) !important;border-color:#60a5fa !important;color:#93c5fd !important}
+.mc-act-test{color:#60a5fa !important;border-color:rgba(96,165,250,0.3) !important}
+.mc-act-test:hover{background:rgba(96,165,250,0.1) !important;border-color:#60a5fa !important;color:#93c5fd !important}
+.mc-act-default{color:#fbbf24 !important;border-color:rgba(251,191,36,0.3) !important}
+.mc-act-default:hover{background:rgba(251,191,36,0.1) !important;border-color:#fbbf24 !important;color:#fcd34d !important}
+.mc-act-del{color:#f87171 !important;border-color:rgba(248,113,113,0.3) !important}
+.mc-act-del:hover{background:rgba(248,113,113,0.12) !important;border-color:#f87171 !important;color:#fca5a5 !important}
+.mc-act-edit:hover,.mc-act-toggle:hover,.mc-act-clone:hover{
+    background:rgba(99,102,241,0.12) !important;
+    border-color:#6366f1 !important;
+    color:#a5b4fc !important;
+}
+[data-theme="light"] .mc-btn,[data-theme="light"] .mc-act{
+    color:#374151 !important;
+    border-color:#d1d5db !important;
+}
+[data-theme="light"] .mc-btn:hover,[data-theme="light"] .mc-act:hover{
+    background:rgba(99,102,241,0.08) !important;
+    color:#4f46e5 !important;
+}
+

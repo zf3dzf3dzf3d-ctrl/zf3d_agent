@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <script src="/js/storage-guard.js?v=1"></script>
+<meta charset="utf-8">
+<title>弹球 · engine2d</title>
+<style>
+  html,body{margin:0;height:100%;background:#0d1520;color:#fff;font-family:Consolas,monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  canvas{border:1px solid #345;border-radius:6px}
+  #hud{font-size:13px;color:#cde}
+</style>
+</head>
+<body>
+<canvas id="cv" width="560" height="640"></canvas>
+<div id="hud">← → / A D / 鼠标 移动挡板 · Enter 发射 / 重开 · 弹球物理：反射 + 速度衰减</div>
+<script src="/engine2d/audio.js"></script>
+<script src="/engine2d/games/pinball/game.js"></script>
+</body>
+</html>

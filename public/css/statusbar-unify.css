@@ -1,0 +1,347 @@
+/* ===== 底部状态栏按钮风格统一（整理/风筝/守卫/急速 → 与右侧 tp-fab-group dock 一致） =====
+   右侧基准：暗底胶囊 rgba(20,24,32,.85)、圆角6px、12px 文字、hover 蓝底、激活描边高亮 */
+
+/* 0. 进化树按钮：背景透明（无边框无阴影），区别于同排其他暗底按钮 */
+.statusbar #emergeTreeBtn,
+.statusbar #emergeTreeBtn.dog-guard-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+}
+.statusbar #emergeTreeBtn:hover {
+    background: rgba(52, 152, 219, 0.25) !important;
+}
+
+/* 0.1 风筝按钮：背景透明（与进化树按钮同样式，无背景色） */
+.statusbar #kiteToggleBtn,
+.statusbar #kiteToggleBtn.dog-guard-btn--on {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.statusbar #kiteToggleBtn:hover {
+    background: transparent !important;
+}
+
+/* 1. 基础外观：覆盖 .dog-guard-btn 的「透明背景+0.5透明度+放大」旧风格 */
+.statusbar #organizeDockBtn,
+.statusbar #kiteToggleBtn,
+.statusbar #dogGuardBtn,
+.statusbar #butlerDockBtn,
+.statusbar #turboDockBtn {
+    background: rgba(20, 24, 32, 0.85) !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 6px 9px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+}
+
+/* hover 态：蓝底提亮，与右侧「模型」按钮一致 */
+.statusbar #organizeDockBtn:hover,
+.statusbar #kiteToggleBtn:hover,
+.statusbar #dogGuardBtn:hover,
+.statusbar #butlerDockBtn:hover,
+.statusbar #turboDockBtn:hover,
+.statusbar #brainDockBtn:hover {
+    background: rgba(52, 152, 219, 0.35) !important;
+    color: var(--text, #eee) !important;
+}
+
+/* 2. 文字标签：与右侧同色（去强调色，统一灰白，激活时再高亮） */
+.statusbar .zf-dock-btn .tk-label {
+    color: #cfd8e3 !important;
+    font-size: 12px !important;
+    margin-right: 5px;
+}
+
+/* 3. 指示灯：对齐右侧 cs-btn-count 的弱化风格
+   状态点语义规范：绿(#2ecc71)=开启/运行 · 灰(#6b7280)=关闭 · 橙/红(#ff5544)=警告告警（如 brain-dot--alert） */
+.statusbar .zf-dock-btn .tk-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border: none !important;
+    background: #6b7280 !important;
+    opacity: .9;
+}
+.statusbar .zf-dock-btn .tk-dot.on,
+.statusbar .turbo-on .zf-dock-btn .tk-dot,
+.statusbar #turboDockBtn.turbo-on .tk-dot {
+    background: #2ecc71 !important;
+    box-shadow: 0 0 6px rgba(46, 204, 113, .8) !important;
+}
+
+/* 4. 开启态：蓝底白字，与右侧 zf-dock-active / dog-guard-btn--on 一致 */
+.statusbar #kiteToggleBtn.dog-guard-btn--on,
+.statusbar #dogGuardBtn.dog-guard-btn--on,
+.statusbar #turboDockBtn.turbo-on,
+.statusbar #organizeDockBtn.dog-guard-btn--on,
+.statusbar #organizeDockBtn.organize-on {
+    background: var(--bg2, #252535) !important;
+    color: var(--text, #eee) !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.6) !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+.statusbar #kiteToggleBtn.dog-guard-btn--on .tk-label,
+.statusbar #dogGuardBtn.dog-guard-btn--on .tk-label,
+.statusbar #turboDockBtn.turbo-on .tk-label,
+.statusbar #organizeDockBtn.dog-guard-btn--on .tk-label,
+.statusbar #organizeDockBtn.organize-on .tk-label {
+    color: var(--text, #eee) !important;
+}
+
+/* 主脑运行/警告点：尺寸对齐统一 tk-dot，颜色走语义规范 */
+
+/* 8. 右侧 dock 对齐：压过 style-sidepanel-polish.css 的玻璃拟态漂移（底色/圆角/字重/hover 与左侧基准不一致），统一回暗底胶囊规范 */
+.tp-fab-group .zf-dock-btn {
+    padding: 6px 9px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    letter-spacing: normal !important;
+    color: #cfd8e3 !important;
+    background: rgba(20, 24, 32, 0.85) !important;
+    border: none !important;
+    transform: none !important;
+}
+.tp-fab-group .zf-dock-btn:hover {
+    background: rgba(52, 152, 219, 0.35) !important;
+    color: var(--text, #eee) !important;
+    transform: none !important;
+}
+.tp-fab-group .zf-dock-btn.zf-dock-active,
+.tp-fab-group .zf-dock-btn.dog-guard-btn--on {
+    background: var(--bg2, #252535) !important;
+    color: var(--text, #eee) !important;
+    box-shadow: inset 0 0 0 1px rgba(52, 152, 219, 0.6) !important;
+}
+[data-theme="light"] .tp-fab-group .zf-dock-btn {
+    background: rgba(20, 24, 32, 0.85) !important;
+    color: #cfd8e3 !important;
+}
+
+/* 5. 状态栏容器微调：按钮间距与右侧组一致 */
+.statusbar { gap: 6px !important; }
+.statusbar .status-model-trigger {
+    background: rgba(20, 24, 32, 0.85);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12px;
+    line-height: 1;
+}
+.statusbar .status-model-trigger:hover {
+    background: rgba(52, 152, 219, 0.35);
+}
+
+/* 5.5 主脑按钮收编：压过 style-brain.css 的 #brainDockBtn.brain-fab 旧样式（padding 6px12px / 13px 字号 / 8px 圆角 / var(--bg-hover) 底） */
+.statusbar #brainDockBtn.brain-fab {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 6px 9px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    border: none !important;
+    background: rgba(20, 24, 32, 0.85) !important;
+    color: #cfd8e3 !important;
+}
+/* 主脑运行/警告点：尺寸对齐统一 tk-dot，颜色走语义规范 */
+.statusbar #brainDockBtn .brain-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border: none !important;
+    opacity: .9;
+}
+.statusbar #brainDockBtn .tk-label {
+    color: #cfd8e3 !important;
+    font-size: 12px !important;
+    margin-right: 0 !important;
+}
+
+/* 6. 亮色主题适配（与 style-taskpanel.css 亮色组一致） */
+[data-theme="light"] .statusbar #organizeDockBtn,
+[data-theme="light"] .statusbar #kiteToggleBtn,
+[data-theme="light"] .statusbar #dogGuardBtn,
+[data-theme="light"] .statusbar #butlerDockBtn,
+[data-theme="light"] .statusbar #turboDockBtn,
+[data-theme="light"] .statusbar #brainDockBtn,
+[data-theme="light"] .statusbar .status-model-trigger {
+    background: rgba(20, 24, 32, 0.85);
+    color: #cfd8e3;
+}
+
+/* 7. 图标化按钮（右下角对话/更多，底部整理/风筝/管家团）：文字已换成图标，
+   收紧内边距、放大字号使图标更醒目、更省空间 */
+.tp-fab-group .zf-dock-btn.zf-dock-icon {
+    padding: 6px 8px !important;
+    font-size: 14px !important;
+    line-height: 1;
+}
+.statusbar .zf-dock-btn .tk-label {
+    font-size: 14px !important;
+    line-height: 1;
+}
+.statusbar .zf-dock-btn {
+    padding: 6px 8px !important;
+}
+
+/* 8. 去掉左下角状态栏图标右侧的状态指示小点（tk-dot） */
+.statusbar .tk-dot {
+    display: none !important;
+}
+/* 9. 图标化后无文字/状态点跟随，去掉 tk-label 的右间距（否则图标右侧多出一块空格） */
+.statusbar .zf-dock-btn .tk-label {
+    margin-right: 0 !important;
+}
+
+/* 10. 风筝图标：始终无背景色（含开启态/hover 覆盖，放在文件末尾压过前面所有背景规则） */
+.statusbar #kiteToggleBtn,
+.statusbar #kiteToggleBtn.dog-guard-btn--on,
+.statusbar #kiteToggleBtn:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.statusbar #kiteToggleBtn:hover {
+    background: transparent !important;
+}
+
+/* 11. 右下角对话计数数字：去背景色 */
+.tp-fab-group .zf-dock-btn .cs-btn-count {
+    background: transparent !important;
+}
+
+/* 13. 右下角容器本体也透明化：去掉整个胶囊底，只留裸图标+数字 */
+.tp-fab-group,
+[data-theme="light"] .tp-fab-group {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+/* 14. 补刀：压过 style-taskpanel.css 的 .tp-tab 特异度(0,3,0)暗底/激活底，全部裸化 */
+.tp-fab-group .zf-dock-btn.tp-tab,
+.tp-fab-group .zf-dock-btn.tp-tab:hover,
+.tp-fab-group .zf-dock-btn.tp-tab.zf-dock-active,
+.tp-fab-group .zf-dock-btn.zf-more-trigger,
+.tp-fab-group .zf-dock-btn.zf-more-trigger:hover,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.tp-tab,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.tp-tab:hover,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.tp-tab.zf-dock-active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* 12. 右下角更多按钮【裸图标化】 */话/更多按钮【裸图标化】：去掉按钮背景胶囊，只留图标+数字（压过上面第 8 条暗底胶囊） */
+.tp-fab-group .zf-dock-btn,
+.tp-fab-group .zf-dock-btn:hover,
+.tp-fab-group .zf-dock-btn.zf-dock-active,
+.tp-fab-group .zf-dock-btn.active,
+.tp-fab-group .zf-dock-btn.is-active,
+.tp-fab-group .zf-dock-btn.dog-guard-btn--on,
+.tp-fab-group .zf-dock-btn[aria-selected="true"],
+[data-theme="light"] .tp-fab-group .zf-dock-btn,
+[data-theme="light"] .tp-fab-group .zf-dock-btn:hover,
+[data-theme="light"] .tp-fab-group .zf-dock-btn.zf-dock-active {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+/* 悬停/激活用提亮反馈替代胶囊底色 */
+.tp-fab-group .zf-dock-btn:hover,
+.tp-fab-group .zf-dock-btn.zf-dock-active,
+.tp-fab-group .zf-dock-btn.active,
+[data-theme="light"] .tp-fab-group .zf-dock-btn:hover {
+    color: #fff !important;
+    filter: drop-shadow(0 0 3px rgba(110, 198, 255, .55)) !important;
+}
+/* 计数数字同样裸化（含浅色主题） */
+.tp-fab-group .zf-dock-btn .cs-btn-count,
+[data-theme="light"] .tp-fab-group .zf-dock-btn .cs-btn-count {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    color: #cfd6e4 !important;
+}
+/* ===== 第 15 条：ID 级兜底（style-taskpanel.css 用 #chatStatusBtn/#taskPanelBtn
+   特异度 1,2,0 + !important，class 级覆盖压不住，必须同用 ID 才能盖过） ===== */
+.tp-fab-group #chatStatusBtn,
+.tp-fab-group #taskPanelBtn,
+.tp-fab-group #chatStatusBtn.cs-btn--busy,
+.tp-fab-group #chatStatusBtn:hover,
+.tp-fab-group #taskPanelBtn:hover,
+.tp-fab-group #chatStatusBtn.cs-btn--busy:hover,
+[data-theme="light"] .tp-fab-group #chatStatusBtn,
+[data-theme="light"] .tp-fab-group #taskPanelBtn,
+[data-theme="light"] .tp-fab-group #chatStatusBtn.cs-btn--busy,
+[data-theme="light"] .tp-fab-group #chatStatusBtn:hover,
+[data-theme="light"] .tp-fab-group #taskPanelBtn:hover {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+/* ===== 第 16 条：面板遮罩全透明 =====
+   .task-panel-overlay 原为半透明黑 rgba(0,0,0,0.25)，面板打开时左侧主画布被压暗。
+   改为完全透明（保留占位与点击关闭功能），不再有半透明暗色。 ===== */
+.task-panel-overlay,
+.task-panel-overlay.show,
+html.zf-style-glow .task-panel-overlay,
+html.zf-style-glow .task-panel-overlay.show,
+html.zf-style-glow .task-panel-overlay.task-panel-overlay.show.show,
+html.zf-style-glow [class*="panel"][class*="panel"].task-panel-overlay.task-panel-overlay {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+
+/* ===== 0.2 导航地图开关（#minimapToggleBtn）：裸线形图标，与进化树按钮同风格 ===== */
+.statusbar #minimapToggleBtn,
+.statusbar #minimapToggleBtn.zf-dock-btn,
+.statusbar #minimapToggleBtn.mm-off {
+    display: inline-flex !important;
+    align-items: center !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 6px 8px !important;
+    border-radius: 6px !important;
+    color: #cfd8e3 !important;
+    opacity: 1 !important;
+    cursor: pointer;
+    line-height: 1;
+}
+.statusbar #minimapToggleBtn:hover {
+    background: transparent !important;
+    color: #58d68d !important;
+}
+/* 关闭态：图标压暗（线形图标自带斜线由 JS 注入） */
+.statusbar #minimapToggleBtn.mm-off {
+    color: #6e7681 !important;
+    opacity: .8 !important;
+}
+.statusbar #minimapToggleBtn.mm-off:hover {
+    color: #58d68d !important;
+    opacity: 1 !important;
+}
+[data-theme="light"] .statusbar #minimapToggleBtn { color: #4b5563 !important; }
+
+/* ===== 0.3 进化树(#emergeTreeBtn) + 导航地图开关：悬停一律无背景框，仅图标提亮 ===== */
+.statusbar #emergeTreeBtn:hover,
+.tp-fab-group #emergeTreeBtn:hover,
+.tp-fab-group #minimapToggleBtn:hover,
+[data-theme="light"] .tp-fab-group #emergeTreeBtn:hover,
+[data-theme="light"] .tp-fab-group #minimapToggleBtn:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+}

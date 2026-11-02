@@ -1,0 +1,10 @@
+{"round": 1, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 368, "at": 1793359900}
+{"round": 1, "reviewer_no": 2, "score": null, "verdict": "unknown", "len": 39, "at": 1793359900}
+{"round": 2, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 70, "at": 1793360711}
+{"round": 2, "reviewer_no": 2, "score": null, "verdict": "unknown", "len": 40, "at": 1793360711}
+{"round": 2, "reviewer_no": 0, "score": null, "verdict": "forced_pass_on_max_rounds", "len": 0, "at": 1793360711}
+{"round": 1, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 65, "at": 1793365692}
+{"round": 1, "reviewer_no": 2, "score": null, "verdict": "unknown", "len": 56, "at": 1793365692}
+{"round": 2, "reviewer_no": 1, "score": null, "verdict": "unknown", "len": 145, "at": 1793365852}
+{"round": 2, "reviewer_no": 2, "score": null, "verdict": "unknown", "len": 101, "at": 1793365852}
+{"round": 2, "reviewer_no": 0, "score": null, "verdict": "forced_pass_on_max_rounds", "len": 0, "at": 1793365852}

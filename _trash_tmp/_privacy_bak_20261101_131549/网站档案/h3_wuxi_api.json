@@ -1,0 +1,407 @@
+{
+ "19": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "23": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "36": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "w0": "minimax_h3_video_vae_fp16.safetensors"
+  },
+  "_meta": {
+   "title": "VAELoader"
+  }
+ },
+ "37": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "w0": "minimax_h3_audio_vae_fp32.safetensors"
+  },
+  "_meta": {
+   "title": "VAELoader"
+  }
+ },
+ "26": {
+  "class_type": "VHS_LoadVideo",
+  "inputs": {},
+  "_meta": {
+   "title": "VHS_LoadVideo"
+  }
+ },
+ "27": {
+  "class_type": "VHS_LoadVideo",
+  "inputs": {},
+  "_meta": {
+   "title": "VHS_LoadVideo"
+  }
+ },
+ "25": {
+  "class_type": "VHS_LoadVideo",
+  "inputs": {},
+  "_meta": {
+   "title": "VHS_LoadVideo"
+  }
+ },
+ "199": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "200": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "201": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "51": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "c715baaee3fa989a7a8c94643fb7945e36f943b91a5a28182e44c895c565eec3.jpg",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "49": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "0fbb787fb39ffa24b5da3f3e6575b54b3d8a65320977dd2a07f2bc6123aeffd1.jpg",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "50": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "5d71adebf3aaa447f8a50300f75ee521b8f63af71fc8a1d8deb352cb290d7750.jpg",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "53": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "w0": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+   "w1": 1.0000000000000002
+  },
+  "_meta": {
+   "title": "LoraLoaderModelOnly"
+  }
+ },
+ "38": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "w0": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+   "w1": "minimax",
+   "w2": "default"
+  },
+  "_meta": {
+   "title": "CLIPLoader"
+  }
+ },
+ "254": {
+  "class_type": "VAEDecodeAudio",
+  "inputs": {},
+  "_meta": {
+   "title": "VAEDecodeAudio"
+  }
+ },
+ "253": {
+  "class_type": "VAEDecode",
+  "inputs": {},
+  "_meta": {
+   "title": "VAEDecode"
+  }
+ },
+ "265": {
+  "class_type": "MiniMaxH3ReferenceToVideo",
+  "inputs": {
+   "w0": "",
+   "w1": 1344,
+   "w2": 768,
+   "w3": 124,
+   "w4": "max"
+  },
+  "_meta": {
+   "title": "MiniMaxH3ReferenceToVideo"
+  }
+ },
+ "250": {
+  "class_type": "ComfyMathExpression",
+  "inputs": {
+   "w0": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17"
+  },
+  "_meta": {
+   "title": "ComfyMathExpression"
+  }
+ },
+ "226": {
+  "class_type": "SamplerCustomAdvanced",
+  "inputs": {},
+  "_meta": {
+   "title": "SamplerCustomAdvanced"
+  }
+ },
+ "223": {
+  "class_type": "BasicGuider",
+  "inputs": {},
+  "_meta": {
+   "title": "BasicGuider"
+  }
+ },
+ "116": {
+  "class_type": "VAEDecode",
+  "inputs": {},
+  "_meta": {
+   "title": "VAEDecode"
+  }
+ },
+ "115": {
+  "class_type": "VAEDecodeAudio",
+  "inputs": {},
+  "_meta": {
+   "title": "VAEDecodeAudio"
+  }
+ },
+ "142": {
+  "class_type": "LTXVConcatAVLatent",
+  "inputs": {},
+  "_meta": {
+   "title": "LTXVConcatAVLatent"
+  }
+ },
+ "144": {
+  "class_type": "SamplerCustomAdvanced",
+  "inputs": {},
+  "_meta": {
+   "title": "SamplerCustomAdvanced"
+  }
+ },
+ "139": {
+  "class_type": "LTXVSeparateAVLatent",
+  "inputs": {},
+  "_meta": {
+   "title": "LTXVSeparateAVLatent"
+  }
+ },
+ "48": {
+  "class_type": "LoadAudio",
+  "inputs": {
+   "w0": "None"
+  },
+  "_meta": {
+   "title": "LoadAudio"
+  }
+ },
+ "14": {
+  "class_type": "LoadAudio",
+  "inputs": {
+   "w0": "None"
+  },
+  "_meta": {
+   "title": "LoadAudio"
+  }
+ },
+ "15": {
+  "class_type": "LoadAudio",
+  "inputs": {
+   "w0": "None"
+  },
+  "_meta": {
+   "title": "LoadAudio"
+  }
+ },
+ "256": {
+  "class_type": "RandomNoise",
+  "inputs": {
+   "w0": 629900698231524,
+   "w1": "randomize"
+  },
+  "_meta": {
+   "title": "RandomNoise"
+  }
+ },
+ "255": {
+  "class_type": "KSamplerSelect",
+  "inputs": {
+   "w0": "euler"
+  },
+  "_meta": {
+   "title": "KSamplerSelect"
+  }
+ },
+ "192": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "w0": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+   "w1": "default"
+  },
+  "_meta": {
+   "title": "UNETLoader"
+  }
+ },
+ "58": {
+  "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+  "inputs": {},
+  "_meta": {
+   "title": "MiniMaxH3MemoryEfficientSageAttentionPatch"
+  }
+ },
+ "264": {
+  "class_type": "VHS_VideoCombine",
+  "inputs": {},
+  "_meta": {
+   "title": "VHS_VideoCombine"
+  }
+ },
+ "322": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "w0": "wushu_spatial_physics_v2_1000_pruned.safetensors",
+   "w1": 0.30000000000000004
+  },
+  "_meta": {
+   "title": "LoraLoaderModelOnly"
+  }
+ },
+ "128": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "w0": "MysticXXX_MMH3-V1.safetensors",
+   "w1": 0.5000000000000001
+  },
+  "_meta": {
+   "title": "LoraLoaderModelOnly"
+  }
+ },
+ "261": {
+  "class_type": "BasicScheduler",
+  "inputs": {
+   "w0": "beta",
+   "w1": 12,
+   "w2": 1
+  },
+  "_meta": {
+   "title": "BasicScheduler"
+  }
+ },
+ "289": {
+  "class_type": "SplitSigmas",
+  "inputs": {
+   "w0": 8
+  },
+  "_meta": {
+   "title": "SplitSigmas"
+  }
+ },
+ "259": {
+  "class_type": "PrimitiveFloat",
+  "inputs": {
+   "w0": 10
+  },
+  "_meta": {
+   "title": "视频时长（秒）"
+  }
+ },
+ "252": {
+  "class_type": "ResolutionSelector",
+  "inputs": {
+   "w0": "16:9 (Widescreen)",
+   "w1": 0.5,
+   "w2": 32
+  },
+  "_meta": {
+   "title": "分辨率选择器"
+  }
+ },
+ "214": {
+  "class_type": "VHS_VideoCombine",
+  "inputs": {},
+  "_meta": {
+   "title": "VHS_VideoCombine"
+  }
+ },
+ "263": {
+  "class_type": "Text",
+  "inputs": {
+   "w0": "subject_definitions:\n<Subject 1> is the female doctor from <Picture 1>.\n<Subject 2> is the male patient from <Picture 2>.\n<Subject 3> is the consultation-room environment from <Picture 3>.\n\nsummary:\nThe target video is a short Chinese sitcom-style comedic consultation fragment set in <Subject 3>, where <Subject 1> and <Subject 2> play out a dry, sharp-tongued humorous doctor-patient exchange.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - the female doctor from <Picture 1>, white coat with a stethoscope and neat low bun, retained as the consulting physician.\n<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - the male patient from <Picture 2>, grey sweater over a light blue shirt with navy trousers, retained as the visiting patient.\n<Subject 3> (appears in [Shot 1], [Shot 2], [Shot 3], [Shot 4]): fully_preserved - the bright consultation-room setting from <Picture 3> retained as the scene environment.\n\ndetailed_description:\nThe target video uses a clean, lightly comedic Chinese-sitcom style with bright clinical lighting and a steady, conversational pace.\n[Shot 1] A medium two-shot opens inside <Subject 3>, the consultation room. <Subject 1>, the female doctor from <Picture 1>, sits behind the desk in her white coat with a stethoscope around her neck, casually raises her head to look toward the male patient, and asks in a dry, offhand voice, <d>[Chinese] 哪里不好？</d>\n[Shot 2] At 00:02.000, the shot cuts to a medium close-up of <Subject 2> (S2). He leans forward, hands clasped and resting on the office desk, deadpan and a little weary, and replies in a flat drawl, <d>[Chinese] 都说我太油腻了，我这么年轻为什么会油腻啊？</d>\n[Shot 3] At 00:05.000, the shot cuts back to a medium close-up of <Subject 1> (S1). She sets down the pen and delivers the punchline in a calm, deadpan clinical tone, <d>[Chinese] 因为你太想要结果了，本来要跑40步，你8步就跑完了，能不油吗。</d>\n[Shot 4] At 00:10.000, the shot cuts to a full-bodied wide shot from the side of the room, the doctor looking back at him calmly, while <Subject 2> (S2) blinks in utter confusion and lets out a baffled, <d>[Chinese] 啊？</d> holding the befuddled comedic beat through the final frame.\n\noverall_soundscape:\nQuiet consultation-room tone with soft HVAC hum and faint paper-handling rustle, rising to a brief burst of canned sitcom laughter after the punchline.\n\nnon_diegetic_music:\nA light, bouncy comedic underscore with playful pizzicato strings and a plucky bassline at a moderate tempo, staying low under the dialogue and punctuated by a short laugh-track sting at the punchline."
+  },
+  "_meta": {
+   "title": "Text"
+  }
+ },
+ "43": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "w0": "None",
+   "w1": "image"
+  },
+  "_meta": {
+   "title": "LoadImage"
+  }
+ },
+ "140": {
+  "class_type": "MinimaxH3LatentUpscaler3D",
+  "inputs": {
+   "w0": "minimax_h3_latent_upscaler_3d_fp16.safetensors",
+   "w1": "scale by multiplier",
+   "w2": 1.5000000000000002,
+   "w3": 32,
+   "w4": "cuda",
+   "w5": "fp16",
+   "w6": false
+  },
+  "_meta": {
+   "title": "MinimaxH3LatentUpscaler3D"
+  }
+ },
+ "283": {
+  "class_type": "easy float",
+  "inputs": {
+   "w0": 1.5000000000000002
+  },
+  "_meta": {
+   "title": "easy float"
+  }
+ }
+}

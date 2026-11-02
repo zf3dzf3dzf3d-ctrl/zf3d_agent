@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>2D 骨骼动画播放器</title>
+<style>
+  body{background:#141420;color:#eee;font-family:sans-serif;text-align:center}
+  canvas{background:#20202e;margin:16px auto;display:block;box-shadow:0 0 40px #4af6}
+  input{width:420px}
+  .btns{margin:10px}
+  button{background:#2a2a3e;color:#eee;border:1px solid #4af6;border-radius:6px;
+         padding:8px 22px;margin:0 6px;font-size:15px;cursor:pointer}
+  button.active{background:#4af6;color:#141420;font-weight:bold}
+</style>
+</head>
+<body>
+<h3>全自动 2D 角色骨骼动画 — idle / walk / jump</h3>
+<div class="btns">
+  <button id="b-idle" class="active">待机 idle</button>
+  <button id="b-walk">行走 walk</button>
+  <button id="b-jump">跳跃 jump</button>
+</div>
+<canvas id="cv" width="600" height="700"></canvas>
+<div><input type="range" id="speed" min="0.2" max="3" step="0.1" value="1"> 播放速度 <span id="sp">1.0x</span></div>
+<script>
+const P = "parts/";  // 相对 output/ 目录
+let skel, anims = {}, curName = "idle", anim = null, imgs = {}, t0 = performance.now(), speed = 1;
+
+async function load() {
+  skel = await (await fetch("skeleton.json")).json();
+  const list = await (await fetch("animation.json")).json();
+  for (const a of list) anims[a.name] = a;
+  for (const s of skel.slots) {
+    imgs[s.name] = new Image();
+    imgs[s.name].src = P + s.attachment;
+    await new Promise(r => imgs[s.name].onload = r);
+  }
+  // 计算整体包围盒用于居中缩放
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for (const s of skel.slots){const[b0,b1,b2,b3]=s.box;x0=Math.min(x0,b0);y0=Math.min(y0,b1);x1=Math.max(x1,b2);y1=Math.max(y1,b3);}
+  skel.bounds={x0,y0,x1,y1};
+  setAnim("idle");
+  requestAnimationFrame(frame);
+}
+
+function setAnim(name){
+  curName = name;
+  anim = anims[name];
+  t0 = performance.now();
+  document.querySelectorAll("button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("b-"+name).classList.add("active");
+}
+
+function sample(track, t){
+  const ks = track.keyframes;
+  if (t <= ks[0].t) return ks[0].v;
+  for (let i=1;i<ks.length;i++){
+    if (t <= ks[i].t){
+      const a=ks[i-1], b=ks[i], f=(t-a.t)/(b.t-a.t);
+      return a.v + (b.v-a.v)*f; // 线性插值
+    }
+  }
+  return ks[ks.length-1].v;
+}
+
+function frame(now){
+  let t = ((now - t0)/1000 * speed);
+  if (anim.loop) t = t % anim.duration;
+  else t = Math.min(t, anim.duration);
+  const ctx = document.getElementById("cv").getContext("2d");
+  ctx.clearRect(0,0,600,700);
+  const B = skel.bounds, W = B.x1-B.x0, H = B.y1-B.y0;
+  const scale = Math.min(520/W, 620/H);
+  const ox = 300 - W*scale/2 - B.x0*scale, oy = 660 - H*scale - B.y0*scale;
+
+  // 汇总每根骨骼的变换
+  const T = {};
+  for (const tr of anim.tracks){
+    let v = sample(tr, t);
+    if (tr.property === "rotate") T[tr.bone] = Object.assign({sx:1,sy:1,rot:0,dx:0,dy:0}, T[tr.bone]), T[tr.bone].rot = v;
+    else if (tr.property === "scaleX") T[tr.bone] = Object.assign({sx:1,sy:1,rot:0,dx:0,dy:0}, T[tr.bone]), T[tr.bone].sx = v;
+    else if (tr.property === "scaleY") T[tr.bone] = Object.assign({sx:1,sy:1,rot:0,dx:0,dy:0}, T[tr.bone]), T[tr.bone].sy = v;
+    else if (tr.property === "x") T[tr.bone] = Object.assign({sx:1,sy:1,rot:0,dx:0,dy:0}, T[tr.bone]), T[tr.bone].dx = v;
+    else if (tr.property === "y") T[tr.bone] = Object.assign({sx:1,sy:1,rot:0,dx:0,dy:0}, T[tr.bone]), T[tr.bone].dy = v;
+  }
+
+  for (const s of skel.slots){
+    const tr_ = T[s.name] || {sx:1,sy:1,rot:0,dx:0,dy:0};
+    const img = imgs[s.name];
+    const [bx0,by0,bx1,by1] = s.box;
+    const w=(bx1-bx0)*scale, h=(by1-by0)*scale;
+    const cx = ox + (s.pivot[0]-bx0)*scale + tr_.dx*scale;
+    const pivotY = oy + (s.pivot[1]-by0)*scale + tr_.dy*scale;
+    ctx.save();
+    ctx.translate(cx, pivotY);
+    ctx.rotate(tr_.rot*Math.PI/180);
+    ctx.scale(tr_.sx, tr_.sy);
+    ctx.drawImage(img, -w/2, -(s.pivot[1]-by0)*scale, w, h);
+    ctx.restore();
+  }
+  requestAnimationFrame(frame);
+}
+
+document.getElementById("speed").oninput = e => {
+  speed = +e.target.value;
+  document.getElementById("sp").textContent = speed.toFixed(1)+"x";
+};
+document.getElementById("b-idle").onclick = () => setAnim("idle");
+document.getElementById("b-walk").onclick = () => setAnim("walk");
+document.getElementById("b-jump").onclick = () => setAnim("jump");
+// 空格触发一次跳跃
+window.addEventListener("keydown", e => { if (e.code === "Space") setAnim("jump"); });
+load();
+</script>
+</body>
+</html>

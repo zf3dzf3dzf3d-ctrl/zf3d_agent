@@ -1,0 +1,82 @@
+861:   };
+862: };
+863: 
+864: // ===== 加载数据 =====
+865: // 统计树上全部节点数（科技球总数）：递归 roots.children
+866: function countNodes(t){ if(!t||!t.roots) return 0; let c=0; (function walk(list){ (list||[]).forEach(n=>{ c++; walk(n.children); }); })(t.roots); return c; }
+867: function titleText(){ const t=tree&&tree.meta&&tree.meta.title||''; const c=countNodes(tree); return t?(' · '+t+'（'+c+' 个科技球）'):''; }
+868: async function load(file){
+869:   const resp=await fetch('maps/'+file); if(!resp.ok){ alert('打不开 '+file); return; }
+870:   tree=await resp.json(); buildIndex(); layout(); focusSet=null;
+871:   document.getElementById('focusInfo').style.display='none';
+872:   document.getElementById('title').textContent=titleText();
+873:   fit(); restoreCam();
+874:   startFloat();
+875:   startBreath();
+876: }
+877: function _togPhys(btnId, get, set){ const b=document.getElementById(btnId); if(!b) return; b.onclick=()=>{ const v=!get(); set(v); b.style.background=v?'#3a6ea5':'#21262d'; }; }
+878: // P2 实时热重载：按 id diff 增量套用，新点发芽、旧点不跳（保留运行时 wx/wy/v/spawn）
+879: function applyTreeDelta(t){
+880:   const old={}; nodes.forEach(n=>old[n.id]={wx:n.wx,wy:n.wy,vx:n.vx||0,vy:n.vy||0,spawn:n.spawn});
+881:   tree=t; buildIndex(); layout();
+882:   const byId={}; nodes.forEach(n=>byId[n.id]=n);
+883:   nodes.forEach(n=>{
+884:     if(old[n.id]){ n.wx=old[n.id].wx; n.wy=old[n.id].wy; n.vx=old[n.id].vx; n.vy=old[n.id].vy; n.spawn=(old[n.id].spawn==null?1:old[n.id].spawn); }
+885:     else { n.spawn=0; if(n.parent_id!=null && byId[n.parent_id]){ const pp=byId[n.parent_id]; n.wx=pp.wx+(Math.random()-.5)*40; n.wy=pp.wy+(Math.random()-.5)*40; } }
+886:   });
+887:   ensureVel(); draw();
+888: }
+889: var _liveDay=(new Date()).getDate();   // 跨日检测（反驳③修复）：0 点后自动重导出，画面跟上"今日"
+890: async function liveTick(){
+891:   const nowDay=(new Date()).getDate();
+892:   if(nowDay!==_liveDay){ _liveDay=nowDay; renderNow(); }   // 跨日：重新落盘（today_only 过滤到新的一天）
+893:   const q=_curFile||new URLSearchParams(location.search).get('file'); if(!q) return;
+894:   try{ const r=await fetch('maps/'+q+'?t='+Date.now()); if(!r.ok) return; const txt=await r.text(); if(txt===liveLast) return; liveLast=txt; applyTreeDelta(JSON.parse(txt)); }catch(e){}
+895: }
+896: function startLive(){ if(liveTimer) return; liveOn=true; const lb=document.getElementById('liveBtn'); if(lb) lb.style.background='#3a6ea5'; liveTimer=setInterval(liveTick,2000); liveTick(); }
+897: function stopLive(){ liveOn=false; if(liveTimer){clearInterval(liveTimer); liveTimer=null;} const lb=document.getElementById('liveBtn'); if(lb) lb.style.background='#21262d'; }
+898: // P3 让AI修改这里：选中节点->生成含 subject+id+binds+context 的可复制指令
+899: function aiModify(){
+900:   if(!selected){ flash('⚠️ 请先单击选中一个节点'); return; }
+901:   const m=sel(); const binds=(selected._binds||selected.binds)||'';
+902:   const cmd='【进化树·修改节点】subject_type='+(m.subject_type||'project')+' subject_id='+(m.subject_id||'')+' 节点id='+selected.id+' 名称="'+selected.text+'"'+(binds?(' 挂接文件binds='+binds):'（该节点未挂接文件）')+'\n请调用 cap
+903:   openPanel('🛠 让AI修改这里 · '+selected.text);
+904:   const bd=document.getElementById('panelBody');
+905:   bd.innerHTML='<small>复制下面这段，粘贴到新对话，AI 会据 binds/context 直达文件（不盲搜）：</small><textarea id="aiCmd" rows="7" style="width:100%;box-sizing:border-box;margin-top:6px;background:#0d1117;border:1px solid #303
+906:   document.getElementById('aiCmd').value=cmd;
+907:   document.getElementById('aiCopy').onclick=()=>{ const ta=document.getElementById('aiCmd'); ta.select(); try{ document.execCommand('copy'); flash('📋 已复制，去新对话粘贴'); }catch(e){ flash('⚠️ 复制失败，请手动全选'); }
+908:   const fillBtn=document.getElementById('aiFill');
+909:   if(fillBtn) fillBtn.onclick=()=>{ try{ parent.postMessage({__tree:1,type:'zfFillChat',text:cmd,autoSend:false},'*'); flash('🎯 已送入主界面对话框（按回车开工）'); }catch(e){ flash('⚠️ 送入失败：'+e); } };
+910: }
+911: function useTree(t){
+912:   tree=t; buildIndex(); layout(); focusSet=null;
+913:   document.getElementById('focusInfo').style.display='none';
+914:   document.getElementById('title').textContent=titleText();
+915:   fit(); restoreCam();
+916:   startFloat();
+917:   startBreath();
+918: }
+919: // P1：接收宿主（主界面角标）指令，自动打开涌现侦测面板
+920: addEventListener('message', e=>{ const d=e.data||{}; if(d.__fromHost===1 && d.type==='openEmerge'){ const b=document.getElementById('emergeBtn'); if(b) b.click(); } });
+921: (async function init(){
+922:   resize();
+923:   const q=new URLSearchParams(location.search).get('file');
+924:   const inline=new URLSearchParams(location.search).get('inline');
+925:   // 兜底1：file:// 下无法 fetch，可带 ?inline=<base64(JSON)> 直接渲染
+926:   if(inline){ try{ useTree(JSON.parse(decodeURIComponent(escape(atob(inline))))); }catch(e){ alert('inline 解析失败 '+e); } return; }
+927:   // 兜底2：内联脚本 window.__TREE__ 注入（测试用）
+928:   if(window.__TREE__){ useTree(window.__TREE__); return; }
+929:   try{ const ix=await (await fetch('index.json')).json();
+930:     const sel=document.getElementById('sel');
+931:     (ix.files||[]).forEach(f=>{ const o=document.createElement('option'); o.value=f.file; o.textContent=f.title||f.file; sel.appendChild(o); });
+932:     sel.onchange=()=>load(sel.value);
+933:   }catch(e){}
+934:   if(q) load(q);
+935:   else if(IS_EMBED){ load('_emergence.emergence.tree.json'); }   // embed 默认加载今日过滤的涌现总树（旧 project.tree.json 已归档）
+936:   else { const ix0=document.getElementById('sel'); if(ix0.options.length>1){ ix0.value=ix0.options[1].value; load(ix0.value);} }
+937:   // embed：默认开启实时热重载，AI 更新进化树后球内自动刷新（2s 轮询 maps json 增量套用）
+938:   if(IS_EMBED){ try{ startLive(); }catch(e){} }
+939: })();
+940: </script>
+941: </body>
+942: </html>

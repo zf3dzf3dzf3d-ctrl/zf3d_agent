@@ -1,0 +1,14 @@
+# -*- coding: utf-8 -*-
+import io, sys, glob, os
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+os.chdir(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+files = glob.glob('public/js/*.js') + ['public/canvas/进化树/viewer.html']
+hits = []
+for fp in files:
+    t = open(fp, encoding='utf-8', errors='ignore').read()
+    for i, l in enumerate(t.splitlines(), 1):
+        if ('今日' in l or 'emergence' in l or 'today_only' in l) and len(l) < 300:
+            hits.append('%s:%d: %s' % (fp, i, l.strip()[:180]))
+out = '\n'.join(hits[-80:])
+open('server/system/tmpout.txt', 'w', encoding='utf-8').write(out)
+print('total hits:', len(hits))
