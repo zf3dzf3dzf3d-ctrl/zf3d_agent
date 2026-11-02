@@ -129,7 +129,7 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                     self._send_json({'ok': False, 'err': 'tasks 不能为空'})
                     return
                 batch_id = swarm.submit(tasks,
-                                        model_name=body.get('model') or None,
+                                        model_name=(body.get('model_name') or body.get('model')) or None,  # [闭环修复 2026-11-02] 兼容 model_name/model 两字段，显式空串回退 None
                                         shared_context=str(body.get('context') or ''))
                 self._send_json({'ok': True, 'batch_id': batch_id})
                 return

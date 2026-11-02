@@ -113,7 +113,15 @@ def _run_subtask(batch_id, task_id, goal, context, model_name, track='auto', all
                 tool_lines = [m2['content'][:200] for m2 in messages if m2.get('role') == 'tool']
                 if tool_lines:
                     content = '[工具结果汇总]\n' + '\n---\n'.join(tool_lines[-3:])
+            # [闭环修复 2026-11-02 收口③] 协议化 FINAL 标记优先：正文含 ===FINAL=== 时取标记后的最终结论，
+            # 避免靠"哪轮是结论"启发式猜测；未用协议的旧任务走原逻辑不受影响
+            if '===FINAL===' in content:
+                content = content.split('===FINAL===')[-1].strip() or content
+            # [闭环修复 2026-11-02] 保留首轮 assistant 正文为 first_output，防最终结论异常时信息丢失
+            _first = next((m.get('content') or '' for m in messages
+                           if m.get('role') == 'assistant' and isinstance(m.get('content'), str) and m.get('content').strip()), '')
             result = {'status': 'done', 'output': content,
+                      'first_output': _first[:2000],
                       'model': model['name'], 'elapsed': round(time.time() - t0, 1)}
         except Exception as e:
             result = {'status': 'failed', 'output': str(e)[:500],
@@ -318,6 +326,14 @@ def collect(batch_id, wait_sec=0):
                             _t['id'], _t.get('status'), _t.get('model', ''),
                             _t.get('elapsed'), _t['goal'], _t.get('output', '')))
                 b['saved_to'] = _fp
+                # [闭环修复 2026-11-02 步骤1.3] 同步镜像一份到进化报告目录，补"报告不落盘"P1
+                try:
+                    _evo = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'private', '记忆', '进化报告')
+                    os.makedirs(_evo, exist_ok=True)
+                    with _io.open(os.path.join(_evo, '%s.md' % b['id']), 'w', encoding='utf-8') as _f2:
+                        _f2.write(_io.open(_fp, 'r', encoding='utf-8').read())
+                except Exception:
+                    pass  # 镜像失败不影响主落盘
             except Exception:
                 pass  # 落盘失败不影响回收
             # D1: 批次回收时落一条批次级结束事件（带 trace_id + 各子任务状态）
