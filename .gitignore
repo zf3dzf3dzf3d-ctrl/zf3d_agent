@@ -44,3 +44,4 @@ server/_trash_public_backup/
 
 server/browser_plugin/data/
 
+*.bak.* 
