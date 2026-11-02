@@ -95,6 +95,21 @@
           "y": null,
           "created_at": 1793602958.4327059,
           "children": []
+        },
+        {
+          "id": 482,
+          "parent_id": 26,
+          "text": "安全收口 S6 验收通过，施工序列 S0/S1/",
+          "path": "涌现能力总树/安全收口 S6 验收通过，施工序列 S0/S1/",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793607171.4301462,
+          "children": []
         }
       ]
     }
