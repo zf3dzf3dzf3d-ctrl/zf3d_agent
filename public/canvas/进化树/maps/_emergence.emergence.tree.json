@@ -185,6 +185,21 @@
           "y": null,
           "created_at": 1793620426.6269429,
           "children": []
+        },
+        {
+          "id": 488,
+          "parent_id": 26,
+          "text": "你的想法是对的：在派出团队里加一个「普通对话」角",
+          "path": "涌现能力总树/你的想法是对的：在派出团队里加一个「普通对话」角",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793621782.736957,
+          "children": []
         }
       ]
     }

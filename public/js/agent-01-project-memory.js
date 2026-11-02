@@ -2570,6 +2570,150 @@ Object.assign(App, {
         }, 400);
     },
 
+    /* 【普通对话 2026-11-02】派出一个"无角色预设"的普通新对话窗口：继承模型/项目/引擎配置，
+       素材包极简（只有叮嘱+原对话首问），不吃素材包模板、不吃黑板规范——就是用户说的
+       "同一时间多派几个普通对话出去"，用多路冗余提高可靠性。 */
+    _plainExpand: function(box, chat) {
+        var self = this;
+        var _note = '';
+        try {
+            var _cn = window._zfCustomNoteNext;
+            if (_cn && _cn.note && (Date.now() - (_cn.ts || 0) < 60000)) { _note = String(_cn.note).trim(); }
+            if (_note) window._zfCustomNoteNext = null;
+        } catch (eN) {}
+        if (!_note) { _note = String(localStorage.getItem('zf_last_custom_note') || ''); }
+        if (!_note) {
+            Store.addLog('warn', chat.id, 'plain', '普通对话派出失败：用户叮嘱为空');
+            self._stepToast('普通对话派出失败：请填写一句话叮嘱', false);
+            return;
+        }
+        try { localStorage.setItem('zf_last_custom_note', _note); } catch (e) {}
+        var _firstQ = '';
+        var _lastA = '';
+        for (var _i = chat.history.length - 1; _i >= 0; _i--) {
+            var _h = chat.history[_i];
+            if (!_h) continue;
+            if (!_lastA && _h.role === 'assistant' && !_h._meta && (_h.content || '').trim()) _lastA = String(_h.content).trim();
+            if (!_firstQ && _h.role === 'user' && !_h._guardInject && !_h._verifyRound && !_h._continueRound && !_h._thinkerRound && !_h._summarizerRound && !_h._customRound && !_h._plainRound) {
+                var _tq = (typeof _msgText === 'function') ? _msgText(_h) : String(_h.content || '');
+                if (_tq.indexOf('（') !== 0) _firstQ = _tq;
+            }
+            if (_firstQ && _lastA) break;
+        }
+        var _srcMid = '';
+        try { _srcMid = (typeof App !== 'undefined' && typeof App._toolMasterResolveModelId === 'function') ? (App._toolMasterResolveModelId(chat) || '') : ''; } catch (e) {}
+        if (!_srcMid) _srcMid = chat.modelId || '';
+        var selfApp = (typeof App !== 'undefined') ? App : null;
+        if (!selfApp || typeof selfApp.createChatBox !== 'function') {
+            Store.addLog('error', chat.id, 'plain', '普通对话派出失败：无法创建新对话');
+            self._stepToast('普通对话派出失败：无法创建新对话', false);
+            return;
+        }
+        /* 定位：与自定义同款蜂群错峰落位 */
+        var _srcL = NaN, _srcT = NaN;
+        try {
+            var _sc0 = (window.App && typeof App.canvasScale === 'function') ? (App.canvasScale() || 1) : 1;
+            if (!(_sc0 > 0)) _sc0 = 1;
+            var _cv0 = (window.App && typeof App.canvasGetView === 'function') ? (App.canvasGetView() || { x: 0, y: 0 }) : { x: 0, y: 0 };
+            var _r0 = chat.el.getBoundingClientRect();
+            var _caR0 = document.getElementById('canvasArea');
+            _caR0 = _caR0 ? _caR0.getBoundingClientRect() : { left: 0, top: 0 };
+            _srcL = Math.round((_r0.left - _caR0.left - (_cv0.x || 0)) / _sc0);
+            _srcT = Math.round((_r0.top - _caR0.top - (_cv0.y || 0)) / _sc0);
+        } catch (eSrc0) {}
+        if (isNaN(_srcL)) _srcL = parseInt(chat.el && chat.el.style.left, 10) || 0;
+        if (isNaN(_srcT)) _srcT = parseInt(chat.el && chat.el.style.top, 10) || 0;
+        var _srcW = (chat.el && chat.el.offsetWidth) || 420;
+        var _srcH = 520;
+        try {
+            var _sc = (window.App && typeof App.canvasScale === 'function') ? (App.canvasScale() || 1) : 1;
+            if ((_sc > 0) && chat && chat.el && chat.el.offsetHeight) _srcH = chat.el.offsetHeight / _sc;
+        } catch (e) {}
+        var _cIdx = 0;
+        try { _cIdx = Math.max(0, ((window.ZFSwarm && window.ZFSwarm.nextIdxFor) ? window.ZFSwarm.nextIdxFor(chat.id, 'plain') : 1) - 1); } catch (eIdx) {}
+        var _cX = _srcL + _srcW + 10 + _cIdx * 20, _cY = _srcT + _srcH + 10 + _cIdx * 20;
+        if (!isFinite(_cX)) _cX = 120;
+        if (!isFinite(_cY)) _cY = 120;
+        var newChat = selfApp.createChatBox(_cX, _cY, _srcMid || null, true);
+        if (!newChat) {
+            self._stepToast('普通对话派出失败：新对话创建被拦截（窗口数量限制）', false);
+            return;
+        }
+        try {
+            var _pinFn = function () {
+                try {
+                    if (!newChat.el || !document.body.contains(newChat.el)) return;
+                    var _curL = parseFloat(newChat.el.style.left), _curT = parseFloat(newChat.el.style.top);
+                    var _dL = Math.abs(_curL - _cX), _dT = Math.abs(_curT - _cY);
+                    if ((_dL > 1 || _dT > 1) && Math.max(_dL, _dT) < 400) {
+                        newChat.el.style.left = _cX + 'px';
+                        newChat.el.style.top = _cY + 'px';
+                    }
+                } catch (ePin) {}
+            };
+            _pinFn();
+            [0, 60, 200, 450, 800].forEach(function (ms) { setTimeout(_pinFn, ms); });
+        } catch (ePin0) {}
+        try {
+            newChat.el._isPlainChat = true;
+            newChat.el._plainSrcId = chat.id;
+            try { window.ZFSwarm && window.ZFSwarm.register && window.ZFSwarm.register(newChat.id, 'plain', chat.id, 0); } catch (eRegP) {}
+        } catch (e) {}
+        /* 继承配置（模型/引擎/思考强度/压缩/工具分类/项目），不继承角色人设——普通对话就是白板 */
+        try {
+            var _inheritPid = chat.projectId || (typeof App !== 'undefined' && App._activeProjectId) || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || '';
+            if (_inheritPid) {
+                newChat.projectId = _inheritPid;
+                for (var i2 = 0; i2 < Store.data.chatBoxes.length; i2++) {
+                    if (Store.data.chatBoxes[i2].id === newChat.id) { Store.data.chatBoxes[i2].projectId = _inheritPid; break; }
+                }
+                try { if (typeof DB !== 'undefined' && DB.setNodeProject) DB.setNodeProject(newChat.id, _inheritPid).catch(function () {}); } catch (e) {}
+                try { if (typeof selfApp._updateProjectBtn === 'function') selfApp._updateProjectBtn(newChat); } catch (e) {}
+            }
+            try {
+                if (chat._engine) newChat._engine = String(chat._engine);
+                if (chat.modelId && typeof Models !== 'undefined' && Models.get && Models.get(chat.modelId)) newChat.modelId = chat.modelId;
+                if (chat._modelIdOverride) newChat._modelIdOverride = String(chat._modelIdOverride);
+                if (chat._reasoningEffort !== undefined && chat._reasoningEffort !== null) newChat._reasoningEffort = String(chat._reasoningEffort || '');
+                if (chat._compressMode) newChat._compressMode = chat._compressMode;
+                if (chat._historyMode) newChat._historyMode = chat._historyMode;
+                if (typeof Tools !== 'undefined' && Tools.chatCategories && Tools.chatCategories[chat.id]) Tools.chatCategories[newChat.id] = Tools.chatCategories[chat.id];
+                try { if (typeof newChat._refreshModelPickerBtn === 'function') newChat._refreshModelPickerBtn(); } catch (e2) {}
+                Store.saveChatBox(newChat, true);
+            } catch (e2) {}
+            try {
+                var _titleEl = newChat.el && newChat.el.querySelector('.title');
+                if (_titleEl) { _titleEl.textContent = '💬 普通对话'; _titleEl.title = '普通对话（叮嘱：' + _note.slice(0, 40) + '）'; }
+            } catch (e3) {}
+        } catch (e) {}
+        Store.addLog('info', chat.id, 'plain', '普通对话已派出：新对话 ' + newChat.id + '，叮嘱「' + _note.slice(0, 50) + '」');
+        self._stepToast('💬 普通对话已派出：叮嘱「' + _note.slice(0, 24) + '」', true);
+        try {
+            if (window.ZFThinkerArrow && typeof window.ZFThinkerArrow.create === 'function') window.ZFThinkerArrow.create(chat, newChat);
+        } catch (e) {}
+        /* 素材包极简：叮嘱 + 首问 + 最后一答（多路冗余时提示独立判断） */
+        var _lines = [];
+        _lines.push('【普通对话任务】你是一个普通对话助手，没有任何预设角色。请独立完成下方任务，给出你的判断。');
+        _lines.push('');
+        _lines.push('== 任务（用户叮嘱） ==');
+        _lines.push(_note);
+        if (_firstQ) { _lines.push(''); _lines.push('== 原对话首问（源头） =='); _lines.push(_firstQ.slice(0, 800)); }
+        if (_lastA) { _lines.push(''); _lines.push('== 原对话最近一次回答（供参考） =='); _lines.push(_lastA.slice(0, 1200)); }
+        _lines.push('');
+        _lines.push('请直接针对任务作答；若有多个同类普通对话并行，保持独立判断，不要假设能看到其他对话的结论。');
+        var _prompt = _lines.join('\n');
+        setTimeout(function () {
+            try {
+                if (typeof selfApp.addMsg === 'function') selfApp.addMsg(newChat.el, '（普通对话任务，共 ' + _prompt.length + ' 字）', 'user', newChat.modelId);
+                newChat.history.push({ role: 'user', content: _prompt, _plainRound: true });
+                Store.addLog('info', newChat.id, 'plain', '普通对话任务已注入并发送');
+                selfApp.sendToModel(newChat.el, newChat);
+            } catch (e) {
+                Store.addLog('error', newChat.id, 'plain', '普通对话任务发送异常: ' + e.message);
+            }
+        }, 400);
+    },
+
     _customExpand: function(box, chat) {
         var self = this;
         // 消费一次性叮嘱标志（_askCount fire 时写入，60 秒有效；多窗派出共享同一叮嘱）

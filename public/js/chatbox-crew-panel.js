@@ -2,7 +2,7 @@
  * chatbox-crew-panel.js — 🐝 小队卡通派出面板（v1.0 2026-10-27）
  * =====================================================================
  * 交互（对应用户定稿）：
- *   1. 一排卡通角色卡（策划🧭 反驳🔥 进化🧬 施工🔨 审核🛡️ 验证🧪 专家🎓 总结📋 加入团队🛠 技能总结🧠 发布广场🌐 自定义🎭）
+ *   1. 一排卡通角色卡（策划🧭 反驳🔥 进化🧬 施工🔨 审核🛡️ 验证🧪 专家🎓 总结📋 加入团队🛠 技能总结🧠 发布广场🌐 普通对话💬 自定义🎭）
  *      点一次 +1，卡片右上角显示数量角标；右键点击 -1（减员）
  *   2. 下方名单列表 = 本次派出去的人（可点 ✕ 取消单人）
  *   3. 「一句话」输入框（必填，空则派出按钮置灰）
@@ -34,6 +34,7 @@
     polisher:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L14 10"/><path d="M13 5l1.2 2.8L17 9l-2.8 1.2L13 13l-1.2-2.8L9 9l2.8-1.2L13 5z"/><path d="M18.5 13.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7.7-1.6z"/></svg>',
     security:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3z"/><rect x="9.5" y="10.5" width="5" height="4" rx="0.8"/><path d="M10.5 10.5V9.5a1.5 1.5 0 0 1 3 0v1"/></svg>',
     custom:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M8.5 15.5c1 1 2 1.5 3.5 1.5s2.5-.5 3.5-1.5"/></svg>',
+    plain:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4V5z"/><circle cx="9" cy="10.5" r="0.6" fill="currentColor"/><circle cx="12" cy="10.5" r="0.6" fill="currentColor"/><circle cx="15" cy="10.5" r="0.6" fill="currentColor"/></svg>',
     expert:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9l10-4 10 4-10 4L2 9z"/><path d="M6 11v4c0 1.5 2.7 3 6 3s6-1.5 6-3v-4"/><path d="M22 9v5"/></svg>'
   };
   function icon(key, size) {
@@ -68,9 +69,10 @@
       } },
     { key: 'sumskill',  face:'🧠', name: '技能总结', count: 0, note: true,  fn: function (box, chat) { App._summarizerExpand ? App._summarizerExpand(box, chat, 'skill') : App._stepToast('总结师请从角色列表选择', true); } },
     { key: 'sumforum',  face:'🌐', name: '发布广场', count: 0, note: true, fn: function (box, chat) { App._summarizerExpand ? App._summarizerExpand(box, chat, 'forum') : App._stepToast('总结师请从角色列表选择', true); } },
+    { key: 'plain',    face: '💬', name: '普通对话', count: 0, note: true,  fn: function (box, chat) { App._plainExpand ? App._plainExpand(box, chat) : App._stepToast('普通对话模块未加载', false); } },
     { key: 'custom',   face: '🎭', name: '自定义',  count: 0, note: true,  fn: function (box, chat) { App._customExpand(box, chat); } }
   ];
-  /* 全部 14 个角色都进面板，两排×7 */
+  /* 全部 15 个角色都进面板，两排×7（第三排1个） */
 
   /* ── 面板状态（挂 chat 上，切对话独立） ── */
   function state(chat) {
@@ -265,7 +267,7 @@
       var boxes = (window.App && App.chatBoxes) || [];
       boxes.forEach(function (chat) {
         if (!chat || !chat.el || chat._meta) return;
-        if (chat._isThinkerChat || chat._isQcChat || chat._isObjectorChat || chat._isCustomChat || chat._raceChat || chat._isVerifierChat || chat._isPolisherChat || chat._isSecurityChat) return; // 子窗不挂
+        if (chat._isThinkerChat || chat._isQcChat || chat._isObjectorChat || chat._isCustomChat || chat._raceChat || chat._isVerifierChat || chat._isPolisherChat || chat._isSecurityChat || chat._isPlainChat) return; // 子窗不挂
         if (chat._crewPanel && chat._crewPanel._closed) return; // 用户主动关闭过，不再重挂
         mount(chat.el, chat);
       });
