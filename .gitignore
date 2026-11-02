@@ -34,3 +34,10 @@ Thumbs.db
 desktop.ini
 node_modules/
 __pycache__/
+
+# ===== trash/隐私备份目录（S3首commit后补）=====
+_trash_tmp/
+_trash_public_backup/
+server/_trash_public_backup/
+*.pma
+
