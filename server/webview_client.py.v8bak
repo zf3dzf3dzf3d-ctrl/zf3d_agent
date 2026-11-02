@@ -1,0 +1,436 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+朱峰智能体 - 桌面客户端窗口（pywebview 独立进程）
+由 tray_server.py 通过 Popen 启动，不占用托盘主线程。
+- 等服务端口就绪后再加载页面
+- 无边框窗口：系统标题栏去掉，网页顶栏提供 最小化/最大化/关闭 按钮与拖动
+- 单实例：已有窗口进程在跑时通知其聚焦，本进程退出
+- WebView2 缺失或 pywebview 不可用时自动回退浏览器
+"""
+import os
+import sys
+import socket
+import time
+import subprocess
+import webbrowser
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_HERE)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from config import PORT, VERSION
+
+URL = f'http://127.0.0.1:{PORT}/'
+
+
+def _make_dpi_aware():
+    """声明 Per-Monitor DPI 感知：消除系统坐标虚拟化。
+    否则 GetWindowRect/SetWindowPos 用的是缩放后的虚拟坐标，与 pywebview
+    内部不一致 → 平移/缩放时窗口越拖越小、最大化铺不满屏幕。"""
+    try:
+        import ctypes
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PER_MONITOR_AWARE
+        except Exception:
+            ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
+
+
+_make_dpi_aware()
+
+# 单实例标记：环境变量 ZF_UI_CHILD=1 表示是聚焦通知子进程
+FOCUS_ENV = 'ZF_UI_FOCUS_NOTIFY'
+
+# 全局窗口引用，供 JS API 桥调用
+_win = None
+
+
+def _port_open(port, timeout=0.5):
+    try:
+        with socket.create_connection(('127.0.0.1', port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _wait_server(seconds=60):
+    for _ in range(int(seconds / 0.3)):
+        if _port_open(PORT):
+            return True
+        time.sleep(0.3)
+    return False
+
+
+class ZFWindowApi:
+    """暴露给网页 JS 的窗口控制桥：pywebview.api.xxx()"""
+
+    def minimize(self):
+        if _win:
+            _win.minimize()
+
+    # 最大化状态与切换全部用 Win32 实现：frameless 窗口下 pywebview 的
+    # maximized 属性/restore() 不可靠（状态不同步导致按钮无法切换）
+    def _hwnd(self):
+        try:
+            return _win.native.Handle.ToInt64() if _win and hasattr(_win.native, 'Handle') else None
+        except Exception:
+            return None
+
+    # 手动最大化标志：frameless 窗口下系统级 SW_MAXIMIZE 不可靠，
+    # 最大化改用 SetWindowPos 铺满工作区实现，状态自己记录
+    _max_flag = [False]
+    _normal_bounds = [None]  # (x, y, w, h) 最大化前的正常位置尺寸
+
+    def _is_maximized(self):
+        """最大化状态只认自己的 _max_flag（启动时的系统最大化在启动时已转为手动标记）"""
+        return self._max_flag[0]
+
+    def _work_area(self):
+        import ctypes
+        class RECTC(ctypes.Structure):
+            _fields_ = [('l', ctypes.c_long), ('t', ctypes.c_long),
+                        ('r', ctypes.c_long), ('b', ctypes.c_long)]
+        wa = RECTC()
+        ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(wa), 0)
+        return wa
+
+    def toggle_maximize(self):
+        """手动最大化/还原：全部用 SetWindowPos 实现，不碰系统 ShowWindow，
+        状态由 _max_flag 独立记录（与 pywebview / 系统状态零耦合，不会互相传染）。
+        返回切换后的状态字符串，供前端同步按钮图标。"""
+        import ctypes
+        from ctypes import wintypes
+        hwnd = self._hwnd()
+        if not hwnd:
+            return ''
+        user32 = ctypes.windll.user32
+        rc = wintypes.RECT()
+        if not user32.GetWindowRect(ctypes.c_void_p(hwnd), ctypes.byref(rc)):
+            return ''
+        if self._max_flag[0]:
+            # ── 还原：回到最大化前记录的位置尺寸 ──
+            b = self._normal_bounds[0]
+            self._max_flag[0] = False
+            self._normal_bounds[0] = None
+            if not (b and b[2] >= 480 and b[3] >= 320):
+                b = (rc.left, rc.top, 1100, 720)  # 无记录时的兜底尺寸
+            user32.SetWindowPos(ctypes.c_void_p(hwnd), 0,
+                                b[0], b[1], b[2], b[3], 0x0040)  # SWP_SHOWWINDOW
+            self.save_bounds()
+            return 'normal'
+        # ── 最大化：记住当前正常位置，然后铺满工作区（任务栏避让） ──
+        self._normal_bounds[0] = (rc.left, rc.top,
+                                  rc.right - rc.left, rc.bottom - rc.top)
+        self._max_flag[0] = True
+        wa = self._work_area()
+        user32.SetWindowPos(ctypes.c_void_p(hwnd), 0, wa.l, wa.t,
+                            wa.r - wa.l, wa.b - wa.t, 0x0040)
+        self.save_bounds()
+        return 'maximized'
+
+    def close(self):
+        # 关窗前保存窗口位置尺寸，然后只关窗口（后台服务/托盘仍常驻）
+        try:
+            hwnd = self._hwnd()
+            if hwnd:
+                _save_window_state_now(hwnd)
+        except Exception:
+            pass
+        if _win:
+            _win.destroy()
+
+    def window_move(self, dx, dy):
+        """网页顶栏拖动：JS 传屏幕坐标增量"""
+        if _win:
+            try:
+                x, y = _win.x, _win.y
+                _win.move(int(x + dx), int(y + dy))
+            except Exception:
+                pass
+
+    def get_bounds(self):
+        """读取当前窗口位置尺寸"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            hwnd = self._hwnd()
+            if not hwnd:
+                return None
+            rc = wintypes.RECT()
+            ctypes.windll.user32.GetWindowRect(ctypes.c_void_p(hwnd), ctypes.byref(rc))
+            return {'x': rc.left, 'y': rc.top, 'w': rc.right - rc.left, 'h': rc.bottom - rc.top}
+        except Exception:
+            return None
+
+    def save_bounds(self):
+        """保存当前窗口位置尺寸到 private/window_state.json（持久化记忆）"""
+        try:
+            import json
+            hwnd = self._hwnd()
+            if not hwnd:
+                return
+            if self._is_maximized():
+                # 最大化状态只记状态位，不动正常位置尺寸
+                d = _load_window_state()
+                d['maximized'] = True
+                with open(_STATE_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(d, f, ensure_ascii=False)
+                return
+            b = self.get_bounds()
+            # 门槛提高：避免把异常小尺寸存进持久化记忆
+            if not b or b['w'] < 640 or b['h'] < 420:
+                return
+            d = _load_window_state()
+            d.update(b)
+            d['maximized'] = False
+            with open(_STATE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(d, f, ensure_ascii=False)
+        except Exception:
+            pass
+
+    def window_delta(self, mode, dx, dy):
+        """JS 手势驱动的真实窗口移动/缩放（不依赖系统模态循环，WebView2 下可靠）。
+        mode: 0=移动窗口；10..17 = Win32 边缘命中码（HTLEFT 等）。参数顺序与前端 v8 一致"""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            dx, dy, mode = int(dx), int(dy), int(mode)
+            hwnd = self._hwnd()
+            if not hwnd:
+                return
+            user32 = ctypes.windll.user32
+            rc = wintypes.RECT()
+            if not user32.GetWindowRect(ctypes.c_void_p(hwnd), ctypes.byref(rc)):
+                return
+            SWP_FLAGS = 0x0014  # SWP_NOZORDER | SWP_NOACTIVATE
+
+            def _repaint():
+                """强制 WebView2 重绘：SetWindowPos 后渲染层可能不跟随，产生黑块"""
+                try:
+                    ctypes.windll.user32.InvalidateRect(ctypes.c_void_p(hwnd), None, True)
+                    ctypes.windll.user32.UpdateWindow(ctypes.c_void_p(hwnd))
+                except Exception:
+                    pass
+
+            if mode == 0:
+                if self._is_maximized():
+                    return  # 最大化状态下不移动
+                user32.SetWindowPos(ctypes.c_void_p(hwnd), 0,
+                                    rc.left + dx, rc.top + dy, 0, 0, 0x0015)  # 含 SWP_NOSIZE：只移位置不改宽高
+                _repaint()
+                _save_window_state_throttled(hwnd)
+                return
+            if not (10 <= mode <= 17) or self._is_maximized():
+                return
+            l, t, r, b = rc.left, rc.top, rc.right, rc.bottom
+            if mode in (10, 13, 16): l += dx
+            if mode in (11, 14, 17): r += dx
+            if mode in (12, 13, 14): t += dy
+            if mode in (15, 16, 17): b += dy
+            w = max(r - l, 480)
+            h = max(b - t, 320)
+            user32.SetWindowPos(ctypes.c_void_p(hwnd), 0, l, t, w, h, SWP_FLAGS)
+            _repaint()
+            _save_window_state_throttled(hwnd)
+        except Exception:
+            pass
+
+    def window_state(self):
+        return 'maximized' if self._is_maximized() else 'normal'
+
+
+_LAST_SAVE_TS = [0.0]
+
+
+def _save_window_state_throttled(hwnd, interval=0.5):
+    """拖拽过程中节流落盘（每 0.5 秒最多写一次），保证缩放/平移结果被记住"""
+    import time
+    now = time.time()
+    if now - _LAST_SAVE_TS[0] < interval:
+        return
+    _LAST_SAVE_TS[0] = now
+    _save_window_state_now(hwnd)
+
+
+_STATE_FILE = os.path.join(_PROJECT_ROOT, 'private', 'window_state.json')
+
+
+def _load_window_state():
+    try:
+        import json
+        with open(_STATE_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_window_state_now(hwnd):
+    """Win32 侧直接保存窗口位置尺寸"""
+    try:
+        import json
+        import ctypes
+        from ctypes import wintypes
+        rc = wintypes.RECT()
+        if not ctypes.windll.user32.GetWindowRect(ctypes.c_void_p(hwnd), ctypes.byref(rc)):
+            return
+        d = _load_window_state()
+        w, h = rc.right - rc.left, rc.bottom - rc.top
+        if ctypes.windll.user32.IsZoomed(ctypes.c_void_p(hwnd)):
+            # 最大化时只记状态，不覆盖上次的正常位置尺寸
+            d['maximized'] = True
+        else:
+            d['maximized'] = False
+            if w >= 480 and h >= 320:  # 防止把异常的小尺寸存下来
+                d.update({'x': rc.left, 'y': rc.top, 'w': w, 'h': h})
+        with open(_STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(d, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _boot_window(window):
+    try:
+        _dark_titlebar(window)
+    except Exception as e:
+        print('[WebView] 窗口初始化失败:', e)
+    _apply_saved_bounds(window)
+
+    # 启动即最大化：登记「手动最大化」标记，并记住还原用的正常位置尺寸。
+    # 还原按钮永远有可靠目标位置，不依赖系统 restore 状态。
+    try:
+        s = _load_window_state()
+        ZFWindowApi._max_flag[0] = True
+        if int(s.get('w') or 0) >= 480 and int(s.get('h') or 0) >= 320:
+            ZFWindowApi._normal_bounds[0] = (
+                int(s.get('x') or 0), int(s.get('y') or 0),
+                int(s.get('w')), int(s.get('h')))
+    except Exception:
+        pass
+
+    # 窗口关闭/销毁时兜底保存位置尺寸（拖拽后未及时节流落盘也能记住）
+    def _on_closed():
+        try:
+            hwnd = window.native.Handle.ToInt64() if hasattr(window.native, 'Handle') else None
+            if hwnd:
+                _save_window_state_now(hwnd)
+        except Exception:
+            pass
+    try:
+        window.events.closed += _on_closed
+    except Exception:
+        pass
+
+
+def _apply_saved_bounds(window):
+    """启动时应用上次保存的窗口位置/尺寸（持久化记忆）。"""
+    try:
+        s = _load_window_state()
+        w, h = int(s.get('w') or 0), int(s.get('h') or 0)
+        x, y = int(s.get('x') or 0), int(s.get('y') or 0)
+        if w > 200 and h > 150:
+            window.resize(w, h)
+            window.move(x, y)
+        elif s.get('maximized'):
+            window.maximize()
+    except Exception as e:
+        print('[WebView] 恢复窗口位置失败:', e)
+
+
+def _run_window():
+    global _win
+    import webview  # noqa
+    ico = os.path.join(_PROJECT_ROOT, 'public', 'logo.ico')
+    _win = webview.create_window(
+        f'朱峰智能体无限 v{VERSION}',
+        URL,
+        maximized=True,          # 启动即最大化全屏显示
+        background_color='#181a30',
+        frameless=True,          # 去掉系统标题栏
+        easy_drag=False,         # 拖动由网页顶栏接管
+        js_api=ZFWindowApi(),    # 网页可调用 pywebview.api.*
+    )
+    webview.start(_boot_window, _win, icon=ico if os.path.exists(ico) else None)
+
+
+def _dark_titlebar(window):
+    """窗口就绪后把标题栏切成暗色（Win10 1809+/Win11 DWM）"""
+    try:
+        import ctypes
+        hwnd = window.native.Handle.ToInt64() if hasattr(window.native, 'Handle') else None
+        if not hwnd:
+            return
+        # v8：不再装 WS_THICKFRAME / NCHITTEST 子类化 —— 与网页 JS 缩放热区
+        # 抢鼠标消息，是平移/缩放/最大化互相传染的根源。缩放只走 JS 一条路。
+        for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE（19 为旧版值）
+            v = ctypes.c_int(1)
+            r = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                ctypes.c_void_p(hwnd), attr, ctypes.byref(v), ctypes.sizeof(v))
+            if r == 0:
+                break
+        # 微微刷新使生效
+        ctypes.windll.user32.SetWindowPos(
+            ctypes.c_void_p(hwnd), 0, 0, 0, 0, 0, 0x0027)
+    except Exception as e:
+        print('[WebView] 暗色标题栏设置失败:', e)
+
+
+def main():
+    # 聚焦通知子进程：不带窗口直接退出（Windows 下 webview 无跨进程聚焦 API，
+    # 简化处理：子进程尝试用 PowerShell 激活同名窗口，然后退出）
+    if os.environ.get(FOCUS_ENV) == '1':
+        try:
+            subprocess.run([
+                'powershell', '-NoProfile', '-Command',
+                '(New-Object -ComObject WScript.Shell).AppActivate("朱峰智能体")'
+            ], timeout=5)
+        except Exception:
+            pass
+        return
+
+    # 单实例：已有窗口进程在跑 → 发聚焦通知后退出
+    import tempfile
+    lock = os.path.join(tempfile.gettempdir(), f'zf_webview_{PORT}.pid')
+    try:
+        pid = int(open(lock).read().strip())
+        if pid != os.getpid():
+            import ctypes
+            h = ctypes.windll.kernel32.OpenProcess(0x00100000, False, pid)
+            if h:
+                ctypes.windll.kernel32.CloseHandle(h)
+                try:
+                    subprocess.run([
+                        'powershell', '-NoProfile', '-Command',
+                        '(New-Object -ComObject WScript.Shell).AppActivate("朱峰智能体")'
+                    ], timeout=5)
+                except Exception:
+                    pass
+                return
+    except Exception:
+        pass
+
+    if not _wait_server():
+        print('[WebView] 服务未就绪，回退浏览器')
+        webbrowser.open(URL)
+        return
+
+    try:
+        with open(lock, 'w') as f:
+            f.write(str(os.getpid()))
+        _run_window()
+    except Exception as e:
+        print('[WebView] 窗口启动失败(%s)，回退浏览器' % e)
+        webbrowser.open(URL)
+    finally:
+        try:
+            os.remove(lock)
+        except Exception:
+            pass
+
+
+if __name__ == '__main__':
+    main()
