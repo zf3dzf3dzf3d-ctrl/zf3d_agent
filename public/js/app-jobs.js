@@ -72,6 +72,38 @@
     catch (e) { return String(ts); }
   }
 
+  // [指挥舱 2026-11-02] 实时耗时（running 时以当前时刻减 updated_at，每秒自刷新由轮询驱动）
+  function fmtElapsed(job) {
+    if (!job) return '';
+    if (job.status !== 'running' && job.status !== 'queued') return '';
+    var base = (job.updated_at || job.created_at) * 1000;
+    var s = Math.max(0, Math.floor((Date.now() - base) / 1000));
+    var m = Math.floor(s / 60), h = Math.floor(m / 60);
+    return h > 0 ? (h + '小时' + (m % 60) + '分' + (s % 60) + '秒')
+                 : (m > 0 ? (m + '分' + (s % 60) + '秒') : (s + '秒'));
+  }
+  // [指挥舱] 心跳判活：running 且心跳断 >120s → 黄灯警示（区分"慢"与"僵死"）
+  function heartbeatLate(job) {
+    if (job.status !== 'running' || !job.heartbeat_at) return false;
+    return (Date.now() / 1000 - job.heartbeat_at) > 120;
+  }
+  var STAGE_CN = { planning: '策划', converge: '收口', objectors: '反驳', decision_gate: '决策门',
+                   build: '施工', review: '审核', summary: '总结' };
+  // 卡片右侧状态灯 + 当前阶段/实时耗时摘要行
+  function cockpitMeta(job) {
+    var dot = heartbeatLate(job) ? '<span class="zf-jobs-dot zf-jobs-dot--warn" title="心跳已断' +
+      Math.floor(Date.now() / 1000 - (job.heartbeat_at || 0)) + '秒，可能卡死或进程重启"></span>'
+      : (job.status === 'running' ? '<span class="zf-jobs-dot zf-jobs-dot--live"></span>' : '');
+    var parts = [];
+    if (job.status === 'running') {
+      var stage = STAGE_CN[job.stage] || '准备中';
+      parts.push('阶段:' + stage);
+    }
+    var el = fmtElapsed(job);
+    if (el) parts.push('已运行 ' + el);
+    return dot + (parts.length ? '<span class="zf-jobs-live">' + esc(parts.join(' · ')) + '</span>' : '');
+  }
+
   // ---- API 封装 ----
   var API = {
     base: '',
@@ -226,6 +258,7 @@
             '<span class="zf-jobs-st" style="background:' + si.c + '">' + si.t + '</span>' +
             '<span>#' + esc(j.id) + '</span>' +
             '<span>' + fmtTime(j.created_at) + '</span>' +
+            cockpitMeta(j) +
             (j.error ? '<span style="color:#8a3a3a">⚠</span>' : '') +
           '</div></div>';
       });

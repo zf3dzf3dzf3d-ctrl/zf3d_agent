@@ -1,4 +1,4 @@
-/* 后台 Jobs 监控面板（方案A 自包含抽屉）——墨黑中性灰，零依赖主题变量回退 */
+﻿/* 后台 Jobs 监控面板（方案A 自包含抽屉）——墨黑中性灰，零依赖主题变量回退 */
 #zfJobsFab {
   position: fixed; right: 18px; bottom: 120px; z-index: 9990;
   width: 52px; height: 52px; border-radius: 50%;
@@ -164,3 +164,9 @@
   .zf-jobs-detail { padding: 10px; }
   .zf-jobs-stage .sg-cells { gap: 4px; }
 }
+/* [ָ�Ӳ� 2026-11-02] ״̬��+ʵʱժҪ+�����Ƶ� */ 
+.zf-jobs-dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; display:inline-block; } 
+.zf-jobs-dot--live { background:#3a7d5c; animation:zfJobsPulse 1.6s ease-in-out infinite; box-shadow:0 0 6px rgba(58,125,92,.6); } 
+.zf-jobs-dot--warn { background:#c9a227; animation:zfJobsPulse .9s ease-in-out infinite; box-shadow:0 0 6px rgba(201,162,39,.7); } 
+.zf-jobs-live { color:#9fd0b6; font-weight:600; } 
+@keyframes zfJobsPulse { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:.45; transform:scale(.8);} } 
