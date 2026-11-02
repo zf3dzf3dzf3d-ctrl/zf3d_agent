@@ -263,13 +263,12 @@ def _send_heartbeat():
         req.add_header('Content-Type', 'application/x-www-form-urlencoded')
         req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
+        # [SSL 2026-11-02] 改走 _shared 统一证书校验（含 ssl_verify 开关），不再硬编码禁验
+        from routes import _shared as _sh
 
         resp_body = ''
         try:
-            resp = urllib.request.urlopen(req, timeout=10, context=ctx)
+            resp = urllib.request.urlopen(req, timeout=10, context=_sh._SSL_CTX)
             resp_body = resp.read().decode('utf-8', errors='replace')
         except urllib.error.HTTPError as _he:
             resp_body = 'HTTP %s: %s' % (_he.code, _he.read().decode('utf-8', errors='replace')[:500])

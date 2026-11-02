@@ -338,10 +338,7 @@ class Zf3dRoutesMixin(MixinBase):
             req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
             req.add_header('Referer', 'https://www.zf3d.com/')
 
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-
+            # [SSL 2026-11-02] 改走 _shared._SSL_CTX 统一证书校验（含 ssl_verify 开关），不再硬编码禁验
             resp = _urlopen_retry(req, timeout=30, tag='Zf3dLogin')
             resp_body = resp.read().decode('utf-8', errors='replace')
 
@@ -457,10 +454,7 @@ class Zf3dRoutesMixin(MixinBase):
             if cookie_str:
                 req.add_header('Cookie', cookie_str)
 
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-
+            # [SSL 2026-11-02] 改走 _shared._SSL_CTX 统一证书校验（含 ssl_verify 开关），不再硬编码禁验
             resp = _urlopen_retry(req, timeout=30, tag='Zf3dCheckin')
             resp_body = resp.read().decode('utf-8', errors='replace')
 
@@ -536,10 +530,7 @@ class Zf3dRoutesMixin(MixinBase):
                     if cookie_str:
                         req.add_header('Cookie', cookie_str)
 
-                    ctx = ssl.create_default_context()
-                    ctx.check_hostname = False
-                    ctx.verify_mode = ssl.CERT_NONE
-
+                    # [SSL 2026-11-02] 改走 _shared._SSL_CTX 统一证书校验（含 ssl_verify 开关），不再硬编码禁验
                     resp = _urlopen_retry(req, timeout=15, tag='Zf3dStatus')
                     resp_body = resp.read().decode('utf-8', errors='replace')
 
