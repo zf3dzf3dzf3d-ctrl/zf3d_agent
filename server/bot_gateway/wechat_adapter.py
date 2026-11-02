@@ -116,8 +116,8 @@ class WechatAdapter(BaseAdapter):
                 except Exception as e:
                     print(f"[bot_gateway/wechat] 解析失败: {e}")
 
-        self._srv = ThreadingHTTPServer(("0.0.0.0", self.listen_port), Handler)
-        print(f"[bot_gateway/wechat] 公众号回调服务监听 0.0.0.0:{self.listen_port}（URL=/wechat）")
+        self._srv = ThreadingHTTPServer(("127.0.0.1", self.listen_port), Handler)
+        print(f"[bot_gateway/wechat] 公众号回调服务监听 127.0.0.1:{self.listen_port}（URL=/wechat，仅本机可达）")
         self._srv.serve_forever()
 
     # ---------- 发送（客服接口，需48h内互动） ----------

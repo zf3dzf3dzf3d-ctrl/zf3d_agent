@@ -81,8 +81,8 @@ class QQAdapter(BaseAdapter):
                 self.end_headers()
                 self.wfile.write(body)
 
-        self._srv = ThreadingHTTPServer(("0.0.0.0", self.listen_port), Handler)
-        print(f"[bot_gateway/qq] 上报服务监听 0.0.0.0:{self.listen_port}（NapCat 上报地址 /onebot）")
+        self._srv = ThreadingHTTPServer(("127.0.0.1", self.listen_port), Handler)
+        print(f"[bot_gateway/qq] 上报服务监听 127.0.0.1:{self.listen_port}（NapCat 上报地址 /onebot，仅本机可达）")
         self._srv.serve_forever()
 
     # ---------- 发送 ----------
