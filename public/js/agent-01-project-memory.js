@@ -2575,19 +2575,22 @@ Object.assign(App, {
        "同一时间多派几个普通对话出去"，用多路冗余提高可靠性。 */
     _plainExpand: function(box, chat) {
         var self = this;
+        /* 【v2 叮嘱隔离】不再共用自定义角色的 _zfCustomNoteNext / zf_last_custom_note（跨角色串扰 bug：
+           多窗派出时首窗消费一次性标志后，后续窗口会 fallback 到上一次「自定义角色」的旧叮嘱）。
+           普通对话用独立标志 _zfPlainNoteNext / 独立记忆 zf_last_plain_note。 */
         var _note = '';
         try {
-            var _cn = window._zfCustomNoteNext;
-            if (_cn && _cn.note && (Date.now() - (_cn.ts || 0) < 60000)) { _note = String(_cn.note).trim(); }
-            if (_note) window._zfCustomNoteNext = null;
+            var _pn = window._zfPlainNoteNext;
+            if (_pn && _pn.note && (Date.now() - (_pn.ts || 0) < 60000)) { _note = String(_pn.note).trim(); }
+            if (_note) window._zfPlainNoteNext = null;
         } catch (eN) {}
-        if (!_note) { _note = String(localStorage.getItem('zf_last_custom_note') || ''); }
+        if (!_note) { _note = String(localStorage.getItem('zf_last_plain_note') || ''); }
         if (!_note) {
             Store.addLog('warn', chat.id, 'plain', '普通对话派出失败：用户叮嘱为空');
             self._stepToast('普通对话派出失败：请填写一句话叮嘱', false);
             return;
         }
-        try { localStorage.setItem('zf_last_custom_note', _note); } catch (e) {}
+        try { localStorage.setItem('zf_last_plain_note', _note); } catch (e) {}
         var _firstQ = '';
         var _lastA = '';
         for (var _i = chat.history.length - 1; _i >= 0; _i--) {
@@ -2603,6 +2606,19 @@ Object.assign(App, {
         var _srcMid = '';
         try { _srcMid = (typeof App !== 'undefined' && typeof App._toolMasterResolveModelId === 'function') ? (App._toolMasterResolveModelId(chat) || '') : ''; } catch (e) {}
         if (!_srcMid) _srcMid = chat.modelId || '';
+        /* 【v2 Best-of-N 模型轮换】派 N 路全用同一模型时，模型本身的单点故障/方差无法被对冲。
+           按 ZFSwarm.nextIdxFor 序号在可用模型列表（enabled+endpoint）中轮换分配 model_id：
+           源模型排首位（第 0 路必用源模型保持基准），后续路依次换其他可用模型。 */
+        var _rotMid = _srcMid;
+        try {
+            if (typeof Models !== 'undefined' && Models.list && typeof _toolMasterResolveModelId !== 'undefined') {
+                var _cands = Models.list.filter(function (m) { return m && m.enabled !== false && m.endpoint; });
+                if (_cands.length > 1 && _cIdx > 0) {
+                    var _others = _cands.filter(function (m) { return m.id !== _srcMid; });
+                    if (_others.length) { _rotMid = _others[(_cIdx - 1) % _others.length].id; }
+                }
+            }
+        } catch (eRot) {}
         var selfApp = (typeof App !== 'undefined') ? App : null;
         if (!selfApp || typeof selfApp.createChatBox !== 'function') {
             Store.addLog('error', chat.id, 'plain', '普通对话派出失败：无法创建新对话');
@@ -2659,6 +2675,19 @@ Object.assign(App, {
             newChat.el._plainSrcId = chat.id;
             try { window.ZFSwarm && window.ZFSwarm.register && window.ZFSwarm.register(newChat.id, 'plain', chat.id, 0); } catch (eRegP) {}
         } catch (e) {}
+        /* 【v2 P1 批次标记】同一次「派出 N 人」的所有普通对话共享一个 batch_id，
+           派出时把批次登记到 Store 全局（真源），面板的「一键回收并排展示」按批次拉答案。
+           _plainBatchNext 由 crew-panel 派出前写入（同一 seq 内共享），单函数直派时自动开新批。 */
+        var _batchId = '';
+        try {
+            _batchId = (window._zfPlainBatchNext) ? window._zfPlainBatchNext : ('pb_' + chat.id + '_' + Date.now());
+            newChat.el._plainBatch = _batchId;
+            if (!Store.data.plainBatches) Store.data.plainBatches = {};
+            var _b = Store.data.plainBatches[_batchId];
+            if (!_b) { _b = Store.data.plainBatches[_batchId] = { srcChatId: chat.id, srcNote: _note, members: [], created: Date.now() }; }
+            _b.members.push({ chatId: newChat.id, modelId: (_rotMid || _srcMid || ''), answered: false });
+            try { Store.save && Store.save(); } catch (eS) {}
+        } catch (eB) { _batchId = ''; }
         /* 继承配置（模型/引擎/思考强度/压缩/工具分类/项目），不继承角色人设——普通对话就是白板 */
         try {
             var _inheritPid = chat.projectId || (typeof App !== 'undefined' && App._activeProjectId) || (typeof Store !== 'undefined' && Store.data && Store.data.activeProjectId) || '';
@@ -2672,7 +2701,9 @@ Object.assign(App, {
             }
             try {
                 if (chat._engine) newChat._engine = String(chat._engine);
-                if (chat.modelId && typeof Models !== 'undefined' && Models.get && Models.get(chat.modelId)) newChat.modelId = chat.modelId;
+                /* 【v2 模型轮换】优先用轮换出的 _rotMid，无轮换候选时回落源模型 */
+                var _finalMid = _rotMid || _srcMid || '';
+                if (_finalMid && typeof Models !== 'undefined' && Models.get && Models.get(_finalMid)) newChat.modelId = _finalMid;
                 if (chat._modelIdOverride) newChat._modelIdOverride = String(chat._modelIdOverride);
                 if (chat._reasoningEffort !== undefined && chat._reasoningEffort !== null) newChat._reasoningEffort = String(chat._reasoningEffort || '');
                 if (chat._compressMode) newChat._compressMode = chat._compressMode;
@@ -2691,14 +2722,16 @@ Object.assign(App, {
         try {
             if (window.ZFThinkerArrow && typeof window.ZFThinkerArrow.create === 'function') window.ZFThinkerArrow.create(chat, newChat);
         } catch (e) {}
-        /* 素材包极简：叮嘱 + 首问 + 最后一答（多路冗余时提示独立判断） */
+        /* 素材包极简：叮嘱 + 首问（【v2 去锚定】不再注入原对话最近一次回答——多路冗余场景下
+           它会把 N 路答案锚定到同一个旧答案上产生趋同，与「保持独立判断」自相矛盾。仅单路派出
+           (_cIdx===0) 时保留供参考，多路时一律不带。） */
         var _lines = [];
         _lines.push('【普通对话任务】你是一个普通对话助手，没有任何预设角色。请独立完成下方任务，给出你的判断。');
         _lines.push('');
         _lines.push('== 任务（用户叮嘱） ==');
         _lines.push(_note);
         if (_firstQ) { _lines.push(''); _lines.push('== 原对话首问（源头） =='); _lines.push(_firstQ.slice(0, 800)); }
-        if (_lastA) { _lines.push(''); _lines.push('== 原对话最近一次回答（供参考） =='); _lines.push(_lastA.slice(0, 1200)); }
+        if (_lastA && _cIdx === 0) { _lines.push(''); _lines.push('== 原对话最近一次回答（供参考） =='); _lines.push(_lastA.slice(0, 1200)); }
         _lines.push('');
         _lines.push('请直接针对任务作答；若有多个同类普通对话并行，保持独立判断，不要假设能看到其他对话的结论。');
         var _prompt = _lines.join('\n');

@@ -225,6 +225,13 @@
         var n = st.picks[r.key] || 0;
         for (var i = 0; i < n; i++) seq.push(r);
       });
+      /* 【v2 普通对话派发前置】同一批派出前写入：①独立叮嘱标志（防跨角色串扰）；
+         ②批次 id（_plainExpand 内所有窗共享，登记到 Store.data.plainBatches） */
+      var _plainCnt = st.picks['plain'] || 0;
+      if (_plainCnt > 0) {
+        if (note) window._zfPlainNoteNext = { note: note.slice(0, 500), ts: Date.now() };
+        window._zfPlainBatchNext = 'pb_' + chat.id + '_' + Date.now();
+      }
       seq.forEach(function (r, i) {
         setTimeout(function () {
           try {
@@ -246,6 +253,67 @@
       renderCollapse();
       render();
     };
+
+    /* ── 【v2 P2 一键回收+并排展示】多路普通对话答案回收 ── */
+    function _renderGather() {
+      var _old = panel.parentNode && panel.parentNode.querySelector('.zfp-plain-gather');
+      if (_old) _old.remove();
+      var _batches = (window.Store && Store.data && Store.data.plainBatches) || {};
+      var _mine = Object.keys(_batches).map(function (k) { return _batches[k]; })
+        .filter(function (b) { return b.srcChatId === chat.id && b.members && b.members.length; })
+        .sort(function (a, b) { return (b.created || 0) - (a.created || 0); });
+      if (!_mine.length) return;
+      var _latest = _mine[0];
+      var _done = 0;
+      _latest.members.forEach(function (m) {
+        try {
+          var _c = Store.data.chatBoxes.find(function (c) { return c.id === m.chatId; });
+          if (_c && _c.history && _c.history.some(function (h) { return h.role === 'assistant' && !h._meta && (h.content || '').trim(); })) _done++;
+        } catch (e) {}
+      });
+      var _g = document.createElement('div');
+      _g.className = 'zfp-plain-gather';
+      _g.style.cssText = 'margin:6px 0 2px;padding:8px 10px;border:1px dashed rgba(120,200,255,.4);border-radius:10px;background:rgba(120,200,255,.06);';
+      var _html = '<div style="font-size:11px;color:#8fc4ff;margin-bottom:6px;">💬 多路答案批次（' + _done + '/' + _latest.members.length + ' 已回答）' +
+        '<button class="zfp-gather-btn" style="float:right;font-size:11px;padding:2px 10px;border-radius:8px;border:1px solid rgba(120,200,255,.5);background:rgba(120,200,255,.12);color:#8fc4ff;cursor:pointer;">一键回收并排展示</button></div>';
+      _g.innerHTML = _html;
+      _g.querySelector('.zfp-gather-btn').onclick = function () {
+        try {
+          var _items = _latest.members.map(function (m, i) {
+            var _c = Store.data.chatBoxes.find(function (c) { return c.id === m.chatId; });
+            var _ans = '';
+            if (_c && _c.history) {
+              for (var j = _c.history.length - 1; j >= 0; j--) {
+                var _h = _c.history[j];
+                if (_h && _h.role === 'assistant' && !_h._meta && (_h.content || '').trim()) { _ans = String(_h.content).trim(); break; }
+              }
+            }
+            return { idx: i + 1, chatId: m.chatId, modelId: m.modelId || '（源模型）', ans: _ans };
+          });
+          if (!_items.some(function (it) { return it.ans; })) { App._stepToast('普通对话尚未产生回答，稍后再试', false); return; }
+          var _out = ['【多路普通对话答案并排对比 · 共 ' + _items.length + ' 路 · 叮嘱：' + String(_latest.srcNote || '').slice(0, 60) + '】', ''];
+          _items.forEach(function (it) {
+            _out.push('—— 第 ' + it.idx + ' 路（' + it.modelId + (it.ans ? '' + (it.ans.length) + '字' : '，未回答') + '）——');
+            _out.push(it.ans || '（未回答）');
+            _out.push('');
+          });
+          _out.push('（以上为多路独立作答，请人工择优采纳；各路原对话窗口保留在画布上）');
+          /* addMsg 签名 (box, text, who, modelId, isFinal, skipSave)：box 为 DOM 元素，skipSave=true 只展示不写入历史 */
+          App.addMsg(chat.el, _out.join('\n'), 'user', chat.modelId, false, true);
+          App._stepToast('💬 已回收 ' + _items.length + ' 路答案并排展示到本对话', true);
+        } catch (eG) {
+          try { App._stepToast('回收失败：' + (eG.message || eG), false); } catch (e2) {}
+        }
+      };
+      panel.after(_g);
+    }
+    _renderGather();
+    var _gatherTimer = setInterval(function () {
+      try {
+        if (!document.body.contains(panel)) { clearInterval(_gatherTimer); return; }
+        _renderGather();
+      } catch (e) { clearInterval(_gatherTimer); }
+    }, 3000);
 
     /* 插到「自验收/本次提问」按钮行（.msg.compress-selector）之后——与审核/策划等按钮同区；
        按钮行尚未渲染时兜底跟在最后一条消息后，按钮行出现后常驻重挂逻辑会自动归位 */
