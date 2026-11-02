@@ -126,6 +126,19 @@ def _run_subtask(batch_id, task_id, goal, context, model_name, track='auto', all
         except Exception as e:
             result = {'status': 'failed', 'output': str(e)[:500],
                       'model': model_name or '', 'elapsed': round(time.time() - t0, 1)}
+            # [P1④闭环修复 2026-11-03] 401/403 鉴权失败专项告警：key 失效会静默吞掉整批蜂群产出，必须显式标记
+            if '401' in str(e) or '403' in str(e):
+                result['alert'] = 'AUTH_FAIL'
+                result['output'] = ('[鉴权失败告警] 模型 %s 返回 401/403，key 可能已失效，'
+                                    '请检查密钥配置: %s' % (model_name or '', str(e)[:300]))[:500]
+                try:
+                    with open(os.path.join(os.path.dirname(__file__), '..', 'logs',
+                                           'swarm_auth_alerts.log'), 'a', encoding='utf-8') as f:
+                        f.write('%s AUTH_FAIL model=%s batch=%s task=%s err=%s\n'
+                                % (time.strftime('%Y-%m-%d %H:%M:%S'), model_name or '',
+                                   batch_id, task_id, str(e)[:200]))
+                except Exception:
+                    pass
             # 条件触发仲裁：失败且开启开关时，自动换备用模型重跑一次
             try:
                 if os.environ.get('ZF_SWARM_ARBITRATE', '1').strip() in ('1', 'true', 'yes'):

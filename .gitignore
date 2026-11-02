@@ -44,4 +44,12 @@ server/_trash_public_backup/
 
 server/browser_plugin/data/
 
-*.bak.* 
+# ===== 备份/临时文件防回潮（蜂群收口 2026-11-03）=====
+*.bak
+*.bak.*
+*.bak-*
+*.prebak
+*.mybak
+*.enbak
+*.v8bak
+sm_bak.py
