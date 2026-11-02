@@ -155,6 +155,21 @@
           "y": null,
           "created_at": 1793609051.569272,
           "children": []
+        },
+        {
+          "id": 486,
+          "parent_id": 26,
+          "text": "完成情况：策划案 4 批中的 **批次1+2 已",
+          "path": "涌现能力总树/完成情况：策划案 4 批中的 **批次1+2 已",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793620230.635012,
+          "children": []
         }
       ]
     }
