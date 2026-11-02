@@ -1,0 +1,198 @@
+============================== sw-1acfc18880
+top keys: ['batch_id', 'status', 'created_at', 'tasks']
+n_tasks: 7
+---
+id : st-1-876913
+goal : 审视 server/chat_pool.py 槽位回收与幂等逻辑，找出可优化点并给出补丁建议。最终回复直接给出：问题清单+补丁建议全文。
+role : 
+status : done
+error : 
+---
+id : st-2-dffd7f
+goal : 审查 server/agent_registry.py AgentCard TTL 与判活机制，提出改进。最终回复直接给出：问题清单+改进建议全文。
+role : 
+status : done
+error : 
+---
+id : st-3-40282e
+goal : 分析 server/chat_gate.py 串行闸门 AIMD 策略，评估并发效率并给出调参建议。最终回复直接给出：分析+调参建议全文。
+role : 
+status : done
+error : 
+---
+id : st-4-b073d1
+goal : 审查 server/pool_resume.py 断点续跑恢复逻辑，找边界 case。最终回复直接给出：边界问题清单+建议全文。
+role : 
+status : done
+error : 
+---
+id : st-5-33da49
+goal : 审视 server/routes/mixin_browser.py 浏览器会话管理，找资源泄漏风险。最终回复直接给出：风险清单+建议全文。
+role : 
+status : done
+error : 
+---
+id : st-6-cb722a
+goal : 审查 server/conn_pool.py 连接池，评估 per_host/idle_sec 配置合理性。最终回复直接给出：评估+建议全文。
+role : 
+status : done
+error : 
+---
+id : st-7-87c48e
+goal : 扫描 server/routes/api_dispatch_post.py do_POST 巨型分发的可拆分性，提出重构路线。最终回复直接给出：重构路线全文。
+role : 
+status : done
+error : 
+============================== sw-683c95c9c9
+top keys: ['batch_id', 'status', 'created_at', 'tasks']
+n_tasks: 10
+---
+id : st-1-e9e96b
+goal : 审视 server/chat_pool.py 槽位回收与幂等逻辑，找出可优化点并给出补丁建议
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-2-edb2c7
+goal : 审查 server/agent_registry.py AgentCard TTL 与判活机制，提出改进
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-3-2dfc9f
+goal : 分析 server/chat_gate.py 串行闸门 AIMD 策略，评估并发效率并给出调参建议
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-4-47efd0
+goal : 审查 server/pool_resume.py 断点续跑恢复逻辑，找边界 case
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-5-d034e9
+goal : 审视 server/routes/mixin_browser.py 浏览器会话管理，找资源泄漏风险
+role : 
+status : done
+error : 
+---
+id : st-6-19385a
+goal : 审查 server/conn_pool.py 连接池，评估 per_host/idle_sec 配置合理性
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-7-97909d
+goal : 扫描 server/routes/api_dispatch_post.py do_POST 巨型分发的可拆分性，提出重构路线
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-8-1ef2d9
+goal : 审视 server/agent_chat_watch.py 看护逻辑与静默重启阈值
+role : 
+status : done
+error : 
+---
+id : st-9-8bf194
+goal : 检查 tool/ 目录工具注册机制与白名单性能，提出缓存建议
+role : 
+status : done
+error : 
+---
+id : st-10-a5ecb1
+goal : 审查 mixin_jobs 后台流水线与 schedule 定时任务的异常兜底
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+============================== sw-78a51e036a
+top keys: ['batch_id', 'status', 'created_at', 'tasks']
+n_tasks: 7
+---
+id : st-1-52b00e
+goal : 审视 server/chat_pool.py 槽位回收与幂等逻辑，找出可优化点并给出补丁建议
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-2-3a8bb8
+goal : 审查 server/agent_registry.py AgentCard TTL 与判活机制，提出改进
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-3-66e283
+goal : 分析 server/chat_gate.py 串行闸门 AIMD 策略，评估并发效率并给出调参建议
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-4-8dc310
+goal : 审查 server/pool_resume.py 断点续跑恢复逻辑，找边界 case
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-5-474cc7
+goal : 审查 server/conn_pool.py 连接池，评估 per_host/idle_sec 配置合理性
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-6-c210e4
+goal : 扫描 server/routes/api_dispatch_post.py do_POST 巨型分发的可拆分性，提出重构路线
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+---
+id : st-7-b35b04
+goal : 审查 mixin_jobs 后台流水线与 schedule 定时任务的异常兜底
+role : 
+status : failed
+error : 401 Client Error: Unauthorized for url: https://www.zf3d.com/api/zf_models_relay.asp?model=glm-5.3-flash
+============================== sw-9080ea7d2a
+top keys: ['batch_id', 'status', 'created_at', 'tasks']
+n_tasks: 7
+---
+id : st-1-b5394d
+goal : 审视 server/chat_pool.py 槽位回收与幂等逻辑，找出可优化点并给出补丁建议
+role : 
+status : done
+error : 
+---
+id : st-2-9bdad1
+goal : 审查 server/agent_registry.py AgentCard TTL 与判活机制，提出改进
+role : 
+status : done
+error : 
+---
+id : st-3-2f7da6
+goal : 分析 server/chat_gate.py 串行闸门 AIMD 策略，评估并发效率并给出调参建议
+role : 
+status : done
+error : 
+---
+id : st-4-ccf5a6
+goal : 审查 server/pool_resume.py 断点续跑恢复逻辑，找边界 case
+role : 
+status : done
+error : 
+---
+id : st-5-05f627
+goal : 审查 server/conn_pool.py 连接池，评估 per_host/idle_sec 配置合理性
+role : 
+status : done
+error : 
+---
+id : st-6-ba91c2
+goal : 扫描 server/routes/api_dispatch_post.py do_POST 巨型分发的可拆分性，提出重构路线
+role : 
+status : done
+error : 
+---
+id : st-7-fc0dca
+goal : 审查 mixin_jobs 后台流水线与 schedule 定时任务的异常兜底
+role : 
+status : done
+error : 
