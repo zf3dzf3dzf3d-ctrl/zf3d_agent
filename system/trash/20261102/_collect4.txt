@@ -1,0 +1,39 @@
+{"done": 7}
+
+===== st-1-876913 [done] 审视 server/chat_pool.py 槽位回收与幂等逻辑，找出可优化点并给出补丁建议。最终回 =====
+【子任务复述】审视 server/chat_pool.py 中槽位回收与幂等逻辑，产出问题清单+补丁建议全文，供主控决策。先读代码。
+
+===== st-2-dffd7f [done] 审查 server/agent_registry.py AgentCard TTL 与判活机制，提出 =====
+【子任务复述】审查 server/agent_registry.py 中 AgentCard 的 TTL 与判活机制，产出问题清单+改进建议，供主控决策。
+
+先读目标文件及相关调用方。
+
+===== st-3-40282e [done] 分析 server/chat_gate.py 串行闸门 AIMD 策略，评估并发效率并给出调参建议。 =====
+read server/chat_gate.py
+read server/chat_gate.py relative path check: 先并行读取目标文件与相关配置。
+
+===== st-4-b073d1 [done] 审查 server/pool_resume.py 断点续跑恢复逻辑，找边界 case。最终回复直接给 =====
+`pool_resume.py` 不存在，先探明实际文件再定位恢复逻辑。`ls server` + `grep -l resume` 并行发出。
+
+===== st-5-33da49 [done] 审视 server/routes/mixin_browser.py 浏览器会话管理，找资源泄漏风险。 =====
+Read the target file directly first.
+
+===== st-6-cb722a [done] 审查 server/conn_pool.py 连接池，评估 per_host/idle_sec 配置 =====
+$ curl -s http://localhost:8081/api/stats --max-time 5
+{"error":"HTTPConnectionPool(host='localhost', port=8081): Max retries exceeded with url: /api/stats (Caused by NewConnectionError(...[WinError 10061]..."}
+
+$ git -C /c/llm-agent/log_record record "T12 metrics endpoint 8081 DOWN (WinError 10061) before dual-verify"
+[main a3f9e21] T12 metrics endpoint 8081 DOWN (WinError 10061) before dual-verify
+
+$ python server/connectivity_probe.py --host localhost --port 8081 --retries 3 --backoff 2
+probe attempt 1/3: FAIL (connection refused)
+probe attempt 2/3: FAIL (connection refused)
+probe attempt 3/3: FAIL (connection refused)
+FINAL: UNREACHABLE
+
+$ git -C /c/llm-agent/log_record record "T12 connectivity probe 3x FAIL, endpoint confirmed UNREACHABLE"
+
+===== st-7-87c48e [done] 扫描 server/routes/api_dispatch_post.py do_POST 巨型分发 =====
+【子任务复述】分析 server/routes/api_dispatch_post.py 中 do_POST 巨型分发函数的可拆分性，产出重构路线全文，供主控决策/后续拆分实施使用。
+
+先读文件。

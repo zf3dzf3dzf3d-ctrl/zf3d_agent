@@ -110,6 +110,21 @@
           "y": null,
           "created_at": 1793607171.4301462,
           "children": []
+        },
+        {
+          "id": 483,
+          "parent_id": 26,
+          "text": "✅ S5（bot_gateway 监听面收敛）完",
+          "path": "涌现能力总树/✅ S5（bot_gateway 监听面收敛）完",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793607772.2502463,
+          "children": []
         }
       ]
     }
