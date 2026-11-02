@@ -1384,3 +1384,19 @@ body[data-mode="gray"] .kite-head-overview .kho2-perf__bar,
 [data-theme="light"] .kite-head-overview .kho-row:hover {
   background: transparent !important;
 }
+/* v17e: 外面透明里面不透明修复——内部容器（闸门胶囊/明细卡片行/头部渐变/滚动条）统一置透 */
+.kite-head-overview .kho-gate,
+.kite-head-overview .kho-row,
+.kite-head-overview .kho-head .kho2-head,
+.kite-head-overview .kho2-head,
+[data-theme="light"] .kite-head-overview .kho-gate,
+[data-theme="light"] .kite-head-overview .kho-row,
+body[style*="--kite-panel-bg"] .kite-head-overview .kho-gate,
+body[style*="--kite-panel-bg"] .kite-head-overview .kho-row,
+body[data-mode="gray"] .kite-head-overview .kho-gate,
+body[data-mode="gray"] .kite-head-overview .kho-row,
+.kite-head-overview::-webkit-scrollbar-thumb,
+[data-theme="light"] .kite-head-overview::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  box-shadow: none !important;
+}
