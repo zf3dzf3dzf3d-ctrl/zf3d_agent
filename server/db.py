@@ -363,6 +363,15 @@ def _ensure_jobs(conn):
             updated_at INTEGER
         )''')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)')
+        # [指挥舱 2026-11-02] 旧表迁移：CREATE TABLE IF NOT EXISTS 对已存在的 jobs 表
+        # 不会加新列，必须显式 ALTER（列已存在时 SQLAlchemy/SQLite 报 duplicate column，吞掉即可）
+        for _col_sql in ("ALTER TABLE jobs ADD COLUMN stage TEXT",
+                         "ALTER TABLE jobs ADD COLUMN heartbeat_at INTEGER",
+                         "ALTER TABLE jobs ADD COLUMN started_at INTEGER"):
+            try:
+                conn.execute(_col_sql)
+            except Exception:
+                pass
         conn.commit()
         _JOBS_READY = True
     except Exception as e:
@@ -398,13 +407,19 @@ def create_job(job_id, goal, session_id, cfg_json):
     return False
 
 
-def update_job(job_id, status=None, report_json=None, error=None, session_id=None):
-    """更新任务状态/报告/错误。仅传入字段参与 SET。"""
+def update_job(job_id, status=None, report_json=None, error=None, session_id=None,
+               stage=None, heartbeat=False):
+    """更新任务状态/报告/错误。仅传入字段参与 SET。
+
+    [指挥舱 2026-11-02] 新增 stage=当前阶段名、heartbeat=True 只刷 heartbeat_at/updated_at
+    （供 worker 心跳线程低频保活，让前端区分"慢"与"僵死"）。
+    """
     try:
         conn = get_db()
         _ensure_jobs(conn)
+        now = int(time.time())
         sets = ['updated_at=?']
-        vals = [int(time.time())]
+        vals = [now]
         if status is not None:
             sets.append('status=?'); vals.append(str(status))
         if report_json is not None:
@@ -413,6 +428,10 @@ def update_job(job_id, status=None, report_json=None, error=None, session_id=Non
             sets.append('error=?'); vals.append(str(error))
         if session_id is not None:
             sets.append('session_id=?'); vals.append(str(session_id))
+        if stage is not None:
+            sets.append('stage=?'); vals.append(str(stage))
+        if heartbeat:
+            sets.append('heartbeat_at=?'); vals.append(now)
         vals.append(str(job_id))
         conn.execute('UPDATE jobs SET ' + ','.join(sets) + ' WHERE id=?', vals)
         conn.commit()
@@ -442,8 +461,8 @@ def list_jobs(limit=50):
         conn = get_db()
         _ensure_jobs(conn)
         cur = conn.cursor()
-        cur.execute('SELECT id, goal, status, session_id, created_at, updated_at '
-                    'FROM jobs ORDER BY created_at DESC LIMIT ?', (int(limit),))
+        cur.execute('SELECT id, goal, status, session_id, created_at, updated_at, '
+                    'stage, heartbeat_at FROM jobs ORDER BY created_at DESC LIMIT ?', (int(limit),))
         return [dict(r) for r in cur.fetchall()]
     except Exception as e:
         _dbg(f'[jobs] list 失败: {e}')

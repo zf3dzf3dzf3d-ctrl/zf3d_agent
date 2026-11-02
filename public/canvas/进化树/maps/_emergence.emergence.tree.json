@@ -140,6 +140,21 @@
           "y": null,
           "created_at": 1793608211.5148423,
           "children": []
+        },
+        {
+          "id": 485,
+          "parent_id": 26,
+          "text": "收口裁决完成（第1轮蜂群汇总） ### 裁决前补",
+          "path": "涌现能力总树/收口裁决完成（第1轮蜂群汇总） ### 裁决前补",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793609051.569272,
+          "children": []
         }
       ]
     }

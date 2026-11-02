@@ -60,25 +60,48 @@ def _pipeline_logger(tag):
 def _run_pipeline_worker(job_id, cfg, cwd):
     """daemon 线程 worker：跑一条流水线并按返回码写终态。"""
     import db as _db
-    _db.update_job(job_id, status='running')
+    _db.update_job(job_id, status='running', stage='planning', heartbeat=True)
 
-    # [增量落库] 运行中每完成一个阶段就把 report 摘要写回，面板实时可见
+    # [指挥舱 2026-11-02] 心跳线程：running 期间每 15s 刷 heartbeat_at/updated_at，
+    # 让前端区分"慢"与"僵死"（心跳断>120s 黄灯）。锁审计：update_job 内部自取
+    # db 连接与提交，不持任何外部锁，无重入死锁风险；daemon=True 不阻塞进程退出。
+    _hb_stop = threading.Event()
+
+    def _heartbeat():
+        while not _hb_stop.wait(15):
+            try:
+                _db.update_job(job_id, heartbeat=True)
+            except Exception:
+                pass
+
+    _hb = threading.Thread(target=_heartbeat, daemon=True)
+    _hb.start()
+
+    # [增量落库] 运行中每完成一个阶段就把 report 摘要写回，面板实时可见；
+    # [指挥舱] 同时写 stage=最后一个完成的阶段名（前端推导当前进行中的阶段）
     def _on_stage(rep):
         try:
-            _db.update_job(job_id, report_json=_brief_report(rep, None))
+            stages = rep.get('stages') if isinstance(rep, dict) else None
+            cur = list(stages.keys())[-1] if isinstance(stages, dict) and stages else 'planning'
+            _db.update_job(job_id, report_json=_brief_report(rep, None), stage=cur)
         except Exception:
             pass
 
-    with _JOBS_SEM:
-        try:
-            import swarm_pipeline
-            exit_code, report = swarm_pipeline.run_pipeline(
-                cfg, cwd=cwd, log=_pipeline_logger(job_id), on_stage=_on_stage)
-        except Exception as e:
-            import traceback
-            _db.update_job(job_id, status='failed',
-                           error='worker异常: %s\n%s' % (e, traceback.format_exc()[:2000]))
-            return
+    try:
+        with _JOBS_SEM:
+            try:
+                import swarm_pipeline
+                exit_code, report = swarm_pipeline.run_pipeline(
+                    cfg, cwd=cwd, log=_pipeline_logger(job_id), on_stage=_on_stage)
+            except Exception as e:
+                import traceback
+                _hb_stop.set()
+                _db.update_job(job_id, status='failed',
+                               error='worker异常: %s\n%s' % (e, traceback.format_exc()[:2000]))
+                return
+        # [指挥舱] finally 语义：无论正常/异常路径，停心跳前做最后一次 flush 保底
+    finally:
+        _hb_stop.set()
     # 映射终态
     if exit_code == 0:
         status = 'done'
