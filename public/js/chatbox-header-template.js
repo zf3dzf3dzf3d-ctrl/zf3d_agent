@@ -159,7 +159,7 @@
             '<div class="hd-menu-group-title">系统配置</div>' +
             '<div class="eng-picker-wrap hd-menu-fixed">' +
             '<button class="eng-trigger" data-keepopen="1" title="底层引擎（对话处理管线）" style="background:none;border:none;box-shadow:none;padding:5px 8px;cursor:pointer;color:inherit;font-size:12px;font-family:inherit;display:flex;align-items:center;height:auto">' +
-            '<span class="eng-name">底层引擎</span>' +
+            '<span class="hd-mi-ico">⚙️</span><span class="eng-name">底层引擎</span>' +
             '<span class="eng-arrow">▾</span>' +
             '</button>' +
             '<div class="eng-menu" hidden></div>' +
@@ -167,7 +167,7 @@
             '<div class="tool-cat-wrap hd-menu-fixed">' +
             '<button class="tool-cat-trigger" data-keepopen="1" title="工具分类" style="background:none;border:none;box-shadow:none;padding:5px 8px;cursor:pointer;color:inherit;font-size:12px;font-family:inherit;display:flex;align-items:center;height:auto">' +
             '<span class="tool-cat-icon" style="display:none">📄</span>' +
-            '<span class="tool-cat-name">工具分类</span>' +
+            '<span class="hd-mi-ico">🗂️</span><span class="tool-cat-name">工具分类</span>' +
             '<span class="tool-cat-arrow">▾</span>' +
             '</button>' +
             '<div class="tool-cat-menu" hidden></div>' +

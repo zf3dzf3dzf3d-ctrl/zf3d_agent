@@ -94,8 +94,23 @@
       b.onmouseenter = function () { b.style.background = 'rgba(52,152,219,.35)'; b.style.color = '#fff'; };
       b.onmouseleave = function () { b.style.background = 'transparent'; b.style.color = '#cfd8e3'; };
       var av = document.createElement('span');
-      av.textContent = m.avatar || '\ud83d\udc64';
-      av.style.fontSize = '18px';
+      /* 线性自绘 SVG 图标（stroke 风格 + currentColor）：🛠团队成员 💗伴侣 🧒孩子 🏡父母；其余 emoji 保持原样 */
+      if (!window.ZF_REL_ICONS) {
+        window.ZF_REL_ICONS = {
+          '\ud83d\udee0': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M13 5l6 6-2 2-6-6 2-2z"/><path d="M11 7L4 14a2 2 0 0 0 0 3l3 3a2 2 0 0 0 3 0l7-7"/><path d="M9 13l2 2"/></svg>',
+          '\ud83d\udc97': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M12 20.3l-6.7-6.6a4.4 4.4 0 0 1 6.2-6.2l.5.5.5-.5a4.4 4.4 0 0 1 6.2 6.2z"/></svg>',
+          '\ud83d\udc92': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="8.5"/><path d="M9 5.5c.5-1.5 1.5-2 3-2s2.5.5 3 2"/><circle cx="9.2" cy="11" r=".4" fill="currentColor"/><circle cx="14.8" cy="11" r=".4" fill="currentColor"/><path d="M9.5 14.5a3.5 3.5 0 0 0 5 0"/></svg>',
+          '\ud83c\udfe1': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-5h4v5"/></svg>'
+        };
+      }
+      var _icon = window.ZF_REL_ICONS[String(m.avatar || '').trim()];
+      if (_icon) {
+        av.innerHTML = _icon;
+        av.style.cssText = 'display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;';
+      } else {
+        av.textContent = m.avatar || '\ud83d\udc64';
+        av.style.fontSize = '18px';
+      }
       var nm = document.createElement('span');
       nm.textContent = m.name || m;
       b.appendChild(av); b.appendChild(nm);

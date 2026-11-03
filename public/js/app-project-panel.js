@@ -531,6 +531,9 @@
         try { localStorage.setItem(_teamPosKey(), JSON.stringify(all)); } catch (e) {}
     }
     function _memberCard(m, sec) {
+        // 家人/团队关系头像 → 线性自绘 SVG（复用 window.ZF_REL_ICONS，app-butler.js 定义）；其余 emoji 保持原样
+        var _ic = (window.ZF_REL_ICONS && window.ZF_REL_ICONS[String(m.avatar || '').trim()]) || null;
+        var _avHtml = _ic ? '<span style="display:inline-flex;width:16px;height:16px;align-items:center;vertical-align:-3px">' + _ic.replace(/width="18" height="18"/, 'width="16" height="16"') + '</span>' : esc(m.avatar || '👤');
         var fields = (m.fields && m.fields.length) ? m.fields.map(esc).join('、') : '—';
         var persona = String(m.persona || '').slice(0, 60);
         var delBtn = (_teamScope === 'global' && m.name === '主脑') ? '' :
