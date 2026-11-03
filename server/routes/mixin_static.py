@@ -337,6 +337,10 @@ class MixinStatic(MixinBase):
             return
         # URL 瑙ｇ爜锛堟敮鎸佷腑鏂囨枃浠跺悕锛屽 捐赠_寰俊.gif锛?
         path = unquote(path)
+        # [安全修复 2026-11-03 issue#20] unquote 后二次校验：编码穿越(%2e%2e)在前置原始检查中不可见
+        if '..' in path or '\\..' in path:
+            self.send_error(403)
+            return
         # 鏄犲皠鍒?public 鐩綍
         # ===== 素材清单（动态）：/promo2/manifest.json 列出已生成的 shots/final/audio =====
         # 审片台据此只给已渲染素材挂 src，避免未生成镜头/成片在控制台刷 404
@@ -367,7 +371,17 @@ class MixinStatic(MixinBase):
                 except Exception as e:
                     self.send_error(500, str(e).encode('latin-1', 'replace').decode('latin-1'))
                 return
-        file_path = os.path.join(PUBLIC_DIR, path.lstrip('/'))
+        file_path = os.path.normpath(os.path.join(PUBLIC_DIR, path.lstrip('/')))
+        # [安全修复 2026-11-03 issue#20] realpath 终检：最终路径必须仍在 public 目录内
+        try:
+            _fp_real = os.path.realpath(file_path)
+            _pd_real = os.path.realpath(PUBLIC_DIR)
+            if not (_fp_real == _pd_real or _fp_real.startswith(_pd_real + os.sep)):
+                self.send_error(403)
+                return
+        except Exception:
+            self.send_error(403)
+            return
         # 鐩綍鍒欒ˉ index.html
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, 'index.html')

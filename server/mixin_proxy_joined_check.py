@@ -265,8 +265,10 @@ class MixinProxy(MixinProxyStream, MixinBase):
                     body_preview = '<无法序列化>'
                 header_names = list(headers.keys()) if isinstance(headers, dict) else []
                 auth_hdr = headers.get('Authorization', '') if isinstance(headers, dict) else ''
-                diag = 'Missing _target_url | body_keys=%s | headers=%s | auth_len=%d | body_preview=%s' % (
-                    body_keys, header_names, len(auth_hdr), body_preview
+                # [安全修复 2026-11-03 issue#24] 不落密钥原文：仅记录前8字符掩码
+                _auth_masked = (auth_hdr[:8] + '****') if auth_hdr else ''
+                diag = 'Missing _target_url | body_keys=%s | headers=%s | auth_prefix=%s | auth_len=%d | body_preview=%s' % (
+                    body_keys, header_names, _auth_masked, len(auth_hdr), body_preview
                 )
                 print('[PROXY_DIAG] ' + diag)
                 self._send_error(diag, 400)
