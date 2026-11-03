@@ -109,6 +109,36 @@
     var sx = e.clientX, sy = e.clientY, moved = false;
     dragging = true;
     var starts = targets.map(function (n) { return { el: n, l: n.offsetLeft, t: n.offsetTop, s: scaleOf(n) }; });
+    /* 【2倍偏移修复 v4】拖拽开始时快照每个目标的子树成员相对父窗的原始偏移。
+       背景：ZFGroupFollow 的 document 级 pointer 捕获监听在拖拽期间已实时把子窗
+       摆到「父新位置+原始偏移」（绝对定位）；若松手时 overview 再按增量 ddx
+       叠加一次 → 子窗位移 2 倍。改为落地时按快照偏移做绝对定位（幂等，
+       无论实时跟随是否已摆过位，最终结果一致且只摆一次）。 */
+    var _subStart = {};
+    try {
+      if (window.ZFGroupFollow && ZFGroupFollow.collectSubtree && window.App) {
+        var _boxesSnap = (window.App.chatBoxes) || [];
+        function _snapIdOfEl(el) {
+          for (var i = 0; i < _boxesSnap.length; i++) if (_boxesSnap[i] && _boxesSnap[i].el === el) return _boxesSnap[i].id;
+          return null;
+        }
+        targets.forEach(function (el) {
+          var pid = _snapIdOfEl(el);
+          if (!pid) return;
+          var sub = ZFGroupFollow.collectSubtree(pid) || [];
+          sub.forEach(function (c) {
+            var cid = c.id || c;
+            if (_subStart[cid]) return; // 已被更上层的父快照过，保留最外层基准
+            for (var i = 0; i < _boxesSnap.length; i++) {
+              if (_boxesSnap[i] && _boxesSnap[i].id === cid && _boxesSnap[i].el) {
+                _subStart[cid] = { el: _boxesSnap[i].el, l: _boxesSnap[i].el.offsetLeft, t: _boxesSnap[i].el.offsetTop, pl: el.offsetLeft, pt: el.offsetTop };
+                break;
+              }
+            }
+          });
+        });
+      }
+    } catch (eSs) {}
     function onMove(ev) {
       var dx = ev.clientX - sx, dy = ev.clientY - sy;
       if (!moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
@@ -160,8 +190,26 @@
               if (!mid || mid === pid) continue;
               var mel = _elOf(mid);
               if (!mel || targets.indexOf(mel) >= 0) continue; // 已在拖动集内的不重复移
-              mel.style.left = (parseFloat(mel.style.left) || mel.offsetLeft) + ddx + 'px';
-              mel.style.top = (parseFloat(mel.style.top) || mel.offsetTop) + ddy + 'px';
+              /* 【2倍偏移修复 v4】改为绝对定位：按拖拽开始快照的原始相对偏移，
+                 摆到「父最终位置 + 原始偏移」。此前按增量 ddx 叠加，与
+                 ZFGroupFollow 拖拽期实时跟随（moveFollow 绝对定位）叠加 → 子窗 2 倍位移。
+                 绝对定位幂等：实时跟随已摆过的位置会被摆到同一坐标，不再二次叠加。 */
+              var _ss = _subStart[mid];
+              if (_ss && _ss.el === mel) {
+                var _nx = el.offsetLeft + (_ss.l - _ss.pl);
+                var _ny = el.offsetTop + (_ss.t - _ss.pt);
+                if (Math.abs((parseFloat(mel.style.left) || mel.offsetLeft) - _nx) < 0.5 &&
+                    Math.abs((parseFloat(mel.style.top) || mel.offsetTop) - _ny) < 0.5) {
+                  /* 位置已正确（实时跟随已摆好）→ 仅确保内存态/落库一致 */
+                } else {
+                  mel.style.left = Math.round(_nx) + 'px';
+                  mel.style.top = Math.round(_ny) + 'px';
+                }
+              } else {
+                /* 快照缺失兜底：退回增量方式（与旧行为一致，仅极端场景） */
+                mel.style.left = (parseFloat(mel.style.left) || mel.offsetLeft) + ddx + 'px';
+                mel.style.top = (parseFloat(mel.style.top) || mel.offsetTop) + ddy + 'px';
+              }
               /* 同步内存态并落库，防后续按旧 chat.x/y 重写 */
               for (var b = 0; b < _boxes.length; b++) {
                 if (_boxes[b] && _boxes[b].el === mel) {
