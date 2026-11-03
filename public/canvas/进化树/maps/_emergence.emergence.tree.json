@@ -50,6 +50,21 @@
           "y": null,
           "created_at": 1793667386.2531457,
           "children": []
+        },
+        {
+          "id": 494,
+          "parent_id": 26,
+          "text": "✅ 实施完成（commit 4cad322，2 ",
+          "path": "涌现能力总树/✅ 实施完成（commit 4cad322，2 ",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793667805.312746,
+          "children": []
         }
       ]
     }
