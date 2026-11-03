@@ -4,7 +4,7 @@
 
 分段模块（按顺序 exec 合并进同一命名空间，语义零变化）：
   dispatch_swarm_infra.py
-  dispatch_swarm_seg2.py
+  dispatch_swarm_tasks.py
 """
 import os
 

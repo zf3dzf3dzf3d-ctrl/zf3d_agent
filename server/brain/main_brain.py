@@ -4,8 +4,8 @@
 
 分段模块（按顺序 exec 合并进同一命名空间，语义零变化）：
   main_brain_local_collect.py
-  main_brain_seg2.py
-  main_brain_seg3.py
+  main_brain_llm_tools.py
+  main_brain_state_loop.py
 """
 import os
 
