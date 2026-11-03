@@ -63,7 +63,7 @@
         }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
           .then(function (x) {
               if (!x.ok || x.j.ok === false) throw new Error(x.j.err || x.j.error || ('HTTP ' + x.ok));
-              App._stepToast ? App._stepToast('✅ 已自动加入工作台团队：' + x.j.name, true) : alert('✅ 已自动加入工作台团队：' + x.j.name);
+              App._stepToast ? App._stepToast('✅ 已自动加入工作台团队：' + x.j.name + (x.j.relation && x.j.relation !== '团队成员' ? '（' + x.j.relation + '）' : ''), true) : alert('✅ 已自动加入工作台团队：' + x.j.name);
           })
           .catch(function (e) { alert('加入失败：' + (e.message || e)); });
       } },

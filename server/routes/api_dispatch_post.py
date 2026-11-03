@@ -624,12 +624,13 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                             self._send_json({'ok': False, 'err': '当前对话还没有内容，无法总结'}); return
                         hist_txt = '\n'.join([('[%s] %s' % (m['role'], m['preview'])) for m in msgs])[:12000]
                         sys_p = (
-                            '你是团队档案员。请根据下面的对话内容，把这次对话总结为一名可加入工作台团队的员工。'
+                            '你是团队档案员。请根据下面的对话内容，判断这次对话适合以什么关系加入工作台团队，并总结为一名成员。'
+                            '关系（relation）四选一：「团队成员」（工作/项目协作类对话）、「伴侣」（亲密陪伴、恋人式聊天）、「孩子」（童趣、需要呵护陪伴的对话）、「父母」（长辈关怀式对话）。'
                             '要求（全部简体中文）：\n'
-                            '1. name：2-10字成员名，必须带主题（格式如「调查-XXX」「策划-XXX」「修复-XXX」），不要重名；\n'
-                            '2. summary：接手线索，一两句话说明这个对话干了什么/结论是什么，60-150字；\n'
-                            '3. paths：对话中提到的关键文件/目录绝对路径数组（0-5条，没有就空数组）；\n'
-                            '4. 只输出一个 JSON 对象，形如 {"name":"...","summary":"...","paths":["..."]}，不要任何解释、不要代码块标记。'
+                            '1. name：2-10字成员名。若为「团队成员」必须带主题（格式如「调查-XXX」「策划-XXX」「修复-XXX」）；家人关系可起亲切的名字（如「小暖」「宝贝」「老爸」），不要重名；\n'
+                            '2. summary：接手线索，一两句话说明这个对话干了什么/关系定位是什么，60-150字。若为家人关系，用一句话写明相处定位（如「温柔的伴侣，日常陪伴聊天」）；\n'
+                            '3. paths：对话中提到的关键文件/目录绝对路径数组（0-5条，没有就空数组，家人关系通常为空数组）；\n'
+                            '4. 只输出一个 JSON 对象，形如 {"relation":"团队成员","name":"...","summary":"...","paths":[]}，不要任何解释、不要代码块标记。'
                         )
                         raw = _call_llm(BASE_DIR, [
                             {'role': 'system', 'content': sys_p},
@@ -637,13 +638,25 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                             max_tokens=600, temperature=0.4) or ''
                         m = _re.search(r'\{[\s\S]*\}', raw)
                         j = _json.loads(m.group(0)) if m else {}
+                        rel = str(j.get('relation') or '团队成员').strip()
+                        if rel not in ('团队成员', '伴侣', '孩子', '父母'):
+                            rel = '团队成员'
+                        _REL_META = {
+                            '团队成员': {'avatar': '🛠', 'tail': ''},
+                            '伴侣': {'avatar': '💗', 'tail': '（亲密伴侣，温柔陪伴式交流）'},
+                            '孩子': {'avatar': '🧒', 'tail': '（孩子角色，童趣活泼、需要耐心呵护）'},
+                            '父母': {'avatar': '🏡', 'tail': '（父母角色，长辈式关怀叮嘱）'},
+                        }
+                        _rm = _REL_META[rel]
                         nm = str(j.get('name') or '').strip()[:30]
                         sm = str(j.get('summary') or '').strip()[:500]
+                        if rel != '团队成员' and _rm['tail'] and _rm['tail'][1] not in sm:
+                            sm = (sm + ' ' + _rm['tail'])[:500]
                         if not nm or not sm:
                             self._send_json({'ok': False, 'err': 'AI 总结失败，请稍后重试'}); return
                         pts = [str(x).strip() for x in (j.get('paths') or []) if str(x).strip()][:5]
                         mem = {
-                            'name': nm, 'avatar': '🛠', 'type': 'workbench',
+                            'name': nm, 'avatar': _rm['avatar'], 'type': 'workbench',
                             'chat_id': _cid, 'summary': sm, 'paths': pts,
                             'commits': [], 'last_ts': _dt_mod.now().strftime('%Y/%m/%d %H:%M:%S'),
                         }
@@ -658,7 +671,7 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                             # 同名成员已存在：直接返回已存在提示，不再弹窗
                             self._send_json({'ok': False, 'err': '成员「%s」已在团队中' % nm}); return
                         new_team = _bs.get_team() if _is_global else _bs.get_project_team(_pid2)
-                        self._send_json({'ok': True, 'name': nm, 'summary': sm, 'team': new_team})
+                        self._send_json({'ok': True, 'name': nm, 'summary': sm, 'relation': rel, 'team': new_team})
                     except Exception as e2:
                         self._send_json({'ok': False, 'err': '自动总结加入失败：%s' % e2})
                     return
