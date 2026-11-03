@@ -172,7 +172,36 @@ class ZFWindowApi:
         SW_MAXIMIZE, SW_RESTORE = 3, 9
         if self._is_maximized():
             user32.ShowWindow(ctypes.c_void_p(hwnd), SW_RESTORE)
+            # 【还原矩形修复】SW_MAXIMIZE 后又 SetWindowPos 改尺寸，可能污染
+            # Windows 内部"最大化还原矩形"，SW_RESTORE 会回到错误位置。
+            # 这里用最大化前 GetWindowPlacement 记下的正常态矩形强制纠正。
+            saved = getattr(self, '_saved_normal_rect', None)
+            if saved:
+                try:
+                    user32.SetWindowPos(ctypes.c_void_p(hwnd), 0,
+                                        saved[0], saved[1], saved[2], saved[3],
+                                        0x0004)  # SWP_NOZORDER
+                except Exception:
+                    pass
             return
+        # 记住最大化前的正常态位置尺寸，供还原时纠正（见上方还原分支）
+        try:
+            class WP1(ctypes.Structure):
+                _fields_ = [('length', ctypes.c_uint),
+                            ('flags', ctypes.c_uint),
+                            ('showCmd', ctypes.c_uint),
+                            ('ptMinPosition', wintypes.POINT),
+                            ('ptMaxPosition', wintypes.POINT),
+                            ('rcNormalPosition', wintypes.RECT),
+                            ('rcMonitor', wintypes.RECT)]
+            wp = WP1()
+            wp.length = ctypes.sizeof(WP1)
+            if user32.GetWindowPlacement(ctypes.c_void_p(hwnd), ctypes.byref(wp)):
+                r = wp.rcNormalPosition
+                self._saved_normal_rect = (r.left, r.top,
+                                           r.right - r.left, r.bottom - r.top)
+        except Exception:
+            self._saved_normal_rect = None
         user32.ShowWindow(ctypes.c_void_p(hwnd), SW_MAXIMIZE)
         # 【多屏修复】ShowWindow 的最大化目标屏由 WM_GETMINMAXINFO 决定，
         # 但子类化可能未安装（早期异常/非桌面客户端路径），此时最大化只会
