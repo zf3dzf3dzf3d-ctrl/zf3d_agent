@@ -528,8 +528,10 @@
                误记"已回收"→提前归队）。与 tick/gatherFor 严格门槛全文件同口径。 */
             var _base = pair.memberCounts ? pair.memberCounts[m2] : null;
             var _cnt = assistantCount(c2);
-            var _done = (_base != null) && (_cnt > _base);
-            if (c2 && c2.el && !c2.isSending && _done && !lastAssistantIsError(c2)) L8.markReturned(pair.srcId, m2);
+            /* 【v15】错误回复也按本轮已完成入账（流式已落定），否则错误窗永远凑不齐 → 箭头永久不能回收 */
+            var _err2 = lastAssistantIsError(c2);
+            var _done = (_base != null) && ((_cnt > _base) || (_cnt === _base && _err2));
+            if (c2 && c2.el && !c2.isSending && _done) L8.markReturned(pair.srcId, m2);
           });
           if (!L8.canGather(pair.srcId)) {
             toast((L8.progressText ? L8.progressText(pair.srcId) : '还有成员未完成') + '，点箭头无效', false);
@@ -904,10 +906,16 @@
                      （幂等，重复核销无害），此处不撤销——事件只加速不作唯一通道，账本仍是真相源。
                    【反驳师①采纳·宽限期兼容】不做"实时统计存活窗口"：窗瞬时消失≠完成，
                    宽限期（GRACE_MS）语义原样保留，本判据只增不减，绝不复活手动发送误核销 bug。 */
-                var _b = p.memberCounts ? p.memberCounts[m.id] : null;
-                var _c = assistantCount(m);
-                var _ok = (_b != null) && (_c > _b);
-                if (!m.isSending && _ok && !lastAssistantIsError(m)) L.markReturned(srcId, m.id);
+                    /* 【v15 修复·总箭头不让回收】错误回复（lastAssistantIsError=true，如「本次对话不存在」）
+                       永远无法通过记账门槛：错误窗的回复计数不再增长、用户重发也可能重复报错 →
+                       canGather 恒 false → 总箭头永久卡死不能回收。
+                       修复：流式已落定（!isSending）且 base 有效时，错误回复也按「本轮已完成」入账
+                       （count>基线 或 count==基线且已报错兜底），错误内容照常带回原对话让主模型自行处理。
+                       门槛防提前收口的本意不受影响——真在流式中的窗 isSending=true 依然被挡。 */
+                    var _c = assistantCount(m);
+                    var _err = lastAssistantIsError(m);
+                    var _ok = (_b != null) && ((_c > _b) || (_c === _b && _err));
+                    if (!m.isSending && _ok) L.markReturned(srcId, m.id);
               }
             });
             if (typeof L.canGather === 'function' && !L.canGather(srcId)) continue;
@@ -930,7 +938,8 @@
           var base = p.memberCounts ? p.memberCounts[m.id] : null;
           if (base == null) { _allReplied = false; return; }
           if (m.isSending) { _allReplied = false; return; }
-          if (assistantCount(m) <= base) _allReplied = false;
+          /* 【v15】错误回复（流式已落定且不再增长）也算本轮完成，照常收口带回原对话 */
+          if (assistantCount(m) <= base && !lastAssistantIsError(m)) _allReplied = false;
         });
         if (!_allReplied) continue;
         target = p; /* 不 break：遍历到底，取最后一个匹配的 */
