@@ -73,6 +73,21 @@
       };
     }
 
+    /* 双击顶栏空白处 / 拖拽条：最大化/还原（Edge 窗口行为） */
+    function isWinChromeTarget(e) {
+      var el = e.target;
+      if (!el) return false;
+      if (el.closest && el.closest('.topbar-right, button, input, select, a, label, textarea')) return false;
+      return (el.closest && (el.closest('.topbar') || el.closest('#zfDragStrip')));
+    }
+    document.addEventListener('dblclick', function (e) {
+      if (e.button !== 0) return;
+      if (!isWinChromeTarget(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try { api.toggle_maximize(); setTimeout(syncMax, 250); } catch (err) {}
+    }, true);
+
     /* 顶栏可平移：改为 document 级事件委托——顶栏 DOM 可能被其他脚本整体重渲染
        （如 dom-topbar.js 重注入、主题切换），直接绑在元素上监听会随重渲染丢失。
        委托方案对重渲染免疫，且不受绑定顺序影响。 */

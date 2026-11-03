@@ -164,14 +164,39 @@ class ZFWindowApi:
 
     def toggle_maximize(self):
         import ctypes
+        from ctypes import wintypes
         hwnd = self._hwnd()
         if not hwnd:
             return
+        user32 = ctypes.windll.user32
         SW_MAXIMIZE, SW_RESTORE = 3, 9
         if self._is_maximized():
-            ctypes.windll.user32.ShowWindow(ctypes.c_void_p(hwnd), SW_RESTORE)
-        else:
-            ctypes.windll.user32.ShowWindow(ctypes.c_void_p(hwnd), SW_MAXIMIZE)
+            user32.ShowWindow(ctypes.c_void_p(hwnd), SW_RESTORE)
+            return
+        user32.ShowWindow(ctypes.c_void_p(hwnd), SW_MAXIMIZE)
+        # 【多屏修复】ShowWindow 的最大化目标屏由 WM_GETMINMAXINFO 决定，
+        # 但子类化可能未安装（早期异常/非桌面客户端路径），此时最大化只会
+        # 落在主屏或尺寸不对。这里兜底：按窗口当前所在显示器铺满该屏，
+        # 保证任意屏幕（多显示器/DPI 缩放）都能正确最大化。
+        try:
+            MONITOR_DEFAULTTONEAREST = 2
+
+            class MONITORINFO3(ctypes.Structure):
+                _fields_ = [('cbSize', wintypes.DWORD),
+                            ('rcMonitor', wintypes.RECT),
+                            ('rcWork', wintypes.RECT),
+                            ('dwFlags', wintypes.DWORD)]
+            mon = user32.MonitorFromWindow(ctypes.c_void_p(hwnd), MONITOR_DEFAULTTONEAREST)
+            mi = MONITORINFO3()
+            mi.cbSize = ctypes.sizeof(MONITORINFO3)
+            if mon and user32.GetMonitorInfoW(ctypes.c_void_p(mon), ctypes.byref(mi)):
+                rc = mi.rcMonitor if _cover_taskbar() else mi.rcWork
+                user32.SetWindowPos(ctypes.c_void_p(hwnd), 0,
+                                    rc.left, rc.top,
+                                    rc.right - rc.left, rc.bottom - rc.top,
+                                    0x0004)  # SWP_NOZORDER
+        except Exception:
+            pass
 
     def close(self):
         # 不真正关闭：隐藏窗口，缩到右下角托盘（后台服务由托盘常驻）
