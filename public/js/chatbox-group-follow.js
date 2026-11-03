@@ -249,7 +249,17 @@
     beginFollow(box);
   }, true); /* 捕获阶段记录起始快照（在模块重排 zIndex 前拿准目标） */
 
-  document.addEventListener('pointermove', function () { moveFollow(); }, true);
+  /* 【滞后修复】原：pointermove 捕获阶段同步 moveFollow() → 本监听先于拖拽模块执行，
+     读到的主窗位置是上一帧旧值，子窗/箭头整体慢一帧（快速拖动时肉眼可见滞后）。
+     现：rAF 合帧——rAF 回调在本帧所有 pointermove 处理器（含拖拽模块写回主窗新位置）
+     之后执行，读到的是最新位置；且高频 move 每帧最多计算一次，拖动更流畅省载 */
+  var _followRaf = 0;
+  function scheduleFollow() {
+    if (_followRaf) return;
+    _followRaf = 1;
+    requestAnimationFrame(function () { _followRaf = 0; moveFollow(); });
+  }
+  document.addEventListener('pointermove', scheduleFollow, true);
   document.addEventListener('pointerup', endFollow, true);
   document.addEventListener('pointercancel', endFollow, true);
 
