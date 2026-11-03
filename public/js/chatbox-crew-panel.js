@@ -72,6 +72,8 @@
     { key: 'plain',    face: '💬', name: '普通对话', count: 0, note: true,  fn: function (box, chat) { App._plainExpand ? App._plainExpand(box, chat) : App._stepToast('普通对话模块未加载', false); } },
     { key: 'custom',   face: '🎭', name: '自定义',  count: 0, note: true,  fn: function (box, chat) { App._customExpand(box, chat); } }
   ];
+  P.ROLES = ROLES; // 【复用】暴露全量角色表（15个），供缩小整理 dock 等外部宿主混编派发
+
   /* 全部 15 个角色都进面板，两排×7（第三排1个） */
 
   /* ── 面板状态（挂 chat 上，切对话独立） ── */
@@ -81,7 +83,7 @@
   }
 
   /* ── 渲染面板（注入到按钮行 wrap 之后的 body 里；找不到就返回 null 等下轮） ── */
-  function mount(box, chat) {
+  function mount(box, chat, opts) {
     var body = box && box.querySelector ? box.querySelector('.chatbox-body') : null;
     if (!body) return false;
     var _exist = body.querySelector('.zf-crew-panel');
