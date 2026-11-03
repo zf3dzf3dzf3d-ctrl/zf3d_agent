@@ -1,0 +1,112 @@
+scanned 451 files
+===== key: 0 hits =====
+===== url: 89 hits =====
+server\pin_guard.py:14: https://www.zf3d.com
+server\pin_guard.py:65: https://www.zf3d.com
+server\rag_engine.py:43: https://open.bigmodel.cn
+server\selftest.py:123: https://open.bigmodel.cn
+server\selftest.py:129: https://open.bigmodel.cn
+server\tts_engine.py:5: https://openspeech.bytedance.com
+server\tts_engine_HTTPOP.py:5: https://openspeech.bytedance.com
+server\updater.py:113: https://gitee.com
+server\updater.py:114: https://raw.githubusercontent.com
+server\updater.py:127: https://git-scm.com
+server\updater.py:295: https://gitee.com
+server\updater.py:296: https://github.com
+server\updater.py:319: https://gitee.com
+server\updater.py:319: https://github.com
+server\update_checker.py:41: https://zf3d-img.oss-cn-guangzhou.aliyuncs.com
+server\update_checker.py:101: https://api.github.com
+server\update_checker.py:127: https://gitee.com
+server\webmind.py:275: https://www.bing.com
+server\webmind.py:276: https://www.baidu.com
+server\webmind.py:277: https://duckduckgo.com
+server\zf3d_commands.py:42: https://www.zf3d.com
+server\zf3d_heartbeat.py:43: https://www.zf3d.com
+server\zf_channel_config.py:50: https://open.bigmodel.cn
+server\zf_channel_config.py:62: https://ark.cn-beijing.volces.com
+server\zf_channel_config.py:82: https://ark.cn-beijing.volces.com
+server\zf_models_cache.json:7: https://open.bigmodel.cn
+server\zf_models_cache.json:39: https://token-plan.cn-beijing.maas.aliyuncs.com
+server\zf_models_cache.json:79: https://openrouter.ai
+server\zf_models_cache.json:160: https://open.bigmodel.cn
+server\zf_models_cache.json:192: https://api.minimax.cn
+server\zf_models_cache.json:228: https://open.bigmodel.cn
+server\zf_models_cache.json:260: https://token-plan.cn-beijing.maas.aliyuncs.com
+server\zf_model_sync.py:33: https://www.zf3d.com
+server\zf_model_sync.py:248: https://www.zf3d.com
+server\zf_runninghub.py:6: https://www.runninghub.cn
+server\zf_runninghub.py:11: https://www.runninghub.cn
+server\zf_runninghub.py:16: https://www.runninghub.ai
+server\zf_runninghub.py:17: https://www.runninghub.cn
+server\zf_runninghub.py:30: https://www.runninghub.cn
+server\zf_share.py:21: https://www.zf3d.com
+server\zf_share.py:22: https://www.zf3d.com
+server\zf_share.py:51: https://www.zf3d.com
+server\_base_zf3d_commands.py:42: https://www.zf3d.com
+server\bot_gateway\approve_hook.py:65: https://api.telegram.org
+server\bot_gateway\qq_adapter.py:7: http://host
+server\bot_gateway\telegram_adapter.py:10: https://api.telegram.org
+server\bot_gateway\wechat_adapter.py:53: https://api.weixin.qq.com
+server\bot_gateway\wechat_adapter.py:130: https://api.weixin.qq.com
+server\brain\_verify2.py:3: https://open.bigmodel.cn
+server\browser_engine\registry.py:15: https://www.aliyun.com
+===== path: 85 hits =====
+server\audio_recorder.py:17: C:\ffmpeg\bin\ffmpeg.exe
+server\cli.py:7: F:\\some\\dir
+server\click_effect.py:76: C:\Program
+server\click_effect.py:77: C:\Program
+server\external_agent_import.py:251: C:\Users\Administrator
+server\fix_index.py:2: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\public\index.html
+server\mcp_servers.json:5: C:/Users/Administrator/.local/bin/uv.exe
+server\mcp_servers.json:9: F:/Tools/Windows-MCP
+server\memory_import.py:76: C:\\Users\\Administrator\\AppData\\Local\\Programs
+server\print_banner.py:4: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.5
+server\screen_recorder_session.py:19: C:\ffmpeg\bin\ffmpeg.exe
+server\security.py:230: C:\Windows
+server\selftest.py:85: C:\\Windows\\System32\\x.exe
+server\smoke2.py:3: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.4.5\server
+server\smoke2.py:14: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.4.5\smoke_result.txt
+server\smoke_butler_run.py:5: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.4.5\server
+server\stuck_watch.py:48: C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Scripts\py-spy.exe
+server\swarm_solve_ab.py:8: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\评测\AI横屏题目8_朱峰智能体改进01
+server\swarm_solve_ab.py:11: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\python\python.exe
+server\swarm_solve_exam.py:10: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\评测\AI横屏题目8_朱峰智能体改进01
+server\swarm_solve_exam.py:14: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\python\python.exe
+server\test_butler_v3.py:4: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server
+server\view_guard.py:1: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.1.2\server\network_guard.py
+server\view_proxy_retry.py:3: F:\朱峰智能体无限_新版本\朱峰智能体无限_5.1.2
+server\webview_client.py:78: C:\Program
+server\webview_client.py:79: C:\Program
+server\webview_client.py:717: C:\Program
+server\webview_client.py:719: C:\Program
+server\zhufeng_mcp_server.py:13: C:\\...\\Python311\\python.exe
+server\browser_plugin\engine_seg1.py:25: C:\\Users\\...\\ms-playwright
+server\integrations\zf-zcode\inject\list_asar.py:2: C:\Program
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:3: F:\zf-asar-tmp\zf-logo-b64.txt
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:21: F:\zf-asar-tmp\zf-inject-snippet.html
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:22: F:\zf-asar-tmp\app\out\renderer\index.html
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:36: C:\\Program
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:36: F:\zf-asar-tmp
+server\integrations\zf-zcode\inject\asar-patch\do_inject.py:38: C:\Program
+server\integrations\zf-zcode\inject\asar-patch\inject.py:3: F:\zf-asar-tmp\app\out\renderer\index.html
+server\integrations\zf-zcode\inject\asar-patch\inject.py:4: F:\zf-asar-tmp\zf-inject-snippet.html
+server\public\宣传片\gen_night10.py:10: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\night10_log.txt
+server\public\宣传片\gen_pixel.py:11: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\pixel_log.txt
+server\public\宣传片\gen_pixel80.py:10: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\pixel40_log.txt
+server\public\宣传片\headless_sentinel.py:5: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\headless_status.txt
+server\public\宣传片\headless_sentinel.py:36: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\night10_log.txt
+server\public\宣传片\headless_sentinel.py:38: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片\pixel40_log.txt
+server\public\宣传片\run_night10_once.py:7: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server\public\宣传片
+server\public\宣传片\run_night10_once.py:11: F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\python\python.exe
+server\routes\mixin_media.py:281: C:\ffmpeg\bin\ffmpeg.exe
+server\routes\mixin_media.py:291: C:\Windows\Media\chord.wav
+server\routes\mixin_media.py:293: C:\Windows\Media\ding.wav
+===== model: 7 hits =====
+server\engines\claude_code_style\engine.py:128: payload['model'] = payload.get('model') or (ctx.get('model_cfg') or {}).get('model') or 'gpt-4o-mini'
+server\engines\claude_code_style\engine.py:141: ctx.setdefault("_cc_read_files", set())  # claude-code 核心状态：本会话已 Read 的文件
+server\engines\hermes_style\engine.py:182: payload['model'] = payload.get('model') or (ctx.get('model_cfg') or {}).get('model') or 'gpt-4o-mini'
+server\engines\openclaw_style\engine.py:189: payload['model'] = payload.get('model') or (ctx.get('model_cfg') or {}).get('model') or 'gpt-4o-mini'
+server\private\gate_probe.json:63: "model": "qwen3.8-flash",
+server\private\gate_probe.json:75: "model": "deepseek-flash",
+server\zf-trash\zf_shot01_v3.py:19: "2": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_edit_2511_bf16.safetensors", "weight_dtype": "default"}},
