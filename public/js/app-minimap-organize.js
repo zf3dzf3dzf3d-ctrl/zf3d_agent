@@ -1950,7 +1950,11 @@
                 if (ob) { ob.x = d.x + wdx2; ob.y = d.y + wdy2; ob._moved = true; }
             });
             _lastDragPos = null;
-            render();
+            /* 【箭头实时跟随修复】拖拽帧直接同步重绘（绕过 render 的 rAF 排队）：
+               旧路径 boxes 坐标第 N 帧更新、绘制排到 N+1 帧 → 连线箭头恒定落后
+               一帧，表现为拖拽时箭头跟随卡顿。拖拽属真实交互帧，保险丝已豁免，
+               直接调 _renderNow() 让方块与箭头同帧重绘，完全实时。 */
+            _renderNow();
             return;
         }
         var wdx = _lastDragPos.x / view.s, wdy = _lastDragPos.y / view.s;
@@ -1960,7 +1964,7 @@
             if (ob) { ob.x = nx; ob.y = ny; ob._pendingCommit = { dx: nx - d.x, dy: ny - d.y }; }
         });
         _lastDragPos = null;
-        render();
+        _renderNow(); // 【箭头实时跟随修复】同上：拖拽帧同步重绘，消除一帧滞后
     }
     // 【修复】打开面板时：把真实对话框当前位置同步进面板数据（boxes.x/y），
     // 保证面板色块反映真实布局，但不写回真实 DOM —— 用户没拖动就不改画布
