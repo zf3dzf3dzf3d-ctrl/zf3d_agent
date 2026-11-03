@@ -20,7 +20,23 @@
       "x": -154.63,
       "y": 11.23,
       "created_at": 1792639723.1134536,
-      "children": []
+      "children": [
+        {
+          "id": 492,
+          "parent_id": 26,
+          "text": "【缩小整理模式·框选派发复用\"派出团队\"面板】策",
+          "path": "涌现能力总树/【缩小整理模式·框选派发复用\"派出团队\"面板】策",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793667031.660958,
+          "children": []
+        }
+      ]
     }
   ],
   "links": []
