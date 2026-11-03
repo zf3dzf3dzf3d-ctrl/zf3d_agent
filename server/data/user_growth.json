@@ -1,7 +1,7 @@
 {
- "exp": 11793,
+ "exp": 11831,
  "events": {
-  "task_complete": 208,
+  "task_complete": 209,
   "task_review_pass": 13
  },
  "daily": {
@@ -22,15 +22,10 @@
   "2026-10-30": 600,
   "2026-10-31": 600,
   "2026-11-01": 600,
-  "2026-11-02": 600
+  "2026-11-02": 600,
+  "2026-11-03": 38
  },
  "history": [
-  {
-   "t": 1792109585,
-   "event": "task_complete",
-   "exp": 17,
-   "note": "✅ 已修复 `<system>` 等系统标签在 AI 正文中裸露显示的问题。 **问题定位** 图1 中 AI 回复里出现的 `<system>当前处于 age"
-  },
   {
    "t": 1792190366,
    "event": "task_complete",
@@ -1224,6 +1219,12 @@
    "event": "task_complete",
    "exp": 20,
    "note": "反驳师（红队）安全/隐私复核完成，结论已落盘共享黑板「调查黑板/调查-安全审查-20261102」条目 7-12。本任务为只读调查，未修改任何代码文件，无需 g"
+  },
+  {
+   "t": 1793666826,
+   "event": "task_complete",
+   "exp": 38,
+   "note": "修复整理面板拖拽时箭头跟随卡顿。 【根因】public/js/app-minimap-organize.js 的 _applyDragFrame()（拖拽帧回调"
   }
  ],
  "created_at": 1792066029,
