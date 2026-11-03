@@ -1,0 +1,2 @@
+{"ts": "2026-11-03T15:40:45.479", "event": "start", "trace_id": "trace-2256a13e2b74", "span_id": "37b70cddb2", "parent_span": "", "type": "llm", "name": "eval", "status": "running", "duration_ms": null, "meta": {}}
+{"ts": "2026-11-03T15:40:45.480", "event": "end", "trace_id": "trace-2256a13e2b74", "span_id": "37b70cddb2", "parent_span": "", "type": "llm", "name": "eval", "status": "ok", "duration_ms": 1.0, "meta": {"meta": {"tokens": 1}}}

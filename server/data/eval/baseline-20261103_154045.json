@@ -1,0 +1,57 @@
+{
+  "ts": "2026-11-03T15:40:45",
+  "passed": 7,
+  "skipped": 1,
+  "failed": 0,
+  "total": 8,
+  "cases": [
+    {
+      "name": "rag语义分块",
+      "status": "pass",
+      "ms": 41.0,
+      "detail": "chunks=3"
+    },
+    {
+      "name": "rag BM25",
+      "status": "pass",
+      "ms": 1.0,
+      "detail": "{0: 4.293832091964263}"
+    },
+    {
+      "name": "rag混合检索接口",
+      "status": "skip",
+      "ms": 1.0,
+      "detail": "no embedding key configured (env skip)"
+    },
+    {
+      "name": "记忆写入+语义召回",
+      "status": "pass",
+      "ms": 43.5,
+      "detail": "top=主题:蜂群 要点:失败仲裁换备用模型重跑 score=0.375"
+    },
+    {
+      "name": "记忆上下文注入",
+      "status": "pass",
+      "ms": 6.1,
+      "detail": "len=122"
+    },
+    {
+      "name": "trace落盘回查",
+      "status": "pass",
+      "ms": 58.3,
+      "detail": "records=2"
+    },
+    {
+      "name": "蜂群模块健康",
+      "status": "pass",
+      "ms": 50.2,
+      "detail": "module healthy"
+    },
+    {
+      "name": "蜂群状态落盘",
+      "status": "pass",
+      "ms": 6.0,
+      "detail": "running"
+    }
+  ]
+}
