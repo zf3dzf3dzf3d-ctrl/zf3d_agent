@@ -2794,6 +2794,103 @@
                 dock.appendChild(rb);
             })();
             document.body.appendChild(dock);
+            /* 【复用派出团队面板·v20261103】dock 追加「🐝 派出团队」入口：点击在 dock 上方弹出
+               ZFCrewPanel（15 角色全量卡通卡+叮嘱+🚀），与旧 4 个快速按钮并存。
+               派发接管（onDispatch）：混编 payLoad.picks × 框选目标 全组合，复用 dispatchRole
+               的 roleStatus 登记 + seq*500 真串行骨架；施工队等吃 box 参数的角色以伪 box 验证。 */
+            (function () {
+                if (dock.__crewEntryAdded) return;
+                dock.__crewEntryAdded = true;
+                var cb = document.createElement('button');
+                cb.className = 'mo-btn mo-arr mo-dock-crew';
+                cb.textContent = '🐝 派出团队';
+                cb.title = '打开派出团队面板（15 角色全量）：点卡通卡选人数、写一句话叮嘱、🚀 错峰派出到框选的对话';
+                cb.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    try { collectBoxes(); } catch (e2) {}
+                    var targets = _collectTargets();
+                    if (!targets.length) {
+                        try { if (window.Toast) Toast.show('请先在总览中点选/框选对话框'); else alert('请先在总览中点选/框选对话框'); } catch (e3) {}
+                        return;
+                    }
+                    var firstChat = targets[0];
+                    /* 弹出宿主：fixed 定位浮层，dock 上方居中 */
+                    var host = document.createElement('div');
+                    host.style.cssText = 'position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:9003;max-height:70vh;overflow:auto;background:rgba(24,26,38,.95);border:1px solid rgba(120,130,160,.4);border-radius:12px;padding:8px;box-shadow:0 10px 40px rgba(0,0,0,.5);';
+                    document.body.appendChild(host);
+                    var closeHost = function () { if (host.parentNode) host.parentNode.removeChild(host); };
+                    /* 点面板外自动关（不含 dock 自己） */
+                    setTimeout(function () {
+                        var _docClose = function (ev) {
+                            if (!host.contains(ev.target) && !dock.contains(ev.target)) { closeHost(); document.removeEventListener('mousedown', _docClose, true); }
+                        };
+                        document.addEventListener('mousedown', _docClose, true);
+                        host.__docClose = _docClose;
+                    }, 0);
+                    var dispatched = false;
+                    var okMount = window.ZFCrewPanel && window.ZFCrewPanel.mountTo
+                        ? ZFCrewPanel.mountTo(host, firstChat, { collapsed: false, onDispatch: function (payload) {
+                            dispatched = true;
+                            closeHost();
+                            /* 混编派发：picks{roleKey:n} × targets 全组合，复用 seq*500 真串行 + roleStatus 登记 */
+                            var entries = [];
+                            Object.keys(payload.picks || {}).forEach(function (rk) {
+                                var n = payload.picks[rk];
+                                if (!n) return;
+                                var def = null;
+                                (window.ZFCrewPanel && ZFCrewPanel.ROLES || []).forEach(function (r) { if (r.key === rk) def = r; });
+                                if (!def) return;
+                                for (var j = 0; j < n; j++) targets.forEach(function (ch) { entries.push({ def: def, chat: ch, label: def.name }); });
+                            });
+                            if (!entries.length) return;
+                            var _run = function () {
+                                var ok = 0, fail = 0, done = 0, seq = 0;
+                                entries.forEach(function (en) {
+                                    (function (en, delayMs) {
+                                        setTimeout(function () {
+                                            try {
+                                                /* 伪 box 派发（与 dispatchRole 现行做法一致）；施工队走 chat 参数不吃 box */
+                                                en.def.fn({ el: en.chat.el }, en.chat, 1);
+                                                var prev = en.chat.roleStatus && en.chat.roleStatus.role === en.label ? en.chat.roleStatus : null;
+                                                en.chat.roleStatus = { role: en.label, round: (prev ? (prev.round || 0) : 0) + 1, state: '进行中', at: Date.now() };
+                                                try { Store.saveChatBox(en.chat); } catch (eS) {}
+                                                ok++;
+                                            } catch (eD) { fail++; }
+                                            done++;
+                                            if (done === entries.length) {
+                                                try { if (App.toast) App.toast('派出团队混编派发完成：成功 ' + ok + ' 个' + (fail ? '，失败 ' + fail + ' 个' : ''), !fail); } catch (eT) {}
+                                                try { render(); } catch (eR) {}
+                                            }
+                                        }, delayMs);
+                                    })(en, seq * 500);
+                                    seq++;
+                                });
+                            };
+                            if (entries.length > 5) {
+                                /* 复用自绘确认框风格：总数超 5 二次确认 */
+                                var ov = document.createElement('div');
+                                ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;';
+                                var dlg = document.createElement('div');
+                                dlg.style.cssText = 'background:#1c2230;color:#dde5f0;border:1px solid #3a4658;border-radius:10px;padding:18px 22px;box-shadow:0 10px 40px rgba(0,0,0,.5);font:14px/1.6 system-ui;max-width:360px;';
+                                dlg.innerHTML = '<div style="margin-bottom:14px;">混编派发共 ' + entries.length + ' 个新窗（' + targets.length + ' 个对话 × 多角色），确认？</div>'
+                                    + '<div style="text-align:right;"><button data-c="0" style="padding:6px 18px;margin-right:8px;border-radius:8px;border:1px solid #4a5870;background:transparent;color:#8fa0b8;cursor:pointer;">取消</button>'
+                                    + '<button data-c="1" style="padding:6px 18px;border-radius:8px;border:1px solid #4da3ff;background:#2b5fb0;color:#fff;cursor:pointer;">确认</button></div>';
+                                ov.appendChild(dlg); document.body.appendChild(ov);
+                                ov.addEventListener('click', function (ev) {
+                                    var b = ev.target.closest('button'); if (!b) return;
+                                    document.body.removeChild(ov);
+                                    if (b.dataset.c === '1') _run();
+                                });
+                            } else _run();
+                        } })
+                        : null;
+                    if (!okMount) {
+                        closeHost();
+                        try { if (window.Toast) Toast.show('派出团队面板模块未加载（chatbox-crew-panel.js）'); else alert('派出团队面板模块未加载'); } catch (e4) {}
+                    }
+                });
+                dock.appendChild(cb);
+            })();
             return dock;
         }
 

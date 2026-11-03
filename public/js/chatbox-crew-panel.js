@@ -84,7 +84,7 @@
 
   /* ── 渲染面板（注入到按钮行 wrap 之后的 body 里；找不到就返回 null 等下轮） ── */
   function mount(box, chat, opts) {
-    var body = box && box.querySelector ? box.querySelector('.chatbox-body') : null;
+    var body = (opts && opts.container) || (box && box.querySelector ? box.querySelector('.chatbox-body') : null);
     if (!body) return false;
     var _exist = body.querySelector('.zf-crew-panel');
     if (_exist) {
@@ -212,6 +212,13 @@
       var note = noteEl.value.trim();
       var _crewTotal = total();
       if (_crewTotal <= 0) return;
+      /* 【复用·dock 宿主接管】opts.onDispatch 存在时：把选人结果打包交给宿主，
+         面板只负责选角色/写叮嘱，派发账本/叮嘱标志/错峰节奏全部由宿主统一管理（避免双份） */
+      if (opts && typeof opts.onDispatch === 'function') {
+        opts.onDispatch({ picks: Object.assign({}, st.picks), note: note, total: _crewTotal });
+        st.picks = {}; st.collapsed = true; renderCollapse(); render();
+        return;
+      }
       /* 【v10 防提前收口·账本登记】派出团队派发时向派发登记账本登记派出份数（重置式开新账），
          使 gatherFor 的账本闸门生效：①outstanding>0（窗口未全开出）不收口；②canGather（回收+核销
          < 派出数）不收口。此前仅专家团登记（expert-team.js L73），派出团队漏登 → 收口判据只查
@@ -330,6 +337,23 @@
     render();
     return true;
   }
+
+  /* ── 【复用入口】mountTo(container, chat, opts)：供外部宿主（缩小整理 dock 等）挂载面板 ──
+     opts: { collapsed: 初始是否折叠(默认 true), onDispatch(payLoad): 接管派出（宿主传了就走宿主派发） }
+     与 chatbox 内 mount(box,chat) 共用同一套 DOM/状态逻辑，零重复实现 */
+  P.mountTo = function (container, chat, opts) {
+    opts = opts || {};
+    if (!container || !chat) return false;
+    var _old = container.querySelector(':scope > .zf-crew-panel');
+    if (_old) _old.remove();
+    opts.container = container; /* mount 内所有插入/查询都落在宿主容器，panel 直接挂进来 */
+    var ok = mount({}, chat, opts);
+    if (ok && opts.collapsed === false) {
+      var h = container.querySelector('.zfp-head');
+      if (h) h.click();
+    }
+    return ok;
+  };
 
   /* ── 常驻重注入：MutationObserver 监听聊天区重建，面板丢了就补 ── */
   function tryMountAll() {
