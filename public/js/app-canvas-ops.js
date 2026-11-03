@@ -568,7 +568,8 @@ function _dlgPrompt(msg, val){
       }
     };
     document.addEventListener('mousedown', _caoCtx, true);
-    setInterval(function () { if (!document.hidden) { wireCtxMenus(); paintPanel(); } }, 8000);
+    var _caoTick = function () { if (!document.hidden && document.getElementById('cao-explore-panel')) { wireCtxMenus(); paintPanel(); } };
+    setInterval(_caoTick, 8000);
     // 双击对比快捷：Shift+点击面板标题 → 版本对比
     var t = document.querySelector('.cao-exp-title');
     if (t) t.addEventListener('dblclick', compareVersions);
