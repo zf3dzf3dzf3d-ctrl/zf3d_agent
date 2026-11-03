@@ -105,7 +105,7 @@ def trace_roundtrip():
 def swarm_import():
     import dispatch_swarm as ds
     assert hasattr(ds, 'cancel_subtask') and hasattr(ds, '_Heartbeat'), 'missing cancel/heartbeat'
-    src2 = io.open(os.path.join(SRV, 'dispatch_swarm_seg2.py'), encoding='utf-8').read()
+    src2 = io.open(os.path.join(SRV, 'dispatch_swarm_tasks.py'), encoding='utf-8').read()
     assert '_allowed_tools = set' not in src2, 'function-attr whitelist still present'
     assert '_MAX_OUTPUT_CHARS = 16000' in io.open(
         os.path.join(SRV, 'dispatch_swarm_seg1.py'), encoding='utf-8').read() or \
