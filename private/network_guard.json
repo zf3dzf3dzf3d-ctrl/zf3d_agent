@@ -1,7 +1,0 @@
-{
-  "auto_restart_enabled": true,
-  "auto_restart_minutes": 5,
-  "heartbeat_interval_sec": 30,
-  "heartbeat_fail_threshold": 4,
-  "_说明": "auto_restart_enabled=false 可一键关闭自动重启回到只检测; 心跳: 每30s探一次/api/health, 连续4次失败(约2分钟)判定全卡死自动重启; 断网走 auto_restart_minutes=5 分钟阈值; 24小时内最多自动重启3次熔断"
-}

@@ -1,8 +1,0 @@
-{
-  "title": "万物进化树",
-  "files": [
-    { "file": "_emergence_latest.tree.json", "title": "涌现能力总树（最新·实时）" },
-    { "file": "project.tree.json", "title": "项目进化树（朱峰智能体无限 5.6.0 旧版）" },
-    { "file": "demo.emergence.tree.json", "title": "Demo进化树（代码自检能力）" }
-  ]
-}

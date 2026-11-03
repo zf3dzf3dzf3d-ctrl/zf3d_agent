@@ -1,2 +1,0 @@
-[10-28 23:47:07] launching gen_night10
-[10-29 00:07:08] gen_night10 rc=0

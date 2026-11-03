@@ -1,5 +1,7 @@
 # 朱峰智能体无限 —— 介绍
 
+朱峰智能体无限是**保留所有权利**的**专有软件**，未经明确许可，任何人不得随意使用、复制、修改、分发或销售该作品。本仓库仅作为**问题反馈**。
+
 > 📄 文档：[软件介绍](docs/软件介绍-5.8.0.md) · [版本变化](docs/版本变化-5.8.0.md) · [使用帮助](docs/使用帮助-5.8.0.md)
 
 ## 这是什么
@@ -105,6 +107,8 @@
 ---
 
 # ZhuFeng Agent Unlimited — Introduction (English)
+
+Zhufeng Agent Unlimited is **proprietary software** with **all rights reserved**. Without explicit permission, no one is allowed to freely use, copy, modify, distribute, or sell this work. This repository is only for **issue feedback**.
 
 > 📄 Docs: [Software Introduction](docs/软件介绍-5.8.0.md) · [Version Changes](docs/版本变化-5.8.0.md) · [User Guide](docs/使用帮助-5.8.0.md)
 
