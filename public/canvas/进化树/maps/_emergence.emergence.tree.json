@@ -95,6 +95,21 @@
           "y": null,
           "created_at": 1793686819.9582813,
           "children": []
+        },
+        {
+          "id": 497,
+          "parent_id": 26,
+          "text": "策划案已完成并落盘：private/记忆/策划案",
+          "path": "涌现能力总树/策划案已完成并落盘：private/记忆/策划案",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793687043.8175864,
+          "children": []
         }
       ]
     }
