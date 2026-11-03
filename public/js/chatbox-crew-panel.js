@@ -69,6 +69,7 @@
       } },
     { key: 'sumskill',  face:'🧠', name: '技能总结', count: 0, note: true,  fn: function (box, chat) { App._summarizerExpand ? App._summarizerExpand(box, chat, 'skill') : App._stepToast('总结师请从角色列表选择', true); } },
     { key: 'sumforum',  face:'🌐', name: '发布广场', count: 0, note: true, fn: function (box, chat) { App._summarizerExpand ? App._summarizerExpand(box, chat, 'forum') : App._stepToast('总结师请从角色列表选择', true); } },
+    { key: 'refactor', face: '🧩', name: '代码师',  count: 0, note: true,  fn: function (box, chat) { App._refactorExpand ? App._refactorExpand(box, chat) : App._stepToast('代码师模块未加载', false); } },
     { key: 'plain',    face: '💬', name: '普通对话', count: 0, note: true,  fn: function (box, chat) { App._plainExpand ? App._plainExpand(box, chat) : App._stepToast('普通对话模块未加载', false); } },
     { key: 'custom',   face: '🎭', name: '自定义',  count: 0, note: true,  fn: function (box, chat) { App._customExpand(box, chat); } }
   ];
