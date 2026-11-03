@@ -1,7 +1,7 @@
 {
- "exp": 12231,
+ "exp": 12306,
  "events": {
-  "task_complete": 220,
+  "task_complete": 222,
   "task_review_pass": 13
  },
  "daily": {
@@ -23,21 +23,9 @@
   "2026-10-31": 600,
   "2026-11-01": 600,
   "2026-11-02": 600,
-  "2026-11-03": 438
+  "2026-11-03": 513
  },
  "history": [
-  {
-   "t": 1792193306,
-   "event": "task_review_pass",
-   "exp": 90,
-   "note": "日常任务审核回流 score=90"
-  },
-  {
-   "t": 1792193306,
-   "event": "task_review_pass",
-   "exp": 90,
-   "note": "日常任务审核回流 score=90"
-  },
   {
    "t": 1792193306,
    "event": "task_review_pass",
@@ -1225,6 +1213,18 @@
    "event": "task_complete",
    "exp": 44,
    "note": "修复「无法在所有屏幕最大化」并新增双击最大化。 【问题原因】 原 toggle_maximize 只调用 ShowWindow(SW_MAXIMIZE)，最大化"
+  },
+  {
+   "t": 1793686771,
+   "event": "task_complete",
+   "exp": 39,
+   "note": "✅ 已查完 GitHub 仓库 zf3dzf3dzf3d-ctrl/zf3d_agent 的 issues（40 open，1 closed）。 【仓库定位】本"
+  },
+  {
+   "t": 1793686806,
+   "event": "task_complete",
+   "exp": 36,
+   "note": "验证师终验结论：窗口最大化多屏修复+双击最大化（commit 30d856f）——可交付，评分91。 正文：原始问题\"无法在所有屏幕最大化、要求所有版本都好使、"
   }
  ],
  "created_at": 1792066029,

@@ -138,7 +138,7 @@
     var _topBar = document.getElementById('settingsDragBar');
     bindDragZone(_topBar);
     bindDragZone(m.querySelector('.settings-nav-header') || m.querySelector('.settings-close-btn'));
-    // 标记顶部条已被本脚本接管，避免 inline-04 的 _initSettingsDragMove（transform 平移、关闭即复位、不记忆）重复绑定冲突
+    // 标记顶部条已被本脚本接管，避免 inline-model-panel-mount 的 _initSettingsDragMove（transform 平移、关闭即复位、不记忆）重复绑定冲突
     if (_topBar) _topBar.dataset.bound = '1';
 
     // 3) 双击拖动条/导航标题栏：恢复默认大小与位置
