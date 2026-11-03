@@ -385,6 +385,18 @@
                     .catch(function (e) { alert('更新失败：' + (e.message || e)); });
             });
         });
+        el.querySelectorAll('.wbp-team-rel').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var nm = b.getAttribute('data-name');
+                var sel = prompt('修改「' + nm + '」的关系类型（四选一，直接输入）：\n团队成员 / 伴侣 / 孩子 / 父母', '团队成员');
+                if (sel === null) return;
+                sel = sel.trim();
+                if (['团队成员', '伴侣', '孩子', '父母'].indexOf(sel) < 0) { alert('无效的关系类型：' + sel); return; }
+                teamOp('relation', { op: 'relation', name: nm, relation: sel })
+                    .then(function () { renderTeam(); })
+                    .catch(function (e) { alert('修改关系失败：' + (e.message || e)); });
+            });
+        });
         _bindTeamCanvas(el);
     }
     /* ===== v4 无限画布交互：空白拖拽平移 / 滚轮缩放 / 卡片拖拽换位（位置持久化） ===== */
@@ -527,6 +539,7 @@
             '<button class="wbp-team-dispatch" data-name="' + esc(m.name) + '" title="派出：展示接手简报" style="border:none;background:none;color:#7fdb8a;cursor:pointer;font-size:11px">📤</button>' : '';
         var extra = (sec === 'workbench') ?
             '<div style="font-size:10px;opacity:.6;margin-top:4px;line-height:1.5">' +
+            ((m.relation && m.relation !== '团队成员') ? '<span class="wbp-team-rel" data-name="' + esc(m.name) + '" title="点击修改关系类型" style="cursor:pointer;color:#f6a;color:#ff6ea9;font-weight:700">💗 ' + esc(m.relation) + '</span> · ' : '') +
             (m.summary ? '📌 ' + esc(String(m.summary).slice(0, 80)) + (String(m.summary).length > 80 ? '…' : '') + '<br>' : '') +
             (m.paths && m.paths.length ? '📁 ' + m.paths.slice(0, 3).map(esc).join('<br>📁 ') + (m.paths.length > 3 ? ' 等' + m.paths.length + '项' : '') + '<br>' : '') +
             (m.chat_id ? '💬 ' + esc(m.chat_id) : '<span style="color:#da8">⚠ 无对话关联</span>') +

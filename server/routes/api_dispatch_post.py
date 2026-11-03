@@ -699,25 +699,19 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                                 target = _tm; break
                         if not target:
                             self._send_json({'ok': False, 'err': '未找到成员「%s」' % _mname}); return
-                        target['relation'] = _mrel
-                        target['avatar'] = _rm2['avatar']
+                        # 交换 summary 尾注 + 更新头像/relation，走现成 update_member 持久化
                         _sm = str(target.get('summary') or '')
-                        # 移除旧人设尾注，追加新人设尾注
                         for _t in ('（亲密伴侣，温柔陪伴式交流）', '（孩子角色，童趣活泼、需要耐心呵护）', '（父母角色，长辈式关怀叮嘱）'):
                             _sm = _sm.replace(' ' + _t, '').replace(_t, '')
                         if _rm2['tail'] and _rm2['tail'] not in _sm:
                             _sm = (_sm + ' ' + _rm2['tail'])[:500]
-                        target['summary'] = _sm
-                        # 回写团队
-                        if hasattr(_bs, 'set_team'):
-                            _bs.set_team(team)
-                        elif hasattr(_bs, 'set_project_team'):
-                            _bs.set_project_team(_pid3, team)
+                        _patch = {'relation': _mrel, 'avatar': _rm2['avatar'], 'summary': _sm}
+                        if _is_global:
+                            _bs.update_member(_mname, _patch)
                         else:
-                            for _tm in (team or []):
-                                if _bs.update_member:
-                                    break
-                        self._send_json({'ok': True, 'name': _mname, 'relation': _mrel, 'team': team})
+                            _bs.p_update_member(_mname, _patch, _pid3)
+                        new_team2 = _bs.get_team() if _is_global else _bs.get_project_team(_pid3)
+                        self._send_json({'ok': True, 'name': _mname, 'relation': _mrel, 'team': new_team2})
                     except Exception as e3:
                         self._send_json({'ok': False, 'err': '修改关系失败：%s' % e3})
                     return

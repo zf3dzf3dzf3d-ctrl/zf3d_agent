@@ -386,6 +386,10 @@ def update_member(old_name, patch):
             target['persona'] = str(patch['persona'] or '').strip()[:2000]
         if 'fields' in patch:
             target['fields'] = [str(x).strip() for x in (patch.get('fields') or []) if str(x).strip()][:20]
+        if 'summary' in patch:
+            target['summary'] = str(patch['summary'] or '').strip()[:2000]
+        if 'relation' in patch:
+            target['relation'] = str(patch['relation'] or '').strip()[:20]
         _save_team_locked(team)
         return team
 
@@ -452,6 +456,7 @@ def _wb_extra_fields(m):
         'paths': [str(x).strip() for x in (m.get('paths') or []) if str(x).strip()][:20],
         'commits': [str(x).strip() for x in (m.get('commits') or []) if str(x).strip()][:20],
         'last_ts': str(m.get('last_ts') or '').strip()[:30],
+        'relation': str(m.get('relation') or '').strip()[:20],
     }
 
 
