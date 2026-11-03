@@ -490,6 +490,10 @@ var Store = {
             ts: Date.now(),
             type: type || 'text'
         });
+        // 内存防泄漏裁剪：超 1500 条裁到最近 1200 条（同 addLog 2000→1000 先例，2026-11-03）
+        if (this.data.messages[boxId].length > 1500) {
+            this.data.messages[boxId] = this.data.messages[boxId].slice(-1200);
+        }
         // SQLite 立即写
         if (this.dbOnline && typeof DB !== 'undefined') {
             var self = this;
