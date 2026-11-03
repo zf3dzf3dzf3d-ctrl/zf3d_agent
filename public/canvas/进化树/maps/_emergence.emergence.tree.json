@@ -155,6 +155,21 @@
           "y": null,
           "created_at": 1793711507.248553,
           "children": []
+        },
+        {
+          "id": 501,
+          "parent_id": 26,
+          "text": "蜂群收口裁决 + OOM 治理落地完成 ### ",
+          "path": "涌现能力总树/蜂群收口裁决 + OOM 治理落地完成 ### ",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793712091.880756,
+          "children": []
         }
       ]
     }
