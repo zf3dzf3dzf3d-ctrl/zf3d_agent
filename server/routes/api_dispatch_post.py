@@ -650,14 +650,14 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                         _rm = _REL_META[rel]
                         nm = str(j.get('name') or '').strip()[:30]
                         sm = str(j.get('summary') or '').strip()[:500]
-                        if rel != '团队成员' and _rm['tail'] and _rm['tail'][1] not in sm:
+                        if rel != '团队成员' and _rm['tail'] and _rm['tail'] not in sm:
                             sm = (sm + ' ' + _rm['tail'])[:500]
                         if not nm or not sm:
                             self._send_json({'ok': False, 'err': 'AI 总结失败，请稍后重试'}); return
                         pts = [str(x).strip() for x in (j.get('paths') or []) if str(x).strip()][:5]
                         mem = {
                             'name': nm, 'avatar': _rm['avatar'], 'type': 'workbench',
-                            'chat_id': _cid, 'summary': sm, 'paths': pts,
+                            'chat_id': _cid, 'summary': sm, 'paths': pts, 'relation': rel,
                             'commits': [], 'last_ts': _dt_mod.now().strftime('%Y/%m/%d %H:%M:%S'),
                         }
                         _is_global = _global
@@ -674,6 +674,52 @@ class MixinDispatchPost(ShareRoutesMixin, MixinDispatchPostExtra, MixinLoginStat
                         self._send_json({'ok': True, 'name': nm, 'summary': sm, 'relation': rel, 'team': new_team})
                     except Exception as e2:
                         self._send_json({'ok': False, 'err': '自动总结加入失败：%s' % e2})
+                    return
+                if _op == 'relation':
+                    # 手动修正成员关系类型（四选一），防 AI 误判无法纠正
+                    try:
+                        import json as _json
+                        _mname = str(_b.get('name') or '').strip()
+                        _mrel = str(_b.get('relation') or '').strip()
+                        if _mrel not in ('团队成员', '伴侣', '孩子', '父母'):
+                            self._send_json({'ok': False, 'err': '非法关系类型'}); return
+                        _REL_META_R = {
+                            '团队成员': {'avatar': '🛠', 'tail': ''},
+                            '伴侣': {'avatar': '💗', 'tail': '（亲密伴侣，温柔陪伴式交流）'},
+                            '孩子': {'avatar': '🧒', 'tail': '（孩子角色，童趣活泼、需要耐心呵护）'},
+                            '父母': {'avatar': '🏡', 'tail': '（父母角色，长辈式关怀叮嘱）'},
+                        }
+                        _rm2 = _REL_META_R[_mrel]
+                        _is_global = _global
+                        _pid3 = str(_b.get('project') or 'default')
+                        team = _bs.get_team() if _is_global else _bs.get_project_team(_pid3)
+                        target = None
+                        for _tm in (team or []):
+                            if str(_tm.get('name') or '') == _mname:
+                                target = _tm; break
+                        if not target:
+                            self._send_json({'ok': False, 'err': '未找到成员「%s」' % _mname}); return
+                        target['relation'] = _mrel
+                        target['avatar'] = _rm2['avatar']
+                        _sm = str(target.get('summary') or '')
+                        # 移除旧人设尾注，追加新人设尾注
+                        for _t in ('（亲密伴侣，温柔陪伴式交流）', '（孩子角色，童趣活泼、需要耐心呵护）', '（父母角色，长辈式关怀叮嘱）'):
+                            _sm = _sm.replace(' ' + _t, '').replace(_t, '')
+                        if _rm2['tail'] and _rm2['tail'] not in _sm:
+                            _sm = (_sm + ' ' + _rm2['tail'])[:500]
+                        target['summary'] = _sm
+                        # 回写团队
+                        if hasattr(_bs, 'set_team'):
+                            _bs.set_team(team)
+                        elif hasattr(_bs, 'set_project_team'):
+                            _bs.set_project_team(_pid3, team)
+                        else:
+                            for _tm in (team or []):
+                                if _bs.update_member:
+                                    break
+                        self._send_json({'ok': True, 'name': _mname, 'relation': _mrel, 'team': team})
+                    except Exception as e3:
+                        self._send_json({'ok': False, 'err': '修改关系失败：%s' % e3})
                     return
                 if _op == 'auto_generate':
                     # 工作台团队：按用户描述调 AI 自动生成 1~6 名员工角色并入库（参照专家团 expert_auto_generate）
