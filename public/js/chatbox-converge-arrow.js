@@ -331,7 +331,15 @@
       for (var i = ms.length - 1; i >= 0; i--) {
         if (ms[i] && ms[i].role === 'assistant') {
           var t = String(ms[i].content || ms[i].text || '');
-          return /（网络错误，发送失败|⚠️\s*请求失败|请求超时|模型未配置|发送失败）/.test(t);
+          /* 【v16】两类错误占位：① 原有固定文案；② API 原文透传类（_friendlyErrMsg 截断透传，
+             文案不可枚举，如截图中「本次对话未被找到/已失效」）——改按稳定特征识别：
+             以 ❌/⚠/💰/⛔ 等错误图标开头，或开头 60 字内含「调用失败：/失败原因：/仍失败/无法完成」。
+             只看开头，防正常结论正文中出现「文件不存在」等词被误判 */
+          if (/（网络错误，发送失败|⚠️\s*请求失败|请求超时|模型未配置|发送失败）/.test(t)) return true;
+          var head = t.slice(0, 60);
+          if (/^\s*(❌|⚠|⚠️|💰|⛔)/.test(t)) return true;
+          if (/调用失败：|失败原因：|仍失败|无法完成/.test(head)) return true;
+          return false;
         }
       }
     } catch (e) {}

@@ -394,7 +394,7 @@ def main():
         icon=_make_icon_image(),
         title=f'朱峰智能体 v{VERSION} (端口 {PORT}) {mode_tag}',
         menu=Menu(
-            Item('还原主界面', _on_open, default=True),
+            Item('还原主界面', _on_open),
             Item('查看服务状态', _on_status),
             Item('重启智能体', _on_restart),
             Item(quit_label, _on_quit),
