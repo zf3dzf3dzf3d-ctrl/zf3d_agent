@@ -53,3 +53,14 @@ server/browser_plugin/data/
 *.enbak
 *.v8bak
 sm_bak.py
+
+# Release Hygiene: 用户数据图片不入库（2026-11-04）
+public/canvas/*.png
+public/canvas/*.jpg
+public/canvas/*.jpeg
+public/canvas/*.gif
+public/canvas/*.webp
+!public/canvas/engine2d/**/*.png
+!public/canvas/engine2d/**/*.jpg
+!public/canvas/engine2d/**/*.gif
+!public/canvas/engine2d/**/*.webp
