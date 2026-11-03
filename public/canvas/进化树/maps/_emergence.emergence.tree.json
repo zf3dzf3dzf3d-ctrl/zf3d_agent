@@ -35,6 +35,21 @@
           "y": null,
           "created_at": 1793667043.8311505,
           "children": []
+        },
+        {
+          "id": 493,
+          "parent_id": 26,
+          "text": "验证结论：可交付（静态实测通过，动态拖拽未验已如",
+          "path": "涌现能力总树/验证结论：可交付（静态实测通过，动态拖拽未验已如",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793667386.2531457,
+          "children": []
         }
       ]
     }
