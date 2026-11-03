@@ -172,8 +172,10 @@ def _confirm_box(title, text, warn=True):
             0, text, title, MB_OKCANCEL | MB_ICONWARNING)
         return rc == IDOK
     except Exception as e:
-        print('[Tray] 确认框失败，按“不退出”保守处理:', e)
-        return False
+        # 【修复"关闭不了"】确认框调用失败时（无交互桌面/API 异常等），原先保守返回 False
+        # 会导致用户永远退不出。改为放行退出：宁可少一次二次确认，也不能让程序关不掉。
+        print('[Tray] 确认框失败，跳过二次确认直接继续:', e)
+        return True
 
 
 def main():
