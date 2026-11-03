@@ -363,6 +363,8 @@
       boxes.forEach(function (chat) {
         if (!chat || !chat.el || chat._meta) return;
         if (chat._isThinkerChat || chat._isQcChat || chat._isObjectorChat || chat._isCustomChat || chat._raceChat || chat._isVerifierChat || chat._isPolisherChat || chat._isSecurityChat || chat._isPlainChat) return; // 子窗不挂
+        /* 【协议角色】动态 flag _isProtoChat_<team>_<idx> 的子窗同样不挂（前缀匹配，避免逐个登记） */
+        try { for (var k in chat) { if (k.indexOf('_isProtoChat_') === 0 && chat[k]) return; } } catch (eP) {}
         if (chat._crewPanel && chat._crewPanel._closed) return; // 用户主动关闭过，不再重挂
         mount(chat.el, chat);
       });

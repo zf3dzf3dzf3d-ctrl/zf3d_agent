@@ -63,10 +63,13 @@
     }
     function fixGarbledName(box) {
         // 【固定文字】触发按钮固定显示「底层引擎/工具分类」，不再显示具体引擎/分类名（乱码兜底已无意义）
+        // 【防闪烁·必须相等才写】textContent 赋值即使内容相同也会替换文本节点 → childList 变化
+        // → 触发本文件的 MutationObserver → schedule → 再 relocate → 再写……形成自激励循环，
+        // 表现为「底层引擎/工具分类」两项不停闪烁（2026-11-03 修复：值相同绝不写）。
         var eng = box.querySelector('.eng-name');
-        if (eng) eng.textContent = '底层引擎';
+        if (eng && eng.textContent !== '底层引擎') eng.textContent = '底层引擎';
         var cat = box.querySelector('.tool-cat-name');
-        if (cat) cat.textContent = '工具分类';
+        if (cat && cat.textContent !== '工具分类') cat.textContent = '工具分类';
     }
 
     function relocateBox(box) {

@@ -140,6 +140,21 @@
           "y": null,
           "created_at": 1793692705.95139,
           "children": []
+        },
+        {
+          "id": 500,
+          "parent_id": 26,
+          "text": "✅ 终验结论：可交付（【验证评分】92：基础分1",
+          "path": "涌现能力总树/✅ 终验结论：可交付（【验证评分】92：基础分1",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793711507.248553,
+          "children": []
         }
       ]
     }

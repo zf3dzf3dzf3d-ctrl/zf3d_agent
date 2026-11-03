@@ -109,6 +109,45 @@
   /* ── 面板注入：把所有协议团队的角色卡追加进 ZFCrewPanel.ROLES（面板零改动渲染） ──
      注意：协议角色卡在面板重挂后由下方定时器保证只追加一次 */
   var _injected = {};
+  /* 【导入/导出入口】往面板标题栏追加 📥/📤 小按钮（幂等，面板重建后下轮轮询自动补） */
+  P.injectHeadButtons = function () {
+    var heads = document.querySelectorAll('.zf-crew-panel .zfp-head');
+    heads.forEach(function (head) {
+      if (head.querySelector('.zfp-proto-btns')) return;
+      var wrap = document.createElement('span');
+      wrap.className = 'zfp-proto-btns';
+      wrap.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);display:inline-flex;gap:6px;';
+      var mk = function (label, title, fn) {
+        var b = document.createElement('button');
+        b.textContent = label; b.title = title;
+        b.style.cssText = 'font-size:11px;padding:1px 6px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:transparent;color:inherit;cursor:pointer;line-height:1.4;';
+        b.onclick = function (ev) { ev.stopPropagation(); fn(); };
+        return b;
+      };
+      wrap.appendChild(mk('📥', '导入团队协议（粘贴 MD，按团队 id 合并）', function () {
+        var txt = prompt('粘贴团队协议 MD（可一次粘贴多个团队，按团队 id 自动合并）：');
+        if (!txt || !txt.trim()) return;
+        try {
+          var r = window.ZFCrewProtocol.import(txt);
+          window.ZFCrewProtocol.injectPanel();
+          if (window.App && App._stepToast) App._stepToast('📜 协议导入完成：新增 ' + r.added + ' 个、更新 ' + r.updated + ' 个团队，角色卡已上墙', true);
+        } catch (e) { alert('导入失败：' + (e.message || e)); }
+      }));
+      wrap.appendChild(mk('📤', '导出全部协议团队为 MD（复制后发给别人即可分享）', function () {
+        var md = window.ZFCrewProtocol.exportAll();
+        if (!md) { alert('当前没有已导入的协议团队'); return; }
+        try {
+          navigator.clipboard.writeText(md).then(function () {
+            if (window.App && App._stepToast) App._stepToast('📤 已复制到剪贴板，直接发给别人，对方 📥 粘贴即用', true);
+          }, function () {
+            prompt('复制失败，请手动全选复制：', md);
+          });
+        } catch (e) { prompt('请手动全选复制：', md); }
+      }));
+      head.style.position = head.style.position || 'relative';
+      head.appendChild(wrap);
+    });
+  };
   P.injectPanel = function () {
     if (!window.ZFCrewPanel || !ZFCrewPanel.ROLES) return;
     loadAll().forEach(function (t, ti) {
@@ -131,6 +170,6 @@
     });
   };
   /* 轮询注入：面板/协议加载顺序无关，谁后到都能挂上 */
-  setInterval(function () { try { P.injectPanel(); } catch (e) {} }, 3000);
-  document.addEventListener('DOMContentLoaded', function () { try { P.injectPanel(); } catch (e) {} });
+  setInterval(function () { try { P.injectPanel(); P.injectHeadButtons(); } catch (e) {} }, 3000);
+  document.addEventListener('DOMContentLoaded', function () { try { P.injectPanel(); P.injectHeadButtons(); } catch (e) {} });
 })();

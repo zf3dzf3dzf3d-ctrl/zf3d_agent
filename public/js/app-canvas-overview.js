@@ -341,15 +341,25 @@
     for (var i = 0; i < a.length; i++) { if (a[i] && a[i].el === el) return a[i]; }
     return null;
   }
+  /* 【OOM 收口 2026-11-26】isAnswered 原先每 700ms 对全量 history 跑正则，
+    * 是总览定时器的最大 CPU/GC 热点。加便宜签名缓存（history 长度+末条长度+任务态），
+    * 签名未变直接复用上次结论，避免重复扫描大数组。 */
+  var _ansCache = new WeakMap(); // chat对象 -> {sig, val}
   function isAnswered(c) {
     if (!c) return false;
     if (c._taskStatus === 'success') return true;
     var h = c.history || [];
+    var last = h[h.length - 1] || {};
+    var sig = h.length + '|' + String(last.content || '').length + '|' + (c._taskStatus || '');
+    var cached = _ansCache.get(c);
+    if (cached && cached.sig === sig) return cached.val;
+    var val = false;
     for (var i = 0; i < h.length; i++) {
       var m = h[i];
-      if (m && !m._meta && m.role === 'assistant' && String(m.content || '').replace(/<[^>]+>/g, '').trim()) return true;
+      if (m && !m._meta && m.role === 'assistant' && String(m.content || '').replace(/<[^>]+>/g, '').trim()) { val = true; break; }
     }
-    return false;
+    _ansCache.set(c, { sig: sig, val: val });
+    return val;
   }
   function statusOf(el) {
     if (!el.classList.contains('chatbox')) return '';
@@ -373,9 +383,12 @@
   }
   function applyColors() {
     if (dragging) return; // P1: 拖动中挂起刷新，松手后下一轮补刷
+    if (document.hidden) return; // 【OOM 收口 2026-11-26】页面隐藏时跳过整轮扫描
     nodes().forEach(function (el) {
       if (el.classList.contains('chatbox')) paintOne(el);
-      el.classList.toggle('ov-mini', scaleOf(el) < 0.25); // P2: 缩略名片标记
+      // 【OOM 收口】ov-mini 标记只在状态翻转时触碰 DOM，避免每 700ms 无效 toggle
+      var wantMini = scaleOf(el) < 0.25;
+      if (wantMini !== el.classList.contains('ov-mini')) el.classList.toggle('ov-mini', wantMini);
     });
   }
   function clearColors() {

@@ -94,8 +94,8 @@
             '.chatbox-header .hd-more-menu .ctx-btn:hover{',
             '  background:rgba(var(--blue-rgb,60,120,255),.16);color:var(--text,#fff);',
             '}',
-            // 菜单项前置图标（emoji，与系统风格一致）
-            '.chatbox-header .hd-more-menu .hd-mi-ico{flex:none;width:18px;text-align:center;font-size:13px;opacity:.9;}',
+            // 菜单项前置图标已按用户要求移除（纯文字简约风）；保留 .hd-mi-ico 兼容旧 DOM 但不显示
+            '.chatbox-header .hd-more-menu .hd-mi-ico{display:none;}',
             // 菜单项右侧箭头/徽标统一推到最右
             '.chatbox-header .hd-more-menu .eng-arrow,',
             '.chatbox-header .hd-more-menu .tool-cat-arrow{margin-left:auto;font-size:10px;opacity:.55;}',
