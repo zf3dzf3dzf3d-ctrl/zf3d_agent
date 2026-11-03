@@ -545,7 +545,7 @@
             (m.chat_id ? '💬 ' + esc(m.chat_id) : '<span style="color:#da8">⚠ 无对话关联</span>') +
             '</div>' : '';
         return '<div style="border:1px solid rgba(128,140,160,.3);border-radius:10px;padding:8px 10px;background:rgba(255,255,255,.04)">' +
-            '<div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px"><span style="flex:1">' + esc(m.avatar || '👤') + ' ' + esc(m.name || '') + '</span>' +
+            '<div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px"><span style="flex:1">' + _avHtml + ' ' + esc(m.name || '') + '</span>' +
             '<button class="wbp-team-edit" data-name="' + esc(m.name) + '" title="编辑人设" style="border:none;background:none;color:#8ab4ff;cursor:pointer;font-size:11px">✎</button>' + dispBtn + delBtn + '</div>' +
             '<div style="font-size:11px;opacity:.75;margin-top:4px;line-height:1.5">' + esc(persona) + (String(m.persona || '').length > 60 ? '…' : '') + '</div>' +
             (sec === 'workbench' ? extra : '<div style="font-size:10px;opacity:.55;margin-top:4px">档案字段：' + fields + '</div>') +

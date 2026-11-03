@@ -1,0 +1,57 @@
+{
+  "ts": "2026-11-03T15:47:56",
+  "passed": 6,
+  "skipped": 1,
+  "failed": 1,
+  "total": 8,
+  "cases": [
+    {
+      "name": "rag语义分块",
+      "status": "pass",
+      "ms": 40.3,
+      "detail": "chunks=3"
+    },
+    {
+      "name": "rag BM25",
+      "status": "pass",
+      "ms": 2.0,
+      "detail": "{0: 4.293832091964263}"
+    },
+    {
+      "name": "rag混合检索接口",
+      "status": "skip",
+      "ms": 0.0,
+      "detail": "no embedding key configured (env skip)"
+    },
+    {
+      "name": "记忆写入+语义召回",
+      "status": "pass",
+      "ms": 38.9,
+      "detail": "top=主题:蜂群 要点:失败仲裁换备用模型重跑 score=0.375"
+    },
+    {
+      "name": "记忆上下文注入",
+      "status": "pass",
+      "ms": 2.0,
+      "detail": "len=122"
+    },
+    {
+      "name": "trace落盘回查",
+      "status": "pass",
+      "ms": 8.0,
+      "detail": "records=2"
+    },
+    {
+      "name": "蜂群模块健康",
+      "status": "error",
+      "ms": 28.9,
+      "detail": "FileNotFoundError: [Errno 2] No such file or directory: 'F:\\\\朱峰社区智能体无限_新版本\\\\朱峰社区智能体无限_5.8.0\\\\server\\\\dispatch_swarm_tasks.py'"
+    },
+    {
+      "name": "蜂群状态落盘",
+      "status": "pass",
+      "ms": 2.0,
+      "detail": "running"
+    }
+  ]
+}

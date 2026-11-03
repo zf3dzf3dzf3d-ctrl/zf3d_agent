@@ -59,7 +59,48 @@
             // 白线图标本体：描边随 currentColor，block 消除底部空隙
             '.chatbox-header-row1 .hd-ico{display:block;flex:none;}',
             // 折叠态：卡片收起时折叠图标旋转 180°（向上 V），表达"展开"
-            '.chatbox.collapsed .chatbox-header-row1 .hd-btn.min-btn .hd-ico{transform:rotate(180deg);}'
+            '.chatbox.collapsed .chatbox-header-row1 .hd-btn.min-btn .hd-ico{transform:rotate(180deg);}',
+
+            // =====「⋯更多」下拉菜单 2026-11 重做：分组化 + 图标化 =====
+            // 容器：圆角浮层、投影、留白更宽松
+            '.chatbox-header .hd-more-menu{',
+            '  min-width:216px;padding:6px;border-radius:10px;',
+            '  background:var(--bg1,#1e1e22);border:1px solid rgba(255,255,255,.08);',
+            '  box-shadow:0 10px 32px rgba(0,0,0,.45);',
+            '}',
+            // 分组标题：小号弱化文字，与分组间留分隔线
+            '.chatbox-header .hd-more-menu .hd-menu-group-title{',
+            '  display:flex;align-items:center;gap:6px;',
+            '  padding:6px 10px 4px;font-size:11px;letter-spacing:.5px;',
+            '  color:var(--text3,rgba(255,255,255,.4));user-select:none;pointer-events:none;',
+            '}',
+            '.chatbox-header .hd-more-menu .hd-menu-sep{height:1px;margin:5px 8px;background:rgba(255,255,255,.07);}',
+            // 菜单项：图标 + 文字，左右对齐，hover 高亮
+            '.chatbox-header .hd-more-menu .hd-btn.menu-btn,',
+            '.chatbox-header .hd-more-menu .eng-trigger,',
+            '.chatbox-header .hd-more-menu .tool-cat-trigger,',
+            '.chatbox-header .hd-more-menu .prio-btn,',
+            '.chatbox-header .hd-more-menu .ctx-btn{',
+            '  display:flex;align-items:center;gap:8px;width:100%;',
+            '  padding:7px 10px;border-radius:7px;border:none;background:none;',
+            '  color:var(--text2,#c9c9cf);font-size:12.5px;font-family:inherit;',
+            '  text-align:left;cursor:pointer;box-shadow:none;',
+            '  transition:background .12s,color .12s;',
+            '}',
+            '.chatbox-header .hd-more-menu .hd-btn.menu-btn:hover,',
+            '.chatbox-header .hd-more-menu .eng-trigger:hover,',
+            '.chatbox-header .hd-more-menu .tool-cat-trigger:hover,',
+            '.chatbox-header .hd-more-menu .prio-btn:hover,',
+            '.chatbox-header .hd-more-menu .ctx-btn:hover{',
+            '  background:rgba(var(--blue-rgb,60,120,255),.16);color:var(--text,#fff);',
+            '}',
+            // 菜单项前置图标（emoji，与系统风格一致）
+            '.chatbox-header .hd-more-menu .hd-mi-ico{flex:none;width:18px;text-align:center;font-size:13px;opacity:.9;}',
+            // 菜单项右侧箭头/徽标统一推到最右
+            '.chatbox-header .hd-more-menu .eng-arrow,',
+            '.chatbox-header .hd-more-menu .tool-cat-arrow{margin-left:auto;font-size:10px;opacity:.55;}',
+            // 工具徽章在菜单「工具」项内靠右显示
+            '.chatbox-header .hd-more-menu .menu-btn .tool-badge{margin-left:auto;}'
         ].join('');
         var s = document.createElement('style');
         s.id = 'zf-hd-icon-style';
@@ -102,12 +143,20 @@
             '<div class="hd-more-wrap">' +
             '<button class="hd-btn menu-btn more-btn" data-act="more" title="更多（工具执行过程 / 日志 / 优先级 / 引擎 / 工具分类 / 集群 / 分支）">' + App._hdIcon('more') + '<span class="tool-badge" style="display:none">0</span></button>' +
             '<div class="hd-more-menu" style="display:none">' +
-            '<button class="hd-btn menu-btn tool-panel-btn" data-act="tools" title="工具执行过程（点击展开/收起面板）">工具</button>' +
-            '<button class="hd-btn menu-btn log-panel-btn" data-act="logs" title="日志（点击展开/收起面板）">日志</button>' +
-            '<button class="hd-btn prio-btn" data-act="priority" data-tier="0" data-keepopen="1" title="对话优先级（只影响同一个大模型的排队）：点击/悬停弹出档位；空闲10分钟自动降回">优先级</button>' +
-            '<button class="hd-btn ctx-btn" data-act="ctxmode" data-keepopen="1" title="上下文处理（上一轮工具过程与旧回复的保留档位）：点击/悬停弹出档位">上下文</button>' +
+            // 【分组一 · 观察面板】工具执行过程 / 日志
+            '<div class="hd-menu-group-title">面板</div>' +
+            '<button class="hd-btn menu-btn tool-panel-btn" data-act="tools" title="工具执行过程（点击展开/收起面板）"><span class="hd-mi-ico">🛠️</span>工具</button>' +
+            '<button class="hd-btn menu-btn log-panel-btn" data-act="logs" title="日志（点击展开/收起面板）"><span class="hd-mi-ico">📋</span>日志</button>' +
+            '<div class="hd-menu-sep"></div>' +
+            // 【分组二 · 对话调节】优先级 / 上下文处理
+            '<div class="hd-menu-group-title">对话调节</div>' +
+            '<button class="hd-btn prio-btn" data-act="priority" data-tier="0" data-keepopen="1" title="对话优先级（只影响同一个大模型的排队）：点击/悬停弹出档位；空闲10分钟自动降回"><span class="hd-mi-ico">⚡</span>优先级</button>' +
+            '<button class="hd-btn ctx-btn" data-act="ctxmode" data-keepopen="1" title="上下文处理（上一轮工具过程与旧回复的保留档位）：点击/悬停弹出档位"><span class="hd-mi-ico">🧠</span>上下文</button>' +
+            '<div class="hd-menu-sep"></div>' +
+            // 【分组三 · 系统配置】引擎 / 工具分类
             // 【固定内置】引擎/工具分类不再由 relocate 运行时搬入，直接写入模板，
             // 杜绝 DOM 搬移/重建时序导致的乱码（.eng-name/.tool-cat-name 固定文字）
+            '<div class="hd-menu-group-title">系统配置</div>' +
             '<div class="eng-picker-wrap hd-menu-fixed">' +
             '<button class="eng-trigger" data-keepopen="1" title="底层引擎（对话处理管线）" style="background:none;border:none;box-shadow:none;padding:5px 8px;cursor:pointer;color:inherit;font-size:12px;font-family:inherit;display:flex;align-items:center;height:auto">' +
             '<span class="eng-name">底层引擎</span>' +
