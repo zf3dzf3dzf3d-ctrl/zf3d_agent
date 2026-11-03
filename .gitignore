@@ -64,3 +64,4 @@ public/canvas/*.webp
 !public/canvas/engine2d/**/*.jpg
 !public/canvas/engine2d/**/*.gif
 !public/canvas/engine2d/**/*.webp
+system/trash/ 

@@ -1,2 +1,0 @@
-ERR 500
-{"ok": false, "err": "'str' object has no attribute 'get'"}

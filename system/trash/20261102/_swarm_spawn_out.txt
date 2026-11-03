@@ -1,2 +1,0 @@
-OK 200
-{"ok": true, "batch_id": "sw-683c95c9c9"}
