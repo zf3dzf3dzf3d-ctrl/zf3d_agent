@@ -35,6 +35,21 @@
           "y": null,
           "created_at": 1793749510.5065887,
           "children": []
+        },
+        {
+          "id": 503,
+          "parent_id": 26,
+          "text": "✅ 终验完成（第2轮复验）：**可交付**【验证",
+          "path": "涌现能力总树/✅ 终验完成（第2轮复验）：**可交付**【验证",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793750818.304545,
+          "children": []
         }
       ]
     }
