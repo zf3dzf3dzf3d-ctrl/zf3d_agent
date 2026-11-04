@@ -95,6 +95,21 @@
           "y": null,
           "created_at": 1793763649.4747617,
           "children": []
+        },
+        {
+          "id": 507,
+          "parent_id": 26,
+          "text": "✅ 优化完成（纯文本精修，零代码改动）。对「Gi",
+          "path": "涌现能力总树/✅ 优化完成（纯文本精修，零代码改动）。对「Gi",
+          "depth": 1,
+          "clarity": 0.15000000000000002,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793766020.21228,
+          "children": []
         }
       ]
     }
