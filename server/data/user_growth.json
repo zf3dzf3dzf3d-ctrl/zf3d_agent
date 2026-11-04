@@ -1,7 +1,7 @@
 {
- "exp": 12774,
+ "exp": 12812,
  "events": {
-  "task_complete": 232,
+  "task_complete": 233,
   "task_review_pass": 13
  },
  "daily": {
@@ -24,15 +24,9 @@
   "2026-11-01": 600,
   "2026-11-02": 600,
   "2026-11-03": 600,
-  "2026-11-04": 381
+  "2026-11-04": 419
  },
  "history": [
-  {
-   "t": 1792357527,
-   "event": "task_complete",
-   "exp": 48,
-   "note": "按你拍板的 4 点，将《能力涌现系统·策划案》从 v2.0 升级到 **v2.1**：固化决策 + 补实查接线点 + 新增 P0 开工清单。改动唯一文件 `do"
-  },
   {
    "t": 1792359089,
    "event": "task_complete",
@@ -1226,6 +1220,12 @@
    "event": "task_complete",
    "exp": 32,
    "note": "进化师第3轮观点输出完成。认可 server/system/trash 变体缺口修复（TRACK-0+ignore:68+双远程推送实证），图片清理 issue"
+  },
+  {
+   "t": 1793751659,
+   "event": "task_complete",
+   "exp": 38,
+   "note": "✅ 终验完成（第3轮复核）：**可交付**【验证评分】90（及格线60） 用户原始问题\"public/canvas 混入工作区图片、清除 GitHub 历史\"已"
   }
  ],
  "created_at": 1792066029,
