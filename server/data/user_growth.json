@@ -1,7 +1,7 @@
 {
- "exp": 12989,
+ "exp": 12993,
  "events": {
-  "task_complete": 237,
+  "task_complete": 238,
   "task_review_pass": 13
  },
  "daily": {
@@ -24,15 +24,9 @@
   "2026-11-01": 600,
   "2026-11-02": 600,
   "2026-11-03": 600,
-  "2026-11-04": 596
+  "2026-11-04": 600
  },
  "history": [
-  {
-   "t": 1792360009,
-   "event": "task_complete",
-   "exp": 42,
-   "note": "✅ 收口完成（审核蜂群 2/2 通过，评分 93、92）。修复项目记录/记忆面板 `###` 标题不渲染问题，已入库于 commit `301753ab5`。 "
-  },
   {
    "t": 1792360247,
    "event": "task_complete",
@@ -1226,6 +1220,12 @@
    "event": "task_complete",
    "exp": 23,
    "note": "GitHub Issues 官方不提供直接删除功能，手动处理方法如下： **方法一：向 GitHub Support 申请真正删除（唯一真删途径）** 打开 h"
+  },
+  {
+   "t": 1793755268,
+   "event": "task_complete",
+   "exp": 4,
+   "note": "✅ 任务收口完成：右下角两个紫色圆形大按钮（⇄ dsh 扩展 + 🧩 ext-demo 扩展）已通过官方 disabled 开关禁用，三方视角交叉验证一致，判定"
   }
  ],
  "created_at": 1792066029,
