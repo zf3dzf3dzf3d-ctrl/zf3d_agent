@@ -73,3 +73,6 @@ public/uploads/
 public/data/
 public/audio/
 public/index.html.bak.*
+public/config/*.broken* 
+*.broken-* 
+*.broken-*
