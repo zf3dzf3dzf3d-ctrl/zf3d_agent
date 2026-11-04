@@ -80,6 +80,21 @@
           "y": null,
           "created_at": 1793755229.4704704,
           "children": []
+        },
+        {
+          "id": 506,
+          "parent_id": 26,
+          "text": "✅ 第2轮收口完成：任务维持交付（右下角 ⇄ d",
+          "path": "涌现能力总树/✅ 第2轮收口完成：任务维持交付（右下角 ⇄ d",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793763641.5544882,
+          "children": []
         }
       ]
     }
