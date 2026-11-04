@@ -65,6 +65,21 @@
           "y": null,
           "created_at": 1793751669.5142736,
           "children": []
+        },
+        {
+          "id": 505,
+          "parent_id": 26,
+          "text": "终验结论：本次任务的最终产出（去掉右下角两个紫色",
+          "path": "涌现能力总树/终验结论：本次任务的最终产出（去掉右下角两个紫色",
+          "depth": 1,
+          "clarity": 0.1,
+          "status": "sprout",
+          "icon": "",
+          "kind": "capability",
+          "x": null,
+          "y": null,
+          "created_at": 1793755220.0160537,
+          "children": []
         }
       ]
     }
