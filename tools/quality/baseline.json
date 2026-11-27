@@ -1,0 +1,14 @@
+{
+  "except_exception": 3914,
+  "except_pass": 1226,
+  "print_stmt": 162,
+  "exec_call": 0,
+  "dup_module_def": 11,
+  "parse_errors": 0,
+  "html_dup_script": 0,
+  "html_mojibake": 0,
+  "undeclared_import": 0,
+  "_files_scanned": 760,
+  "_undeclared_names": "",
+  "_note": "20261123 20:0x 第十一次重锁+计数函数幻影行修复：f821_count 朴素行数把 ruff 干净输出\"All checks passed!\" 数成 1（连续数轮 0→1 假阳性的最终真相），改为只数含 F821 的发现行；保留 3×3s 取 min 抗蜂群写文件竞态。九指标以本轮实测锁定。"
+}

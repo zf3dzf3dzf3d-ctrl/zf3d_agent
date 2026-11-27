@@ -1,0 +1,3 @@
+# 过渡桥豁免登记（策划案 v4 T0 §3.3）
+# old-track-import = 本插件是 S4 主脑桥接（桥接 server/brain 旧轨 start_brain_thread），T8 摘壳时删除本豁免
+old-track-import

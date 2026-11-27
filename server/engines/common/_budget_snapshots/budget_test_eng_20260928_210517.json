@@ -1,0 +1,1 @@
+{"engine_id": "test_eng", "spent_tokens": 999, "budget": 500, "saved_at": "2026-09-28 21:05:17", "resume_hint": "把 resume_messages 作为请求 messages 即可续跑", "resume_messages": [{"role": "user", "content": "hi"}]}

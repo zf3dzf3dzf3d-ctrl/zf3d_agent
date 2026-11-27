@@ -1,0 +1,18 @@
+{
+ "id": "route.growth-fengkong",
+ "name": "成长/风控域路由（T2 尾巴）",
+ "version": "1.0.0",
+ "spec": 1,
+ "type": "tool",
+ "entry": {
+  "py": "main.py"
+ },
+ "capabilities": [
+  "http.route",
+  "log.write"
+ ],
+ "provides": "route_growth_fengkong",
+ "depends": [],
+ "zfVersion": ">=6.0.0",
+ "description": "T2 尾巴（策划案v4）：成长/风控域逐字节插件化，源=domain_growth_fengkong.py（含 __file__ 重指适配）；禁用经注册栈回栈恢复静态接线"
+}

@@ -1,0 +1,806 @@
+/* ============================================================
+ * theme-paper-fix.css — 纸白（light）主题专项修复
+ * 针对 2026-11 用户反馈的两类问题：
+ *   1) 对话消息块（用户/思维链/AI回复）左边框颜色各异，与大师·纸白
+ *      「纯色无边框」设计语言冲突 → 统一去除左边彩边。
+ *   2) 思维链工具球 .tt-circle、typing 文字、notice、AI 复制按钮等
+ *      在暗色下为白色前景，切至纸白浅底后不可见 → light 下统一转深。
+ * 全部规则以 [data-theme="light"] 为前缀，仅浅色主题生效，暗色主题零影响。
+ * ============================================================ */
+
+/* ---------- ① 统一去除对话消息块的左侧彩边 ---------- */
+/* 各类型消息：用户 / AI / 最终 / 警告 / 提示 / 等待，均无左边框 */
+[data-theme="light"] .chatbox .msg,
+[data-theme="light"] .chatbox .msg.user,
+[data-theme="light"] .chatbox .msg.ai,
+[data-theme="light"] .chatbox .msg.ai-final,
+[data-theme="light"] .chatbox .msg.warning,
+[data-theme="light"] .chatbox .msg.notice,
+[data-theme="light"] .chatbox .msg.typing,
+[data-theme="light"] .chatbox .msg.user.msg-editing,
+[data-theme="light"] .chatbox .msg.ai-final.ai-verified {
+    border-left: none !important;
+    border-left-width: 0 !important;
+}
+
+/* AI 最终消息：皮肤层(chatbox-skins.css)有绿色 !important 兜底边，
+   纸白皮肤(.msg[data-skin=paper])又有 3px 宽兜底 → 用更高特异性压回无边。
+   特异性高于 chatbox-skins 末尾规则(skins≈0,5,0，本规则加 [data-theme=light]
+   前缀后≈0,6,0)：更高特异性 + 同为 !important + 本文件后加载，三者叠加胜出。 */
+[data-theme="light"] .chatbox[data-skin] .msg.ai-final:not(.ai-verified),
+[data-theme="light"] body[data-skin] .msg.ai-final:not(.ai-verified),
+[data-theme="light"] .chatbox[data-skin="paper"] .msg {
+    border-left: none !important;
+    border-left-width: 0 !important;
+}
+
+/* 思维链工具卡（thinking 展开后的 tool-wrap）：success/fail/ask_user/task_list
+   左侧绿/红/蓝/紫边统一去边（深底卡片仍靠圆角与状态名颜色区分） */
+[data-theme="light"] .chatbox .tool-wrap--success,
+[data-theme="light"] .chatbox .tool-wrap--fail,
+[data-theme="light"] .chatbox .tool-wrap--ask_user,
+[data-theme="light"] .chatbox .tool-wrap--task_list {
+    border-left: none !important;
+    border-left-width: 0 !important;
+}
+/* 工具卡结果块内部的左边框（success/fail 各自淡色边）一并去除 */
+[data-theme="light"] .chatbox .tool-wrap__result,
+[data-theme="light"] .chatbox .tool-wrap--success .tool-wrap__result,
+[data-theme="light"] .chatbox .tool-wrap--fail .tool-wrap__result {
+    border-left: none !important;
+}
+/* 引用块左边竖线保留语义但收为统一中性灰，不再用蓝色强调 */
+[data-theme="light"] .chatbox .msg.md-body blockquote,
+[data-theme="light"] .msg-content blockquote,
+[data-theme="light"] .message-content blockquote {
+    border-left: 3px solid #d8d8d6 !important;
+}
+
+/* ---------- ② 浅色底上看不见的白色图标/前景 → 转深色 ---------- */
+/* 思维链工具圆球：原本近白字 + 淡蓝底，浅主题下改为深字 + 更实描边 */
+[data-theme="light"] .tt-circle {
+    background: rgba(80, 120, 200, 0.14) !important;
+    border-color: rgba(80, 120, 200, 0.40) !important;
+    color: #2a3654 !important;
+}
+[data-theme="light"] .tt-circle.tt-new {
+    background: rgba(80, 120, 200, 0.26) !important;
+    border-color: rgba(70, 110, 200, 0.60) !important;
+    color: #1b2742 !important;
+    box-shadow: 0 0 5px rgba(80, 120, 200, 0.25) !important;
+}
+[data-theme="light"] .tt-circle[data-tip]:hover::after,
+[data-theme="light"] .tt-circle:hover::after {
+    background: rgba(255, 255, 255, 0.98) !important;
+    color: #1f2430 !important;
+    border: 1px solid rgba(120, 140, 200, 0.40) !important;
+}
+
+/* typing 等待条文字：浅主题下转深 */
+[data-theme="light"] .chatbox .typing-text {
+    color: #5a6478 !important;
+}
+/* 计时器/插话提示等极淡灰，浅底提深一档 */
+[data-theme="light"] .chatbox .typing-timer {
+    color: #7a8296 !important;
+}
+[data-theme="light"] .chatbox .whip-hint {
+    color: rgba(90, 100, 120, 0.7) !important;
+}
+[data-theme="light"] .chatbox .whip-hint:hover,
+[data-theme="light"] .chatbox .whip-hint.whip-on {
+    color: #b07a2e !important;
+    background: rgba(176, 122, 46, 0.10) !important;
+}
+
+/* notice 提示（如 30s/60s 等待）：浅主题转深紫可读 */
+[data-theme="light"] .chatbox .msg.notice {
+    color: #6a5a8a !important;
+    background: rgba(122, 90, 194, 0.06) !important;
+}
+
+/* AI 回答的复制按钮：原深底白字（在浅气泡上突兀）→ 浅底深字 */
+[data-theme="light"] .msg.ai .msg-ai-copy-btn,
+[data-theme="light"] .msg.ai-final .msg-ai-copy-btn {
+    background: rgba(0, 0, 0, 0.06) !important;
+    color: rgba(0, 0, 0, 0.50) !important;
+}
+[data-theme="light"] .msg.ai .msg-ai-copy-btn:hover,
+[data-theme="light"] .msg.ai-final .msg-ai-copy-btn:hover {
+    background: rgba(0, 0, 0, 0.12) !important;
+    color: #222 !important;
+}
+[data-theme="light"] .msg.ai .msg-ai-copy-btn.copied,
+[data-theme="light"] .msg.ai-final .msg-ai-copy-btn.copied {
+    color: #2f8a4f !important;
+}
+
+/* 工具卡（深底）上的状态名/文字本就在深色块内可见，
+   但其 emoji 图标 drop-shadow 为白色光晕，浅主题下移除以避免发虚 */
+[data-theme="light"] .chatbox .tool-wrap__icon {
+    filter: none !important;
+}
+
+/* ============================================================
+ * 第二批（2026-11-13）：全局纸白补齐 —— 用户反馈 16 项 + 插话项
+ * 选择器均核实真实类名（focus-mode=.zf-*, imageviewer=.iv-*,
+ * 审核徽标=.chatbox-audit-badge/.chatbox-round-badge）；对 JS 动态生成的
+ * 审核/派单/版本 DOM 用 [class*=..] 属性通配兜底，避免臆测死规则。
+ * 全部规则仅 [data-theme="light"] 前缀，暗色零影响。
+ * ============================================================ */
+
+/* ---------- A) 僵尸变量补定义（治专注模式整片发黑根因） ---------- */
+/* --bg-main/--text-main/--bg-panel/--border-main 全站从未定义，
+   focus-mode/taskpanel/diverge/upload 用 var(--bg-main,#16161c) 永远命中
+   深色兜底 → 在 light root 上补浅色值，子元素 var() 继承即生效。 */
+html[data-theme="light"] {
+    --bg-main: #f7f7f5;
+    --bg-panel: #ffffff;
+    --text-main: #1a1a1a;
+    --border-main: #d8d8d6;
+}
+/* ---------- A-2) 第二批僵尸变量补定义（治"黑色弹窗在白色主题下黑底黑字"根因） ----------
+   全站大量内联弹窗用 var(--bg1,#1e1e2e)/var(--text1,#eee) 等从未定义的变量，
+   深色兜底永远生效 → 白主题下出现黑色面板；面板文字 color:inherit 继承黑字 → 看不见。
+   这里在 light root 上补浅色值，在深色 root 上补齐深色值（与各处兜底值一致，深色主题观感不变）。 */
+html[data-theme="light"] {
+    --bg: #ffffff; --bg-1: #ffffff; --bg-2: #f7f7f5; --bg1: #ffffff; --bg2: #f7f7f5; --bg3: #efefed;
+    /* 【派出UI主题适配】crew-panel / 派出弹窗用的自定义变量 */
+    --zfp-card-line: rgba(0,0,0,.18);
+    --zfp-chip-bg: rgba(0,0,0,.05);
+    --zfp-divider: rgba(0,0,0,.12);
+    --zfp-input-line: rgba(0,0,0,.25);
+    --zfp-btn-line: rgba(0,0,0,.3);
+    --zfp-btn-bg: rgba(0,0,0,.04);
+    --zfp-btn-text: rgba(0,0,0,.85);
+    --zfp-btn-disabled: rgba(0,0,0,.35);
+    --bg-card: #ffffff; --card: #ffffff; --card-bg: #ffffff; --surface: #ffffff; --panel: #ffffff; --panel-bg: #ffffff;
+    --bg-input: #ffffff; --input-bg: #ffffff; --bg-elev: #ffffff; --bg-sub: #f2f2f0; --code-bg: #f2f2f0;
+    /* 【策划案 20261123 #12】这里原补了 --zf-side-w: auto —— 它是专注模式左栏列宽变量（focus-mode.css：var(--zf-side-w, 260px)），
+       定义成 auto 后回退值失效，浅色主题下左栏列宽变成 auto（实测 grid-template-columns: auto 0px 1fr …）。已移除。 */
+    --btn-bg: #ffffff; --zf-bg: #ffffff; --zf-card: #ffffff;
+    --text: #1a1a1a; --text1: #1a1a1a; --text-1: #1a1a1a; --text-2: #444; --text-3: #777;
+    --text-sub: #555; --text-sub2: #777; --fg: #1a1a1a; --muted: #666; --zf-text: #1a1a1a;
+    --button-text: #1a1a1a;
+    --border: #d8d8d6; --line: #d8d8d6; --zf-border: #d8d8d6;
+    --acc: #1668dc; --accent-color: #1668dc; --accent-soft: rgba(22,104,220,.1); --primary: #1668dc;
+    --zf-acc: #1668dc; --pa-ac: #1668dc; --danger: #d93025; --red: #d93025; --green: #188038; --blue-dark: #1668dc;
+    --font-mono: Consolas, "Courier New", monospace;
+}
+
+/* 【2026-11-16 用户反馈】大师·纸白：对话框白色底垫去掉（对话框已有自己的背景/壁纸）。
+   .chatbox 本体直接透明；::before 兜底层仅在未开对话框壁纸时透明（壁纸模式靠 ::before 承载图片，不能动）。 */
+html[data-theme="light"] .chatbox { background: transparent !important; }
+html[data-theme="light"] body:not(.bg-chatbox-wallpaper) .chatbox::before { background: transparent !important; }
+
+/* 【派出UI主题适配 v1】白色主题下：派出团队面板 / 派出数量弹窗的深色系白色边框改深色 */
+html[data-theme="light"] .zf-crew-panel { border-color: rgba(0,0,0,.18) !important; }
+/* 【用户要求·背景色去掉】墨黑（含所有主题）下派出团队面板一律无底色，仅保留边框 */
+html[data-theme="ink"] .zf-crew-panel,
+.zf-crew-panel { background: transparent !important; }
+/* 【2026-11-16 根因修复】"做了无数次不好使"真凶：大师·纸白等风格由 theme.js 运行时注入
+   .zf-style-glow .zf-crew-panel{background:#FFFFFF!important}（特异性 0,2,0，且注入在 head 末尾），
+   把上面这条单类透明规则(0,1,0)压回白色。此处用 html body 前缀抬到 (0,2,2) 反压运行时注入；
+   源头 extraCss 已同步改透明（theme.js mujiwhite）。 */
+html body .zf-style-glow .zf-crew-panel,
+html body .zf-style-glow .zfp-plain-gather { background: transparent !important; }
+/* 【2026-11-27 彻底透明 v2】上面 (0,2,2) 压不住 extraCss 的
+   .zf-style-glow [class*="panel"]:not(.mo-panel):not(.mo-panel *)（:not 计入特异性，
+   实为 (0,4,0) + !important，注入在 head 末尾）。用重复类名抬到 (0,4,2) 反压，
+   覆盖所有 zf-style-glow 风格（纸白/墨黑/晨雾等全部），派出团队面板彻底无底色。 */
+html body .zf-style-glow .zf-crew-panel.zf-crew-panel.zf-crew-panel,
+html body .zf-style-glow .zfp-plain-gather.zfp-plain-gather.zfp-plain-gather { background: transparent !important; }
+/* 【2026-11-27 用户要求·外边框也彻底去掉】extraCss 的 [class*="panel"] 注入
+   border:1px solid !important，inline 也写过 border。用同等 (0,4,2) 特异性把边框清零，
+   内部 zfp-card 卡片边框保留（用户只要求去面板外框）。 */
+html body .zf-style-glow .zf-crew-panel.zf-crew-panel.zf-crew-panel,
+html body .zf-style-glow .zfp-plain-gather.zfp-plain-gather.zfp-plain-gather { border: none !important; box-shadow: none !important; }
+html body .zf-crew-panel.zf-crew-panel.zf-crew-panel { border: none !important; }
+/* 【2026-11-27 用户要求·边框也去掉】墨黑/纸白下派出团队面板连边框一起去掉，更透明 */
+html[data-theme="ink"] .zf-crew-panel.zf-crew-panel,
+html[data-theme="light"] .zf-crew-panel.zf-crew-panel { border-color: transparent !important; }
+html[data-theme="light"] .zfp-card[style] { }
+html[data-theme="light"] .zfp-gather-close,
+html[data-theme="light"] .zfp-plain-gather { border-color: rgba(0,0,0,.2); }
+html[data-theme="light"] ._askcount-mask > div { border-color: rgba(0,0,0,.15) !important; }
+html[data-theme="light"] ._askcount-mask button,
+html[data-theme="light"] ._askcount-mask input { border-color: rgba(0,0,0,.22); }
+html[data-theme="light"] ._askcount-mask input { color: #333; }
+html[data-theme="light"] ._askteam-mask > div,
+html[data-theme="light"] ._askteam-mask button { border-color: rgba(0,0,0,.2); }
+/* ---------- A-1b) 深色默认值（须放在 light 块之前，防源序覆盖） ---------- */
+:root, [data-theme="dark"] {
+    --bg: #1e1e1e; --bg-1: #1e1e2e; --bg-2: #1e1f24; --bg1: #1e1e2e; --bg2: #1e1f24; --bg3: #252535;
+    --bg-card: #1e1e2e; --card: #1e1e2e; --card-bg: #1e1e2e; --surface: #1e1e2e; --panel: #1e1e2e; --panel-bg: #1e1e2e;
+    --bg-input: #141519; --input-bg: #141519; --bg-elev: #252535; --bg-sub: #252535; --code-bg: #18181c;
+    --btn-bg: #252535; --zf-bg: #1e1e2e; --zf-card: #1e1e2e;
+    --text: #e8e8e8; --text1: #eee; --text-1: #eee; --text-2: #ccc; --text-3: #999;
+    --text-sub: #aaa; --text-sub2: #888; --fg: #eee; --muted: #999; --zf-text: #eee;
+    --button-text: #fff;
+    --border: #3a3b40; --line: #333344; --zf-border: #333344;
+    --acc: #4da3ff; --accent-color: #4da3ff; --accent-soft: rgba(77,163,255,.15); --primary: #4da3ff;
+    --zf-acc: #4da3ff; --pa-ac: #4da3ff; --danger: #f28b82; --red: #f28b82; --green: #81c995; --blue-dark: #1a56b8;
+    --font-mono: Consolas, "Courier New", monospace;
+}
+/* ---------- A-3) 深色硬编码排查结论 ----------
+   全站扫描（public/js 目录全部脚本）内联深色硬编码仅 chatbox-crew.js:144 遮罩层 rgba(0,0,0,.35)（弹窗本体为白底，非问题）；
+   其余深色面板均走 var(--bg1,#1e1e2e) 等僵尸变量，已由上方 A-1/A-1b/A-2 补定义根治。 */
+html[data-theme="light"] .iv-header,
+html[data-theme="light"] .iv-footer { color: #1a1a1a; }
+
+/* 专注模式容器（真实类名）：硬兜底浅底深字（诉求2） */
+[data-theme="light"] body:not(.zf-focus) .zf-stage,
+[data-theme="light"] body:not(.zf-focus) .zf-side {
+    background: #f7f7f5 !important;
+    color: #1a1a1a !important;
+}
+/* 专注模式标题栏 + 左侧列表栏（真实 .zf-*-head/.zf-sess-title/.zf-proj-*） */
+[data-theme="light"] .zf-sess-head,
+[data-theme="light"] .zf-sess-title,
+[data-theme="light"] .zf-proj-head,
+[data-theme="light"] .zf-proj-list,
+[data-theme="light"] .zf-group-head,
+[data-theme="light"] .zf-child-strip,
+[data-theme="light"] .zf-relmap-head,
+[data-theme="light"] .zf-relmap-title,
+[data-theme="light"] .zf-btn,
+[data-theme="light"] .zf-icon-btn {
+    color: #1a1a1a !important;
+    border-color: #d8d8d6 !important;
+}
+[data-theme="light"] body:not(.zf-focus) .zf-side,
+[data-theme="light"] body:not(.zf-focus) .zf-proj-list,
+[data-theme="light"] body:not(.zf-focus) .zf-sess-list {
+    background: #ffffff !important;
+}
+
+/* ---------- B) 白色内联SVG图标转黑（filter invert，color 控不了背景图） ---------- */
+[data-theme="light"] .chatbox .chatbox-inputrow .upload-btn::before,
+[data-theme="light"] .chatbox .chatbox-inputrow .cfg-project-btn::before,
+[data-theme="light"] .chatbox .chatbox-inputrow .cfg-branch-btn::before {
+    filter: invert(1) brightness(0.35) !important;
+}
+[data-theme="light"] .chatbox-header .hd-btn,
+[data-theme="light"] .chatbox-header .hd-more,
+[data-theme="light"] .chatbox-header [class*="more"] {
+    color: #2a2a2a !important;
+}
+[data-theme="light"] .chatbox-header .hd-btn svg,
+[data-theme="light"] .chatbox-header .hd-more svg,
+[data-theme="light"] .chatbox-header [class*="more"] svg {
+    stroke: #2a2a2a !important;
+    fill: none !important;
+}
+
+/* ---------- C-4) 欢迎语左侧朱峰 logo 图片转纯黑剪影（浅色主题下可见） ---------- */
+/* JS 层(chatbox-00-toast.js)注入的内联样式带 filter:grayscale(1) brightness(1.1)，
+   浅底上看不清 → 用 [data-theme=light] 前缀提高特异性 + !important 覆盖为纯黑。 */
+[data-theme="light"] .zf-empty-welcome .zf-ew-logo {
+    filter: grayscale(1) brightness(0) drop-shadow(0 4px 14px rgba(160,160,160,.2)) !important;
+    opacity: 1 !important;
+}
+
+/* ---------- C-1) 顶栏 logo 标志转黑（诉求1） ---------- */
+[data-theme="light"] .topbar-title span[data-i18n="brand"] {
+    color: #1a1a1a !important;
+    -webkit-text-fill-color: #1a1a1a !important;
+}
+[data-theme="light"] .topbar-logo {
+    filter: none !important;
+    opacity: 1 !important;
+}
+[data-theme="light"] .topbar-title .topbar-logo {
+    color: #1a1a1a !important;
+}
+
+/* ---------- C-2) 无限桌面右下角浮动入口栏 + 更多菜单（诉求3/5） ---------- */
+[data-theme="light"] #tpFabMoreMenu,
+[data-theme="light"] .tp-fab-group,
+[data-theme="light"] .tp-fab-menu {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    border: 1px solid #d8d8d6 !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12) !important;
+}
+[data-theme="light"] #tpFabMoreMenu *,
+[data-theme="light"] .tp-fab-group *,
+[data-theme="light"] .tp-fab-menu * {
+    color: #1a1a1a !important;
+}
+/* 特异性 1,3,1：压过 zf-app-dock.js 2029 行注入的 #zfAppDock > .zf-dock-btn:hover
+   （1,2,1，JS 后注入 head 末尾），保证浅色主题 hover 黑淡底胜出 */
+html [data-theme="light"] .zf-dock-btn,
+html [data-theme="light"] #zfAppDock .zf-dock-btn {
+    background: transparent !important;
+    color: #1a1a1a !important;
+    border-color: #d8d8d6 !important;
+}
+html [data-theme="light"] #zfAppDock .zf-dock-btn:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ---------- C-3) 设置面板：左列表文字转深 + 版本更新区（诉求6） ---------- */
+[data-theme="light"] .settings-nav-item,
+[data-theme="light"] .settings-nav-item span,
+[data-theme="light"] .settings-nav-item .settings-nav-label {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] .settings-nav {
+    background: #ffffff !important;
+}
+/* 订正（UI师第3轮建议）：原裸 [class*="version"]/[id*="version"] 无容器限定，
+   会误伤全站所有含 version 字样的元素；收窄到设置面板作用域内。 */
+[data-theme="light"] .settings-modal [class*="version"],
+[data-theme="light"] .settings-modal [id*="version"] {
+    color: #1a1a1a !important;
+    border-color: #d8d8d6 !important;
+}
+
+/* ---------- C-4) 统计面板 Token 用量数字转黑（诉求7） ---------- */
+[data-theme="light"] #tokenUsageMount .tu-card {
+    background: #ffffff !important;
+    border: 1px solid #d8d8d6 !important;
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #tokenUsageMount,
+[data-theme="light"] #tokenUsageMount table,
+[data-theme="light"] #tokenUsageMount table th,
+[data-theme="light"] #tokenUsageMount table td {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #tokenUsageMount table th { border-bottom-color: #d8d8d6 !important; }
+[data-theme="light"] #tokenUsageMount table td { border-bottom-color: #ececea !important; }
+
+/* ---------- C-5) 派出团队角色/审核师文字转黑（诉求8，通配命中动态DOM） ---------- */
+[data-theme="light"] [class*="squad"] *,
+[data-theme="light"] [class*="swarm-role"] {
+    color: #1a1a1a !important;
+}
+
+/* ---------- C-6) 审核报告：背景转白系 + 文字转黑（诉求9；本次反馈：背景太灰 → 提亮为纯白） ---------- */
+[data-theme="light"] .zf-sg-report {
+    background: #ffffff !important;
+    border-color: #dcdcd8 !important;
+}
+[data-theme="light"] .zf-sg-report summary {
+    color: #4a5568 !important;
+}
+[data-theme="light"] .zf-sg-body {
+    color: #2a3240 !important;
+    background: transparent !important;
+}
+[data-theme="light"] .zf-sg-body table,
+[data-theme="light"] .zf-sg-body th,
+[data-theme="light"] .zf-sg-body td {
+    border-color: #e2e2de !important;
+}
+[data-theme="light"] .zf-sg-body th {
+    background: #f4f4f2 !important;
+}
+[data-theme="light"] [class*="audit-report"],
+[data-theme="light"] [class*="review-report"],
+[data-theme="light"] [class*="report-box"] {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    border-color: #d8d8d6 !important;
+}
+[data-theme="light"] [class*="audit-report"] *,
+[data-theme="light"] [class*="review-report"] * {
+    color: #1a1a1a !important;
+}
+
+/* ---------- C-7) 对话上方"审核员·第N轮"徽标：转白系（诉求10） ---------- */
+[data-theme="light"] .chatbox-audit-badge,
+[data-theme="light"] .chatbox-round-badge {
+    background: #f0f0ee !important;
+    color: #1a1a1a !important;
+    border: 1px solid #d8d8d6 !important;
+}
+
+/* ---------- C-8) 右侧返回队列轮次徽标：黄字深底 → 浅底深字 ---------- */
+[data-theme="light"] .zf-rq-round {
+    color: #8a6d1a !important;
+    background: rgba(245, 166, 35, 0.12) !important;
+    border-color: rgba(245, 166, 35, 0.5) !important;
+}
+[data-theme="light"] .zf-rq-card {
+    background: linear-gradient(135deg, #ffffff, #f4f4f2) !important;
+}
+[data-theme="light"] .zf-rq-title {
+    color: #1a1a1a !important;
+}
+
+/* ---------- C-9) 自评分徽章 + 接棒推荐标签：深底白字 → 浅底深字 ---------- */
+[data-theme="light"] .self-eval-badge {
+    color: #ffffff !important;
+    background: #6a6a6a !important;
+}
+[data-theme="light"] .successor-recommend-tag {
+    color: #1a1a1a !important;
+    background: #f0e9c8 !important;
+    border-color: #d8c86a !important;
+}
+
+/* ---------- C-10) i视频：播放控件/三角转黑（诉求12，真实 .iv-* + 通配兜底） ---------- */
+[data-theme="light"] .iv-stage [class*="play"],
+[data-theme="light"] .iv-video::before,
+[data-theme="light"] .iv-video::after,
+[data-theme="light"] .iv-btn {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] .iv-stage [class*="play"] svg,
+[data-theme="light"] .iv-float-panel svg {
+    fill: #1a1a1a !important;
+    stroke: #1a1a1a !important;
+}
+
+/* ---------- C-11) 科技树/星空知识图谱：整片硬编码深色 → 浅底深字（诉求13） ---------- */
+[data-theme="light"] .starmap-panel {
+    background: rgba(247, 247, 245, 0.98) !important;
+    border-left: 1px solid #d8d8d6 !important;
+}
+[data-theme="light"] .starmap-header {
+    background: #ffffff !important;
+    border-bottom-color: #d8d8d6 !important;
+}
+[data-theme="light"] .starmap-title { color: #1a1a1a !important; }
+[data-theme="light"] .starmap-title small { color: #555 !important; }
+[data-theme="light"] .starmap-btn {
+    background: #f0f0ee !important;
+    border-color: #d8d8d6 !important;
+    color: #1a1a1a !important;
+}
+[data-theme="light"] .starmap-btn:hover { background: #e6e6e2 !important; color: #1a1a1a !important; }
+[data-theme="light"] .starmap-toolbar {
+    background: #f4f4f2 !important;
+    border-bottom-color: #d8d8d6 !important;
+    color: #555 !important;
+}
+[data-theme="light"] .starmap-canvas-wrap { background: #f7f7f5 !important; }
+[data-theme="light"] .starmap-footer {
+    background: #f4f4f2 !important;
+    border-top-color: #d8d8d6 !important;
+    color: #555 !important;
+}
+[data-theme="light"] .sm-tooltip {
+    background: #ffffff !important;
+    border-color: #d8d8d6 !important;
+    color: #1a1a1a !important;
+}
+
+/* ---------- C-12) 导航缩略图整理面板：补文字/按钮浅色（诉求15） ---------- */
+[data-theme="light"] .mo-panel .mo-title,
+[data-theme="light"] .mo-panel .mo-name,
+[data-theme="light"] .mo-tools .mo-btn,
+[data-theme="light"] .mo-role-btn {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] .mo-btn {
+    background: #f0f0ee !important;
+    color: #1a1a1a !important;
+    border-color: #d8d8d6 !important;
+}
+
+/* ---------- C-13) 工具球 .tt-circle 文字标签 + 左侧等待动画图标转黑（诉求16） ---------- */
+[data-theme="light"] .tt-circle,
+[data-theme="light"] .thinking-tools .tt-circle {
+    color: #1a1a1a !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+    border-color: #d0d0ce !important;
+}
+[data-theme="light"] .typing-spinner,
+[data-theme="light"] .msg.typing .typing-spinner {
+    border-top-color: #2a2a2a !important;
+    border-right-color: #888 !important;
+    border-bottom-color: #888 !important;
+    border-left-color: #888 !important;
+}
+
+/* ---------- C-14) 任务面板（taskpanel）：僵尸变量兜底转浅 ---------- */
+[data-theme="light"] .task-panel {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+}
+[data-theme="light"] .task-panel * {
+    color: #1a1a1a !important;
+}
+
+/* ============================================================
+ * 第三批（2026-11-13 小队收口后落地）：坐实诉求4/5真根因
+ *   dock 为悬浮在纸白页面上的【透明条】（#zfAppDock 无背景），
+ *   其内 App 图标（含「新建对话 +」）是内联 SVG 硬编码白色
+ *   stroke/fill="#fff"/"#e8e8ee" → 白图标浮白底，看不见（诉求4）。
+ *   「i无限程序」更多面板 #zfDockMorePanel 为硬编码深底
+ *   rgba(20,22,28,.92)，C-2 只改了 .zf-dock-btn 漏了本面板（诉求5）。
+ *   属性选择器只命中白色描边/填充，保留彩色（蓝色徽标点等）。
+ * ============================================================ */
+
+/* ---------- D-1) dock App 图标白色内联 SVG 转黑线框（诉求4，用户反馈：应为黑色框描边，非实心块） ---------- */
+[data-theme="light"] #zfAppDock .zf-dock-item svg[stroke="#fff"],
+[data-theme="light"] #zfAppDock .zf-dock-item svg[stroke="#e8e8ee"] {
+    stroke: #1a1a1a !important;
+}
+/* 【2026-11-16 修复】此前只覆盖 circle/path，漏了 rect 等形状 → i桌面大师等图标残留白色实心底块；现用属性选择器通配所有带 fill="#fff" 的形状（circle/rect/path/ellipse 等全命中） */
+[data-theme="light"] #zfAppDock .zf-dock-item svg [fill="#fff"] {
+    fill: none !important;
+    stroke: #1a1a1a !important;
+    stroke-width: 1.2;
+}
+/* 【2026-11-16 大师纸白风格】dock 图标默认透明底，鼠标搭上显示白色底（带轻阴影浮起） */
+[data-theme="light"] #zfAppDock .zf-dock-item.zf-dock-item:hover,
+[data-theme="light"] #zfAppDock .zf-dock-item:hover:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+/* 更多面板图标同样：默认透明底，hover 白色底 */
+[data-theme="light"] #zfDockMorePanel .zf-panel-flat-item.zf-panel-flat-item:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item.zf-dock-more-item:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+}
+/* 描边用 currentColor 的图标（设置等），随按钮 color 走深色；默认态强制完全透明底 */
+[data-theme="light"] #zfAppDock .zf-dock-item,
+[data-theme="light"] .tp-fab-group .zf-dock-btn {
+    color: #1a1a1a !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+/* 更多面板条目默认态同样强制透明（防止全局 button 底色规则染上灰白块） */
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item,
+[data-theme="light"] #zfDockMorePanel .zf-panel-flat-item {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+/* 拖拽幽灵副本继承同样转黑（ghost 内含原 svg outerHTML） */
+[data-theme="light"] .zf-dock-drag-ghost svg[stroke="#fff"],
+[data-theme="light"] .zf-dock-drag-ghost svg[stroke="#e8e8ee"] {
+    stroke: #1a1a1a !important;
+}
+
+/* ---------- D-2)「i无限程序」更多面板转白系（诉求5） ---------- */
+[data-theme="light"] #zfDockMorePanel {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+[data-theme="light"] #zfDockMorePanel .zf-more-panel-title,
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item em,
+[data-theme="light"] #zfDockMorePanel .zf-more-group-title {
+    color: #1a1a1a !important;
+}
+[data-theme="light"] #zfDockMorePanel .zf-more-panel-title,
+[data-theme="light"] #zfDockMorePanel .zf-more-group-title {
+    border-color: #d8d8d6 !important;
+}
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item.zf-dock-more-item:hover {
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+/* 面板内 App 图标同样是白色内联 SVG，转黑线框（描边黑+填充透明，非实心块） */
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item svg[stroke="#fff"],
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item svg[stroke="#e8e8ee"] {
+    stroke: #1a1a1a !important;
+}
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item svg [fill="#fff"] {
+    fill: none !important;
+    stroke: #1a1a1a !important;
+    stroke-width: 1.2;
+}
+[data-theme="light"] #zfDockMorePanel .zf-dock-more-item {
+    color: #1a1a1a !important;
+}
+/* 收编按钮（整理/摆件/科技树/导航/对话）dock 与面板两态图标转黑 */
+[data-theme="light"] .zf-dock-btn svg[stroke="#fff"],
+[data-theme="light"] .zf-dock-btn svg [fill="#fff"] {
+    stroke: #1a1a1a !important;
+    fill: #1a1a1a !important;
+}
+
+/* ---------- D-3) 语义色豁免（UI师第3轮：通配全染抹掉通过绿/失败红） ---------- */
+/* 状态语义类元素不强制转黑，保留状态色以维持信息层级；
+   置于通配规则之后，靠同 !important + 更高特异度（多一层状态类）覆盖回语义色。 */
+[data-theme="light"] [class*="squad"] .st-pass,
+[data-theme="light"] [class*="squad"] .st-fail,
+[data-theme="light"] [class*="squad"] .pass,
+[data-theme="light"] [class*="squad"] .fail,
+[data-theme="light"] [class*="audit-report"] .st-pass,
+[data-theme="light"] [class*="audit-report"] .st-fail,
+[data-theme="light"] [class*="audit-report"] .pass,
+[data-theme="light"] [class*="audit-report"] .fail,
+[data-theme="light"] .task-panel .st-pass,
+[data-theme="light"] .task-panel .st-fail {
+    color: inherit !important;
+}
+
+/* ---------- D-4) 太空舱空态提示文字转深（诉求14） ---------- */
+/* 舷窗（.zfm-sp-porthole）本身是深色观景圆窗，窗内 ptxt/ptag 浅彩文字在深底上
+   可见，属有意设计，不动。但空态提示 #zfEmptyOverlay 为 body 级全屏居中层
+   （z-index:0），原色 rgba(150,195,240,.6) 浅蓝半透明，纸白浅底上发虚不可读 → 转深。
+   舷窗正下方 token 读数 .zfm-sp-rate 同理（原浅绿带黑阴影，浅底上发虚）→ 转深。 */
+[data-theme="light"] #zfEmptyOverlay {
+    color: rgba(40, 60, 85, 0.72) !important;
+}
+[data-theme="light"] #zfEmptyOverlay b,
+[data-theme="light"] #zfEmptyOverlay .zt-main {
+    color: rgba(30, 48, 70, 0.85) !important;
+}
+[data-theme="light"] .zfm-sp-rate {
+    color: rgba(40, 80, 65, 0.9) !important;
+    text-shadow: none !important;
+}
+
+/* ============================================================
+   E) 【2026-12-31 用户要求】大师纸白背景透明度完全对齐大师墨黑
+   根因：本文件上方 [data-theme=light] 的实色 #ffffff !important 规则
+   把 theme.js 注入的 extraCss 半透明 rgba(0.78/0.85/0.8) 全部压回白实色，
+   墨黑走 dark 路径不吃这些规则 -> 墨黑透、纸白不透。
+   修复：末尾源序后置，压回与墨黑相同的透明度档位（面板 0.78 / 浮层 0.85）。
+   ============================================================ */
+html[data-theme=light] .zf-style-glow .panel,
+html[data-theme=light] .zf-style-glow [class*=panel]:not(.mo-panel):not(.mo-panel *),
+html[data-theme=light] .zf-style-glow .card,
+html[data-theme=light] body:not(.zf-focus) .zf-stage {
+    background: rgba(250, 250, 248, 0.78) !important;
+}
+html[data-theme=light] body:not(.zf-focus) .zf-side,
+html[data-theme=light] body:not(.zf-focus) .zf-proj-list,
+html[data-theme=light] body:not(.zf-focus) .zf-sess-list,
+html[data-theme=light] .settings-nav,
+html[data-theme=light] #tokenUsageMount .tu-card {
+    background: rgba(255, 255, 255, 0.78) !important;
+}
+html[data-theme=light] #tpFabMoreMenu,
+html[data-theme=light] .tp-fab-group,
+html[data-theme=light] .tp-fab-menu {
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* ============================================================
+   F) 【2026-12-31 用户要求 v2】纸白下四类元素透明度完全对齐墨黑：
+   ① 对话框整体背景 ② 思维链块 ③ AI 答案条 ④ 用户提问条
+   墨黑下这四类全是 transparent（style-chatbox.css:1328/1339、
+   chatbox-skins.css ink），纸白被 white-bg 系规则垫成白实色，逐一压回。
+   ============================================================ */
+/* ① 对话框本体 + 消息滚动区 + 输入行：透明 */
+html[data-theme=light] .chatbox,
+html[data-theme=light] .chatbox .chatbox-body,
+html[data-theme=light] .chatbox .chatbox-inputrow,
+html[data-theme=light] .chatbox .chatbox-header {
+    background: transparent !important;
+}
+/* 输入框文字槽：保留极淡白(0.6→与墨黑同档的近透明)，有描边即可显形 */
+html[data-theme=light] .chatbox .chatbox-inputrow textarea,
+html[data-theme=light] .chatbox .chatbox-inputrow input {
+    background: rgba(255, 255, 255, 0.18) !important;
+}
+/* ② 思维链/工具执行块：透明 */
+html[data-theme=light] .chatbox .tool-wrap,
+html[data-theme=light] .chatbox .tool-wrap__header,
+html[data-theme=light] .chatbox .tool-wrap__body,
+html[data-theme=light] .chatbox .msg-think,
+html[data-theme=light] .chatbox .think-block,
+html[data-theme=light] .chatbox .msg.reasoning,
+html[data-theme=light] .chatbox [class*="think"] {
+    background: transparent !important;
+}
+/* ③ AI 答案条 + ④ 用户提问条：透明 */
+html[data-theme=light] .chatbox .msg,
+html[data-theme=light] .chatbox .msg.ai,
+html[data-theme=light] .chatbox .msg.ai-final,
+html[data-theme=light] .chatbox .msg.user {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* ============================================================
+   G) 【2026-12-31 用户要求 v3】专注模式跟随纸白 + 窗口按钮去背景：
+   ① 专注模式(body.zf-focus)左栏/舞台不再被 :not(.zf-focus) 排除，
+      左栏跟随大师纸白底色（半透明纸白，与对话区透明度档位一致）；
+   ② 对话框右上角 最小化/最大化(折叠)/关闭 按钮 + 专注模式顶栏按钮：
+      背景色一律透明（theme.js 全局 button 规则把它们染了底）。
+   ============================================================ */
+/* ① 专注模式左栏 + 会话/项目列表：跟随纸白 */
+/* 【2026-12-31 跟随背景透明度】原 0.88/0.78 写死；改引 --zf-panel-alpha（=背景蒙版透明度 bgVeil/2），
+   左栏 3.2 倍（≈原 0.88 档）、主区 3.12 倍（≈原 0.78 档），上限 0.95 */
+html[data-theme=light] body.zf-focus .zf-side,
+html[data-theme=light] body.zf-focus .zf-proj-list,
+html[data-theme=light] body.zf-focus .zf-sess-list {
+    background: color-mix(in srgb, #FAFAF8 calc(min(var(--zf-panel-alpha, 0.25) * 3.2, 0.95) * 100%), transparent) !important;
+    color: #1C1C1E !important;
+}
+/* 专注模式舞台/主区：纸白透底（跟随背景透明度） */
+html[data-theme=light] body.zf-focus .zf-stage {
+    background: color-mix(in srgb, #FAFAF8 calc(min(var(--zf-panel-alpha, 0.25) * 3.12, 0.95) * 100%), transparent) !important;
+}
+/* 主区可读性底衬：原 focus-mode.css L387 是暗色 rgba(16,16,18,α)，纸白下改为纸色跟随 */
+html[data-theme=light] body.zf-focus .zf-main {
+    background: color-mix(in srgb, #FAFAF8 calc(min(var(--zf-panel-alpha, 0.25) * 3.12, 0.95) * 100%), transparent);
+    box-shadow: 0 0 0 1px rgba(28, 28, 30, 0.05);
+}
+/* 专注模式左栏内文字/行项：深色（原规则是暗色主题的 rgba(255,255,255,x) 白字体系） */
+html[data-theme=light] body.zf-focus .zf-side .zf-proj-head,
+html[data-theme=light] body.zf-focus .zf-side .zf-group-head,
+html[data-theme=light] body.zf-focus .zf-side .zf-proj-item,
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item,
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-title {
+    color: #1C1C1E !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-proj-item:hover,
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item:hover {
+    background: rgba(28, 28, 30, 0.06) !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-proj-item.active,
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item.active {
+    background: rgba(28, 28, 30, 0.10) !important;
+    color: #1C1C1E !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item.active .zf-sess-title {
+    color: #1C1C1E !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item.active::before,
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item:hover::before {
+    background: rgba(28, 28, 30, 0.4) !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-sess-item.zf-sess-child {
+    border-left-color: rgba(28, 28, 30, 0.14) !important;
+}
+html[data-theme=light] body.zf-focus .zf-side .zf-group-head .zf-group-count {
+    background: rgba(28, 28, 30, 0.07) !important;
+    color: #6b6b70 !important;
+}
+/* ② 窗口按钮（最小化/折叠/关闭）+ 专注顶栏按钮：背景全透明 */
+html[data-theme=light] .chatbox-header-row1 .hd-btn.more-btn,
+html[data-theme=light] .chatbox-header-row1 .hd-btn.min-btn,
+html[data-theme=light] .chatbox-header-row1 .hd-btn.close,
+html[data-theme=light] body.zf-focus .zf-btn,
+html[data-theme=light] body.zf-focus .zf-icon-btn {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+html[data-theme=light] .chatbox-header-row1 .hd-btn.more-btn:hover,
+html[data-theme=light] .chatbox-header-row1 .hd-btn.min-btn:hover,
+html[data-theme=light] body.zf-focus .zf-btn:hover,
+html[data-theme=light] body.zf-focus .zf-icon-btn:hover {
+    background: rgba(28, 28, 30, 0.08) !important;
+}
+/* 关闭按钮 hover 保留警示红但去底色块 → 极淡红晕 */
+html[data-theme=light] .chatbox-header-row1 .hd-btn.close:hover {
+    background: rgba(229, 83, 83, 0.12) !important;
+    color: #c94040 !important;
+}
+
+/* ============================================================
+   【2026-11-23 白色系对话框透明·终极收口】用户报告纸白等白色界面对话框仍全白不透。
+   上游混战源：style-chatbox.css 浅色块 #ffffff !important（多代类名）× 各风格
+   extraCss × v33 滑块规则，特异性层次不齐。此处（本文件最末位、浅色专属）
+   用 html body + 双类名最高特异性一次性定案：
+   - 对话框元素与全部内部区域 = 全透明（浅色下的"内部透明"由本规则唯一裁定）
+   - 唯一底色载体 = ::before 垫底层，跟随 --chatboxBgOpacity（对话框透亮度滑块，
+     默认 0.35），滑块即用户对白色对话框透明度的唯一控制入口
+   - 用户气泡/头像/媒体不在此清单，保留各自样式
+   ============================================================ */
+html[data-theme="light"] body .chatbox.chatbox::before {
+    background: color-mix(in srgb, var(--bg-card, #ffffff) calc(var(--chatboxBgOpacity, 0.35) * 100%), transparent) !important;
+}
+html[data-theme="light"] body .chatbox.chatbox,
+html[data-theme="light"] body .chatbox.chatbox .chatbox-header,
+html[data-theme="light"] body .chatbox.chatbox .chatbox-body,
+html[data-theme="light"] body .chatbox.chatbox .chat-messages,
+html[data-theme="light"] body .chatbox.chatbox .chatbox-messages,
+html[data-theme="light"] body .chatbox.chatbox .msg-list,
+html[data-theme="light"] body .chatbox.chatbox .chatbox-inputrow,
+html[data-theme="light"] body .chatbox.chatbox .chatbox-input,
+html[data-theme="light"] body .chatbox.chatbox .chat-input-area,
+html[data-theme="light"] body .chatbox.chatbox .input-area {
+    background: transparent !important;
+}
+/* 【2026-11-23 终极收口补充】模型配置条（Codol ▾ 所在白条）浅色下同步透明 */
+html[data-theme="light"] body .chatbox.chatbox .chatbox-configrow.chatbox-configrow {
+    background: transparent !important;
+}

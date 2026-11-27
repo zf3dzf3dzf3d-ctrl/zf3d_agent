@@ -1,0 +1,5 @@
+{
+    "_说明": "浏览器插件配置。idle_close_seconds：空闲自动回收秒数，0=永不自动关闭。调大可减少 AI 再次调用时的重开弹窗。",
+    "data_dir": "private/浏览器数据",
+    "idle_close_seconds": 3600
+}

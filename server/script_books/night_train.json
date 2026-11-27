@@ -1,0 +1,73 @@
+{
+  "id": "night_train",
+  "title": "夜行列车杀人事件",
+  "player_count": [1, 6],
+  "intro": "1937年冬，开往北平的夜行列车。深夜 22:47，列车穿过隧道时灯灭三分钟。灯亮后，包厢 3 号的富商周慕云被发现死于座位上，面色青紫。列车正在行使中，凶手就在车上。",
+  "background": "周慕云（54岁）是北平著名的古董商人，此行携带一只紫檀木匣。同车厢的还有他的账房先生沈之衡、侄女周婉、军医官顾医生、江湖商人白三爷。周慕云生前与多人有仇：克扣工钱、毁人婚约、倒卖赝品。22:44 列车进隧道，22:47 灯亮，人人都有三分钟。",
+  "scenes": [
+    {"id": "sc_car3", "name": "3号包厢", "desc": "案发现场。周慕云伏在小桌上，茶杯倾倒，茶水里有杏仁苦味。", "spots": ["spot_cup", "spot_desk", "spot_window"]},
+    {"id": "sc_car2", "name": "2号车厢", "desc": "过道与行李架。", "spots": ["spot_luggage", "spot_floor"]},
+    {"id": "sc_dining", "name": "餐车", "desc": "傍晚众人用餐之处，柜台尚有残留。", "spots": ["spot_counter", "spot_stove"]}
+  ],
+  "characters": [
+    {"id": "zhou", "name": "周慕云（死者）", "is_victim": true, "is_murderer": false,
+     "persona": "古董商人，精明刻薄。",
+     "secret": "死前曾威胁要修改遗嘱，剥夺侄女继承权。",
+     "prewritten": ["（死者不发言）", "（死者不发言）"],
+     "knowledge": []},
+    {"id": "shen", "name": "沈之衡（账房）", "is_victim": false, "is_murderer": true,
+     "persona": "账房先生，谨慎寡言，跟随周慕云十二年。",
+     "secret": "【凶手】周慕云发现沈之衡挪用公款填补赌债，扬言下车就送他见官。沈之衡在餐车烧水的铜壶里下了氰化物，22:30 给死者续了一杯茶。凶手知道锅炉房有备用的同一款铜壶，事后调换了餐车的壶。他在灯灭的三分钟里擦掉了茶杯外侧自己的指纹。",
+     "prewritten": ["我一直在行李间清点老爷的货单，灯灭时我吓得扶住了门框。", "老爷傍晚还在骂账目的事，但他对谁都那样，我没有往心里去。"],
+     "knowledge": ["f_quarrel_debt", "f_kettle_swap"]},
+    {"id": "wan", "name": "周婉（侄女）", "is_victim": false, "is_murderer": false,
+     "persona": "周慕云侄女，女学生，性情急。",
+     "secret": "叔叔要剥夺她的继承权，她在餐车和叔叔大吵一架，摔门而去——但她没杀人。",
+     "prewritten": ["我是和叔叔吵过架，可我吵完就回了铺位，王婶可以作证！", "叔叔要改遗嘱我是最后知道的，我知道你们会怀疑我。"],
+     "knowledge": ["f_quarrel_will", "f_quarrel_public"]},
+    {"id": "gu", "name": "顾医生（军医）", "is_victim": false, "is_murderer": false,
+     "persona": "随军军医，见惯生死，冷静。",
+     "secret": "他第一时间验了尸：青紫色面容、苦杏仁味——是氰化物中毒，死于 22:30 之前，即灯灭之前毒已入腹。他随身氰化物药瓶少了一粒（验尸后他数过）。",
+     "prewritten": ["死因是氰化物，入口时间在灯灭之前——毒早就在茶里了。", "我的药瓶少了一粒，但我怀疑是有人在餐车顺手拿的，我的包一直放在餐车长椅上。"],
+     "knowledge": ["f_poison_cyanide", "f_death_before_dark"]},
+    {"id": "bai", "name": "白三爷（商人）", "is_victim": false, "is_murderer": false,
+     "persona": "跑江湖的古董贩子，嘴甜心细。",
+     "secret": "他卖给周慕云的青铜尊是赝品，怕被戳穿，但他 22 点后就独自躲进了餐车尾部喝茶，一直没离开——茶炉房的伙计看见他一直在。",
+     "prewritten": ["我卖他的尊是真货！他懂什么，他自己都看走眼过。", "灯灭时我在餐车喝茶，茶炉房伙计看着我呢，问他就知道了。"],
+     "knowledge": ["f_fake_antique", "f_bai_alibi"]}
+  ],
+  "clues": [
+    {"id": "clue_cup", "spot": "spot_cup", "name": "倾倒的茶杯", "desc": "杯底残茶散发苦杏仁味；杯壁指纹被仔细擦去，唯独擦不到杯底——杯底一枚清晰指纹，茶渍未干即形成。", "owner": null, "implies": ["f_poison_cyanide", "f_print_wiped"]},
+    {"id": "clue_kettle", "spot": "spot_stove", "name": "餐车铜壶", "desc": "餐车烧水的铜壶是新擦亮的，壶底却有一圈与炉架锈迹不符的白痕——它是刚从别处调换来的备用壶。", "owner": null, "implies": ["f_kettle_swap"]},
+    {"id": "clue_ledger", "spot": "spot_desk", "name": "摊开的账册", "desc": "死者手边账册摊在十一月页，'沈'字条目旁朱笔圈了三处亏空，页边批注：'下车送官'。", "owner": null, "implies": ["f_quarrel_debt"]},
+    {"id": "clue_will", "spot": "spot_luggage", "name": "未封口的信", "desc": "行李夹层有一封未封口的信，是给律师的：'婉儿顽劣，遗嘱当改'。信纸日期是昨日。", "owner": null, "implies": ["f_quarrel_will"]},
+    {"id": "clue_fight", "spot": "spot_floor", "name": "摔碎的玉镯", "desc": "2号车厢地板有一只摔碎的玉镯，是周婉的——她与死者的争吵发生在餐车门口，摔镯后有人看见她哭着回了铺位（22:20，列车员证词）。", "owner": null, "implies": ["f_quarrel_public"]},
+    {"id": "clue_medkit", "spot": "spot_counter", "name": "长椅上的药箱", "desc": "顾医生的药箱留在餐车长椅上，氰化物药瓶（他用于消毒的烈性药）封蜡有一道新划痕，瓶身药粒少了一粒。", "owner": null, "implies": ["f_poison_source"]},
+    {"id": "clue_bai", "spot": "spot_counter", "name": "茶炉房记事", "desc": "茶炉房伙计的记事板：'22:00后 白三爷 坐尾部未离'，另有一行小字：'22:25 沈账房来续壶'。", "owner": null, "implies": ["f_bai_alibi", "f_shen_kettle_time"]},
+    {"id": "clue_antique", "spot": "spot_window", "name": "青铜尊的照片", "desc": "死者手边压着一张青铜尊照片，背面写：'白三爷所售，疑赝。灯下再验。'", "owner": null, "implies": ["f_fake_antique"]}
+  ],
+  "timeline": [
+    {"id": "f_quarrel_will", "t": "18:00", "who": "zhou", "what": "周慕云写信给律师要改遗嘱剥夺周婉继承权", "is_key": false},
+    {"id": "f_quarrel_public", "t": "22:20", "who": "wan", "what": "周婉因遗嘱与死者当众争吵后回铺（不在场证明）", "is_key": false, "deps": ["f_quarrel_will"]},
+    {"id": "f_fake_antique", "t": "21:00", "who": "bai", "what": "死者怀疑白三爷售赝，但白三爷 22:00 后一直在餐车尾部", "is_key": false},
+    {"id": "f_bai_alibi", "t": "22:00", "who": "bai", "what": "白三爷 22:00 后未离开餐车（伙计证词）", "is_key": false},
+    {"id": "f_quarrel_debt", "t": "21:30", "who": "shen", "what": "死者发现沈之衡挪用公款，扬言下车送官", "is_key": false},
+    {"id": "f_poison_source", "t": "22:10", "who": "shen", "what": "氰化物取自餐车上顾医生无人看管的药箱", "is_key": false},
+    {"id": "f_shen_kettle_time", "t": "22:25", "who": "shen", "what": "沈之衡 22:25 到餐车'续壶'——正是下毒与调包铜壶的时机", "is_key": true, "deps": ["f_poison_source", "f_quarrel_debt"]},
+    {"id": "f_kettle_swap", "t": "22:25", "who": "shen", "what": "餐车铜壶被调换成备用壶，毒已入壶", "is_key": true, "deps": ["f_shen_kettle_time"]},
+    {"id": "f_poison_cyanide", "t": "22:30", "who": "zhou", "what": "死者饮下含氰化物的茶", "is_key": true, "deps": ["f_kettle_swap"]},
+    {"id": "f_death_before_dark", "t": "22:30", "who": "zhou", "what": "死亡发生于灯灭（22:44）之前，'三分钟不在场'全部洗清", "is_key": true, "deps": ["f_poison_cyanide"]},
+    {"id": "f_print_wiped", "t": "22:46", "who": "shen", "what": "凶手灯灭后擦去杯壁指纹，但杯底指纹因茶渍未干得以留存", "is_key": true, "deps": ["f_death_before_dark"]},
+    {"id": "f_murderer", "t": "22:30", "who": "shen", "what": "凶手即沈之衡：动机+取毒时机+调壶时机+擦指纹，四人中唯一全链吻合", "is_key": true, "deps": ["f_print_wiped", "f_quarrel_debt"], "hidden": false}
+  ],
+  "tasks": [
+    {"id": "t_shen1", "char": "shen", "desc": "不让任何人发现铜壶被调换过", "check": {"type": "survive"}, "score": 3},
+    {"id": "t_wan1", "char": "wan", "desc": "洗清自己嫌疑：证明争吵后回了铺位", "check": {"type": "know_clue", "clue": "clue_fight"}, "score": 2},
+    {"id": "t_gu1", "char": "gu", "desc": "查明死因并公开毒源药箱的位置", "check": {"type": "know_clue", "clue": "clue_medkit"}, "score": 2},
+    {"id": "t_bai1", "char": "bai", "desc": "证明自己 22 点后未离开餐车", "check": {"type": "know_clue", "clue": "clue_bai"}, "score": 2}
+  ],
+  "win_conditions": {
+    "murderer_win": "凶手未被过半数指认，则凶手逃脱获胜",
+    "town_win": "过半数票投中凶手，则好人胜（任务链不全记低质量胜利 0.5）"
+  }
+}

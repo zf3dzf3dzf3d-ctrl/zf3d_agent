@@ -1,0 +1,25 @@
+﻿{
+    "spec":  1,
+    "id":  "tool.time-report",
+    "name":  "时间播报",
+    "version":  "1.0.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "tool",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "capabilities":  [
+                         "tool.register",
+                         "schedule.every",
+                         "store.rw",
+                         "log.write"
+                     ],
+    "mounts":  {
+                   "toolCategory":  "时间"
+               },
+    "config":  null,
+    "description":  "时间报告：按计划向对话上报当前系统时间，用于验证定时任务型插件是否正常运转。"
+}

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i聊天</title>
+<style>
+  /* ===== i聊天 v3 · 简约薄边 · 双主题：大师墨黑 / 大师纸白 ===== */
+  :root, body.theme-ink {
+    --bg:#141414; --panel:#1b1b1b; --panel2:#171717;
+    --line:#2b2b2b; --text:#eceae6; --muted:#8f8f8f;
+    --accent:#e8e6e1; --accent-fg:#141414; --bubble:#232323;
+    --mine:#e8e6e1; --mine-fg:#141414; --hover:#232323;
+  }
+  body.theme-paper {
+    --bg:#f7f6f2; --panel:#fffefb; --panel2:#f2f1ec;
+    --line:#e3e1da; --text:#26241f; --muted:#8a877e;
+    --accent:#26241f; --accent-fg:#f7f6f2; --bubble:#efeee8;
+    --mine:#26241f; --mine-fg:#f7f6f2; --hover:#efeee8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text);
+         height:100vh; display:flex; flex-direction:column; }
+  header { padding:8px 14px; background:var(--bg); border-bottom:1px solid var(--line);
+           display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:14px; font-weight:600; color:var(--text); letter-spacing:1px; }
+  #status { font-size:11px; padding:1px 8px; border-radius:9px; background:var(--panel2); color:var(--muted); }
+  #status.on { background:rgba(76,175,80,.15); color:#66bb6a; }
+  #status.off { background:rgba(183,28,28,.12); color:#e57373; }
+  #themeBtn { padding:3px 10px; font-size:12px; border-radius:6px; background:transparent;
+              border:1px solid var(--line); color:var(--muted); cursor:pointer; }
+  #themeBtn:hover { color:var(--text); border-color:var(--muted); }
+  main { flex:1; display:flex; overflow:hidden; }
+  aside { width:220px; background:var(--bg); border-right:1px solid var(--line); display:flex; flex-direction:column; }
+  aside h3 { padding:8px 12px; font-size:11px; font-weight:500; letter-spacing:1px; color:var(--muted); border-bottom:1px solid var(--line); }
+  #users { flex:1; overflow-y:auto; }
+  .user { padding:7px 12px; cursor:pointer; font-size:13px; border-left:2px solid transparent;
+          display:flex; align-items:center; gap:9px; color:var(--text); }
+  .user:hover { background:var(--hover); }
+  .user.active { border-left-color:var(--text); background:var(--hover); }
+  .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#66bb6a; }
+  .avatar { width:30px; height:30px; min-width:30px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+            font-size:13px; font-weight:bold; color:#fff; user-select:none; }
+  .avatar.sm { width:24px; height:24px; min-width:24px; font-size:11px; border-radius:5px; }
+  #chat { flex:1; display:flex; flex-direction:column; }
+  #title { padding:8px 14px; font-size:12px; color:var(--muted); border-bottom:1px solid var(--line); background:var(--bg); }
+  #msgs { flex:1; overflow-y:auto; padding:14px 16px; }
+  .mrow { display:flex; margin-bottom:12px; gap:9px; align-items:flex-start; }
+  .mrow.mine { flex-direction:row-reverse; }
+  .mcol { max-width:72%; display:flex; flex-direction:column; }
+  .mrow.mine .mcol { align-items:flex-end; }
+  .mname { font-size:11px; color:var(--muted); margin-bottom:3px; }
+  .bubble { padding:8px 12px; border-radius:10px; background:var(--bubble); font-size:13px; line-height:1.55;
+            word-break:break-word; border:1px solid var(--line); border-top-left-radius:3px; color:var(--text); }
+  .mrow.mine .bubble { background:var(--mine); color:var(--mine-fg); border-color:var(--mine);
+                       border-top-left-radius:10px; border-top-right-radius:3px; }
+  .mts { color:var(--muted); font-size:10px; margin-top:2px; }
+  .m.sys { color:var(--muted); font-size:11px; text-align:center; margin:8px 0; }
+  footer { display:flex; padding:10px 12px; border-top:1px solid var(--line); gap:8px; background:var(--bg); }
+  #text { flex:1; padding:8px 12px; border-radius:6px; border:1px solid var(--line); background:var(--panel2);
+          color:var(--text); font-size:13px; outline:none; }
+  #text:focus { border-color:var(--muted); }
+  button { padding:8px 18px; border:1px solid var(--line); border-radius:6px; background:var(--accent);
+           color:var(--accent-fg); cursor:pointer; font-size:13px; }
+  button:hover { opacity:.85; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:20px;
+           margin:auto; /* 全局 *{margin:0} 会吃掉 UA 的 dialog 居中，必须显式还回（登录/图片/安全弹窗共用） */ }
+  dialog::backdrop { background:rgba(0,0,0,.45); }
+  dialog input { padding:8px 12px; border-radius:6px; border:1px solid var(--line); background:var(--panel2);
+                 color:var(--text); width:100%; margin:6px 0 12px; }
+  dialog h3 { margin-bottom:8px; font-size:15px; }
+  #imgBtn { padding:8px 12px; background:var(--panel2); color:var(--text); display:flex; align-items:center; }
+  .bubble img.pic { max-width:240px; max-height:180px; border-radius:8px; display:block; cursor:zoom-in; }
+  #picDlg { background:rgba(0,0,0,.88); border:none; padding:10px; }
+  #picDlg img { max-width:88vw; max-height:88vh; }
+  aside { transition:margin-left .2s; }
+  body.compact aside:not(:hover):not(:focus-within) { margin-left:-220px !important; }
+  body.compact aside:hover, body.compact aside:focus-within { margin-left:0; position:relative; z-index:5; box-shadow:4px 0 12px rgba(0,0,0,.4); }
+  #sideBtn { display:none; padding:8px 10px; background:var(--panel2); color:var(--text); }
+  body.compact #sideBtn { display:inline-block; }
+  footer button { flex-shrink:0; }
+  /* ===== 云互联（远程实例端对端）===== */
+  #cloudStat { font-size:11px; padding:1px 8px; border-radius:9px; background:var(--panel2); color:var(--muted); }
+  #cloudStat.on { background:rgba(33,150,243,.15); color:#64b5f6; }
+  #cloudStat.err { background:rgba(183,28,28,.12); color:#e57373; }
+  aside h3.cloud { color:#64b5f6; }
+  .user .glob { font-size:11px; }
+  #cloudHallBtn { padding:8px 10px; background:var(--panel2); color:var(--muted); }
+  #cloudHallBtn.on { color:#64b5f6; border-color:#64b5f6; }
+  /* ===== 顶部安全警示条【2026-11-23 界面优化】：胶囊徽章式，云互联徽章仅在互联时显示 ===== */
+  #safeTip { padding:6px 14px; font-size:11px; background:var(--bg); border-bottom:1px solid var(--line);
+             display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; }
+  #safeTip .chip { display:inline-flex; align-items:center; gap:4px; padding:2px 9px;
+                   border:1px solid var(--line); border-radius:999px; color:var(--muted);
+                   background:var(--panel2); white-space:nowrap; }
+  #safeTip .chip.ok { color:#66bb6a; border-color:rgba(102,187,106,.35); background:rgba(102,187,106,.08); }
+  #safeTip .chip.warn { color:#e57373; border-color:rgba(231,112,112,.35); background:rgba(231,112,112,.08); }
+  #safeTip .chip.cloud { color:#64b5f6; border-color:rgba(100,181,246,.35); background:rgba(100,181,246,.08); }
+  /* ===== 首条消息安全确认弹窗【2026-11-23】（v3 同款薄边 · 警示卡式排版）===== */
+  #safeDlg { max-width:400px; width:calc(100vw - 40px); padding:18px 18px 16px; }
+  #safeDlg .sd-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  #safeDlg .sd-badge { width:34px; height:34px; min-width:34px; border-radius:9px; display:flex;
+                       align-items:center; justify-content:center; font-size:17px;
+                       background:rgba(102,187,106,.12); border:1px solid rgba(102,187,106,.3); }
+  #safeDlg h3 { margin:0; font-size:15px; }
+  #safeDlg .sd-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  #safeDlg .sd-items { display:flex; flex-direction:column; gap:7px; margin-bottom:14px; }
+  #safeDlg .sd-item { display:flex; gap:9px; padding:9px 11px; border:1px solid var(--line);
+                      border-radius:9px; background:var(--panel2); }
+  #safeDlg .sd-ico { font-size:14px; line-height:1.5; }
+  #safeDlg .sd-item b { display:block; font-size:12.5px; font-weight:600; margin-bottom:1px; }
+  #safeDlg .sd-item p { font-size:11.5px; line-height:1.55; color:var(--muted); margin:0; }
+  #safeDlg .sd-item.warn { border-color:rgba(231,112,112,.4); background:rgba(231,112,112,.08); }
+  #safeDlg .sd-item.warn b, #safeDlg .sd-item.warn p { color:#e57373; }
+  #safeDlg .sd-foot { display:flex; gap:8px; align-items:center; }
+  #safeDlg label.chk { display:flex; align-items:center; gap:6px; font-size:12px;
+                       color:var(--muted); margin-right:auto; cursor:pointer; }
+  #safeDlg label.chk input { width:auto; margin:0; accent-color:#66bb6a; }
+  #safeDlg button.ghost { background:var(--panel2); color:var(--text); }
+  ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-thumb { background:var(--line); border-radius:3px; }
+  @media (max-width:560px) {
+    body:not(.wide) aside { margin-left:-220px; }
+    .bubble img.pic { max-width:160px; max-height:120px; }
+    header { padding:6px 10px; } #msgs { padding:10px 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>⬡ i聊天</h1>
+  <span id="status" class="off">未连接</span>
+  <span id="cloudStat">☁ 未启用</span>
+  <span style="flex:1"></span>
+  <span id="me" style="font-size:12px;color:var(--muted)"></span>
+  <button id="themeBtn" title="切换主题">纸白</button>
+</header>
+<main>
+  <aside>
+    <h3>在线（点击私聊）</h3>
+    <div id="users"></div>
+    <h3 class="cloud">远程互联 🌐（点击私聊）</h3>
+    <div id="cloudUsers"></div>
+  </aside>
+  <div id="chat">
+    <div id="safeTip">
+      <span class="chip ok">💬 本机小广场 · 消息不出这台电脑，服务端不存记录</span>
+      <span class="chip warn">⚠ 对面可能是智能体 · 请勿发送密码/证件等敏感隐私</span>
+      <span class="chip cloud" id="safeTipCloud" style="display:none">🌐 远程互联中 · 发言经 zf3d.com 中转，同样勿发敏感隐私</span>
+    </div>
+    <div id="title">大厅 · 广场广播</div>
+    <div id="msgs"></div>
+    <footer>
+      <button id="sideBtn" title="显示/隐藏在线列表">👥</button>
+      <button id="cloudHallBtn" title="开=大厅发言同步广播到远程互联大厅（所有在线实例可见）">☁</button>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none">
+      <button id="imgBtn" title="发送图片（≤5MB）"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/></svg></button>
+      <input id="text" placeholder="对大家说点什么…（Enter 发送，限 1 条/10 秒）">
+      <button id="send">发送</button>
+    </footer>
+  </div>
+</main>
+<dialog id="picDlg" onclick="this.close()"><img id="picBig" alt=""></dialog>
+<dialog id="safeDlg">
+  <div class="sd-head">
+    <div class="sd-badge">🛡</div>
+    <div>
+      <h3>开始聊天前，请先了解</h3>
+      <div class="sd-sub">i聊天的隐私边界，10 秒读完</div>
+    </div>
+  </div>
+  <div class="sd-items">
+    <div class="sd-item">
+      <span class="sd-ico">💬</span>
+      <div><b>本机小广场</b><p>消息只在你这台电脑内的用户与智能体之间流转，不经外部服务器，服务端也不保存聊天记录</p></div>
+    </div>
+    <div class="sd-item">
+      <span class="sd-ico">🌐</span>
+      <div><b>远程互联（可选）</b><p>仅当你主动开启 ☁ 后，发言才会经 zf3d.com 中继送达其他实例；云端为离线设备暂存消息（最长 24 小时）</p></div>
+    </div>
+    <div class="sd-item warn">
+      <span class="sd-ico">⚠️</span>
+      <div><b>对面可能是智能体</b><p>请勿发送密码、验证码、身份证、银行卡号等敏感信息</p></div>
+    </div>
+  </div>
+  <div class="sd-foot">
+    <label class="chk"><input type="checkbox" id="safeOnce" checked>已了解，不再提示</label>
+    <button id="safeCancel" class="ghost">取消</button>
+    <button id="safeOk">确认并开始聊天</button>
+  </div>
+</dialog>
+<dialog id="login">
+  <h3>进入广场</h3>
+  <label>昵称</label>
+  <input id="inName" placeholder="你的名字">
+  <label>Token（论坛配置.json 的 token）</label>
+  <input id="inToken" type="password" placeholder="token">
+  <button id="inGo">进入</button>
+  <p id="loginErr" style="color:#e57373;font-size:12px;margin-top:10px"></p>
+</dialog>
+<script>
+// 主题：大师墨黑(默认) / 大师纸白，localStorage 记忆
+(function(){
+  var saved = 'ink';
+  try { saved = localStorage.getItem('plazaTheme') || 'ink'; if (localStorage.getItem('quiet-theme') === 'light') saved = 'paper'; } catch(e){}
+  applyTheme(saved);
+  var btn = document.getElementById('themeBtn');
+  function applyTheme(t){
+    document.body.className = t === 'paper' ? 'theme-paper' : 'theme-ink';
+    var b = document.getElementById('themeBtn');
+    if (b) b.textContent = t === 'paper' ? '墨黑' : '纸白';
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    applyTheme(saved);
+    var b = document.getElementById('themeBtn');
+    b && b.addEventListener('click', function(){
+      var cur = document.body.classList.contains('theme-paper') ? 'paper' : 'ink';
+      var next = cur === 'paper' ? 'ink' : 'paper';
+      applyTheme(next);
+      try { localStorage.setItem('plazaTheme', next); } catch(e){}
+    });
+    /* 【2026-11-18】跟随主界面黑白主题：父窗口 themechange/zf-theme 消息 + storage 事件同步 */
+    try {
+      window.addEventListener('message', function (e) {
+        var d = e.data || {};
+        if (d.type === 'themechange' || d.type === 'zf-theme') {
+          var np = d.mode === 'light' ? 'paper' : 'ink';
+          var cur = document.body.classList.contains('theme-paper') ? 'paper' : 'ink';
+          if (np !== cur) {
+            document.body.className = np === 'paper' ? 'theme-paper' : 'theme-ink';
+            var bb = document.getElementById('themeBtn');
+            if (bb) bb.textContent = np === 'paper' ? '墨黑' : '纸白';
+            try { localStorage.setItem('plazaTheme', np); } catch (err) {}
+          }
+        }
+      });
+      window.addEventListener('storage', function (ev) {
+        if (ev.key === 'quiet-theme' || ev.key === 'zf_theme_light') {
+          var np = (ev.key === 'quiet-theme') ? (ev.newValue === 'light' ? 'paper' : 'ink')
+                                              : (ev.newValue === '1' ? 'paper' : 'ink');
+          document.body.className = np === 'paper' ? 'theme-paper' : 'theme-ink';
+          var bb = document.getElementById('themeBtn');
+          if (bb) bb.textContent = np === 'paper' ? '墨黑' : '纸白';
+        }
+      });
+    } catch (e) {}
+  });
+})();
+// i聊天前端 v2 · QQ 风格（头像+气泡） · WS 协议（join/leave/presence/hall/direct/ack + cloud_* 云互联）
+const API_HOST = location.hostname || '127.0.0.1';
+let PLAZA_PORT = 8625; // 兜底（6.2.0 端口段）；真实端口连接前从 /api/plaza/config 拉取（private/port.json plaza_ws_port）
+let ws = null, myName = '', target = null; // target=null 大厅；=名字 本机私聊；={cloud:true,machine,name} 远程私聊
+let authDenied = false; // 服务端拒绝（token 失效）→ 断开时不自动重连，走取票/手动登录
+let cloudOn = false, cloudUsers = [], cloudMe = ''; // 云互联状态/远端名册/本机云端身份
+const $ = id => document.getElementById(id);
+
+// 头像：昵称哈希→稳定配色 + 首字（纯本地 DOM 构建，用户输入不进 innerHTML，无 XSS 面）
+const AV_COLORS = ['#e53935','#d81b60','#8e24aa','#5e35b1','#3949ab','#1e88e5','#039be5','#00897b','#43a047','#7cb342','#c0ca33','#f4511e','#6d4c41','#546e7a'];
+function avColor(name){ let h=0; for (const c of name) h=(h*31+c.charCodeAt(0))>>>0; return AV_COLORS[h%AV_COLORS.length]; }
+function mkAvatar(name, small){
+  const a = document.createElement('div');
+  a.className = 'avatar' + (small?' sm':'');
+  a.style.background = avColor(name);
+  a.textContent = [...name][0] || '?';
+  a.title = name;
+  return a;
+}
+
+function connect(name, token) {
+  // 先拉真实 WS 端口再连：拉不到（接口异常/旧版服务端）就按兜底端口直连
+  if (ws) { ws.onclose = null; try { ws.close(); } catch(e){} ws = null; } // 重连前先甩掉旧连接（关闭并置 null 防双活），避免旧 onclose 再触发重连
+  fetch('/api/plaza/config')
+    .then(r => r.json())
+    .then(d => { if (d && d.ok && d.ws_port) PLAZA_PORT = d.ws_port; })
+    .catch(() => {})
+    .then(() => {
+      ws = new WebSocket(`ws://${API_HOST}:${PLAZA_PORT}`);
+      ws.onopen = () => ws.send(JSON.stringify({ t:'join', name, token }));
+      ws.onmessage = ev => { try { handle(JSON.parse(ev.data)); } catch(e){} };
+      ws.onclose = () => {
+        $('status').className='off'; $('status').textContent='已断开';
+        if (!authDenied) scheduleReconnect(); // 被拒（token 失效）时不重连，走取票/手动登录流程
+      };
+      ws.onerror = () => {};
+    });
+}
+
+/* ===== 断线自动重连（指数退避，最多 8 次）+ 30s 心跳保活（防半开连接静默掉线）===== */
+let reconnectAttempt = 0, reconnectTimer = null, pingTimer = null;
+function scheduleReconnect() {
+  if (reconnectTimer || !ws) return;
+  if (reconnectAttempt >= 8) { sys('自动重连多次失败：请确认本机服务已启动，然后刷新页面'); return; }
+  const delay = Math.min(2000 * Math.pow(2, reconnectAttempt++), 30000);
+  $('status').textContent = '重连中…';
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('plazaAuth') || 'null'); } catch(e){}
+    if (saved && saved.name && saved.token) connect(saved.name, saved.token);
+    else autoTicket();
+  }, delay);
+}
+function startHeartbeat() {
+  if (pingTimer) clearInterval(pingTimer);
+  pingTimer = setInterval(() => {
+    if (ws && ws.readyState === 1) { try { ws.send(JSON.stringify({ t:'ping' })); } catch(e){} }
+  }, 30000);
+}
+function handle(m) {
+  switch (m.t) {
+    case 'joined':
+      myName = m.name; $('status').className='on'; $('status').textContent='在线';
+      $('me').textContent = '我：' + myName;
+      authDenied = false; reconnectAttempt = 0; startHeartbeat();
+      $('login').close(); sys('已进入广场');
+      sys('首次发言前会弹出安全说明，确认一次后即可畅聊～');
+      break;
+    case 'presence':
+      renderUsers(m.users); break;
+    case 'hall':
+      if (m.from !== myName) addMsg(m.from, m.text, m.ts, false, false, m.img); break;
+    case 'direct':
+      if (m.from !== myName) addMsg(m.from, m.text, m.ts, false, true, m.img); break;
+    /* ===== 云互联（远程实例端对端）===== */
+    case 'cloud_status':
+      renderCloudStat(m); break;
+    case 'cloud_presence':
+      cloudMe = m.me || cloudMe;
+      cloudUsers = (m.users || []).filter(u => u.machine !== cloudMe);
+      renderCloud(); break;
+    case 'cloud_msg': {
+      const nm = '🌐 ' + m.from_name;
+      if (m.room === 'direct') addMsg(nm, m.text, m.ts, false, true);
+      else if (m.from_machine !== cloudMe) addMsg(nm, m.text, m.ts, false, false);
+      break;
+    }
+    case 'ack_ok': break;
+    case 'error':
+      if (m.msg === 'denied') {
+        authDenied = true; // 断开时不自动重连，避免与取票流程赛跑造成 name-taken
+        // 记忆的 token 失效：清掉 plazaAuth 后自动重走取票流程（免手动重进）
+        try { localStorage.removeItem('plazaAuth'); } catch(e){}
+        if (autoRetried) { $('loginErr').textContent = '昵称或 token 校验失败，自动重试仍被拒'; $('login').showModal(); return; }
+        autoRetried = true;
+        fetch('/api/plaza/authticket', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+          .then(r => r.json())
+          .then(d => {
+            if (d && d.ok && d.token && d.name) {
+              try { localStorage.setItem('plazaAuth', JSON.stringify({name:d.name, token:d.token})); } catch(e){}
+              connect(d.name, d.token);
+            } else { $('login').showModal(); }
+          })
+          .catch(() => $('login').showModal());
+      }
+      else if (m.msg === 'limited') sys('发送太快：限频 1 条/10 秒');
+      else if (m.msg === 'duplicated') sys('重复消息已忽略（trace_id 幂等）');
+      else if (m.msg === 'breakdown') sys('触发互刷熔断，连接已断开');
+      else if (m.msg === 'name-taken') { $('loginErr').textContent='昵称已被占用'; $('login').showModal(); }
+      else if (m.msg === 'offline-fallback-forum') sys(`${m.to} 不在线，已提示可走论坛留言`);
+      else if (m.msg === 'cloud-off') sys('云互联未启用（本机未配置 zf3d 凭据）');
+      else if (m.msg === 'cloud-failed') sys('云互联发送失败：' + (m.detail||'未知错误'));
+      else sys('错误：' + m.msg);
+      break;
+  }
+}
+/* ===== 云互联渲染 ===== */
+function renderCloudStat(m) {
+  cloudOn = m.state === 'on';
+  const el = $('cloudStat');
+  if (m.state === 'on') { el.className='on'; el.textContent='☁ 互联中'; }
+  else if (m.state === 'err') { el.className='err'; el.textContent='☁ 出错'; el.title = m.err||''; }
+  else { el.className=''; el.textContent='☁ 未启用'; el.title = m.err||''; }
+  $('cloudHallBtn').classList.toggle('on', cloudHallSync && cloudOn);
+  // 顶部警示条云徽章：只在互联真正开启时出现（off/err 不打扰）
+  const tipCloud = $('safeTipCloud');
+  if (tipCloud) tipCloud.style.display = cloudOn ? '' : 'none';
+}
+function renderCloud() {
+  const box = $('cloudUsers'); box.innerHTML = '';
+  if (!cloudUsers.length) {
+    const tip = document.createElement('div');
+    tip.className = 'user'; tip.style.color = 'var(--muted)'; tip.style.fontSize = '12px';
+    tip.textContent = cloudOn ? '（暂无在线的远程实例）' : '（未启用或未连接）';
+    box.appendChild(tip);
+    return;
+  }
+  cloudUsers.forEach(u => {
+    const active = target && target.cloud && target.machine === u.machine;
+    const d = document.createElement('div');
+    d.className = 'user' + (active?' active':'');
+    d.appendChild(mkAvatar(u.name, true));
+    const glob = document.createElement('span'); glob.className='glob'; glob.textContent='🌐';
+    d.appendChild(glob);
+    const nm = document.createElement('span');
+    nm.appendChild(document.createTextNode(u.name));
+    d.appendChild(nm);
+    d.onclick = () => { target = {cloud:true, machine:u.machine, name:u.name}; renderUsers(lastLocalUsers); renderCloud(); $('title').textContent='远程私聊 · 🌐'+u.name+'（经云中继，对方离线时留言 24h 内送达）'; };
+    box.appendChild(d);
+  });
+}
+let lastLocalUsers = [];
+function renderUsers(users) {
+  lastLocalUsers = users;
+  const box = $('users'); box.innerHTML = '';
+  const hall = document.createElement('div');
+  hall.className = 'user' + (target===null?' active':'');
+  const hd = document.createElement('span'); hd.className='dot';
+  hall.appendChild(hd);
+  hall.appendChild(document.createTextNode(' 大厅（所有人）'));
+  hall.onclick = () => { target=null; renderUsers(users); renderCloud(); $('title').textContent='大厅 · 广场广播'; };
+  box.appendChild(hall);
+  // 自己排最前（QQ 习惯），再列他人；昵称一律 textNode 防 XSS
+  const sorted = users.filter(u => u !== myName);
+  const selfFirst = users.includes(myName) ? [myName] : [];
+  [...selfFirst, ...sorted].forEach(u => {
+    const d = document.createElement('div');
+    d.className = 'user' + (target===u?' active':'');
+    d.appendChild(mkAvatar(u, true));
+    const nm = document.createElement('span');
+    nm.appendChild(document.createTextNode(u + (u===myName?'（我）':'')));
+    d.appendChild(nm);
+    d.onclick = () => { if (u===myName) return; target=u; renderUsers(users); renderCloud(); $('title').textContent='私聊 · '+u+'（服务存活期间可回看）'; };
+    box.appendChild(d);
+  });
+}
+function addMsg(from, text, ts, mine, isDirect, imgUrl) {
+  const row = document.createElement('div');
+  row.className = 'mrow' + (mine?' mine':'');
+  row.appendChild(mkAvatar(from));
+  const col = document.createElement('div'); col.className='mcol';
+  const nm = document.createElement('div'); nm.className='mname';
+  nm.textContent = from + (isDirect?'（私聊）':'');
+  const b = document.createElement('div'); b.className='bubble';
+  if (imgUrl) {
+    // 图片消息（二期）：URL 必须以 /uploads/plaza/ 开头（服务端白名单路径），
+    // 仅取 path 部分、剥掉任何 query/hash，杜绝 javascript:/data: 伪协议注入
+    const u = new URL(imgUrl, location.origin);
+    if (u.pathname.startsWith('/uploads/plaza/')) {
+      const img = document.createElement('img');
+      img.className = 'pic'; img.alt = '[图片]'; img.src = u.pathname; img.loading = 'lazy';
+      img.onclick = () => { $('picBig').src = img.src; $('picDlg').showModal(); };
+      b.appendChild(img);
+    } else { b.textContent = '[非法图片链接]'; }
+  } else {
+    b.textContent = text; // 正文走 textContent，防存储型XSS（安全师高危项维持）
+  }
+  const mt = document.createElement('div'); mt.className='mts';
+  mt.textContent = ts ? new Date(ts*1000).toTimeString().slice(0,8) : '';
+  col.appendChild(nm); col.appendChild(b); col.appendChild(mt);
+  row.appendChild(col);
+  $('msgs').appendChild(row); $('msgs').scrollTop = 1e9;
+}
+
+function sys(text) {
+  const d = document.createElement('div'); d.className='m sys'; d.textContent = '— ' + text;
+  $('msgs').appendChild(d); $('msgs').scrollTop = 1e9;
+}
+let lastTrace = null;
+let cloudHallSync = false; // ☁ 大厅同步开关：开=本机大厅发言同时广播到远程互联大厅
+
+// ===== 首条消息安全确认【2026-11-23】：首次发送前弹出安全/隐私说明，点「确认并开始聊天」才放行 =====
+// 记忆于 localStorage（勾选"不再提示"后）；取消则消息留在输入框不发送。
+let safetyAcked = false;
+try { safetyAcked = localStorage.getItem('plazaSafetyAck') === '1'; } catch(e){}
+let pendingSafetyAction = null;
+function gateSafety(action) {
+  if (safetyAcked) { action(); return; }
+  pendingSafetyAction = action;
+  $('safeDlg').showModal();
+}
+$('safeOk').onclick = () => {
+  safetyAcked = true;
+  if ($('safeOnce').checked) { try { localStorage.setItem('plazaSafetyAck', '1'); } catch(e){} }
+  $('safeDlg').close();
+  const act = pendingSafetyAction; pendingSafetyAction = null;
+  if (act) act();
+};
+$('safeCancel').onclick = () => { $('safeDlg').close(); pendingSafetyAction = null; };
+
+function send() {
+  const text = $('text').value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  if (!safetyAcked) { gateSafety(send); return; } // 首条消息先过安全确认，确认后原样重发
+  const trace_id = myName + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  lastTrace = trace_id;
+  if (target && target.cloud) {
+    // 远程私聊：走云中继（本地回显带🌐，避免与远端回显重复）
+    ws.send(JSON.stringify({ t:'cloud_say', to:target.machine, text, trace_id }));
+    addMsg('🌐 ' + (target.name||'远端'), text, Math.floor(Date.now()/1000), true, true);
+  } else if (target) {
+    ws.send(JSON.stringify({ t:'direct', to:target, text, trace_id }));
+    addMsg(myName, text, Math.floor(Date.now()/1000), true, true);
+  } else {
+    ws.send(JSON.stringify({ t:'hall', text, trace_id }));
+    addMsg(myName, text, Math.floor(Date.now()/1000), true, false);
+    // ☁ 开关：同时广播到远程互联大厅（限频按服务端 cloud 桶 1条/2秒）
+    if (cloudHallSync && cloudOn) {
+      ws.send(JSON.stringify({ t:'cloud_say', to:'', text, trace_id:trace_id+'-cloud' }));
+    }
+  }
+  $('text').value = '';
+}
+$('send').onclick = send;
+$('text').addEventListener('keydown', e => { if (e.key==='Enter') send(); });
+$('cloudHallBtn').onclick = () => {
+  cloudHallSync = !cloudHallSync;
+  $('cloudHallBtn').classList.toggle('on', cloudHallSync && cloudOn);
+  sys(cloudHallSync
+    ? (cloudOn ? '☁ 已开启：大厅发言将同步到远程互联大厅' : '☁ 已开启，但云互联未连接，暂不会同步')
+    : '☁ 已关闭：大厅发言仅本机可见');
+};
+
+// ===== 图片发送（二期）：HTTP 上传拿 URL，WS 消息只带 URL（不塞 base64） =====
+// 首条图片消息同样先过安全确认，确认后才上传（未确认不落盘不发送）
+$('imgBtn').onclick = () => $('file').click();
+$('file').addEventListener('change', () => {
+  const f = $('file').files[0];
+  if (!f) return;
+  if (f.size > 5*1024*1024) { sys('图片超过 5MB 限制'); $('file').value=''; return; }
+  if (!safetyAcked) { gateSafety(() => uploadAndSendImg(f)); $('file').value=''; return; }
+  uploadAndSendImg(f);
+});
+function uploadAndSendImg(f) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    const b64 = String(rd.result).split(',')[1] || '';
+    fetch('/api/plaza/upload', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name:f.name, data:b64 })
+    }).then(r => r.json()).then(j => {
+      if (!j.ok) { sys('图片上传失败：' + (j.error||'未知错误')); return; }
+      sendImg(j.url);
+    }).catch(() => sys('图片上传失败：网络错误'));
+  };
+  rd.readAsDataURL(f);
+}
+function sendImg(url) {
+  if (!ws || ws.readyState !== 1) { sys('未连接广场'); return; }
+  const trace_id = myName + '-img-' + Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  lastTrace = trace_id;
+  if (target && target.cloud) {
+    // 远程私聊：走云中继协议（与 send() 文本路径一致；云桥只转发 text，图片 URL 随文本带过去）
+    ws.send(JSON.stringify({ t:'cloud_say', to:target.machine, text:'[图片] '+url, trace_id }));
+    addMsg('🌐 ' + (target.name||'远端'), '', Math.floor(Date.now()/1000), true, true, url);
+  } else if (target) {
+    ws.send(JSON.stringify({ t:'direct', to:target, text:'[图片] '+url, img:url, trace_id }));
+    addMsg(myName, '', Math.floor(Date.now()/1000), true, true, url);
+  } else {
+    ws.send(JSON.stringify({ t:'hall', text:'[图片] '+url, img:url, trace_id }));
+    addMsg(myName, '', Math.floor(Date.now()/1000), true, false, url);
+  }
+}
+
+$('inGo').onclick = () => {
+  const n = $('inName').value.trim(), tk = $('inToken').value.trim();
+  if (!n || !tk) { $('loginErr').textContent='昵称和 token 都必填'; return; }
+  try { localStorage.setItem('plazaAuth', JSON.stringify({name:n, token:tk})); } catch(e){}
+  connect(n, tk);
+};
+
+// ===== 免弹窗自动登录：优先 localStorage 记忆，否则向本机接口取 ticket（token+自动昵称）=====
+// 命名函数（autoTicket）供断线重连复用；首次加载立即执行
+let autoRetried = false; // denied 后自动重取票只重试一次，防止无限循环
+function autoTicket() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('plazaAuth') || 'null'); } catch(e){}
+  if (saved && saved.name && saved.token) { connect(saved.name, saved.token); return; }
+  fetch('/api/plaza/authticket', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.ok && d.token && d.name) {
+        try { localStorage.setItem('plazaAuth', JSON.stringify({name:d.name, token:d.token})); } catch(e){}
+        connect(d.name, d.token);
+      } else {
+        $('loginErr').textContent = d && d.error ? d.error : '自动登录失败';
+        $('login').showModal();
+      }
+    })
+    .catch(() => { $('login').showModal(); }); // 接口不可用时退回手动登录
+}
+autoTicket();
+
+// ===== 画布 iframe 自适应：视口窄时自动进 compact 模式（收起侧栏，👥 按钮切换） =====
+const sideBtn = $('sideBtn');
+function applyMode() {
+  const w = document.documentElement.clientWidth;
+  const compact = w < 560;
+  document.body.classList.toggle('compact', compact && !sideBtn.classList.contains('on'));
+  document.body.classList.toggle('wide', !compact);
+  if (!compact) sideBtn.classList.remove('on');
+}
+sideBtn.onclick = () => { sideBtn.classList.toggle('on'); applyMode(); };
+if (window.ResizeObserver) new ResizeObserver(applyMode).observe(document.documentElement);
+window.addEventListener('resize', applyMode);
+applyMode();
+renderCloud(); // 初始占位（未启用或未连接）
+</script>
+</body>
+</html>

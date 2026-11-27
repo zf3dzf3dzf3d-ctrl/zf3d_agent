@@ -1,0 +1,13 @@
+{
+  "id": "collab-watchdog",
+  "name": "协作断线自愈监视器（自我完善课题方向3）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "tool",
+  "entry": { "py": "main.py" },
+  "capabilities": ["log.write"],
+  "provides": "collab_watchdog",
+  "depends": [],
+  "description": "daemon 线程周期巡检 collab_channel.teams（只读快照，短持其 _lock）：组 TTL 内+未全员 done+全员沉默超阈值（默认10分钟，COLLAB_WATCHDOG_SILENT_SEC 可调）→ 向沉默成员 chat_id 投 monitor_queue 自救指令（groups→join→复岗三步，复用现有窗轮询消费链路）；冷却防轰炸（默认30分钟）；chat_id 为空改落协作档案告警。运行时动态 import collab_channel（route.collab 未启用则自动跳过巡检），故 depends 留空防内核依赖卡死。不碰 route.collab/schedule 任何代码（alpha 方向1改动面隔离）。投窗写库复用 db.get_db()+config._db_lock，口径对齐 employee_scheduler._inject_to_queue（3次×3s 重试）。",
+  "zfVersion": ">=6.0.0"
+}

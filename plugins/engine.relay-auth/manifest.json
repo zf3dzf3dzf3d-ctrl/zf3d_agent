@@ -1,0 +1,16 @@
+﻿{
+    "id":  "engine.relay-auth",
+    "name":  "AI 引擎中转鉴权（桥接）",
+    "version":  "1.0.0",
+    "spec":  1,
+    "type":  "engine",
+    "description":  "S6 AI 引擎插件化：zf_models_relay 线路 X-ZF-Key/X-ZF-User 鉴权头注入单一真源，dual_protocol 经内核调用。",
+    "capabilities":  [
+                         "tool.register",
+                         "log.write"
+                     ],
+    "provides":  "relay_auth_headers",
+    "entry":  {
+                  "py":  "main.py"
+              }
+}

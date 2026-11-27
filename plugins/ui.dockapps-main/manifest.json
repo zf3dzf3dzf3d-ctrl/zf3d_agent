@@ -1,0 +1,13 @@
+{
+  "id": "ui.dockapps-main",
+  "name": "Dock 程序·主包（16 程序全量收编）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_dockapps_main",
+  "depends": [],
+  "description": "R1-2 第二波（策划案v4 T1）：i大赛/i漫画/i聊天/i小说/i小镇/i硬件/i计算器/i新闻/i视频/i图片/i偶像/i家电/i记事本/i音乐/i游戏/i电视 全量声明化。启动时回挂 window.ZFDock 的 open/close/mangaCmd 契约供 AI 指令队列调用",
+  "zfVersion": ">=6.0.0"
+}

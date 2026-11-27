@@ -1,0 +1,24 @@
+﻿{
+    "spec":  1,
+    "id":  "manager.zf-console",
+    "name":  "插件管理器",
+    "version":  "0.1.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "infra",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "provides":  "plugin.manager",
+    "capabilities":  [
+                         "http.route",
+                         "plugin.manage"
+                     ],
+    "mounts":  {
+                   "httpRoute":  "/api/plugin-manager/*"
+               },
+    "config":  null,
+    "description":  "插件管理器：提供本设置面板的插件列表与启用/禁用/重载接口，并发放仅限本机访问的管理令牌，是插件系统的控制中枢，建议保持启用。"
+}

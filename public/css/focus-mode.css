@@ -1,0 +1,485 @@
+/* ========== focus-mode.css - Codex 式专注模式布局 ========== */
+body.zf-focus { overflow: hidden !important; }
+
+/* 2026-11-15 修复：专注模式全屏盖住右下角「任务成功」弹窗（原 z-index 10001 < 99990 被遮），
+   专注模式下把通知容器抬到专注层之上，保证弹窗必可见 */
+body.zf-focus .notify-container { z-index: 99999; }
+
+#zfFocusRoot {
+  position: fixed; inset: 0; z-index: 99990;
+  display: none;
+  /* 2026-10-18 二次对调：列序 = 侧栏|缝1|主|缝2|工作台坞（左列表·中对话·右工作台）
+     2026-11-16 去缝：缝1 由 5px 归零（用户反馈中间有缝隙），拖拽热区靠 .zf-split 负 margin 跨缝保留 */
+  grid-template-columns: var(--zf-side-w, 260px) 0px 1fr 0px 0px;
+  /* 2026-11-19 整层透明化：透出 body 背景图（bgCustomLayer），左栏/顶栏/对话框各自处理底色 */
+  background: transparent; color: var(--text-main, #e8e8ee);
+  /* 2026-11-14 Desktop化 A1+A2：字号三档变量 + 间距 token（4px 基线） */
+  --zf-font-base: 14px; --zf-font-mid: 12px; --zf-font-small: 11px;
+  --zf-pad-row: 10px; --zf-pad-head: 12px; /* 2026-11-15 --zf-pad-side 已移除旧值 8px，唯一生效源在下方 L250（16px），防双源改错 */
+  --zf-indent-child: 16px; --zf-gap-icon: 8px;
+  /* B1 配色 token：浅色主题只需在此覆盖，消除 [data-theme=light] 双轨补丁 */
+  --zf-hover-bg: rgba(255,255,255,.06);
+  --zf-hover-strong: rgba(255,255,255,.08);
+  --zf-tag-bg: rgba(255,255,255,.08);
+  --zf-tag-text: rgba(255,255,255,.75);
+  --zf-sub-running: rgba(255,255,255,.95);
+  font-size: var(--zf-font-base);
+}
+/* 2026-10-18 最终布局：左=会话列表(side)，中=对话(main)，右=工作台坞(wb-dock)；DOM 顺序本就如此，grid-column 显式钉死防错乱 */
+#zfFocusRoot .zf-side { grid-column: 1; }
+#zfFocusRoot .zf-split { grid-column: 2; }
+#zfFocusRoot .zf-main { grid-column: 3; }
+#zfFocusRoot .zf-split2 { grid-column: 4; }
+#zfFocusRoot .zf-wb-dock { grid-column: 5; }
+body.zf-focus #zfFocusRoot { display: grid; }
+body.zf-focus #canvasArea, body.zf-focus #canvasContent,
+body.zf-focus .zf-topbar, body.zf-focus #winControls { visibility: hidden !important; }
+/* 【2026-12-30 修复专注模式右上角时钟仍可见】真实顶栏是 dom-topbar.js 注入的 .topbar（无 zf- 前缀），
+   上面这条旧规则写的 .zf-topbar 全库无 JS 添加过（类名历史失配，从未命中），导致整条顶栏——
+   含时钟 #zf3dClockWeather——在专注模式下从未被隐藏。按真实类名补一条兜底；
+   body.zf-focus 前缀保证退出专注模式后自动恢复显示，无需 JS 参与显隐切换。 */
+body.zf-focus .topbar { visibility: hidden !important; }
+body.zf-focus #zfFocusRoot { visibility: visible; }
+
+/* 左栏=会话列表（最左侧，边框朝右） */
+.zf-side { display: flex; flex-direction: column; border-right: 0; border-left: 0; min-width: 0; background: var(--bg-panel, #1c1c24); } /* 2026-11-15 专注模式不需要左栏右侧分隔边线，已去除 */
+/* 2026-12 左栏列表微透明（跟随对话框）：风格主题（大师·墨黑 inknight / 大师·纸白 mujiwhite 等zf-style-glow）下，
+   左栏背景改为与对话框同款 color-mix 半透明公式（--chatboxBgOpacity 默认 0.18），微微透出专注模式轮动背景。
+   body.zf-focus 直接挂在专注模式本体（2026-12-16 修正：原来挂在 html.zf-style-glow 上，但大师墨黑/纸白是聊天框皮肤
+   data-skin=ink/paperwhite，不一定加 zf-style-glow 类导致规则不命中）。theme-paper-fix 的实底兜底带
+   body:not(.zf-focus) 前缀，与专注模式互斥，不会被压回。 */
+body.zf-focus .zf-side {
+  /* 2026-12-17 修复：回退链补入主题真源 --bg（theme.js 大师纸白/墨黑等注入的就是 --bg，
+     原链只查 --zf-bg/--bg-panel 永远落深色兜底 #1c1c24，导致纸白下左栏不跟随变白） */
+  background: color-mix(in srgb, var(--bg, var(--zf-bg, var(--bg-panel, #1c1c24))) calc(var(--chatboxBgOpacity, .18) * 100%), transparent) !important;
+}
+#zfFocusRoot.side-collapsed { grid-template-columns: 0px 0px 1fr 0px 0px; }
+#zfFocusRoot.side-collapsed .zf-side { display: none; }
+.zf-split { width: 0; cursor: col-resize; background: transparent; position: relative; z-index: 6; flex: none; transition: background .15s; touch-action: none; }
+/* 2026-10-18 最终布局：左=会话列表(side)，中=对话(main)，右=工作台坞(wb-dock)；DOM 顺序本就如此，grid-column 显式钉死防错乱 */
+  /* 2026-10-11：拖拽改用 Pointer Events（见 app-focus-mode.js initSplitter），加 touch-action:none 保证峰控触屏可拖 */
+  /* 2026-11-16 去缝后拖拽修复：0px 列 + 负 margin 溢出热区在 grid 命中不稳，改用 ::before 绝对定位热区（左右各跨 6px），视觉仍占 0px */
+  .zf-split::before, .zf-split2::before { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; }
+.zf-split:hover, .zf-split.dragging { background: var(--accent, #7aa2ff); opacity: .55; }
+#zfFocusRoot.side-collapsed .zf-split { display: none; }
+.zf-proj-head { padding: 10px var(--zf-pad-head) 6px; font-weight: 600; opacity: .75; display: flex; justify-content: space-between; align-items: center; }
+.zf-proj-list { overflow-y: auto; max-height: 34%; padding: 0 var(--zf-pad-side); }
+.zf-proj-item { padding: 7px var(--zf-pad-row); border-radius: 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zf-proj-item:hover { background: rgba(255,255,255,.06); }
+.zf-proj-item.active { background: var(--accent-soft, rgba(90,140,255,.18)); color: var(--accent, #7aa2ff); }
+/* 2026-10-15：去掉「会话」标题行——只隐藏文字并压缩标题条，保留行内「＋」新建会话按钮 */
+.zf-sess-head { padding: 2px 10px 2px; border-top: 1px solid var(--border-main, #2a2a35); }
+.zf-sess-head > span { display: none; }
+.zf-sess-list { flex: 1 1 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 0 var(--zf-pad-side) 12px; }
+/* A3 Desktop化：行 hover/选中 = 左侧高亮条 + 底色过渡（Codex/Cursor 式反馈） */
+.zf-sess-item { display: flex; align-items: center; gap: var(--zf-gap-icon); padding: 7px var(--zf-pad-row); border-radius: 8px; cursor: pointer; margin-bottom: 4px; position: relative; transition: background .15s ease; }
+.zf-sess-item::before { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3px; border-radius: 2px; background: transparent; transition: background .15s ease; }
+.zf-sess-item:hover { background: rgba(255,255,255,.06); }
+.zf-sess-item:hover::before { background: rgba(122,162,255,.45); }
+.zf-sess-item.active { background: var(--accent-soft, rgba(90,140,255,.18)); }
+.zf-sess-item.active::before { background: var(--accent, #7aa2ff); }
+.zf-sess-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf78; flex: none; }
+.zf-sess-dot.sending { background: #ffb84d; animation: zfPulse 1s infinite; }
+.zf-sess-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes zfPulse { 50% { opacity: .3; } }
+
+/* 顶部条 + 对话区 */
+.zf-main { grid-column: 3; display: flex; flex-direction: column; min-width: 0; position: relative; } /* 2026-12-18 加 relative：浮动按钮组 .zf-top-actions 的定位基准 */
+/* 2026-10-15 顶栏图标化：收紧 padding/gap 把空间让给内容 */
+.zf-top { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: none; background: transparent; } /* 2026-11-19 顶栏透明：去实色底 #141416 与底部分隔线，共同透出背景图 */
+.zf-btn { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-main, #2a2a35); background: transparent; color: inherit; cursor: pointer; }
+  /* 2026-10-11：退出专注模式按钮禁止文字换行 */
+  .zf-top .zf-btn { white-space: nowrap; flex: none; }
+.zf-btn:hover { background: transparent; }
+.zf-top .zf-crumb { flex: 0 1 auto; min-width: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
+/* 【2026-12 简洁化】顶栏标题文字（zf-crumb）隐藏：只保留图标按钮，完整标题仍可通过悬停/左栏查看 */
+.zf-top .zf-crumb { display: none; }
+/* ---------- 2026-10-15 纯图标白线按钮：方形无边框、居中、低透明度，hover 才显形 ---------- */
+.zf-top .zf-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: none; border-radius: 6px;
+  background: transparent; color: inherit; opacity: .62; flex: none;
+  transition: opacity .15s, background .15s;
+}
+.zf-top .zf-icon-btn:hover { opacity: 1; background: transparent; }
+.zf-top .zf-icon-btn svg { display: block; }
+/* 退出按钮 hover 转红，呼应"退出/破坏性"语义 */
+.zf-top .zf-icon-btn.zf-ic-exit:hover { color: #ff6b6b; background: transparent; }
+/* 2026-10-15 关键坑：margin-left:auto 所有权由 exit 转移到 new —— [＋][⤡] 成组靠右，会话名左端自然延伸 */
+/* 【2026-12-18 顶栏整行移除】.zf-top / .zf-crumb 已弃用。4 个图标按钮改为浮动组
+   .zf-top-actions：无 hosted 会话时浮在舞台右上角；host 后整体并入对话头部 .header-actions
+   最左侧（对话自身「⋯」/✕ 按钮仍在其右），按钮 ID 不变、事件绑定不受影响。 */
+.zf-top-actions {
+  display: flex; align-items: center; gap: 4px; flex: none;
+}
+.zf-main > .zf-top-actions {
+  position: absolute; top: 6px; right: 10px; z-index: 5;
+}
+.zf-top-actions .zf-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: none; border-radius: 6px;
+  background: transparent; color: inherit; opacity: .62; flex: none;
+  transition: opacity .15s, background .15s;
+}
+.zf-top-actions .zf-icon-btn:hover { opacity: 1; background: transparent; }
+.zf-top-actions .zf-icon-btn svg { display: block; }
+.zf-top-actions .zf-icon-btn.zf-ic-exit:hover { color: #ff6b6b; background: transparent; }
+/* 并入对话头部后：与对话原按钮同规格，不抢 header 高度 */
+.chatbox-header .header-actions .zf-top-actions { gap: 2px; }
+.chatbox-header .header-actions .zf-top-actions .zf-icon-btn { width: 24px; height: 24px; }
+.zf-stage { position: relative; flex: 1; min-height: 0; }
+/* 会话视口：把原 chatbox 元素移进来 */
+.zf-stage .chat-box, .zf-stage .zf-hosted { position: absolute; }
+body.zf-focus .zf-stage .chat-box { resize: none !important; }
+.zf-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: .5; }
+
+/* ---------- 舞台内 chatbox 适配：撑满舞台、消息区可滚、输入区不塌陷 ---------- */
+/* 舞台上的 chatbox 强制块级撑满（JS inline 之外的双保险），并恢复可见性 */
+body.zf-focus #zfStage .chatbox.zf-hosted {
+  display: flex !important;
+  flex-direction: column !important;
+  left: 0 !important; top: 0 !important;
+  width: 100% !important; height: 100% !important;
+  max-width: none !important; max-height: none !important;
+  border-radius: 0 !important;
+  visibility: visible !important;
+  box-shadow: none !important;
+  /* 【2026-11 融合式舞台】去边框高亮：对话框透明融入面板，激活态改为左缘细色条 */
+  border-color: transparent !important;
+  background: transparent !important;
+}
+/* 激活主对话：边框、色条全部去除，完全融合 */
+/* 2026-11-2x 兜底：舞台内的 hosted 对话框必须可见，防 i整理隐藏(zf-chat-hidden) 等任何
+   display:none 类跟随 DOM 进舞台导致右侧空白 */
+body.zf-focus #zfStage .chatbox.zf-hosted { display: flex !important; }
+body.zf-focus #zfStage .chatbox.zf-hosted.active,
+body.zf-focus #zfStage .chatbox.zf-hosted.active::after,
+body.zf-focus #zfStage .chatbox.zf-hosted:hover { border-color: transparent !important; }
+body.zf-focus #zfStage .chatbox.zf-hosted.active::after { display: none !important; content: none !important; background: none !important; }
+/* 2026-11-19 透明化兜底：对话框内部 header/消息体/输入区一律透明，与顶栏共同透出背景图。
+   ⚠️【防反转声明·用户明确决策 2026-11-19】浅色（大师·纸白等）对话框内部 = 全透明，
+   勿再以"可读性"为由回退实底 #FAFAF8（历史上 2026-12-17 曾回退过一次，本次已按用户要求再次改透明）。
+   可读性靠浅色段文字 text-shadow 白色光晕兜底（见 L183 附近），不靠底色。 */
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-head,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-body,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-input,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-footer,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-input-area,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-box-header,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .title,
+html[data-mode='dark'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-messages {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* 浅色风格（大师·纸白等 data-mode=light）：2026-12-19 按用户要求改为全透明，
+   与深色一致直接透出后面的界面背景（此前实底 var(--bg) 挡住了背景图） */
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-head,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-body,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-input,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-footer,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-input-area,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-box-header,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .title,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-messages {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+/* 【可读性兜底 2026-11-19】浅色透明后深色文字直接叠背景图，加白色光晕 text-shadow 提升边缘对比，
+   不加蒙版（用户要求"一下子就看到后面的界面"，蒙版会削弱透明度） */
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chat-messages,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-head,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-input,
+html[data-mode='light'] body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-footer {
+  text-shadow: 0 0 3px rgba(255,255,255,.9), 0 0 6px rgba(255,255,255,.7), 0 1px 2px rgba(255,255,255,.8);
+}
+html[data-mode='light'] body.zf-focus .zf-top-actions .zf-icon-btn {
+  background: transparent !important;
+  opacity: .75;
+}
+html[data-mode='light'] body.zf-focus .zf-top-actions .zf-icon-btn:hover { opacity: 1; }
+/* chatbox 内部常见结构：头部 / 消息体 / 输入区，纵向 flex 自适应 */
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-input,
+body.zf-focus #zfStage .chatbox.zf-hosted .chatbox-footer,
+body.zf-focus #zfStage .chatbox.zf-hosted .chat-input-area {
+  flex: none !important;
+  width: 100% !important;
+}
+/* 舞台尺寸变化（窗口最大化/折叠左栏）时子元素百分比布局自动跟随 */
+#zfStage { overflow: hidden; }
+
+/* 右缘工作台拉手 */
+/* 项目分组头（可点击展开/收起） */
+.zf-group-head { display: flex; align-items: center; gap: var(--zf-gap-icon); font-weight: 600; padding: 8px var(--zf-pad-row); margin-top: 2px; }
+.zf-group-head .zf-group-arrow { width: 12px; flex: none; opacity: .7; font-size: var(--zf-font-small); }
+.zf-group-head .zf-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zf-group-head .zf-group-count { flex: none; font-size: var(--zf-font-small); opacity: .55; background: rgba(255,255,255,.08); border-radius: 8px; padding: 1px 7px; }
+/* 2026-11-14 A2 Desktop化：顶级会话与项目行左缘对齐（免缩进），组归属感由分组头承担；
+   子对话统一一档缩进 var(--zf-indent-child)=16px，消除旧 8+22+6px 三重叠加（L113+L116） */
+.zf-sess-item.zf-sess-child { margin-left: var(--zf-indent-child); font-size: var(--zf-font-mid); padding-left: 6px; border-left: 2px solid rgba(90,140,255,.25); }
+.zf-child-badge { margin-left: auto; flex: none; font-size: var(--zf-font-small); line-height: 1; padding: 3px 7px; border-radius: 999px; background: rgba(90,140,255,.18); color: var(--accent, #5a8cff); opacity: .85; }
+.zf-sess-child .zf-sess-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zf-child-arrow { flex: none; color: var(--accent, #5a8cff); opacity: .7; font-size: var(--zf-font-small); }
+.zf-child-role { flex: none; font-size: var(--zf-font-small); padding: 2px 6px; border-radius: 5px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zf-child-done { margin-left: auto; flex: none; color: #4caf78; font-size: var(--zf-font-mid); }
+.zf-child-run { margin-left: auto; flex: none; color: #f5a623; font-size: var(--zf-font-small); animation: zfChildPulse 1.2s ease-in-out infinite; }
+.zf-child-fail { margin-left: auto; flex: none; color: #e5534b; font-size: var(--zf-font-mid); }
+.zf-sess-child.zf-sub-running .zf-sess-title { color: rgba(255,255,255,.95); }
+@keyframes zfChildPulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+.zf-wb-handle { position: absolute; left: 0; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; padding: 12px 4px; border-radius: 0 8px 8px 0; background: var(--bg-panel, #1c1c24); border: 1px solid var(--border-main, #2a2a35); border-left: 0; cursor: pointer; opacity: .6; z-index: 5; }
+.zf-wb-handle:hover { opacity: 1; }
+
+/* ========== 工作台右坞（五列布局：side | 缝1 | main | 缝2 | wbDock） ========== */
+/* 基础态（未进坞）wb-dock 是 display:none 不占格，列4/列5 必须归 0，
+   否则 var(--zf-wb-w,380px) 会在右侧留出一条 380px 空白，把主区挤偏错位 */
+#zfFocusRoot { grid-template-columns: var(--zf-side-w, 260px) 0px 1fr 0px 0px; } /* 2026-11-16 缝1 归零去缝：与 L13 主块同值（本行同特异性靠后会级联覆盖主块，必须同步改，勿只改主块） */
+#zfFocusRoot.wb-docked { grid-template-columns: var(--zf-side-w, 260px) 0px 1fr 0px var(--zf-wb-w, 380px); } /* 2026-11-16 缝1/缝2 均归零去缝：用户要求工作区与主区之间也不留缝 */
+#zfFocusRoot.wb-docked.side-collapsed { grid-template-columns: 0px 0px 1fr 0px var(--zf-wb-w, 380px); }
+.zf-split2 { width: 0; cursor: col-resize; background: transparent; position: relative; z-index: 6; transition: background .15s; touch-action: none; }
+#zfFocusRoot.wb-docked .zf-split2::before { left: -6px; right: -6px; } /* 2026-11-16 去缝后拖拽修复：热区用 ::before 绝对定位跨缝，稳定命中 */
+.zf-split2:hover, .zf-split2.dragging { background: var(--accent, #7aa2ff); opacity: .55; }
+.zf-wb-dock { min-width: 0; overflow: hidden; position: relative; display: none; background: var(--bg-panel, #1c1c24); border-left: 0; border-right: 0; } /* 2026-11-16 去缝：工作台坞左分隔线去除 */
+#zfFocusRoot.wb-docked .zf-wb-dock { display: block; }
+/* 进坞后的抽屉：填满坞区，屏蔽浮层定位/动画/阴影 */
+.wb-drawer.zf-wb-docked { position: absolute; inset: 0; left: auto; top: auto; bottom: auto; right: auto; transform: none !important; transition: none !important; box-shadow: none !important; border-radius: 0; width: 100%; height: 100%; }
+.wb-drawer.zf-wb-docked .wb-drawer-resize { display: none; }
+/* 触屏（峰控）：侧栏 220px，工作台默认坞宽 55vw，防止 380px 溢出小屏 */
+[data-zf-mobile='1'] #zfFocusRoot.wb-docked { grid-template-columns: var(--zf-side-w, 220px) 0px 1fr 0px var(--zf-wb-w, 55vw); }
+
+/* ==========================================================
+   2026-10-10 修复：专注模式下弹层被 #zfFocusRoot(z-index:99990) 盖住
+   问题：专注模式下点「项目/极简(设置)/文件树/任务面板」等弹层，
+   面板 z-index（项目面板~9999、设置面板~5000）全部低于专注遮罩
+   99990，弹出来也被盖住，表现为"打不开/在下面看不到"。
+   修复：专注模式下把这些弹层提到专注遮罩之上。
+   #projPanel/#projPanelOverlay 是 body 级子元素（dom-side-panels.js
+   注入），不受 #canvasArea visibility:hidden 影响，只差 z-index。
+   ========================================================== */
+body.zf-focus #projPanel,
+body.zf-focus #projPanelOverlay,
+body.zf-focus #ftPanel,
+body.zf-focus #ftPanelOverlay,
+body.zf-focus #taskPanel,
+body.zf-focus #taskPanelOverlay,
+body.zf-focus #settingsOverlay,
+body.zf-focus #themePanel {
+  visibility: visible !important;
+  z-index: 99995 !important;
+}
+/* 专注模式下顶栏虽然整体隐藏，但 #settingsBtn 等 topbar-icon 实际被
+   studio-skin 移到了 rail/foot 等位置（非 .zf-topbar 内），按需放行
+   设置入口避免无法打开设置；其余顶栏保持隐藏不受影响 */
+body.zf-focus .zf-topbar .topbar-icon:not(.topbar-win) { visibility: visible !important; }
+/* 【2026-11-22】最小化/最大化/关闭（.topbar-win）不放行：与对话框右上角按钮重叠（用户反馈），专注模式下必须保持隐藏 */
+
+/* 【2026-11-26 专注模式可见性白名单 v3→v4】任务成功 Toast 保留可见；箭头改为隐藏（用户裁定：
+   专注模式不需要看到任何箭头，含派出团队箭头。原 v3 曾把箭头提级强制可见，现撤销）。 */
+body.zf-focus #toast-stack-container { visibility: visible !important; z-index: 99998 !important; }
+body.zf-focus .zf-arrow-core { display: none !important; }
+
+
+/* ========== 2026-10-14 修复：专注模式隐藏右下角浮动入口栏（对话数量按钮 chatStatusBtn + 更多按钮 tpFabMoreBtn 整组） ==========
+   原 .tp-fab-group 是 body 直接子元素，不被 #canvasArea visibility:hidden 影响，
+   专注模式下会浮在 #zfFocusRoot 遮罩之上。沉浸布局不需要它，整组隐藏。 */
+body.zf-focus .tp-fab-group { display: none !important; }
+body.zf-focus #tpFabMoreMenu { display: none !important; }
+
+/* ========== 2026-12-17 专注模式对话内容左右 10% padding 硬兜底（用户裁定 v15） ==========
+   诉求：专注模式对话框必然占满 .zf-stage（宽度远大于 500px），两侧必须有 10% padding。
+   JS 写 --cb-side-pad 曾出现竞态漏洞：host 搬窗瞬间按小宽度写入错误小值后无人纠正
+   （v14 只修了"拿不到宽度不写"，没修"写过一次错误值后保留"）。
+   硬兜底原理：CSS 的 % padding 相对【包含块宽度】（即对话窗自身宽度），恒等于宽度 10%，
+   与 JS 像素计算完全解耦，天然无竞态。专注模式下直接覆盖 --cb-side-pad，
+   body/inputrow 消费端 calc(100% - 2*var) 自动生效。 */
+body.zf-focus .chatbox { --cb-side-pad: 10%; }
+
+/* ========== 2026-11-12 S1迷你派生图 + S2关系图谱窗 + 孤儿子对话（方案C） ========== */
+/* S1: 父行下的迷你状态格条 */
+.zf-child-strip { display: flex; gap: 3px; padding: 3px 10px 5px 16px; flex-wrap: wrap; }
+.zf-strip-dot { width: 14px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); cursor: pointer; transition: background .2s, transform .15s; }
+.zf-strip-dot:hover { transform: scaleX(1.3); background: rgba(255,255,255,.45); }
+.zf-strip-dot.run { background: #f5a623; animation: zfChildPulse 1.2s ease-in-out infinite; }
+.zf-strip-dot.done { background: #4caf78; }
+.zf-strip-dot.fail { background: #e5534b; }
+/* 孤儿子对话（源父已关闭） */
+.zf-orphan-head { opacity: .8; margin-top: 6px; }
+.zf-sess-orphan { opacity: .72; }
+.zf-orphan-tag { margin-left: auto; flex: none; font-size: var(--zf-font-small); padding: 1px 5px; border-radius: 4px; background: rgba(229,83,75,.18); color: #e5534b; }
+/* 迷你条点击定位闪烁 */
+.zf-flash { outline: 2px solid var(--accent, #7aa2ff); outline-offset: -2px; }
+
+/* ========== 【子对话分数 2026-11-15】左栏子对话行分数徽标（v2） ========== */
+.zf-child-score {
+  flex: none;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #cdd6e4;
+  background: rgba(120,140,180,.18);
+  border: 1px solid rgba(120,140,180,.35);
+  border-radius: 8px;
+  padding: 0 6px;
+  line-height: 16px;
+  min-width: 20px;
+  text-align: center;
+}
+.zf-child-score.zf-child-score-good { color: #7ee0a3; background: rgba(34,177,76,.15); border-color: rgba(34,177,76,.45); }
+.zf-child-score.zf-child-score-low  { color: #f8a0a0; background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.45); }
+[data-theme=light] .zf-child-score { color: #456; background: rgba(60,90,180,.08); border-color: rgba(60,90,180,.25); }
+[data-theme=light] .zf-child-score.zf-child-score-good { color: #1a7f3c; }
+[data-theme=light] .zf-child-score.zf-child-score-low { color: #c0392b; }
+
+/* ========== 【2026-11-23 单行版】角色名+分数同一排，节约竖排空间 ==========
+   此前两行版（角色名上行/分数下行）每行占双倍高度；曾试过用 #zfFocusRoot
+   覆盖改横向但漏了 flex-direction，基础 column 仍生效导致依旧两行。
+   现在基础规则直接声明 row，角色名徽章 + 分数徽章横向一排。 */
+.zf-child-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.zf-child-col .zf-child-role { margin-left: 0; max-width: 96px; }
+/* 【2026-11-23 居右版】用户需求：分数与状态点靠右对齐更好看——
+   col flex:1 吃掉行内富余空间把角色名钉在左侧，分数 margin-left:auto 推到右端，
+   状态点(✓/●)在 col 外，由 .zf-sess-item 的列间距与分数自然留距 */
+.zf-child-col .zf-child-score,
+.zf-child-col .zf-child-big-score { margin-left: auto; flex: none; }
+#zfFocusRoot .zf-child-big-score { font-size: 13px; font-weight: 700; line-height: 1; padding: 3px 7px; border-radius: 999px; background: rgba(90,140,255,.18); color: var(--accent, #5a8cff); flex: none; }
+#zfFocusRoot .zf-child-big-score.zf-child-score-good { color: #7ee0a3; background: rgba(34,177,76,.15); text-shadow: none; }
+#zfFocusRoot .zf-child-big-score.zf-child-score-low  { color: #f8a0a0; background: rgba(248,113,113,.15); text-shadow: none; }
+[data-theme=light] #zfFocusRoot .zf-child-big-score { color: #3a6fd8; background: rgba(60,90,180,.08); text-shadow: none; }
+[data-theme=light] #zfFocusRoot .zf-child-big-score.zf-child-score-good { color: #1a7f3c; }
+[data-theme=light] #zfFocusRoot .zf-child-big-score.zf-child-score-low  { color: #c0392b; }
+.zf-child-big-score {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(90,140,255,.18);
+  color: #9fc4ff;
+  text-shadow: none;
+}
+.zf-child-big-score.zf-child-score-good { color: #7ee0a3; text-shadow: 0 0 8px rgba(34,177,76,.4); }
+.zf-child-big-score.zf-child-score-low  { color: #f8a0a0; text-shadow: 0 0 8px rgba(248,113,113,.4); }
+/* 浅色徽章配色统一由上方 [data-theme=light] #zfFocusRoot .zf-child-big-score 规则承担 */
+
+
+/* ========== 2026-11-15 Codex 化 v2：侧栏底色/文字/内边距再贴近参考图 ==========
+   参考图观感：侧栏近纯黑(#141416 级)、文字更沉的灰、列表水平留白更宽(16px)、行内边距 10px */
+#zfFocusRoot {
+  --zf-pad-side: 16px; --zf-pad-row: 10px; --zf-pad-head: 14px;
+  --zf-gap-icon: 10px;
+  --zf-hover-bg: rgba(255,255,255,.05);
+}
+body.zf-focus .zf-side {
+  /* 【2026-12-16 修复·2026-12-17 反转】左栏高不透明度。
+     【2026-12-17 主题跟随修复】原 rgba(20,20,22,.72) 深色硬编码导致大师·纸白等浅色风格左栏仍黑。
+     现改为跟随主题 --bg（theme.js 注入）：深色风格=深底，浅色风格(纸白 #FAFAF8 等)=白底 */
+  background: color-mix(in srgb, var(--bg, #1c1c24) 72%, transparent) !important;
+  border-right-color: color-mix(in srgb, var(--text2, #fff) 6%, transparent) !important;
+  color: var(--text2, #9a9aa0);
+}
+/* 浅色风格下左栏文字/悬停对比度适配（白底黑字，替代深色底白字硬编码） */
+html[data-mode='light'] body.zf-focus .zf-side { color: var(--text2, #6b6b70); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-proj-head { color: var(--text2, #8a8a8e); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-proj-item,
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item { color: var(--text, #1c1c1e); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-proj-item:hover,
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item:hover { background: var(--hover, #f2f2f0); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-proj-item.active,
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item.active { background: var(--hover, #f2f2f0) !important; }
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item.active .zf-sess-title,
+html[data-mode='light'] body.zf-focus .zf-side .zf-proj-item.active { color: var(--text, #1c1c1e) !important; }
+html[data-mode='light'] body.zf-focus .zf-side .zf-group-head { color: var(--text2, #8a8a8e); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-group-head .zf-group-count { background: rgba(28,28,30,.06); color: var(--text2, #8a8a8e); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item.zf-sess-child { border-left-color: rgba(28,28,30,.12); }
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item.active::before,
+html[data-mode='light'] body.zf-focus .zf-side .zf-sess-item:hover::before { background: rgba(28,28,30,.35) !important; }
+.zf-side .zf-proj-list { padding: 4px var(--zf-pad-side); }
+.zf-side .zf-sess-list { padding: 0 var(--zf-pad-side) 20px; }
+.zf-side .zf-sess-item { margin-bottom: 2px; padding: 9px var(--zf-pad-row); border-radius: 8px; }
+.zf-side .zf-proj-item { padding: 9px var(--zf-pad-row); border-radius: 8px; }
+/* 【2026-12-16 修复】此行 #101012 实底也挡背景图，后置规则（L311）才是透明真源，本行作废 */
+/* #zfFocusRoot { background: #101012; } */
+
+/* ========== 2026-12-15 i专注模式背景透出：图片/视频轮动 + 遵守背景透明度 ========== */
+/* 素材层 #bgAssetLayer（图片轮播/视频轮动）与蒙版层 #bgVeilLayer（透明度=用户背景透明度设置，
+   由 background.js _applyVeil 按 bgVeil/bgAssetBlend 写入 inline opacity，此处只抬层不覆盖透明度）
+   抬升为 fixed 置于专注层之下（99985 < 99990），专注层主体改透明即可透出轮动背景；
+   !important 必须保留：两层的 inline 样式是 position:absolute;z-index:0，且父级 #canvasArea
+   在专注模式下 visibility:hidden，需 visibility:visible 才能透出；退出专注后规则失效，inline 原样恢复 */
+body.zf-focus #bgAssetLayer,
+body.zf-focus #bgVeilLayer {
+  position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important;
+  z-index: 99985 !important;
+  visibility: visible !important;
+}
+/* 蒙版在素材之上（两层同 z-index，DOM 顺序 veil 在后 → veil 盖在素材上，压暗度即用户透明度设置） */
+/* 专注层主体透明：左栏/顶栏/工作台坞保留自身底色（.zf-side #1c1c24 / .zf-top #141416 / .zf-wb-dock 底色不变） */
+body.zf-focus #zfFocusRoot { background: transparent; }
+body.zf-focus .zf-main { background: transparent; }
+/* 2026-12-16 可读性底衬（UI师审查·中风险修复）：透明主体直接叠亮色图片/视频时对话文字对比度不足，
+   .zf-main 加半透明暗底衬；2026-12-17 反转：对话区改用 --zf-panel-alpha（较透，左栏 0.72 更实） */
+body.zf-focus .zf-main {
+  background: rgba(16, 16, 18, var(--zf-panel-alpha, 0.25));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ========== 2026-12-17 调整：恢复对话框输入框上方原生的「▼ 滚动到底部」按钮 ========== */
+/* 底部中间的重复悬浮按钮（zfBtnBottom）已从 app-focus-mode.js 移除，无需 CSS 全量隐藏；
+   此前 body.zf-focus .scroll-bottom-btn { display:none } 会把输入框上方原生按钮一并藏掉，导致两个箭头都没了，已删除该规则 */
+/* ========== 2026-11-24 浅色主题（大师·纸白等）专注模式适配：左栏/文字/子对话跟随浅色 + 输入框去背景 ========== */
+/* 【2026-12-31 跟随背景透明度】原 rgba(250,250,248,0.82) 写死不跟界面「背景透明度」设置；
+   改为 color-mix 引 --zf-panel-alpha（app-focus-mode.js 进专注时由 Background.bgVeil/2 写入），
+   min() 兜底上限 0.95，默认值保持原观感（alpha 缺省 0.25 → 0.8 档） */
+[data-theme="light"] body.zf-focus .zf-side { background: color-mix(in srgb, #FAFAF8 calc(min(var(--zf-panel-alpha, 0.25) * 3.6, 0.95) * 100%), transparent) !important; border-right-color: rgba(28,28,30,0.08) !important; color: #55554e !important; }
+[data-theme="light"] .zf-side .zf-proj-head { color: #8a8a84 !important; }
+[data-theme="light"] .zf-side .zf-proj-item, [data-theme="light"] .zf-side .zf-sess-item { color: #55554e !important; }
+[data-theme="light"] .zf-side .zf-proj-item:hover, [data-theme="light"] .zf-side .zf-sess-item:hover { background: rgba(0,0,0,.05) !important; }
+[data-theme="light"] .zf-side .zf-proj-item.active, [data-theme="light"] .zf-side .zf-sess-item.active { background: rgba(0,0,0,.08) !important; color: #1c1c1e !important; }
+[data-theme="light"] .zf-side .zf-sess-item.active .zf-sess-title { color: #1c1c1e !important; }
+[data-theme="light"] .zf-side .zf-sess-item.active::before { background: rgba(28,28,30,.55) !important; }
+[data-theme="light"] .zf-side .zf-sess-item:hover::before { background: rgba(28,28,30,.3) !important; }
+[data-theme="light"] .zf-side .zf-group-head { color: #6e6e68 !important; }
+[data-theme="light"] .zf-side .zf-group-head .zf-group-count { background: rgba(0,0,0,.06) !important; color: #8a8a84 !important; }
+[data-theme="light"] .zf-side .zf-sess-item.zf-sess-child { border-left-color: rgba(28,28,30,.14) !important; }
+[data-theme="light"] .zf-sess-child .zf-sess-title, [data-theme="light"] .zf-sess-child.zf-sub-running .zf-sess-title { color: #1c1c1e !important; }
+[data-theme="light"] .zf-child-role { background: rgba(0,0,0,.06) !important; color: #55554e !important; }
+[data-theme="light"] .zf-child-badge { color: #3a6fd8 !important; background: rgba(58,111,216,.12) !important; }
+[data-theme="light"] .zf-child-done { color: #1a7f3c !important; }
+[data-theme="light"] .zf-child-fail { color: #c0392b !important; }
+body.zf-focus #zfStage .chatbox.zf-hosted textarea, body.zf-focus #zfStage .chatbox.zf-hosted input[type="text"], body.zf-focus #zfStage .chatbox.zf-hosted .input-wrap, body.zf-focus #zfStage .chatbox.zf-hosted .hd-input, body.zf-focus #zfStage .chatbox.zf-hosted .composer { background: transparent !important; background-color: transparent !important; }
+
+/* ========== 2026-12-19 专注右上角图标按钮彻底去框（用户要求：大师·墨黑/大师·纸白都生效） ==========
+   真凶：theme.js 两套大师风格 extraCss 里 `.zf-style-glow button, .zf-style-glow .btn`
+   给所有按钮涂底色(墨黑#343436/纸白#fff)+圆角，特异性 (0,2,1) 压过此前的
+   `body.zf-focus .zf-icon-btn`(0,2,0) 与 theme-paper-fix.css 的 light 版。
+   此处用 html body 前缀抬到 (0,3,1)+!important 反压运行时注入（注入在 head 末尾，
+   但本文件为静态 CSS 特异性相同也按源序输——注入的 style 在后，必须靠更高特异性取胜）。 */
+html body.zf-focus .zf-top .zf-icon-btn,
+html body.zf-focus .zf-top .zf-btn,
+html body.zf-focus #zfFocusRoot .zf-icon-btn {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-radius: 8px !important;
+}
+html body.zf-focus .zf-top .zf-icon-btn:hover,
+html body.zf-focus .zf-top .zf-btn:hover,
+html body.zf-focus #zfFocusRoot .zf-icon-btn:hover {
+    background: rgba(128,128,128,0.18) !important;
+    background-color: rgba(128,128,128,0.18) !important;
+}

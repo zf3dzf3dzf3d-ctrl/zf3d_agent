@@ -1,0 +1,23 @@
+{
+    "spec":  1,
+    "id":  "tool.file-tools",
+    "name":  "文件信息工具",
+    "version":  "1.0.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "tool",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "capabilities":  [
+                         "tool.register",
+                         "log.write"
+                     ],
+    "mounts":  {
+                   "toolCategory":  "文件"
+               },
+    "config":  null,
+    "description":  "文件工具：提供文件读取/写入/查找等 AI 常用文件操作工具，核心功能插件，建议保持启用。"
+}

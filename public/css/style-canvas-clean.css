@@ -1,0 +1,279 @@
+﻿/* ============================================================
+   v17：顶栏/底栏常显模式（取消自动隐藏）
+   两栏仍为 fixed 定位，但默认就显示，不再滑出屏幕。
+   原 edge-hot 热区/显隐脚本保留但不再生效。
+   ============================================================ */
+
+/* 清掉两条上可能存在的伪元素装饰 */
+.topbar::before,
+.topbar::after,
+.statusbar::before,
+.statusbar::after {
+    content: none !important;
+    background: none !important;
+}
+
+/* 全局完全透明（所有主题） */
+.topbar[style], .statusbar[style], .tp-fab-group[style], [class*=dock][style] { background: transparent !important; background-color: transparent !important; backdrop-filter: none !important; box-shadow: none !important; }
+/* 指示灯(.tk-dot)不在透明范围内：否则风筝/守卫/急速的小灯永远不亮 */
+.statusbar *:not(.tk-dot), .tp-fab-group, [class*=dock] { background-image: none !important; }
+
+.topbar,
+.statusbar,
+[data-theme="light"] .topbar,
+[data-theme="light"] .statusbar,
+[data-theme="dark"] .topbar,
+[data-theme="dark"] .statusbar {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* 内联样式兜底：清掉 JS 写入的 background */
+.topbar[style], .statusbar[style], .tp-fab-group[style] {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+ 
+/* ====== 顶栏/底栏改浮层化：脱离文档流，画布全屏通透 ====== */
+.topbar {
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 900;
+    pointer-events: none; /* 整条不拦截点击，空白处穿透到画布 */
+}
+.statusbar {
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    /* 9800 > 画布挂件层(进化树 tree-node z 上限曾达 9690，锚定左下角)：
+       statusbar 必须压过挂件 iframe，否则左下角白色按钮(整理模式/风筝)的点击与 hover 全被吞 */
+    z-index: 9800;
+    pointer-events: none;
+}
+/* 顶/底栏内的可交互子元素单独恢复可点击 */
+.topbar > *, .topbar button, .topbar a, .topbar input,
+.statusbar > *, .statusbar button, .statusbar a, .statusbar input {
+    pointer-events: auto;
+}
+/* 【v18 修复】整条顶栏 pointer-events:none 且全透明后，标题/窗口按钮也会"看不见"。
+   这里强制把标题、logo、右侧窗口控制按钮恢复为可见实体：不透明、可点击。
+   （历史根因：v17 全透明化 + pointer-events:none 把整条顶栏视觉抹掉了，
+    而 .topbar-title 本身是 -webkit-text-fill-color:transparent 的渐变裁切，
+    背景又被全局透明化清空 → 文字完全消失；窗口按钮同理被透明化。 */
+.topbar-title,
+.topbar-title * {
+    -webkit-text-fill-color: var(--text, #7ecbff) !important;
+    color: var(--text, #7ecbff) !important;
+    background-image: none !important;
+}
+.topbar-logo {
+    background: var(--blue, #1c80e0) !important;
+    opacity: 1 !important;
+}
+.topbar-icon {
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: var(--text, #cfe3f7) !important;
+}
+/* 【2026-11 窗口控制按钮去背景】最小化/最大化/关闭常态无背景色，仅悬停时给反馈 */
+.topbar-win {
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: var(--text, #cfe3f7) !important;
+    background: transparent !important;
+}
+.topbar-win:hover { background: rgba(255,255,255,.1) !important; }
+[data-theme="light"] .topbar-win:hover { background: rgba(0,0,0,.08) !important; }
+.topbar {
+    pointer-events: auto; /* 顶栏整条恢复可交互（拖动区+按钮），不再穿透 */
+}
+/* 画布延伸到全屏高度（顶/底栏已浮层化，不再占据文档流） */
+.canvas-area { 
+    height: 100vh !important; 
+} 
+/* ===== canvas-overview integration (app-canvas-overview.js v1) ===== */
+body.zf-overview-mode .ov-selected { --zw: var(--ov-zoom, 1); outline: calc(4px / var(--zw)) solid #4f8cff !important; outline-offset: calc(4px / var(--zw)); box-shadow: 0 0 0 calc(7px / var(--zw)) rgba(79,140,255,.35), 0 0 18px rgba(79,140,255,.45) !important; }
+body.zf-overview-mode .chatbox { user-select: none; }
+/* ===== 缩小整理模式（总览态）鼠标形状跟随 =====
+   左键：空白处=框选(crosshair)、节点=拖动(move)；右键：平移(grabbing)。
+   正常模式不受影响（右键=创建快捷对话框、左键=平移）。 */
+body.zf-overview-mode #canvasArea { cursor: crosshair; }
+body.zf-overview-mode .chatbox,
+body.zf-overview-mode .kite-node,
+body.zf-overview-mode .browser-node,
+body.zf-overview-mode .engine-node,
+body.zf-overview-mode .video-node,
+body.zf-overview-mode .fg-node,
+body.zf-overview-mode .pres-node { cursor: move; }
+/* 右键平移进行中：抓取手光标（类由 app-canvas.js 加到 body，限定总览模式内，退出总览不影响正常模式） */
+body.zf-overview-mode.zf-ov-pan, body.zf-overview-mode.zf-ov-pan * { cursor: grabbing !important; }
+/* 左键框选进行中：十字光标（类由 app-canvas-overview.js 加到 body） */
+body.zf-overview-mode.zf-ov-marquee, body.zf-overview-mode.zf-ov-marquee * { cursor: crosshair !important; }
+/* ===== M1 颜色移植：总览态按对话状态染色（真源 app-minimap-organize STATUS_COLORS），
+   仅 .zf-overview-mode 作用域生效；退出总览 data-ov-st 移除即恢复原色 ===== */
+/* 【四球替换 v1】旧状态徽标球已废弃（用户反馈：idle 空心点无信息、成功不见对号），
+   改为显示对话四球系统（策划/进度/审核/总结），由 app-canvas-overview.js decorateOne 克隆 header 内
+   .zf-mile-track 到卡片左上角 .ov-mile-track；answered 状态由总结球紫色✓表达 */
+/* 【四球替换 v2·用户令】彻底删除各状态 ::before 小点/符号（129~138 旧规则曾把 118 的废弃
+   规则压掉导致"左侧小点"复活）；状态只保留描边发光，成功对号由四球总结球 ✓ 表达 */
+body.zf-overview-mode .chatbox[data-ov-st]::before { display: none !important; }
+body.zf-overview-mode .chatbox .ov-mile-track {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 6px; z-index: 7; /* 【小队收口 20261123·采纳UI师】双源漂移修复：基础值与 app-canvas-overview.js 注入规则同步居中，消除居左旧值 */
+  display: flex; gap: 4px; align-items: center; pointer-events: none;
+}
+body.zf-overview-mode .chatbox.ov-mini .ov-mile-track { top: 4px; } /* 【小队收口 20261123·采纳UI师】原 top:-8px 居左时代值；mini 卡较矮，居中后 top 略小于普通卡 6px */
+body.zf-overview-mode .chatbox .ov-mile-track .zf-mile-ball {
+  width: 20px; height: 20px; font-size: 11px; border-radius: 10px;
+}
+body.zf-overview-mode .chatbox.ov-mini .ov-mile-track .zf-mile-ball { width: 18px; height: 18px; font-size: 10px; }
+/* 【v3】克隆球强制全显：未点亮(hidden/faded)也画出来，四球常驻；总结球成功对号由其文字 ✓ 呈现 */
+body.zf-overview-mode .chatbox .ov-mile-track .zf-mile-ball {
+  opacity: 1 !important; filter: none !important; animation: none !important;
+  border: 1px solid rgba(255,255,255,.28); visibility: visible !important;
+}
+/* 【方案A·40窗卡顿修复 2026-11-21】状态描边从 2px+双层阴影减为 1px 无阴影：
+   40窗=40组多层发光逐帧合成是卡顿主因之一；1px 描边已足够区分状态 */
+body.zf-overview-mode .chatbox.ov-st-sending  { outline: 1px solid rgba(140,170,255,.85) !important; }
+body.zf-overview-mode .chatbox.ov-st-queued   { outline: 1px solid rgba(255,175,70,.85) !important; }
+body.zf-overview-mode .chatbox.ov-st-answered { outline: 1px solid rgba(90,210,140,.85) !important; }
+body.zf-overview-mode .chatbox.ov-st-error    { outline: 1px solid rgba(255,110,110,.85) !important; }
+body.zf-overview-mode .chatbox.ov-st-active   { outline: 1px solid rgba(80,150,240,.6) !important; }
+body.zf-overview-mode .chatbox.ov-st-idle     { outline: 1px solid rgba(100,160,220,.32) !important; }
+
+/* ============================================================
+   TOPBAR-BRAND-真源规则块 【2026-11-12 治本收敛；2026-11-13 小队收口第2轮修正措辞】
+   背景：style-extras.css 曾有两处渐变裁切链(background-clip:text + transparent 经
+   *:not 传播)导致标题隐形，已全部删除；split-01-base.css 保留无important的扫光装饰。
+   实测优先级（真页面 CSSOM 级联实验，勿凭名号臆断）：
+   ① 品牌文字 span[data-i18n=brand] 由本块决定：本块权重 (0,2,1) 高于上方 v18 兜底
+      块 .topbar-title, .topbar-title * 的 (0,2,0)，同 !important 下高权重胜出；
+      实验证据：只改本块→品牌文字变色；只改兜底块→品牌文字不变。
+   ② 但 logo 底色、窗口按钮、其他子元素的可见性来自 v18 兜底块(约 59-79 行)，
+      兜底块同时是品牌文字的保险，禁止清理；两者都要动时请同步改，别只信一处。
+   ③ 同权重时胜负才取决于样式表加载顺序（实验：文档末尾插同选择器 !important 会赢）。
+   ⚠️ 本块曾因注释体内再写开/闭符号造成「提前闭合」(CSS 不支持注释嵌套)，
+      整块变裸文本被解析器连选择器一起吞掉 = 死代码，改了完全不生效。
+      故改完 CSS 必须跑：python scripts/check_css_comments.py（线性状态机，非计数法）。
+   ============================================================ */
+.topbar-title span[data-i18n="brand"] {
+    -webkit-text-fill-color: var(--text, #7ecbff) !important;
+    color: var(--text, #7ecbff) !important;
+    background-image: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+}
+.topbar-title .topbar-logo {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* i整理(缩小总览)·渐变视觉层 v4 2026-11-17
+   v4：删除 ::before 全屏暗色渐变底幕(z-index:8999 盖在内容上=「黑色板/发灰」元凶)。
+   渐变方块由 app-organize-engine.js 的 Canvas 直接绘制，无需额外底幕。
+   保留 ::after 四边渐变发光框作模式区分。CSS注释体内禁写注释开闭符号。 */
+body.zf-overview-mode::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 9000; pointer-events: none;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, rgba(79,140,255,.85), rgba(150,100,255,.55), rgba(64,200,255,.7)) border-box;
+    -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    /* 【发灰修复 v3】inset box-shadow 40px 全屏模糊层是"蒙灰"主因，且大范围 blur 极耗 GPU。
+       改用无模糊的细内描边，视觉保留、成本趋零 */
+    box-shadow: inset 0 0 0 1px rgba(79,140,255,.14);
+}
+/* ===== 帧率 v3：总览暗色渐变底上 text-shadow 全局覆盖（几百个元素）是掉帧元凶之一，
+   且让文字发灰。去掉阴影，仅靠更亮的文字色保证对比。 ===== */
+/* ===== 总览态文字提亮 v2 2026-11-16：总览暗色渐变底上原文字色偏灰看不清 =====
+   强制所有对话/节点文字走亮色系（输入框、代码块内部等可编辑区不动，保编辑体验）。 */
+body.zf-overview-mode .chatbox,
+body.zf-overview-mode .kite-node,
+body.zf-overview-mode .browser-node,
+body.zf-overview-mode .engine-node,
+body.zf-overview-mode .video-node,
+body.zf-overview-mode .fg-node,
+body.zf-overview-mode .pres-node {
+    color: #f2f5ff;
+    /* 【帧率 v3】text-shadow 全局覆盖太贵且发灰，去掉 */
+}
+body.zf-overview-mode .chatbox *,
+body.zf-overview-mode .kite-node *,
+body.zf-overview-mode .browser-node *,
+body.zf-overview-mode .engine-node *,
+body.zf-overview-mode .video-node *,
+body.zf-overview-mode .fg-node *,
+body.zf-overview-mode .pres-node * {
+    color: #eef2ff;
+}
+/* ===== 总览态标题缩小 v3 + 悬停完整标题 =====
+   标题在总览态缩小一档；hover 时用 data-ov-tip 浮出完整标题（JS 只在进入总览时写一次）。 */
+body.zf-overview-mode .chatbox .chat-title,
+body.zf-overview-mode .kite-node .node-title,
+body.zf-overview-mode .chatbox .chatbox-title,
+body.zf-overview-mode [class*="-node"] [class*="title"] {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#zfOvTip {
+    display: none !important; /* 【用户令 2026-11-27】黑色框彻底禁用：标题白色文字直接画在卡片渐变背景上 */
+}
+/* 【用户令 2026-11-27】文字后面黑色圆角块=内层嵌套 .chatbox 原生深色背景，总览态清透明 */
+body.zf-overview-mode .chatbox .chatbox {
+    background: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+/* 【用户令 2026-11-28·终修】内层嵌套卡片自带 data-ov-st 状态属性时，JS 注入的
+   .chatbox[data-ov-st=...]{background:纯色} 特异性(0,2,1)高于上面的透明规则(0,2,0)，
+   黑底因此复现。此处用同等特异性把它重新压回透明，并清掉状态色条伪元素。 */
+body.zf-overview-mode .chatbox[data-ov-st] .chatbox[data-ov-st],
+body.zf-overview-mode .chatbox[data-ov-st] .chatbox {
+    background: transparent !important;
+    background-image: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+body.zf-overview-mode .chatbox[data-ov-st] .chatbox[data-ov-st]::before {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+}
+/* 可编辑区/按钮/输入类放行，避免破坏输入对比与交互 */
+body.zf-overview-mode input,
+body.zf-overview-mode textarea,
+body.zf-overview-mode [contenteditable="true"],
+body.zf-overview-mode [contenteditable="true"] * {
+    color: inherit;
+    text-shadow: none;
+}
+/* 亮色主题下总览底是浅色，提亮反而看不清 → 恢复深色文字 */
+html[data-theme="light"] body.zf-overview-mode .chatbox,
+html[data-theme="light"] body.zf-overview-mode .kite-node,
+html[data-theme="light"] body.zf-overview-mode .browser-node,
+html[data-theme="light"] body.zf-overview-mode .engine-node,
+html[data-theme="light"] body.zf-overview-mode .video-node,
+html[data-theme="light"] body.zf-overview-mode .fg-node,
+html[data-theme="light"] body.zf-overview-mode .pres-node,
+html[data-theme="light"] body.zf-overview-mode .chatbox *,
+html[data-theme="light"] body.zf-overview-mode .kite-node *,
+html[data-theme="light"] body.zf-overview-mode .browser-node *,
+html[data-theme="light"] body.zf-overview-mode .engine-node *,
+html[data-theme="light"] body.zf-overview-mode .video-node *,
+html[data-theme="light"] body.zf-overview-mode .fg-node *,
+html[data-theme="light"] body.zf-overview-mode .pres-node * {
+    color: #1c2436;
+    text-shadow: none;
+}

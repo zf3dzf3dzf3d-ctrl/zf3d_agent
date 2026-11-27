@@ -1,0 +1,8 @@
+{
+  "_comment": "【模板示例，非真实配置】i图片 站点白名单格式示例。proxy 仅放行本名单内域名（安全单点真源）。真实配置请自行放置于项目根 private/i-image-sites.json（不会被 git 追踪/分发），程序加载顺序：private/ 优先，缺失时回退本文件。条目字段：id/name/domain/api/status/need_key/rating_field/rating_map/verified_date，请自行获取内容授权并遵守当地法律。",
+  "sites": [
+    {"id": "example", "name": "示例图源", "domain": "example.com", "api": "https://example.com/api/search?q={kw}&page={page}", "status": "verified", "need_key": false, "rating_field": "rating", "rating_map": {"default": "sfw"}, "note": "仅为格式示意，请替换为你自己有授权的源"}
+  ],
+  "default_rating": "sfw",
+  "_blocked": []
+}

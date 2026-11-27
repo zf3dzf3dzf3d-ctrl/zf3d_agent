@@ -1,0 +1,13 @@
+{
+  "id": "schedule.mem-autosave",
+  "name": "记忆库定时快照（git 例行）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "schedule",
+  "entry": { "py": "main.py" },
+  "capabilities": ["schedule.every", "log.write"],
+  "provides": "mem_autosave",
+  "depends": [],
+  "description": "T6（策划案v4）：长期记忆库 git 定时快照线程插件化。启用时经 provides=mem_autosave 接管（server_runtime 旧轨自动跳过，防双线程）；interval_hours 等沿用 memory_autosave 既有配置",
+  "zfVersion": ">=6.0.0"
+}

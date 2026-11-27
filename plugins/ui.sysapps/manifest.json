@@ -1,0 +1,11 @@
+{
+  "id": "ui.sysapps",
+  "name": "系统应用注册（顶栏功能入 Dock）",
+  "version": "1.0.0",
+  "spec": 1,
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_sysapps",
+  "description": "把顶栏 7 项功能（朗读/站点/主题/语言/专注/更多/关于）注册为 i桌面 Dock 独立图标并隐藏原顶栏按钮；本插件 disable 后图标消失、顶栏按钮自动恢复显示",
+  "type": "ui"
+}

@@ -1,0 +1,4 @@
+# 过渡豁免登记（策划案v4 T2.4 试点）
+# old-track-import = 互斥锁真源在 mixin_games 模块（_games_lock），迁移期经模块引用共享；
+# T2.4 主体推进（games 全实现体下沉）后删除本豁免。
+old-track-import

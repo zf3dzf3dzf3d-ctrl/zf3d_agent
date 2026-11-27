@@ -1,0 +1,30 @@
+{
+    "spec":  1,
+    "id":  "tool.echo-demo",
+    "name":  "回声演示",
+    "version":  "0.1.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "tool",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "capabilities":  [
+                         "http.route",
+                         "tool.register",
+                         "event.use", "store.rw"
+                     ],
+    "mounts":  {
+                   "httpRoute":  "/api/plugin/echo",
+                   "toolCategory":  "演示"
+               },
+    "config":  {
+                   "greeting":  {
+                                    "default":  "hello",
+                                    "desc":  "问候语"
+                                }
+               },
+    "description":  "回声演示：最简插件示例，把发来的文字原样返回。给插件开发者当模板参考，日常使用可禁用。"
+}

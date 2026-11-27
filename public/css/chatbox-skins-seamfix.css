@@ -1,0 +1,32 @@
+
+/* ============================================================
+ * 防穿插·防缝隙 通用加固层（对全部皮肤生效，2026-09-24）
+ * 问题：皮肤给 .chatbox 加了大圆角，但内部首/末子元素仍是直角，
+ *       按钮/头部底色从圆角缝隙里透出来，与全局界面风格互相"染色"。
+ * 方案：
+ *  1) 首末子元素圆角继承容器对应角，缝隙处不再露出直角底色；
+ *  2) 按钮背景裁剪到 padding-box，边框半透明时不再透出下层颜色；
+ *  3) .chatbox 建立独立层叠上下文（isolation），内部混合模式/透明度
+ *     不再与全局界面风格互相影响。
+ * ============================================================ */
+.chatbox { isolation: isolate; }
+.chatbox > :first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+.chatbox > :last-child {
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+.chatbox-header,
+.chatbox button,
+.chatbox .hd-btn,
+.chatbox .send-btn,
+.chatbox-inputrow button {
+    background-clip: padding-box;
+}
+/* 按钮/头部自身不再带出意外外发光与背景出血 */
+.chatbox-header button,
+.chatbox .hd-btn {
+    border-radius: inherit;
+}

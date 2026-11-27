@@ -1,0 +1,12 @@
+{
+  "id": "ui.middle-note",
+  "name": "随手标题·中键双击",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_middle_note",
+  "description": "i缩小整理模式+无限画布：空白处双击鼠标中键，在鼠标位置创建随手标题（QuickNote）。防三连击/防拖拽误触。",
+  "zfVersion": ">=6.0.0"
+}

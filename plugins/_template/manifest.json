@@ -1,0 +1,16 @@
+{
+  "id": "tool.template-scaffold",
+  "name": "插件脚手架模板（复制我，别改我）",
+  "version": "0.1.0",
+  "spec": 1,
+  "type": "tool",
+  "entry": { "py": "main.py" },
+  "capabilities": ["tool.register", "log.write"],
+  "provides": "",
+  "depends": [],
+  "config": {
+    "greeting": { "default": "你好，插件世界" }
+  },
+  "description": "PFD 流程起点：复制整个 _template 目录为 plugins/<分类>.<名称>/，改 manifest 的 id/name/type/capabilities/provides，再改 main.py。本目录以 _ 开头，内核扫描时跳过、门禁豁免。",
+  "zfVersion": ">=6.0.0"
+}

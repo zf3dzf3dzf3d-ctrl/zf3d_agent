@@ -1,0 +1,37 @@
+# ruff 独立配置 —— 朱峰智能体无限 质量门禁（《策划案-工程基建提升总纲-从6.5到8-20261123》P1.3）
+# 由 scripts/run_checks.py 显式 --config 引用，不经根目录 pyproject.toml：
+# 【20261123 记事】根目录 pyproject.toml 当日两次被后台清理进程从工作区删除（从未入库），
+# 挪入 tools/quality/ 子目录避扫；追责线索见 docs/验收报告-工程基建Phase0与1完工-20261123.md。
+# 原则：硬拦截只开零争议规则（E9 语法错误），渐进收紧；F821 走计数基线（f821_baseline.json）。
+
+line-length = 200
+target-version = "py311"
+# exclude 相对本配置文件目录（tools/quality/），故带 ../ 前缀
+exclude = [
+    "../archive",       # 历史归档（含 exec 拆分分段原件）
+    "../node_modules",
+    "../python",        # 内嵌解释器
+    "../历史版本",
+    "../private",       # 隐私运行时
+    "../public",        # 前端资源（无 Python）
+    "../docs",
+    "../data",
+]
+
+[lint]
+# 硬拦截只开零争议规则：E9 语法错误。F821（潜伏 NameError）由 run_checks 计数基线管。
+select = ["E9"]
+
+[lint.per-file-ignores]
+# 注意：per-file-ignores 的 key 按【项目根（cwd）相对路径】匹配，与 exclude 的
+# 配置文件相对路径不同（20261123 实测踩坑：写 ../server/... 不生效）。
+# screen_recorder_transcode 是运行时注入式模块：screen_recorder.py 加载后把
+# _录屏状态/_写日志/_ffmpeg/录屏器 四个名字 monkey-patch 注入其命名空间，
+# F821 全部为静态分析不知注入的假阳性。重构为显式依赖后应删除本豁免项。
+"server/screen_recorder_transcode.py" = ["F821"]
+
+[lint.pyflakes]
+# 未来收紧位：F811 重复定义（计数器已有 AST 版）、F401 未用导入等逐批进入 select。
+
+# pytest 配置已随根 pyproject.toml 一起被清扫进程波及，testpaths 约定改由
+# scripts/run_checks.py 内部保证（脚本式测试逐个收退出码），不再依赖本文件。

@@ -1,0 +1,68 @@
+/* ============================================================
+   mobile-ui-fix2.css —— 手机版第二轮修复
+   1) 左下角状态栏（整理/模型/风筝/小狗/主脑/急速）手机上加底可见、两排换行
+   2) 右下角入口栏（对话等）两排布局
+   3) 顶栏登录/用户入口精简去重
+   ============================================================ */
+
+@media (max-width: 900px) {
+    /* ---------- 1. 左下角状态栏：加半透明底 + 两排换行 ---------- */
+    .statusbar {
+        position: fixed !important;
+        left: 8px !important;
+        right: auto !important;
+        bottom: 8px !important;
+        max-width: calc(100vw - 150px) !important; /* 给右下角入口栏留空间 */
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+        padding: 6px 8px !important;
+        border-radius: 10px !important;
+        background: rgba(15, 18, 26, 0.82) !important;   /* 盖过 style-canvas-clean 的透明 !important */
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        z-index: 9000 !important;
+    }
+    .statusbar .zf-dock-btn,
+    .statusbar .status-model-trigger {
+        padding: 5px 8px !important;
+        font-size: 11.5px !important;
+        flex-shrink: 0 !important;
+    }
+    .statusbar .status-model-trigger { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* 版本号手机上隐藏，省地方 */
+    .statusbar-right, #statusbarVersion { display: none !important; }
+
+    /* ---------- 2. 右下角入口栏：两排换行 ---------- */
+    .tp-fab-group {
+        max-width: calc(100vw - 160px) !important;
+        flex-wrap: wrap !important;
+        row-gap: 5px !important;
+        justify-content: flex-end !important;
+    }
+
+    /* ---------- 3. 顶栏：登录/用户入口去重精简 ---------- */
+    /* 顶栏登录/用户入口去重精简（互斥显示，登录态切换后不再双图标） */
+    #zf3dLoginEntry:not([style*="none"]), #zf3dUserEntry.active {
+        display: flex !important;
+        align-items: center;
+        flex-shrink: 0 !important;
+    }
+    /* 登录状态下隐藏用户名文字，只留头像，避免和登录按钮文字重复挤爆顶栏 */
+    #zf3dUserEntry .zf3d-topbar-username { display: none !important; }
+    #zf3dLoginEntry { font-size: 12px !important; padding: 4px 8px !important; }
+
+    /* ---------- 4. 顶栏「⋯更多」数字角标：防裁剪 + 全圆角胶囊 ---------- */
+    /* 根因：style-chatbox.css:4443 `.chatbox-header-row1 > *{overflow:hidden}`
+       命中手机版顶栏直接子容器 .hd-menubar（4444 行只豁免 .header-actions/.hd-more-wrap，
+       漏了 .hd-menubar），把贴在 more-btn 上 top:-6px 的数字角标上半部削掉。
+       这里把整条祖先链 overflow 放开，并提升角标层级，保证数字完整可见。 */
+    .chatbox-header-row1 > .hd-menubar { overflow: visible !important; }
+    .chatbox-header-row1 .hd-menubar .more-btn { overflow: visible !important; }
+    .chatbox-header .hd-menubar .more-btn .tool-badge,
+    .chatbox-header .hd-menubar .tool-panel-btn .tool-badge,
+    .chatbox-header .hd-more-wrap > .tool-badge--hd {
+        overflow: visible !important;
+        border-radius: 999px !important;  /* 完全圆角：1 位数字=正圆，多位=胶囊，背景四角圆滑 */
+        z-index: 9999 !important;
+    }
+}

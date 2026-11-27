@@ -1,0 +1,13 @@
+{
+  "id": "ui.dockapps-extra",
+  "name": "Dock 程序·附属包（i采集/i授权/i密室）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_dockapps_extra",
+  "depends": [],
+  "description": "R1-2 第二波（策划案v4 T1）：原 zf-app-dock-apps.js（S4 拆分件）逐字节转为插件资产，index.html 静态 script 退役；disable 后三图标消失",
+  "zfVersion": ">=6.0.0"
+}

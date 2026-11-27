@@ -1,0 +1,13 @@
+{
+  "id": "ui.api-core",
+  "name": "前端统一 API 封装（window.API）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount"],
+  "provides": "ui_api_core",
+  "depends": [],
+  "description": "工程化整改 P1-4：为全站提供 window.API = {get,post,del,raw} 统一封装（统一超时/toast/错误对象）。R4 收口：前端资源经 ui.mount 下发，不再新增 index.html 静态 script 标签。注入晚于页面脚本（body 末尾）——新代码请在事件回调/懒初始化中调用 API.*，勿在顶层立即调用。存量 356 处裸 fetch 随改随换。",
+  "zfVersion": ">=6.0.0"
+}

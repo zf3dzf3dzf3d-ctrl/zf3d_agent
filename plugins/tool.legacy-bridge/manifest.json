@@ -1,0 +1,23 @@
+﻿{
+    "spec":  1,
+    "id":  "tool.legacy-bridge",
+    "name":  "旧轨桥接插件（绞杀者过渡）",
+    "version":  "1.0.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "tool",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "capabilities":  [
+                         "tool.register",
+                         "log.write"
+                     ],
+    "mounts":  {
+                   "toolCategory":  "系统"
+               },
+    "config":  null,
+    "description":  "旧版桥接：把旧版 server 的经典工具映射为插件工具，保证老功能可用，建议保持启用。"
+}

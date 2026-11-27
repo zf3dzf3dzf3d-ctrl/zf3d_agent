@@ -1,0 +1,110 @@
+# 02 可用工具清单
+
+> 来源:`tool/` 目录下各分类源文件(minimal/coding/writing)的实际部署数量。下方「共 X 个」为**源文件口径**，与各分类正文「(N 个,启用)」的**categories.js 启用数组口径**不同源——以启用数组为准；二者不可混读。
+> 默认分类为**极简**(task_complete + 读/写/运行)。
+> 复杂任务用 `switch_tool_category` 切换分类加载更多工具。
+
+---
+
+## 一、极简(19 个,默认)
+
+> 口径：以运行时 `public/js/tools-defs-categories.js` 各分类「启用数组」为唯一真源（极简当前 19 个）；`tool/` 源目录文件数与启用数可能不同，勿混读。
+
+### 收尾与交互
+- `task_complete` - 结束任务,终止循环(必用)
+- `switch_tool_category` - 切换工具分类加载更多工具
+- `ask_user` - 向用户提问/表单
+
+### 读取
+- `read_file` - 读文本文件,单/多文件批量
+- `read_lines` - 按行读,支持范围/关键词/统计
+
+### 写入
+- `write_file` - 写文本(已存在自动备份 .bak),批量
+- `replace_text` - 文件内查找替换,批量
+- `move_file` - 移动/重命名文件
+
+### 运行与检索
+- `run_code` - 执行 shell,批量/超时
+- `tree_dir` - 树形显示目录
+- `find_files` - glob 找文件
+- `search_in_files` - 文件内容搜关键词
+- `file_info` - 文件/目录元信息
+
+### 任务与计划管理
+- `project_record` - 项目记录管理
+- `long_plan` - 超长计划管理
+- `plan_batch` - 计划分批执行
+- `task_list` - 任务清单
+- `get_tool_result` - 找回被丢弃的工具结果
+
+### 浏览
+- `browser_control` - 内置浏览器(网页打开/截图/点击/填表/抓取/登录;浏览器操作只用本工具,禁用 puppeteer 系 MCP)
+
+---
+
+## 二、编程(27 个,需切换)
+
+### 对话数据库(6)
+- `chat_context` `chat_manage` `chat_summary` `search_chat` `recent_questions` `query_answers`
+
+### 记忆缓存(2)
+- `long_term_memory` `ram_cache`
+
+### 任务流程(3)
+- `schedule` - 定时任务:start 启动、stop 停止、list 列出任务、status 查单个任务状态
+- `monitor` - 监控队列:send 发消息触发 AI、status 查窗口状态、list 列出窗口、merge 合并队列
+- `wait` - 等待指定秒数后继续(延迟/轮询)
+
+### 代码辅助(4)
+- `code_outline` `diff_preview` `git_save` `git_log`
+
+### 目录与搜索(2)
+- `list_dir` `regex_search`
+
+### AI 多模态(4)
+- `image_gen` `video_gen` `send_email` `net`
+
+### 上下文管理(0)
+（已删除 set_tool_result_config：压缩决策现由用户通过任务完成后的三档选择器手动控制）
+
+### 画布与界面(3)
+- `set_camera` `locate_mouse` `pixel_display`
+
+### 工具集切换(2)
+- `switch_tool_category` `switch_port`
+
+---
+
+## 三、写作(40 个,需切换)
+
+### 转换(4)
+- `convert_chars` `fix_punctuation` `format_beautify` `color_text`
+
+### 改写润色(10)
+- `polish_text` `proofread_text` `professional_edit` `rewrite_text` `shorten_text` `expand_text` `change_tone` `praise_text` `optimize_ends` `seo_optimize`
+
+### 摘要提取(4)
+- `summarize_text` `extract_outline` `extract_keywords` `interpret_document`
+
+### 分析检测(7)
+- `analyze_sentiment` `analyze_text_metrics` `detect_style` `detect_sensitive` `fact_check` `rate_article` `compare_text`
+
+### 创作生成(7)
+- `quick_article` `write_outline` `generate_title` `generate_hook` `generate_quotes` `translate_text` `list_formats`
+
+### 多角色视角(8)
+- `novice_view` `expert_review` `bystander_view` `opposing_view` `play_devil_advocate` `adapt_audience` `role_brainstorm` `group_discussion`
+
+---
+
+## 四、调用速记
+
+- **批量优先**:`paths` / `files` / `codes` / `messages` 一次传多个
+- **读后写**:写入前 `read_file` 确认,避免误覆盖
+- **结束必调**:最后一轮必带 `task_complete`
+- **不确定就问**:`ask_user` 暂停,别瞎猜
+- **多步任务**:3 步以上 `task_list` 建清单
+- **跨对话偏好**:`long_term_memory` 存,别每次重说
+- **临时数据**:`ram_cache` 中转,重启自动清
+- **长输出**:超长结果会被自动截断存档,丢的用 `get_tool_result` 找回

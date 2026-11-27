@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!-- P0 压测页（独立，不 import 主工程任何文件）。判据：FPS≥55 持续30s / 命中<1ms / L0≤300硬规则 -->
+<html>
+<head><meta charset="utf-8"><title>P0 压测 - i整理模式</title>
+<style>body{margin:0;background:#111;color:#9f9;font:12px monospace}#cv{display:block}#out{position:fixed;top:4px;left:4px;white-space:pre;z-index:2}</style>
+</head>
+<body>
+<canvas id="cv"></canvas><div id="out">running...</div>
+<script>
+'use strict';
+const N=3000, cv=document.getElementById('cv'), ctx=cv.getContext('2d'), out=document.getElementById('out');
+cv.width=innerWidth; cv.height=innerHeight;
+// 合成 3000 节点索引（宽高比 0.6~1.8，网格散布大世界 12000x9000）
+const nodes=[]; for(let i=0;i<N;i++){nodes.push({id:i,x:(i%60)*200+(i*7919%97),y:Math.floor(i/60)*160+(i*104729%89),ar:0.6+Math.random()*1.2,g:i%12,t:'节点'+i});}
+// 空间网格桶 cell=1200（视口/10 量级）
+const CELL=1200, grid=new Map();
+nodes.forEach(n=>{const k=(n.x/CELL|0)+','+(n.y/CELL|0);(grid.get(k)||grid.set(k,[]).get(k)).push(n);});
+// 摄像机
+let cam={x:3000,y:2000,scale:0.5}; // 场景A：远景全L1；场景B按 'B' 键拉近，视口内约250节点恒L0
+let scene='A', frames=0, t0=performance.now(), fpsMin=999, fpsAcc=0, hitMs=0, done=false;
+const COLORS=['#4a6','#a64','#68a','#aa6','#6aa','#a6a','#7a4','#a75','#567','#865','#478','#784'];
+function draw(){
+  ctx.fillStyle='#111'; ctx.fillRect(0,0,cv.width,cv.height);
+  const vw=cv.width/cam.scale, vh=cv.height/cam.scale, vx=cam.x, vy=cam.y;
+  // 视口内节点收集（走桶）
+  const c0x=vx/CELL|0,c0y=vy/CELL|0,c1x=(vx+vw)/CELL|0,c1y=(vy+vh)/CELL|0, vis=[];
+  for(let gx=c0x;gx<=c1x;gx++)for(let gy=c0y;gy<=c1y;gy++){const b=grid.get(gx+','+gy); if(b)for(const n of b)vis.push(n);}
+  // LOD 硬规则：视口内≤300恒L0；>300全体降L1
+  const lod = vis.length<=300 ? 0 : 1;
+  for(const n of vis){
+    const sx=(n.x-vx)*cam.scale, sy=(n.y-vy)*cam.scale;
+    const w=140*cam.scale, h=w*n.ar; if(sx<-w||sy<-h||sx>cv.width||sy>cv.height)continue;
+    ctx.fillStyle=COLORS[n.g]; ctx.fillRect(sx,sy,w,h);
+    if(lod===0){ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText(n.t,sx+3,sy+13);ctx.strokeStyle='rgba(255,255,255,.4)';ctx.strokeRect(sx,sy,w,h);}
+    else {ctx.fillStyle=COLORS[n.g];}
+  }
+  return {vis:vis.length,lod};
+}
+  // 独立帧计：逐帧记录，排除前3秒预热后取瞬时最低帧
+  let lastT=performance.now();
+  function loop(){
+  const now=performance.now(), instFps=1000/Math.max(now-lastT,1); lastT=now;
+  const st=draw();
+  frames++;
+  // 命中检测计时：视口中心点反查桶（每帧一次）
+  const hp=performance.now();
+  let hit=0; const px=cam.x+cv.width/2/cam.scale, py=cam.y+cv.height/2/cam.scale;
+  const b=grid.get((px/CELL|0)+','+(py/CELL|0));
+  if(b)for(const n of b){const w=140/n.ar, h=140; if(px>=n.x&&px<=n.x+w&&py>=n.y&&py<=n.y+h*2){hit=n.id;break;}}
+  hitMs=hitMs*0.9+(performance.now()-hp)*0.1;
+  const dt=now-t0, fps=frames*1000/dt;
+  if(dt>3000&&instFps<fpsMin)fpsMin=instFps; fpsAcc=fps;
+  out.textContent=`场景${scene} 视口节点=${st.vis} LOD=${st.lod===0?'L0(文字+边框)':'L1(色块)'} FPS=${fps.toFixed(1)} 帧均最低=${fpsMin.toFixed(1)} 命中均值=${hitMs.toFixed(3)}ms 命中=${hit} 用时=${dt.toFixed(0)}s`;
+  if(dt>=30000&&!done){done=true;
+    const report={scene:scene,fpsAvg:+fpsAcc.toFixed(1),fpsMin:+fpsMin.toFixed(1),hitMsAvg:+hitMs.toFixed(3),visNodes:st.vis,gate:{fps55_30s:fpsMin>=55,hit_lt1ms:hitMs<1},ts:new Date().toISOString()};
+    window.P0_REPORT=report; out.textContent+='\n\n== 门禁判定 ==\n'+JSON.stringify(report,null,1);
+    document.title='P0-DONE';
+  }
+  requestAnimationFrame(loop);
+}
+addEventListener('keydown',e=>{if(e.key==='b'||e.key==='B'){scene='B';cam={x:nodes[0].x-200,y:nodes[0].y-100,scale:1};frames=0;t0=performance.now();fpsMin=999;done=false;document.title='P0';}});
+loop();
+</script></body></html>

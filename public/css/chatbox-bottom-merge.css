@@ -1,0 +1,438 @@
+/* ============================================================
+ * chatbox-bottom-merge.css —— 对话框底部布局改造（叠加层，最后加载）
+ *
+ * 配合 chatbox-header-relocate.js：运行时把「默认 / 极简 / 📁项目 / 🌿分支 /
+ * 工作台 / 模型」全部并入 .chatbox-inputrow 这一个大外壳。本文件负责外观：
+ *   1) 一个大圆角外壳统一包住文字区 + 所有图标控件（不再两行两框）
+ *   2) 图标控件去框去文字（仅右侧「模型」保留文字，文字也不带框）
+ *   3) + / 🎤 / 发送 / 各图标控件排在输入框内部下方同一排，上下居中对齐一条线
+ * 优先级：本文件用 !important 覆盖 split-02-layout.css / style-chatbox.css 的
+ * 既有规则（绝对定位发送按钮、cfg-btn 蓝底边框、文字 span、padding-right 等）。
+ * ============================================================ */
+
+/* ⚠️【聚焦态规则纪律】（UI师收口第2轮采纳）：.chatbox-inputrow 的聚焦态(:focus-within)
+   规则按主题分组，各主题必须带专属聚焦档（特异度 (0,4,0) 压过通用聚焦规则）。
+   新增主题时必须同时新增其专属聚焦档，否则后加载的通用聚焦规则会整组冲掉强阴影。
+   判定 CSS 覆盖争议先算特异度再谈顺序（代码师免疫卡教训）。 */
+
+/* ===== ⓫ 宽屏限宽居中：两侧留白（修复 inset clamp 上限 180px 形同虚设的问题）=====
+   原 .chatbox 用 clamp(16px, 2.5vw, 180px) 做四周内缩，但 2.5vw 在 1080p/2K 屏
+   只有 48~64px，根本到不了 180px 上限，导致宽屏时对话框几乎铺满、没有两侧空白。
+   改为：内容区限宽 1400px，超宽屏幕居中，两侧留白随屏幕变宽而增大。 */
+.chatbox {
+    /* v7：最大宽度 = 全屏宽 - 两侧 inset，不再封顶 1400px（用户 2026-11 反馈：
+       1400px 上限导致超宽屏对话框不到全屏宽，且 media query 20% inset 会把
+       max-width 算成 60vw 进一步压窄）。 */
+    max-width: calc(100vw - 2 * var(--chatbox-inset)) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* ===== ⓬ 底部留白：输入框外壳不再贴住卡片底边，给底部一点呼吸空间 ===== */
+.chatbox {
+    padding-bottom: 14px !important;
+}
+
+/* ===== ⓪ 宽度对齐：输入区（输入框+图标排大外壳）与上方对话区同宽 ===== */
+/* 对话区 .chatbox-body 左右 padding 10px；输入区原本全宽贴边，比对话区宽。
+   给 inputrow 加左右 10px 内缩，使输入框外壳左右边缘与消息区对齐 */
+.chatbox .chatbox-inputrow {
+    margin-left: calc(var(--cb-side-pad, 10px) - 10px) !important;
+    margin-right: calc(var(--cb-side-pad, 10px) - 10px) !important;
+    width: calc(100% - 2 * (var(--cb-side-pad, 10px) - 10px)) !important;
+    box-sizing: border-box !important;
+}
+
+/* ===== ① 外壳：取消底部额外留位，改居中对齐（按钮排成一排后垂直居中） ===== */
+.chatbox .chatbox-inputrow {
+    padding-right: 8px !important;       /* 发送按钮不再绝对定位，无需右侧留位 */
+    align-items: center !important;      /* 第二排图标上下居中对齐，彻底一条线 */
+    gap: 8px !important;                 /* 与对话区垂直节奏统一（对话区 gap:8px） */
+}
+
+/* 文字区仍独占第一行（占满宽），按钮折到第二行 */
+.chatbox .chatbox-inputrow > textarea { order: -1; }
+
+/* 第二排各控件统一高度，垂直居中对齐到同一条线
+   （mastercluster-btn：无 ⋯ 菜单栏窗口的兜底归宿，relocate 会把它并入 inputrow） */
+.chatbox .chatbox-inputrow .upload-btn,
+.chatbox .chatbox-inputrow .voice-btn,
+.chatbox .chatbox-inputrow .send-btn,
+.chatbox .chatbox-inputrow .eng-picker-wrap,
+.chatbox .chatbox-inputrow .tool-cat-wrap,
+.chatbox .chatbox-inputrow .cfg-project-btn,
+.chatbox .chatbox-inputrow .cfg-branch-btn,
+.chatbox .chatbox-inputrow .wb-toggle-btn,
+.chatbox .chatbox-inputrow .mastercluster-btn,
+.chatbox .chatbox-inputrow .model-picker-wrap {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 28px;
+    margin: 0 !important;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+/* 包裹层保持 relative，供二级菜单弹层定位 */
+.chatbox .chatbox-inputrow .eng-picker-wrap,
+.chatbox .chatbox-inputrow .tool-cat-wrap,
+.chatbox .chatbox-inputrow .model-picker-wrap { position: relative; }
+
+/* ===== ② 去框：所有图标控件取消背景边框阴影（含工作台的内联 padding） ===== */
+.chatbox .chatbox-inputrow .eng-trigger,
+.chatbox .chatbox-inputrow .tool-cat-trigger,
+.chatbox .chatbox-inputrow .cfg-btn,
+.chatbox .chatbox-inputrow .cfg-project-btn,
+.chatbox .chatbox-inputrow .cfg-branch-btn,
+.chatbox .chatbox-inputrow .wb-toggle-btn,
+.chatbox .chatbox-inputrow .mastercluster-btn,
+.chatbox .chatbox-inputrow .model-picker-btn,
+.chatbox .chatbox-inputrow .upload-btn,
+.chatbox .chatbox-inputrow .voice-btn,
+.chatbox .chatbox-inputrow .send-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 5px !important;
+    border-radius: 6px !important;
+    color: var(--text) !important;
+    cursor: pointer;
+}
+/* 仅悬停时给极淡底色，保留可点击反馈 */
+.chatbox .chatbox-inputrow .eng-trigger:hover,
+.chatbox .chatbox-inputrow .tool-cat-trigger:hover,
+.chatbox .chatbox-inputrow .cfg-btn:hover,
+.chatbox .chatbox-inputrow .wb-toggle-btn:hover,
+.chatbox .chatbox-inputrow .mastercluster-btn:hover,
+.chatbox .chatbox-inputrow .model-picker-btn:hover,
+.chatbox .chatbox-inputrow .upload-btn:hover,
+.chatbox .chatbox-inputrow .voice-btn:hover {
+    background: rgba(var(--blue-rgb), 0.12) !important;
+}
+
+/* ===== ② 去文字：仅保留图标/箭头（模型例外，保留文字） ===== */
+.chatbox .chatbox-inputrow .eng-name,
+.chatbox .chatbox-inputrow .tool-cat-name,
+.chatbox .chatbox-inputrow .proj-label,
+.chatbox .chatbox-inputrow .branch-label {
+    display: none !important;
+}
+/* 模型名保留可见（用户要求右侧模型带文字），但外层不带框已由上面去框规则实现 */
+.chatbox .chatbox-inputrow .model-picker-name {
+    display: inline !important;
+    font-size: 12px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 下拉箭头统一淡色 */
+.chatbox .chatbox-inputrow .eng-arrow,
+.chatbox .chatbox-inputrow .model-picker-arrow {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-left: 1px;
+}
+
+/* ===== ③ 发送按钮：取消绝对定位，改为参与第二排，最右对齐一条线 ===== */
+.chatbox .chatbox-inputrow .send-btn {
+    position: static !important;
+    /* 关键：必须显式清掉 split-02-layout.css 残留的 top:50%/right:12px。
+       send-icon-themes.js 运行时会把 send-btn 提权回 position:relative（叠放图标需锚点），
+       若不清残留偏移，relative 会重新应用 top:50%/right:12px，把按钮从最右拽到中间。 */
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    order: 9;
+    animation: none !important;        /* 不再呼吸抖动，保证彻底对齐 */
+    width: 28px;
+    height: 28px;
+}
+.chatbox .chatbox-inputrow .send-btn .send-icon,
+.chatbox .chatbox-inputrow .send-btn .stop-icon { width: 18px; height: 18px; }
+
+/* ===== 第二排控件视觉顺序（textarea 已在 order:-1 首行） =====
+   DOM 移入顺序：上传 语音 [发送] 引擎 分类 项目 分支 模型 工作台
+   用 order 重排为：➕ 🎤 [默认][极简][项目][分支][工作台] ......... [模型][发送] */
+.chatbox .chatbox-inputrow .upload-btn       { order: 1; }
+.chatbox .chatbox-inputrow .voice-btn        { order: 2; }
+.chatbox .chatbox-inputrow .eng-picker-wrap  { order: 3; }
+.chatbox .chatbox-inputrow .tool-cat-wrap    { order: 4; }
+.chatbox .chatbox-inputrow .cfg-project-btn  { order: 5; }
+.chatbox .chatbox-inputrow .cfg-branch-btn   { order: 6; }
+.chatbox .chatbox-inputrow .wb-toggle-btn,
+.chatbox .chatbox-inputrow .mastercluster-btn { order: 7; }
+.chatbox .chatbox-inputrow .mastercluster-btn {
+    font-size: 12px;                   /* 文字「大师」兜底可见（无菜单栏窗口） */
+    color: var(--text) !important;
+}
+.chatbox .chatbox-inputrow .model-picker-wrap {
+    order: 8;
+    margin-left: auto !important;      /* 模型靠右，发送紧随其后 */
+}
+.chatbox .chatbox-inputrow .send-btn          { margin-left: 4px !important; }
+
+/* ============================================================
+ * ===== 图标风格统一 + 去框残留 + 右上角「⋯」三点图标 =====
+ *
+ * 背景（用户反馈）：底部「工具分类 / 项目 / 分支」按钮用的是 icons.js
+ *   自动生成的「彩色渐变 + 圆角方块」emoji 图标，那个圆角方块看起来
+ *   像给按钮套了个「框」，与左侧线性描边图标（语音/工作台/发送）风格割裂。
+ *   → 统一为线性描边单色图标，去掉色块框；右上角「⋯」文字改重绘三点图标。
+ * 手法：纯 CSS 覆盖（隐藏旧彩色 svg / 字符，用 ::before 背景图注入统一线性
+ *   图标），不依赖 JS，不受 icons.js/relocate.js 重绘影响，无闪烁。
+ * 线性图标统一规格：viewBox 0 0 24 24 / stroke #e8eef8 / stroke-width 1.8
+ *   / round 端点 / fill none —— 与 voice/send/wb 现有线性图标一致。
+ * ============================================================ */
+
+/* ① 去框残留：隐藏底部按钮里的彩色渐变图标方块 */
+.chatbox .chatbox-inputrow .tool-cat-icon svg,
+.chatbox .chatbox-inputrow .tool-cat-icon .zf-icons,
+.chatbox .chatbox-inputrow .cfg-project-btn svg,
+.chatbox .chatbox-inputrow .cfg-project-btn .zf-icons,
+.chatbox .chatbox-inputrow .cfg-branch-btn svg,
+.chatbox .chatbox-inputrow .cfg-branch-btn .zf-icons {
+    display: none !important;
+}
+
+/* ② 统一线性图标：::before 注入同风格单色描边 SVG */
+.chatbox .chatbox-inputrow .tool-cat-trigger::before,
+.chatbox .chatbox-inputrow .cfg-project-btn::before,
+.chatbox .chatbox-inputrow .cfg-branch-btn::before,
+.chatbox .chatbox-inputrow .upload-btn::before,
+.chatbox .chatbox-header .more-btn::before {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px 18px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+/* 工具分类 → 四宫格（分类/网格） */
+.chatbox .chatbox-inputrow .tool-cat-trigger::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8eef8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='3.5' width='7' height='7' rx='1.5'/%3E%3Crect x='13.5' y='3.5' width='7' height='7' rx='1.5'/%3E%3Crect x='3.5' y='13.5' width='7' height='7' rx='1.5'/%3E%3Crect x='13.5' y='13.5' width='7' height='7' rx='1.5'/%3E%3C/svg%3E");
+}
+
+/* 项目 → 文件夹 */
+.chatbox .chatbox-inputrow .cfg-project-btn::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8eef8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3C/svg%3E");
+}
+
+/* 分支 → git 分支（两节点 + 连接线） */
+.chatbox .chatbox-inputrow .cfg-branch-btn::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8eef8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='5' x2='6' y2='14'/%3E%3Ccircle cx='6' cy='17.5' r='2.3'/%3E%3Ccircle cx='6' cy='4.5' r='2.3'/%3E%3Ccircle cx='18' cy='7' r='2.3'/%3E%3Cpath d='M18 9.3a6 6 0 0 1-6 6H8.3'/%3E%3C/svg%3E");
+}
+
+/* 上传「+」→ 线性加号（隐藏原 + 文字） */
+.chatbox .chatbox-inputrow .upload-btn {
+    font-size: 0 !important;
+    color: transparent !important;
+}
+.chatbox .chatbox-inputrow .upload-btn::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8eef8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+ * ===== ④ 底部按钮排「镂空包裹」（用户反馈：输入框应把下面一排按钮包起来，
+ *         按钮排底部呈镂空感，整体更通透）
+ * 做法：不再「文字区一个暗框 + 按钮排在卡片底色上」两层分离，
+ *   而是让 .chatbox-inputrow 外壳自身成为一个「内凹镂空槽」——
+ *   半透明暗底 + 极淡内描边 + 底部内阴影，文字区背景转透明与之融为一体，
+ *   于是文字区与按钮排被同一个圆角槽包住，按钮排下沿直接透出槽底，
+ *   视觉上就是镂空的，不再有一块实心底板。
+ * ============================================================ */
+.chatbox .chatbox-inputrow {
+    /* [本次·墨黑配色] 按用户提供的参考图（大师墨黑）设色：
+       输入框外壳 = 墨黑卡片色 #2A2A2C，底色 = 墨黑背景 #1C1C1E（theme-quiet.css ink Token） */
+    background: transparent !important;
+    border-radius: 16px !important;
+    padding: 8px 8px 7px !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.07),   /* 内描边压暗（用户要求去掉白色高亮边，仅留极淡轮廓） */
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),     /* 顶部高光压到几乎不可见 */
+        inset 0 -6px 12px rgba(0, 0, 0, 0.18) !important; /* 底部轻微渐暗（略增，配合再暗一档底色） */
+}
+/* 文字区取消独立暗底，与按钮排同处一个镂空槽内（避免二次叠黑）。
+   textarea 就是 .chatbox-inputrow 的直接子元素（chatbox-panels-template.js L63-66）。
+   [特异性] 刻意把 .chatbox 写两遍，将特异度抬到 (0,3,1)，用来压过
+   chatbox-skins.css 的 .chatbox[data-skin="…"] .chatbox-inputrow textarea ——
+   它同为 (0,3,1) 但先加载，故本文件（最后加载）胜出；否则切到 paper（dashed 边框）/
+   metal（内阴影）/ ice（描边）皮肤时，文字区仍会带框，镂空槽被割成两段。
+   border 整体置 none（而非仅 border-color），才能同时压住皮肤层的 border-style 简写。 */
+.chatbox.chatbox .chatbox-inputrow > textarea {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    /* [修复·左右不对称] 原 padding:8px 6px 左右过窄，Windows 下 textarea 出现
+       垂直滚动条时右侧再被滚动条占位，视觉上左窄右宽不一致。统一左右 12px，
+       与 style-tools.css 基础规则(padding:8px 12px)对齐，滚动条出现时依旧对称。 */
+    padding: 8px 12px !important;
+    scrollbar-gutter: stable;
+}
+/* 按钮排所在的下沿不再压任何实心底板：仅保留 hover 淡底反馈 */
+.chatbox .chatbox-inputrow .upload-btn,
+.chatbox .chatbox-inputrow .voice-btn,
+.chatbox .chatbox-inputrow .send-btn,
+.chatbox .chatbox-inputrow .eng-picker-wrap,
+.chatbox .chatbox-inputrow .eng-picker-wrap .eng-btn,
+.chatbox .chatbox-inputrow .eng-btn,
+.chatbox .chatbox-inputrow .tool-cat-wrap,
+.chatbox .chatbox-inputrow .cfg-project-btn,
+.chatbox .chatbox-inputrow .cfg-branch-btn,
+.chatbox .chatbox-inputrow .wb-toggle-btn,
+.chatbox .chatbox-inputrow .mastercluster-btn,
+.chatbox .chatbox-inputrow .model-picker-wrap,
+.chatbox .chatbox-inputrow .model-picker-wrap .mp-btn {
+    /* 【2026-11-23 透明度体系收口】清单补入 .eng-btn/.mp-btn：此前只透外层 wrap，
+       按钮本身被各风格 extraCss 的 button 规则涂成实底（暗色 .eng-btn=#343436），
+       输入框内部残留的唯一实底即在此 */
+    background: transparent !important;
+    box-shadow: none !important;
+}
+[data-theme="ink"] .chatbox .chatbox-inputrow {
+    /* [墨黑 v5·亮晕识别] 用户反馈 v4 仍看不到。定性：黑底上黑影=隐形，
+       黑底上能"显形"的必须是亮元素。v5 改用亮晕方案：
+       内描边提亮到 .32，外圈加两层浅白晕光（模拟"浮起的槽"被光勾出轮廓）。 */
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -18px 34px rgba(0, 0, 0, 0.70),
+        0 0 0 1px rgba(255, 255, 255, 0.10),
+        0 0 18px rgba(255, 255, 255, 0.08),
+        0 8px 26px rgba(0, 0, 0, 0.62),
+        0 18px 56px rgba(0, 0, 0, 0.48) !important;
+}
+[data-theme="ink"] .chatbox .chatbox-inputrow:focus-within {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -20px 38px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 255, 255, 0.14),
+        0 0 24px rgba(255, 255, 255, 0.12),
+        0 10px 30px rgba(0, 0, 0, 0.66),
+        0 20px 62px rgba(0, 0, 0, 0.52) !important;
+}
+/* 纸白(paper/light)主题：同样本体透明 + 强阴影（外投影改淡墨色，避免亮底发灰） */
+[data-theme="paper"] .chatbox .chatbox-inputrow,
+[data-theme="light"] .chatbox .chatbox-inputrow {
+    /* [paper v3·投影加强] 亮底上淡墨投影 .22/.16 太浅看不出。加深加实。 */
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.16),
+        inset 0 2px 6px rgba(0, 0, 0, 0.18),
+        inset 0 -3px 7px rgba(0, 0, 0, 0.10),
+        0 8px 26px rgba(40, 40, 40, 0.38),
+        0 18px 56px rgba(40, 40, 40, 0.28) !important;
+}
+/* 聚焦不再高亮：去掉蓝色描边与外发光，保持与失焦一致的低调观感。 */
+.chatbox .chatbox-inputrow:focus-within {
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03),
+        inset 0 -10px 18px rgba(0, 0, 0, 0.12) !important;
+}
+/* [paper/light v2·聚焦加强] UI师收口采纳：paper/light 无专属聚焦规则时，
+   后加载的通用 :focus-within 会整组冲掉强阴影。补专属聚焦档：
+   外投影加深(.22→.28/.16→.22)、白描边换淡墨描边，特异度(0,4,0)压过通用规则。 */
+[data-theme="paper"] .chatbox .chatbox-inputrow:focus-within,
+[data-theme="light"] .chatbox .chatbox-inputrow:focus-within {
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+        inset 0 2px 6px rgba(0, 0, 0, 0.16),
+        inset 0 -3px 7px rgba(0, 0, 0, 0.10),
+        0 8px 24px rgba(40, 40, 40, 0.28),
+        0 16px 46px rgba(40, 40, 40, 0.22) !important;
+}
+
+/* ============================================================
+ * 【2026-12·输入框显形修复】大师墨黑(ink)/大师纸白(paperwhite) 皮肤
+ * 此前加强阴影规则挂在 [data-theme="ink"/"paper"] 上，而这两套是皮肤
+ * (data-skin)，选择器从未命中 → 输入槽几乎隐形。本段按皮肤直接命中，
+ * 特异度 (0,2,2) 压过通用 focus-within 与皮肤层的 none。
+ * ============================================================ */
+/* —— 大师墨黑：亮描边 + 下沉阴影，黑底上用亮线勾出轮廓 —— */
+.chatbox[data-skin="ink"] .chatbox .chatbox-inputrow {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.34),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.60),
+        0 0 0 1px rgba(255, 255, 255, 0.10),
+        0 10px 30px rgba(0, 0, 0, 0.60),
+        0 20px 56px rgba(0, 0, 0, 0.45) !important;
+}
+.chatbox[data-skin="ink"] .chatbox .chatbox-inputrow:focus-within {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.48),
+        inset 0 -14px 26px rgba(0, 0, 0, 0.60),
+        0 0 0 1px rgba(255, 255, 255, 0.16),
+        0 0 22px rgba(255, 255, 255, 0.10),
+        0 10px 30px rgba(0, 0, 0, 0.60) !important;
+}
+/* —— 大师纸白：墨色描边 + 淡墨投影（亮底上深色才显形）；【2026-12 反馈】外阴影减淡，内阴影不动 —— */
+.chatbox[data-skin="paperwhite"] .chatbox .chatbox-inputrow {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(38, 36, 31, 0.38),
+        inset 0 2px 6px rgba(38, 36, 31, 0.12),
+        0 4px 12px rgba(38, 36, 31, 0.14),
+        0 8px 22px rgba(38, 36, 31, 0.09) !important;
+}
+.chatbox[data-skin="paperwhite"] .chatbox .chatbox-inputrow:focus-within {
+    box-shadow:
+        inset 0 0 0 1.5px rgba(38, 36, 31, 0.55),
+        inset 0 2px 6px rgba(38, 36, 31, 0.12),
+        0 4px 12px rgba(38, 36, 31, 0.16),
+        0 8px 22px rgba(38, 36, 31, 0.11) !important;
+}
+
+/* ④ 「⋯」内二级菜单观感统一到优先级菜单（#prioMenu 最完美的那份手感）：
+   引擎(.eng-menu)/分类(.tool-cat-menu)圆角8px、内边距4px、字号12px；
+   菜单项 5px 8px 圆角6px，悬停淡蓝高亮（与 prio 的 rgba(tint,.1) 一致）。 */
+.hd-more-wrap .eng-menu,
+.hd-more-wrap .tool-cat-menu {
+    border-radius: 8px !important;
+    padding: 4px !important;
+    font-size: 12px !important;
+}
+.hd-more-wrap .eng-menu .eng-item,
+.hd-more-wrap .tool-cat-menu .tool-cat-item {
+    padding: 5px 8px !important;
+    border-radius: 6px !important;
+    transition: background .1s ease;
+}
+.hd-more-wrap .eng-menu .eng-item:hover,
+.hd-more-wrap .tool-cat-menu .tool-cat-item:hover {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.12) !important;
+}
+
+/* ③ 右上角「⋯」文字 → 简约三点图标
+   [修复·背景多出一块] more-btn 由旧 24px 方块改文字胶囊后，::before 18px 图标 +
+   padding:0 8px + 边框让它比三个点宽出一截还带边框。这里收紧：去边框、
+   收窄 padding、图标缩小到 14px，按钮恰好包住三个点。 */
+.chatbox .chatbox-header .more-btn {
+    font-size: 0 !important;
+    color: transparent !important;
+    line-height: 0;
+    padding: 0 5px !important;
+    border: none !important;
+    background: transparent !important;
+    height: 20px;
+}
+.chatbox .chatbox-header .more-btn:hover,
+.chatbox .chatbox-header .hd-more-wrap.open .more-btn {
+    background: rgba(var(--blue-rgb, 80,120,220), 0.14) !important;
+    border: none !important;
+}
+.chatbox .chatbox-header .more-btn::before {
+    width: 14px !important;
+    height: 14px !important;
+    background-size: 14px 14px !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23e8eef8'%3E%3Ccircle cx='5' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='19' cy='12' r='1.7'/%3E%3C/svg%3E");
+}

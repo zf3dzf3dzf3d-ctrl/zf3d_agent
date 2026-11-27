@@ -1,0 +1,55 @@
+/* ============================================================
+   mobile-ui-fix.css —— 手机/窄屏 UI 修复（APP WebView 场景）
+   问题1：右下角图标栏按钮太多挤成一长条 → 强制两排收纳
+   问题2：顶栏右侧登录/网站/更新等图标被挤出屏幕 → 收纳可见
+   在 index.html 中最后加载，靠顺序+!important 覆盖前面样式
+   ============================================================ */
+
+/* ---------- 1. 右下角图标栏：两排布局 ---------- */
+@media (max-width: 900px) {
+    .tp-fab-group {
+        max-width: 15em !important;      /* 约每排5个按钮，超出的自动换到第二排 */
+        justify-content: flex-end !important;
+        row-gap: 4px !important;
+        right: 8px !important;
+        bottom: 8px !important;
+        padding: 5px 7px !important;
+    }
+    .tp-fab-group .zf-dock-btn {
+        padding: 5px 8px !important;
+        font-size: 11.5px !important;
+        margin: 0 !important;
+    }
+}
+
+/* ---------- 2. 顶栏：右侧登录等图标收纳可见 ---------- */
+@media (max-width: 900px) {
+    .topbar {
+        flex-wrap: nowrap;
+        overflow: visible;
+        padding-left: 6px;
+    }
+    /* 保留标题文字和logo，确保顶栏完整显示 */
+    .topbar-title > span[data-i18n="brand"] {
+        display: inline !important;
+    }
+    .topbar-title {
+        margin-right: auto;
+    }
+    /* 时钟组件始终可见，确保右侧时间显示 */
+    #zf3dClockWeather { display: inline !important; }
+    /* 朗读助手/更新/网站/语言/主题等按钮：显隐统一由 JS 控制（dom-topbar.js 中默认 display:none），
+       窄屏不再用 !important 强制显示，避免窗口变窄时这些右上角图标意外弹出，保持宽窄屏显隐稳定一致。 */
+    /* 更多按钮和登录按钮必须保留可见（登录态互斥：JS 已隐藏的那个不再强制弹出） */
+    #topbarMoreBtn,
+    #zf3dLoginEntry:not([style*="none"]),
+    #zf3dUserEntry.active {
+        display: flex !important;
+        flex-shrink: 0 !important;
+    }
+    .topbar-right {
+        gap: 2px !important;
+        flex-shrink: 0 !important;
+    }
+    .zf3d-topbar-login { padding: 0 4px !important; }
+}

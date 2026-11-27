@@ -1,0 +1,123 @@
+/* ========== LOD 摄像机距离隐藏（画布节点剔除） ========== */
+/* 被 LOD 剔除的节点：visibility:hidden 保留布局，不触发 reflow */
+#canvasContent .chatbox.lod-hidden,
+#canvasContent .kite-node.lod-hidden,
+#canvasContent .fg-node.lod-hidden,
+#canvasContent .browser-node.lod-hidden,
+#canvasContent .engine-node.lod-hidden,
+#canvasContent .video-node.lod-hidden,
+#canvasContent .pres-node.lod-hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* 【P0-2 策划案 20261122】.lod-dot 占位点样式已删：2026-12「对话不隐藏」法令后 lod-hidden
+   永不挂上，占位点成死代码（JS 侧 syncLodDots 已同步删除）。若恢复距离隐藏，从 git 历史
+   本文件 2026-11-22 版本取回。 */
+
+/* ========== 【总览不隐藏】lod-mini 降级模式（scale<0.5 时替代 visibility:hidden） ========== */
+/* 不再隐藏节点，改为压缩成紧凑条：标题栏 + 底部「派团队」面板可见，消息正文收起，
+   保证总览下对话看得全（含 策划/审核/总结/自定/监督 按钮）且不占性能 */
+#canvasContent .chatbox.lod-mini .chat-body,
+#canvasContent .chatbox.lod-mini .chat-content,
+#canvasContent .chatbox.lod-mini .msg-list,
+#canvasContent .fg-node.lod-mini .fg-body,
+#canvasContent .fg-node.lod-mini .fg-content,
+#canvasContent .browser-node.lod-mini .node-body,
+#canvasContent .engine-node.lod-mini .node-body,
+#canvasContent .video-node.lod-mini .node-body,
+#canvasContent .pres-node.lod-mini .node-body {
+    display: none !important;
+}
+/* 【缩小整理模式·派团队可见】不再整块隐藏 .chatbox-body：保留底部面板 wrap
+   （.compress-selector，含「派团队：策划/审核/总结/自定/监督」按钮行），
+   隐藏正文消息列表，让总览缩小时各对话仍可点派团队角色
+   【口径修正 2026-11-22 策划案 §三#4】本段仅在【普通模式滚轮缩小】触发的 lod-mini 下成立；
+   进入总览模式（body.zf-overview-mode）后，app-canvas-overview.js 的「总览卡片零内容」
+   用户令（2026-11-27）会给 .chatbox > 非 Decor 子树挂 visibility:hidden !important，
+   派团队行随之不可见不可点（visibility 阻断事件）——两处规则叠加时总览令优先，勿按本段注释误判总览行为。 */
+#canvasContent .chatbox.lod-mini .chatbox-body {
+    display: block !important;
+}
+#canvasContent .chatbox.lod-mini .chatbox-body > *:not(.compress-selector) {
+    display: none !important;
+}
+/* 【缩小整理模式·派团队全部可见】修复：派团队行原为 flex-wrap:nowrap，
+   按钮多（策划/审核/总结/自定/监督）在窄对话框里右侧溢出，被 .lod-mini 的
+   overflow:hidden 裁切，导致总览下只看得见最左的「策划」。
+   这里在 lod-mini 下强制按钮行换行，并把无意义的状态栏隐藏，腾出高度。 */
+#canvasContent .chatbox.lod-mini .compress-selector .zf-role-status {
+    display: none !important;
+}
+#canvasContent .chatbox.lod-mini .compress-selector > div {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    row-gap: 4px !important;
+}
+/* 按钮组本身是内层 inline-flex（flex-wrap:nowrap），按钮都塞在这一个 span 里，
+   只让外层 row 换行无效，必须让内层按钮组也允许换行 */
+#canvasContent .chatbox.lod-mini .compress-selector > div > span {
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+}
+#canvasContent .chatbox.lod-mini .compress-selector {
+    padding: 4px 6px !important;
+    margin: 2px 0 !important;
+}
+#canvasContent .chatbox.lod-mini,
+#canvasContent .fg-node.lod-mini,
+#canvasContent .browser-node.lod-mini,
+#canvasContent .engine-node.lod-mini,
+#canvasContent .video-node.lod-mini,
+#canvasContent .pres-node.lod-mini {
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(120, 140, 255, .25);
+}
+#canvasContent .lod-mini .chat-title,
+#canvasContent .lod-mini .node-title,
+#canvasContent .lod-mini .fg-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ===== CV懒渲染 2026-11：屏外对话窗降级（lod-cv） =====
+   由 app-canvas.js updateLOD 挂/摘类：完全出视口(含300px缓冲)的窗口加 lod-cv。
+   content-visibility:auto 让浏览器跳过屏外子树的 layout+paint（等效"只渲染外框占位"），
+   contain-intrinsic-size 用 JS 记录的真实高度占位，防滚动条跳动。
+   不隐藏窗口（布局/占位/坐标全保留），滚回视口浏览器自动恢复全局渲染。 */
+#canvasContent .chatbox.lod-cv,
+#canvasContent .kite-node.lod-cv,
+#canvasContent .fg-node.lod-cv,
+#canvasContent .browser-node.lod-cv,
+#canvasContent .engine-node.lod-cv,
+#canvasContent .video-node.lod-cv,
+#canvasContent .pres-node.lod-cv {
+    content-visibility: auto;
+    contain-intrinsic-size: auto none auto var(--lod-cv-h, 400px);
+}
+
+/* ===== 【P1-2 策划案 20261122】lod-mini 减负：mini 态零过渡 + 平底色 + paint 隔离 =====
+   mini 态（拉远/总览）消息区已 display:none，此层把剩余绘制成本也摘掉：
+   · transition:none：几十个 mini 窗挂/摘类时不再各自触发过渡插帧；
+   · ::before 渐变→纯色：卡片底只画一层纯色（总览态 inline 状态色优先级更高，不受影响；
+     总览态 ::before 本就被禁用，无冲突）；
+   · contain:paint：mini 态本就 overflow:hidden（上方 lod-mini 段），paint 隔离零新增裁切，
+     单窗重绘不再波及整层。
+   ⚠ 视觉回归点：普通模式滚轮缩小后卡片底色由渐变变纯色，需用户过目。 */
+#canvasContent .lod-mini,
+#canvasContent .lod-mini * {
+    transition: none !important;
+}
+#canvasContent .chatbox.lod-mini::before {
+    background: var(--bg-card, #161625) !important;
+    background-image: none !important;
+}
+#canvasContent .chatbox.lod-mini,
+#canvasContent .fg-node.lod-mini,
+#canvasContent .browser-node.lod-mini,
+#canvasContent .engine-node.lod-mini,
+#canvasContent .video-node.lod-mini,
+#canvasContent .pres-node.lod-mini {
+    contain: layout style paint;
+}

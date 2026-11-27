@@ -1,0 +1,31 @@
+{
+  "_readme": [
+    "带到期时间的豁免：限期放行某项反模式的上涨，到期自动失效。豁免是“限期还债”，不是改基线的后门。",
+    "条目字段：metric（指标名）/ ceiling（允许的上限，当前值不超过它才放行）/ until（YYYY-MM-DD，到期即失效）/ reason（为什么可以暂时超）/ by（谁批的）。",
+    "判定逻辑在 tools/quality/count_antipatterns.py 的 load_waivers；提交钩子与 run_checks 用同一把尺子。",
+    "新增量不在既有豁免内：上限不够照样拦。续期须更新 until 并写明理由——每次续期都会留在 git 历史里。"
+  ],
+  "waivers": [
+    {
+      "metric": "except_exception",
+      "ceiling": 4020,
+      "until": "2026-12-15",
+      "reason": "2026-11-25 发布窗口集中开发存量上涨：协作v8.2/v8.3互审评分+monitor_daemon(B方案)+M26测试修复+文档跟随修复（含 server/monitor_daemon.py、tests/test_worktree_m26.py 等）。发布后专项消化，届时以新基线或逐项 waiver 收敛。",
+      "by": "bravo(发布整备收口)"
+    },
+    {
+      "metric": "except_pass",
+      "ceiling": 1300,
+      "until": "2026-12-15",
+      "reason": "2026-11-25 发布窗口集中开发存量上涨：协作v8.2/v8.3互审评分+monitor_daemon(B方案)+M26测试修复+文档跟随修复（含 server/monitor_daemon.py、tests/test_worktree_m26.py 等）。发布后专项消化，届时以新基线或逐项 waiver 收敛。",
+      "by": "bravo(发布整备收口)"
+    },
+    {
+      "metric": "print_stmt",
+      "ceiling": 430,
+      "until": "2026-12-15",
+      "reason": "2026-11-25 发布窗口集中开发存量上涨：协作v8.2/v8.3互审评分+monitor_daemon(B方案)+M26测试修复+文档跟随修复（含 server/monitor_daemon.py、tests/test_worktree_m26.py 等）。发布后专项消化，届时以新基线或逐项 waiver 收敛。",
+      "by": "bravo(发布整备收口)"
+    }
+  ]
+}

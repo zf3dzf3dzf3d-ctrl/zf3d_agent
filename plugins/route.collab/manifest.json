@@ -1,0 +1,14 @@
+{
+  "id": "route.collab",
+  "name": "多路协作报话通道（一期转正版，旧称通气）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "tool",
+  "entry": { "py": "main.py" },
+  "capabilities": ["log.write", "http.route", "event.use", "ui.mount"],
+  "mounts": { "httpRoute": "/api/plugin/collab/dispatch", "uiSlot": "banner" },
+  "provides": "collab_channel",
+  "depends": [],
+  "description": "策划案 v3.3 A1 一期转正：collab_channel 通道（组注册/say 配额/L1 合成/token-ack/档案落盘）+ collab_inject hear 注入钩子（pool_worker.run_upstream 顶层，流式双形态）+ /api/plugin/collab/dispatch 派出建组接口 + L1 心跳（每轮请求自动给同伴合成动向提要）。setup 即 enable()（flag 常开）；teardown 关闭零残留。",
+  "zfVersion": ">=6.0.0"
+}

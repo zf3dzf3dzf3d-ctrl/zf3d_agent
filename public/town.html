@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>i小镇 · 村民直播广场 v4</title>
+<style>
+  body{margin:0;background:#1a1c2c;font-family:"Courier New",monospace;color:#f4f4f4;overflow:hidden}
+  #sky{position:fixed;inset:0;background:linear-gradient(#1a1c2c 0%,#5d275d 60%,#b13e53 100%)}
+  h1{position:fixed;top:8px;right:12px;margin:0;font-size:14px;color:#ffcd75;letter-spacing:2px}
+  #hud{position:fixed;top:10px;left:10px;background:rgba(11,14,20,.85);border:3px solid #f4a259;padding:8px 12px;font-size:12px}
+  #hud b{color:#ffcd75}
+  /* 村民节点卡片：点击查看记忆 */
+  #vills{position:fixed;top:60px;left:10px;right:10px;display:flex;gap:8px;flex-wrap:wrap}
+  .vill{background:rgba(11,14,20,.88);border:3px solid #a7f070;padding:6px 10px;font-size:11px;cursor:pointer;max-width:220px}
+  .vill:hover{border-color:#ffcd75}
+  .vill b{color:#ffcd75;font-size:12px}
+  .vill .xp{color:#5bd2e6;margin-left:6px}
+  .vill .st{color:#a7f070;font-size:10px;word-break:break-all}
+  /* 聊天室（QQ风格：头像+气泡） */
+  #chat{position:fixed;right:10px;bottom:90px;width:400px;max-height:48vh;overflow:auto;background:rgba(11,14,20,.88);border:3px solid #a7f070;padding:8px;font-size:12px}
+  .msg{display:flex;gap:6px;margin:6px 0;word-break:break-all;align-items:flex-start}
+  .msg .avatar{flex:none;width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;background:#2a2d3f;border:1px solid #5d6789}
+  .msg .body{flex:1;min-width:0}
+  .msg .meta{font-size:10px;color:#5d6789;margin-bottom:2px}
+  .msg .meta .who{color:#ffcd75;font-weight:bold;font-size:11px}
+  .msg .meta .who.me{color:#5bd2e6}
+  .msg .bubble{display:inline-block;background:#2a2d3f;border-radius:4px 10px 10px 10px;padding:5px 8px;line-height:1.5;max-width:100%}
+  .msg.me .bubble{background:#1f4b63}
+  .msg .kind{display:inline-block;font-size:10px;padding:0 4px;border-radius:2px;margin-left:4px}
+  .msg .toolcard{margin-top:4px;background:#0b0e14;border:1px dashed #5bd2e6;border-radius:4px;padding:4px 6px;font-size:10px;color:#5bd2e6}
+  .k-claim{background:#41a6f6;color:#0b0e14}
+  .k-done{background:#a7f070;color:#0b0e14}
+  .k-chat{background:#ffcd75;color:#0b0e14}
+  .k-memory{background:#5d275d;color:#f4f4f4}
+  .k-closed,.k-system{background:#b13e53;color:#f4f4f4}
+  /* 我要说话输入条（固定在聊天室下方） */
+  #speak{position:fixed;right:10px;bottom:10px;width:380px;background:rgba(11,14,20,.92);border:3px solid #5bd2e6;padding:6px;font-size:12px;display:flex;gap:4px;box-sizing:border-box}
+  /* 【v9修复】下拉展开的 option 默认白底，继承浅色文字会白底白字看不见：显式给 option 配深底浅字 */
+  #speak select option,#speak select optgroup{background:#0b0e14;color:#f4f4f4}
+  #speak input{flex:1;background:#0b0e14;color:#f4f4f4;border:1px solid rgba(91,210,230,.45);font-family:inherit;font-size:12px;padding:4px;border-radius:3px}
+  /* 工作事件流 + 成果展廊 */
+  #evs{position:fixed;left:10px;bottom:110px;width:300px;max-height:26vh;overflow:auto;background:rgba(11,14,20,.85);border:3px solid #41a6f6;padding:8px;font-size:11px}
+  .ev{border-bottom:1px dashed #5d275d;padding:3px 0;color:#a7f070;word-break:break-all}
+  #gallery{position:fixed;left:10px;bottom:10px;width:300px;max-height:22vh;overflow:auto;background:rgba(11,14,20,.88);border:3px solid #41a6f6;padding:8px;font-size:11px}
+  .gal{border-bottom:1px dashed #5d275d;padding:3px 0;color:#a7f070;cursor:pointer;word-break:break-all}
+  .gal:hover{background:rgba(65,166,246,.25)}
+  .gal .sz{color:#5d6789;font-size:10px;margin-left:6px}
+  #viewer{display:none;position:fixed;inset:8%;background:rgba(11,14,20,.96);border:4px solid #f4a259;padding:18px;overflow:auto;z-index:99;cursor:zoom-out}
+  #viewer pre{white-space:pre-wrap;color:#f4f4f4;font-size:13px;font-family:inherit}
+  #memview{display:none;position:fixed;inset:20% 30%;background:rgba(11,14,20,.96);border:4px solid #a7f070;padding:16px;overflow:auto;z-index:98;cursor:zoom-out}
+  #memview pre{white-space:pre-wrap;color:#f4f4f4;font-size:12px;font-family:inherit}
+  /* 【v8】滚动条统一为全站标准风格（细圆角灰蓝，去像素风橙块，用户令 2026-11-21） */
+  #chat::-webkit-scrollbar,#evs::-webkit-scrollbar,#gallery::-webkit-scrollbar,
+  #viewer::-webkit-scrollbar,#memview::-webkit-scrollbar,#vpool-list::-webkit-scrollbar{width:8px;height:8px}
+  #chat::-webkit-scrollbar-track,#evs::-webkit-scrollbar-track,#gallery::-webkit-scrollbar-track,
+  #viewer::-webkit-scrollbar-track,#memview::-webkit-scrollbar-track,#vpool-list::-webkit-scrollbar-track{background:transparent}
+  #chat::-webkit-scrollbar-thumb,#evs::-webkit-scrollbar-thumb,#gallery::-webkit-scrollbar-thumb,
+  #viewer::-webkit-scrollbar-thumb,#memview::-webkit-scrollbar-thumb,#vpool-list::-webkit-scrollbar-thumb{background:rgba(140,140,150,.35);border:none;border-radius:6px;background-clip:padding-box;min-height:40px}
+  #chat::-webkit-scrollbar-thumb:hover,#evs::-webkit-scrollbar-thumb:hover,#gallery::-webkit-scrollbar-thumb:hover,
+  #viewer::-webkit-scrollbar-thumb:hover,#memview::-webkit-scrollbar-thumb:hover,#vpool-list::-webkit-scrollbar-thumb:hover{background:rgba(140,140,150,.6)}
+  #chat{scrollbar-color:rgba(140,140,150,.5) transparent;scrollbar-width:thin}
+  #evs,#gallery,#viewer,#memview{scrollbar-color:rgba(140,140,150,.5) transparent;scrollbar-width:thin}
+  /* 【v7】村民列表（角色库拉人进村）面板 */
+  #vpool{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-height:70vh;background:rgba(11,14,20,.97);border:3px solid rgba(91,210,230,.55);padding:14px;z-index:97;box-sizing:border-box;border-radius:4px}
+  /* 【v10】按钮全面线性化：统一细边框+透明底+无emoji+克制悬停（覆盖全部按钮与下拉） */
+  #speak button,#vpool-btn,.vpool-item button,#copyAll,#msgs a[data-copy]{
+    background:transparent;color:#5bd2e6;border:1px solid rgba(91,210,230,.45);
+    font-family:inherit;font-size:11px;padding:4px 12px;cursor:pointer;border-radius:3px;
+    transition:border-color .15s,color .15s,background .15s}
+  #speak button:hover,#vpool-btn:hover,.vpool-item button:hover,#copyAll:hover,#msgs a[data-copy]:hover{
+    border-color:#5bd2e6;color:#ffcd75;background:rgba(91,210,230,.08)}
+  #speak button:disabled,.vpool-item button:disabled{border-color:#5d6789;color:#5d6789;background:transparent;cursor:not-allowed}
+  #vpool-btn{position:fixed;top:10px;left:50%;transform:translateX(-50%);font-weight:bold;font-size:12px;padding:6px 14px;z-index:60}
+  #copyAll,#msgs a[data-copy]{padding:2px 8px;font-size:10px;font-weight:bold}
+  #speak select{background:#0b0e14;color:#f4f4f4;border:1px solid rgba(91,210,230,.45);font-family:inherit;font-size:11px;max-width:110px;color-scheme:dark;border-radius:3px}
+  #vpool h3{margin:0 0 8px;color:#ffcd75;font-size:14px;letter-spacing:1px}
+  #vpool .x{position:absolute;top:6px;right:10px;color:#f4a259;cursor:pointer;font-size:16px}
+  #vpool-list{max-height:52vh;overflow:auto;margin-top:6px}
+  .vpool-item{display:flex;align-items:center;gap:8px;border-bottom:1px dashed #5d275d;padding:6px 2px;font-size:12px}
+  .vpool-item .nm{color:#ffcd75;font-weight:bold;min-width:110px}
+  .vpool-item .ds{color:#a7f070;flex:1;word-break:break-all;font-size:11px}
+  .vpool-item .intown{color:#a7f070;font-size:10px}
+</style>
+</head>
+<body>
+<div id="sky"></div>
+<h1>◆ i TOWN ◆</h1>
+<div id="hud">城镇状态：<b id="st">连接中…</b>｜事件：<b id="cnt">0</b>｜聊天：<b id="ccnt">0</b></div>
+<div id="vills"></div>
+<div id="chat"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>💬 村民聊天室（他们在说什么）</b><a href="javascript:void(0)" id="copyAll" title="一键复制聊天室里的全部消息（含发言人、类型、时间），粘贴到任何地方都能用" style="text-decoration:none">复制全部</a></div><div id="msgs"></div></div>
+<div id="speak">
+  <select id="starget" title="选择要对话的村民；选「全体村民」则广播给所有人"><option value="">随机村民</option><option value="all">📢 全体村民</option></select>
+  <input id="stext" placeholder="以镇长身份对村民说话…" maxlength="300" title="输入你想说的话，发送后会立即出现在聊天室，村民在后台用真实经历回应（几秒内陆续出现）">
+  <button id="sbtn" title="把你的话发进聊天室，村民会用真 LLM 结合自己的信条和真实经历回应" onclick="doSpeak()">发送</button>
+  <button id="rbtn" title="让村民们就你输入的内容开一场圆桌讨论（选「全体村民」则全员参加）" onclick="doRoundtable()">讨论</button>
+  <button id="cbtn" title="随机挑两位村民自由互聊三轮（不耗你的话费，看他们自己聊）" onclick="doSocial()">互聊</button>
+</div>
+<div id="evs">📡 工作事件流（谁在干什么·真实干活记录）<div id="evl"></div></div>
+<div id="gallery">🖼 成果展廊（点开看村民产出的真实成果）<div id="gal"></div></div>
+<div id="viewer" onclick="this.style.display='none'"><pre id="vtxt"></pre></div>
+<div id="memview" onclick="this.style.display='none'"><pre id="mtxt"></pre></div>
+<button id="vpool-btn" title="打开村民列表：从角色系统拉角色进村当村民">村民列表</button>
+<div id="vpool">
+  <span class="x" onclick="document.getElementById('vpool').style.display='none'">✕</span>
+  <h3>👥 村民列表 · 角色库（点「拉进村」让角色落户当村民）</h3>
+  <div id="vpool-list">加载中…</div>
+</div>
+<script>
+const KIND_CN={claim:'认领任务',done:'完成汇报',chat:'发言',memory:'写记忆',closed:'收工',dispatch:'派单',system:'系统',roundtable:'圆桌',roundtable_conclusion:'圆桌结论',realm_up:'境界突破',toolcall:'工具调用'};
+/* 村民中文名映射（显示用；旧英文id作别名，历史消息也显示新职业名；发送/复制底层仍用真实id） */
+const CN_NAME={'builder-alpha':'建筑师','butler-receiver':'审核员'};
+/* 头像配置：emoji 头像 + 稳定底色（QQ风格）；镇长固定 */
+const AVATAR={'建筑师':{e:'🔨',c:'#4a3b2a'},'审核员':{e:'🔍',c:'#2a3b4a'},'镇长':{e:'👑',c:'#4a2a3b'}};
+const AV_COLORS=['#4a3b2a','#2a3b4a','#3b2a4a','#2a4a3b','#4a2a3b'];
+function avatarOf(id){
+  if(AVATAR[id])return AVATAR[id];
+  let h=0;const s=String(id||'?');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+  return {e:'🧑‍🌾',c:AV_COLORS[h%AV_COLORS.length]};
+}
+function cnName(id){return CN_NAME[id]||id}
+function dispName(id){return CN_NAME[id]||id}
+console.log('town.html v=20261122b 全中文名+按钮线性化版');
+function esc(s){return String(s||'').replace(/[<>&]/g,'')}
+function fmtTs(t){if(!t)return '';try{return new Date(t*1000).toTimeString().slice(0,8)}catch(e){return ''}}
+function renderChat(msgs){
+  document.getElementById('ccnt').textContent=msgs.length;
+  const list=msgs.slice();
+  window._townMsgs=list;
+  const ca=document.getElementById('copyAll');
+  if(ca)ca.onclick=ev=>{ev.stopPropagation();
+    const txt=(window._townMsgs||[]).map(m=>cnName(m.from||'?')+' ['+(KIND_CN[m.kind||'chat']||m.kind||'?')+']'+(m.ts?' '+fmtTs(m.ts):'')+'：'+(m.text||'')).join('\n');
+    const done=()=>{ca.textContent='已复制全部';setTimeout(()=>ca.textContent='复制全部',1200)};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done).catch(()=>{_fbCopy(txt);done()});
+    else{_fbCopy(txt);done()};
+  };
+  document.getElementById('msgs').innerHTML=list.map((m,i)=>{
+    const k=m.kind||'chat';
+    const av=avatarOf(m.from);
+    const isMe=(m.from==='镇长');
+    /* 工具调用卡片：消息含工具痕迹（memory/claim/done 等系统可见动作）时展示 */
+    let tool='';
+    if(k==='memory')tool='<div class="toolcard">🧠 工具调用：write_memory → private/记忆/小镇/'+esc(m.from)+'.md</div>';
+    else if(k==='claim')tool='<div class="toolcard">🛠 工具调用：claim_job（认领工单）</div>';
+    else if(k==='done')tool='<div class="toolcard">📤 工具调用：report_done（产出已落盘，见成果展廊）</div>';
+    else if(k==='dispatch')tool='<div class="toolcard">📮 工具调用：dispatch（镇长派单）</div>';
+    else if(k==='toolcall')tool='<div class="toolcard">🛠 真实工具调用：'+esc(m.text)+'</div>';
+    return '<div class="msg'+(isMe?' me':'')+'">'
+      +'<div class="avatar" style="background:'+av.c+'">'+av.e+'</div>'
+      +'<div class="body"><div class="meta"><span class="who'+(isMe?' me':'')+'">'+esc(dispName(m.from))+'</span>'
+      +'<span class="kind k-'+k+'">'+(KIND_CN[k]||k)+'</span> '
+      +(m.ts?'<span>'+fmtTs(m.ts)+'</span> ':'')
+      +'<a href="javascript:void(0)" data-copy="'+i+'" title="复制这一条消息（发言人：内容）" style="color:#5bd2e6;font-size:10px;cursor:pointer;text-decoration:none">复制</a></div>'
+      +'<div class="bubble">'+esc(m.text)+'</div>'+tool+'</div></div>'}).join('')
+    ||'<div class="msg">（还没有聊天·村民上岗后会在这里说话）</div>';
+  document.querySelectorAll('#msgs [data-copy]').forEach(a=>{
+    a.onclick=ev=>{ev.stopPropagation();
+      const m=list[parseInt(a.getAttribute('data-copy'),10)];
+      const txt=(m?cnName(m.from||'?')+'：'+(m.text||''):'');
+      const done=()=>{const o=a.textContent;a.textContent='已复制';setTimeout(()=>a.textContent='复制',1200)};
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done).catch(()=>{_fbCopy(txt);done()});
+      else{_fbCopy(txt);done()};
+    };
+  });
+}
+function _fbCopy(t){try{const ta=document.createElement('textarea');ta.value=t;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta)}catch(e){}}
+function renderEvs(events){
+  document.getElementById('cnt').textContent=events.length;
+  document.getElementById('evl').innerHTML=events.slice(-50).reverse().map(e=>{
+    let p={};try{p=typeof e.payload==='string'?JSON.parse(e.payload):(e.payload||{})}catch(_){p={}}
+    const who=cnName(p.role||p.window_id||p.crew_id||'');
+    return '<div class="ev">'+String(e.ts||'').slice(11,19)+' ['+(KIND_CN[e.type]||e.type||'?')+'] '+esc(who)+' '+esc(e.text||p.summary||'')+'</div>'}).join('')
+    ||'<div class="ev">（暂无事件·等待派单）</div>';
+}
+/* 【v9修复】状态卡解析：按卡面「# 状态卡 · 角色名 / 经验值：N / 境界：X」逐字段提取。
+   旧版用错正则（[\\w…] 匹配字面反斜杠，且首段命中的是「状态卡」三个字而非角色id），
+   导致村民卡片名字为空、下拉列表永远没有村民可选。 */
+function parseCard(s){
+  const str=String(s||'');
+  const name=((str.match(/^#\s*状态卡\s*[·•]\s*([^\n]+)/)||[])[1]||'').trim();
+  const xp=(str.match(/经验值[：:]\s*(\d+)/)||[])[1]||'0';
+  const realm=(str.match(/境界[：:]\s*([^\n]+)/)||[])[1]||'';
+  const brief=str.split('\n').filter(function(l){l=l.trim();return l&&l.charAt(0)!=='#'&&l.charAt(0)!=='>'&&l.indexOf('经验值')!==0&&l.indexOf('境界')!==0&&l.indexOf('技能点')!==0}).join(' ').replace(/\s+/g,' ').slice(0,80);
+  return {name:name,xp:xp,realm:realm,brief:brief};
+}
+function renderRanks(states){
+  const vills=(states||[]).map(parseCard).filter(function(c){return c.name});
+  document.getElementById('vills').innerHTML=vills.map(function(c){
+    return '<div class="vill" data-r="'+esc(c.name)+'" title="点击查看 '+esc(cnName(c.name))+' 的真实记忆（他真实做过的事）"><b>🧑‍🌾 '+esc(cnName(c.name))+'</b><span class="xp">XP '+esc(c.xp)+'</span>'+(c.realm?'<span style="color:#ffcd75;font-size:9px;margin-left:4px">'+esc(c.realm)+'</span>':'')+'<div class="st">'+esc(c.brief)+'</div></div>';
+  }).join('')||'<div class="vill">（暂无村民·后台启动后自动落户）</div>';
+  document.querySelectorAll('#vills .vill').forEach(el=>{
+    el.onclick=()=>viewMem(el.getAttribute('data-r'));
+  });
+  const sel=document.getElementById('starget');
+  const cur=sel.value;
+  const names=vills.map(function(c){return c.name}).filter(Boolean);
+  if(names.length){
+    sel.innerHTML='<option value="">随机村民</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(cnName(n))+'</option>').join('')+'<option value="all">📢 全体村民</option>';
+    if(names.indexOf(cur)>=0||cur==='all')sel.value=cur;
+  }
+}
+function viewMem(role){
+  fetch('/api/town/memories?role='+encodeURIComponent(role)).then(r=>r.json()).then(j=>{
+    document.getElementById('mtxt').textContent=(j.ok?('🧑‍🌾 '+cnName(role)+' 的真实记忆（做过的事）：\n\n'+(j.memories||[]).join('\n')):('读取失败：'+(j.err||'?')));
+    document.getElementById('memview').style.display='block';
+  }).catch(e=>{});
+}
+function doSpeak(){
+  const text=document.getElementById('stext').value.trim();
+  const target=document.getElementById('starget').value;
+  const btn=document.getElementById('sbtn');
+  if(!text){document.getElementById('stext').placeholder='先输入你想说的话再点发送';return;}
+  btn.disabled=true;btn.textContent='…';
+  // v6 派单格式：@村民名 任务 → 走真引擎派单；否则普通聊天
+  const m=text.match(/^@([\w\u4e00-\u9fff\-]{1,40})\s+(.+)/);
+  if(m){
+    fetch('/api/town/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({role:m[1],task:m[2]})})
+    .then(r=>r.json()).then(j=>{
+      btn.disabled=false;btn.textContent='发送';
+      if(!j.ok){document.getElementById('stext').placeholder='派单失败：'+(j.err||'?');return;}
+      document.getElementById('stext').value='';
+      refresh();
+    }).catch(()=>{btn.disabled=false;btn.textContent='发送';});
+    return;
+  }
+  fetch('/api/town/speak',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,target:target})})
+  .then(r=>r.json()).then(j=>{
+    btn.disabled=false;btn.textContent='发送';
+    if(!j.ok){document.getElementById('stext').placeholder='发送失败：'+(j.err||'?');return;}
+    document.getElementById('stext').value='';
+    /* v8 提速：接口已改异步秒回，立即刷两次把镇长发言先显示出来，村民回应随后自动浮现 */
+    refresh();setTimeout(refresh,1200);setTimeout(refresh,4000);
+  }).catch(e=>{btn.disabled=false;btn.textContent='发送';});
+}
+function doRoundtable(){
+  const text=document.getElementById('stext').value.trim();
+  const target=document.getElementById('starget').value;
+  const btn=document.getElementById('rbtn');
+  btn.disabled=true;btn.textContent='…';
+  /* v9：下拉选「全体村民」→ 全员圆桌；选具体村民 → 该村民主持+2随机村民；默认镇长主持 */
+  const payload={topic:text||'最近村里的事怎么做得更好'};
+  if(target==='all')payload.members='all';
+  else if(target)payload.host=target;
+  fetch('/api/town/roundtable',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)})
+  .then(r=>r.json()).then(j=>{
+    btn.disabled=false;btn.textContent='讨论';
+    if(!j.ok){document.getElementById('stext').placeholder='讨论失败：'+(j.err||'?');return;}
+    document.getElementById('stext').value='';
+    refresh();setTimeout(refresh,1500);setTimeout(refresh,5000);
+  }).catch(()=>{btn.disabled=false;btn.textContent='讨论';});
+}
+function doSocial(){
+  const btn=document.getElementById('cbtn');
+  btn.disabled=true;btn.textContent='…';
+  fetch('/api/town/social',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({})})
+  .then(r=>r.json()).then(j=>{
+    btn.disabled=false;btn.textContent='互聊';
+    if(!j.ok){document.getElementById('stext').placeholder='互聊失败：'+(j.err||'?');return;}
+    document.getElementById('stext').placeholder='两位村民聊上了：'+(j.dialogue&&j.dialogue.length?j.dialogue.length+'句':'')+'，看聊天室…';
+    refresh();setTimeout(refresh,1500);setTimeout(refresh,5000);
+  }).catch(()=>{btn.disabled=false;btn.textContent='互聊';});
+}
+document.getElementById('rbtn').addEventListener('keydown',()=>{});
+document.getElementById('stext').addEventListener('keydown',e=>{if(e.key==='Enter')doSpeak()});
+function renderGallery(list){
+  document.getElementById('gal').innerHTML=(list||[]).map(o=>
+    '<div class="gal" data-f="'+esc(o.file)+'" onclick="viewJob(this.dataset.f)">📄 '+esc(o.file)
+    +'<span class="sz">'+(o.size||0)+'B</span></div>').join('')
+    ||'<div class="gal">（暂无成果·派工后这里会出现真实产出）</div>';
+}
+function viewJob(fn){
+  fetch('/api/town/outputs?file='+encodeURIComponent(fn)).then(r=>r.json()).then(j=>{
+    document.getElementById('vtxt').textContent=j.content||('读取失败：'+(j.err||''));
+    document.getElementById('viewer').style.display='block';
+  });
+}
+function refresh(){
+  fetch('/api/town/state').then(r=>r.json()).then(s=>{if(s.ok)renderRanks(s.states)}).catch(()=>{});
+  fetch('/api/town/events').then(r=>r.json()).then(j=>{
+    if(!j.ok)return;
+    document.getElementById('st').textContent='在线';
+    renderEvs(j.events||[]);
+  }).catch(()=>{document.getElementById('st').textContent='离线（后台未启动）'});
+  fetch('/api/town/chat').then(r=>r.json()).then(j=>{if(j.ok)renderChat(j.messages||[])}).catch(()=>{});
+  fetch('/api/town/outputs').then(r=>r.json()).then(j=>{if(j.ok)renderGallery(j.outputs)}).catch(()=>{});
+}
+refresh();setInterval(refresh,5000);console.log('town.html v7 村民列表+角色进村版');
+/* ========== v7 村民列表：角色库拉人进村 ========== */
+function openVpool(){
+  const p=document.getElementById('vpool');
+  p.style.display='block';
+  fetch('/api/town/villager-pool').then(r=>r.json()).then(j=>{
+    const el=document.getElementById('vpool-list');
+    if(!j.ok){el.textContent='读取失败：'+(j.err||'?');return;}
+    el.innerHTML=(j.roles||[]).map(r=>
+      '<div class="vpool-item"><span class="nm">🧑‍🌾 '+esc(r.name||r.id)+'</span>'
+      +'<span class="ds">'+esc(String(r.avatar||r.id||'').slice(0,50))+'</span>'
+      +(r.in_town?'<span class="intown">✅ 已在村</span>'
+        :'<button data-id="'+esc(r.id)+'" onclick="addVillager(this)">拉进村</button>')
+      +'</div>').join('')||'（角色库为空）';
+  }).catch(e=>{document.getElementById('vpool-list').textContent='读取失败（后台未启动？）'});
+}
+function addVillager(btn){
+  btn.disabled=true;btn.textContent='落户中…';
+  fetch('/api/town/villager-add',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({id:btn.getAttribute('data-id')})})
+  .then(r=>r.json()).then(j=>{
+    if(!j.ok){btn.disabled=false;btn.textContent='拉进村';alert('落户失败：'+(j.err||'?'));return;}
+    btn.outerHTML='<span class="intown">✅ 已在村</span>';
+    refresh();
+  }).catch(()=>{btn.disabled=false;btn.textContent='拉进村'});
+}
+document.getElementById('vpool-btn').onclick=openVpool;
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "enabled": true,
+  "maxRounds": 60,
+  "compressAfterMessages": 40,
+  "keepRecentMessages": 20,
+  "observationDelayMs": 300,
+  "steps": [
+    {
+      "id": "read",
+      "enabled": true,
+      "label": "读取用户消息",
+      "toolPolicy": "按模型决定",
+      "maxExecutions": 1,
+      "description": "接收并整理用户本轮输入，作为智能体循环的起点。通常每轮只需要读取一次；增加次数不会产生新的用户消息，建议保持为 1。"
+    },
+    {
+      "id": "think",
+      "enabled": true,
+      "label": "请求大模型",
+      "toolPolicy": "允许工具调用",
+      "maxExecutions": 20,
+      "description": "把当前上下文发送给大模型，让模型决定回复内容或下一步工具调用。数量越大，允许模型在同一轮继续推理的机会越多，但也会增加 token 消耗和等待时间。"
+    },
+    {
+      "id": "tools",
+      "enabled": true,
+      "label": "执行工具并回传结果",
+      "toolPolicy": "串行执行",
+      "maxExecutions": 40,
+      "description": "执行模型提出的工具调用，并把工具结果放回上下文供模型继续判断。数量越大，单轮可处理的工具链越长；设置过小可能导致任务尚未完成就提前停止。"
+    },
+    {
+      "id": "observe",
+      "enabled": true,
+      "label": "观察本轮结果",
+      "toolPolicy": "等待并刷新状态",
+      "maxExecutions": 20,
+      "description": "等待工具或模型结果返回，并刷新循环状态，帮助系统判断是否继续。数量越大，越能容纳异步或多阶段结果，但会延长循环可能持续的时间。"
+    },
+    {
+      "id": "compress",
+      "enabled": true,
+      "label": "压缩上下文",
+      "toolPolicy": "达到阈值时执行",
+      "maxExecutions": 1,
+      "description": "当上下文达到压缩阈值时整理较早消息，尽量保留任务重点并降低请求体积。每轮通常压缩一次即可；关闭或设为 0 可能让上下文持续变长并增加模型请求失败风险。"
+    }
+  ]
+}

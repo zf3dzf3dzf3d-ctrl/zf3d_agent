@@ -1,0 +1,34 @@
+{
+  "_comment": "i授权 站点适配配置 v1（P1）。选择器外置：站点改版优先只改此文件；渲染机制级变化须改代码（v2.1 反⑤裁决）。readMode=sse_hook 表示读回复走 fetch 钩子捕获 SSE。",
+  "version": 1,
+  "sites": {
+    "lingguang": {
+      "name": "灵光AI",
+      "enabled": true,
+      "entry": "https://www.lingguang.com/chat",
+      "urlMatch": "lingguang.com",
+      "inputSelector": "textarea.ant-input",
+      "sendMethod": "enter",
+      "readMode": "sse_hook",
+      "ssePathPattern": "/chat/stream_chat",
+      "deltaField": "delta",
+      "answerTimeoutSec": 120,
+      "pollIntervalMs": 1000,
+      "notes": "回复正文在跨域 sandbox iframe，DOM 抓取路线不可用；必须走 sse_hook 捕获 /chat/stream_chat SSE。钩子在 goto 后会被重置，每次提问前必须重新注入。"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "enabled": false,
+      "entry": "https://chat.deepseek.com/",
+      "urlMatch": "chat.deepseek.com",
+      "inputSelector": "textarea",
+      "sendMethod": "enter",
+      "readMode": "sse_hook",
+      "ssePathPattern": "/chat/completion",
+      "deltaField": "content",
+      "answerTimeoutSec": 120,
+      "pollIntervalMs": 1000,
+      "notes": "P1 未适配验证，占位配置，启用前必须现场适配实验（v2.1 突①裁决）。"
+    }
+  }
+}

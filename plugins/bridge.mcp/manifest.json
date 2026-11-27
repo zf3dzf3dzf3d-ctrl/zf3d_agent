@@ -1,0 +1,16 @@
+﻿{
+    "id":  "bridge.mcp",
+    "name":  "MCP 互认桥",
+    "version":  "1.0.0",
+    "spec":  1,
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "capabilities":  [
+                         "log.write",
+                         "plugin.manage"
+                     ],
+    "provides":  "mcp_endpoint",
+    "description":  "S6.6 跨智能体互认：MCP 风格 /api/bridge/mcp 端点(tools/list+tools/call)，X-Plugin-Token 门禁",
+    "type":  "engine"
+}

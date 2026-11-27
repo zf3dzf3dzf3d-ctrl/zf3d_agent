@@ -1,0 +1,13 @@
+{
+  "id": "ui.matrix-board",
+  "name": "i进化看板（Matrix 母体实时仪表盘）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_matrix_board",
+  "depends": [],
+  "description": "Matrix 母体进化看板 Dock 入口：窗口内嵌 GET /api/matrix/board?view=html 实时仪表盘（10s 自动刷新，只读不落盘）。数据源 matrix/runs/closedloop。",
+  "zfVersion": ">=6.0.0"
+}

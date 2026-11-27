@@ -1,0 +1,7 @@
+[
+ "brain/main_brain.py:18",
+ "chat_gate.py:48",
+ "dispatch_swarm.py:17",
+ "engines/common/agent_loop.py:17",
+ "screen_recorder.py:20"
+]

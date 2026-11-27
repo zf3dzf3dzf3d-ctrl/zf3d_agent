@@ -1,0 +1,13 @@
+{
+  "id": "pi_style",
+  "name": "Pi",
+  "description": "pi agent-style engine: local tool loop with its own isolated pipeline toolset (OK/ERR meta headers, result slimming)",
+  "version": "3.0.0",
+  "enabled": true,
+  "engine_mode": "local_loop",
+  "tools": {
+    "source": "self",
+    "dir": "tools/",
+    "list": ["pi_read", "pi_read_lines", "pi_write", "pi_grep", "pi_run"]
+  }
+}

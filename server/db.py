@@ -1,0 +1,1166 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+数据库操作
+"""
+
+import os
+import shutil
+import sqlite3
+import threading
+import time
+import traceback
+
+from config import DB_PATH, _db_lock, BASE_DIR, QUIET_CONSOLE, DB_ATTACH_MAP
+
+from util_log import get_logger
+
+log = get_logger('db')
+# ===== 数据库备份目录（安全留底用）=====
+BACKUP_DIR = os.path.join(BASE_DIR, 'private', 'backups')
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+
+def _dbg(msg):
+    """过程日志:静默模式下不输出(见 config.QUIET_CONSOLE)"""
+    if not QUIET_CONSOLE:
+        log.info(msg)
+
+
+def _safe_backup_db(reason):
+    """破坏性操作前，先将当前数据库主库 + WAL + SHM 完整备份到 backups/ 目录。
+    返回备份好的主库路径（主库不存在则返回 None）。
+    目的：任何删除/重建前先留底，确保中途停止也能找回数据。
+    """
+    stamp = time.strftime('%Y%m%d_%H%M%S')
+    backup_main = os.path.join(BACKUP_DIR, f'pre_rebuild_{stamp}_{reason}.db')
+
+    try:
+        if os.path.exists(DB_PATH):
+            shutil.copy2(DB_PATH, backup_main)
+            _dbg(f'[SQLite] 安全备份主库 -> {backup_main}')
+
+        # 一并备份 WAL / SHM（可能含尚未合并进主库的最新数据）
+        for suffix in ['-wal', '-shm']:
+            fpath = DB_PATH + suffix
+            if os.path.exists(fpath) and os.path.getsize(fpath) > 0:
+                dst = backup_main + suffix
+                try:
+                    shutil.copy2(fpath, dst)
+                    _dbg(f'[SQLite] 备份副作用文件 {suffix} -> {dst}')
+                except Exception as e:
+                    _dbg(f'[SQLite] 备份 {suffix} 失败(忽略): {e}')
+
+        return backup_main if os.path.exists(backup_main) else None
+    except Exception as e:
+        _dbg(f'[SQLite] 数据库安全备份失败: {e}')
+        traceback.print_exc()
+        return None
+    finally:
+        _cleanup_old_backups()
+
+
+# 备份最大保留数量（超过后按时间删最旧的，防止 backups/ 无限膨胀）
+BACKUP_MAX_KEEP = 6
+
+
+def _cleanup_old_backups():
+    """备份目录瘦身：只保留最近 BACKUP_MAX_KEEP 个 .db 备份，其余删除。"""
+    try:
+        files = [f for f in os.listdir(BACKUP_DIR) if f.endswith('.db')]
+        if len(files) <= BACKUP_MAX_KEEP:
+            return
+        files.sort(key=lambda n: os.path.getmtime(os.path.join(BACKUP_DIR, n)), reverse=True)
+        for name in files[BACKUP_MAX_KEEP:]:
+            try:
+                os.remove(os.path.join(BACKUP_DIR, name))
+                _dbg(f'[SQLite] 清理旧备份: {name}')
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+_last_maintain = time.time()  # 【修复 2026-10-16】改为进程启动时刻：boot VACUUM 推迟 24h，
+# 避免启动后立刻做大 VACUUM 持 _db_lock 30~65s，把设置面板"测试连通"等所有 API 堵到超时
+_MAINTAIN_INTERVAL = 24 * 3600  # 每 24 小时整理一次
+
+
+def _auto_vacuum_enabled(conn):
+    """查询库的 auto_vacuum 状态：0=off, 1=full, 2=incremental。"""
+    try:
+        return conn.execute('PRAGMA auto_vacuum').fetchone()[0]
+    except Exception:
+        return 0
+
+
+# VACUUM 触发阈值（MB）：超限做碎片整理；存量库首次启用 auto_vacuum 也走它
+_VACUUM_SIZE_MB = 50
+_vacuum_boot_done = False  # 本次进程内只做一次"启用 auto_vacuum"的 VACUUM
+
+
+def db_maintenance(force=False):
+    """定期数据库整理（不阻塞）：WAL 检查点合并 + 增量空间回收 + VACUUM。
+
+    - PASSIVE 检查点：把 WAL 合并回主库，控制 -wal 文件大小；不阻塞写入；
+    - auto_vacuum：存量库（auto_vacuum=0）需一次完整 VACUUM 才能启用增量模式，
+      进程内首次维护时检测并启用，此后走 incremental_vacuum 轻量回收；
+    - VACUUM：库文件超 _VACUUM_SIZE_MB 时执行（短暂锁库，24h 一次可接受）。
+    默认 24 小时执行一次，force=True 强制执行；后台线程每 6h 常规触发一次。
+    """
+    global _last_maintain, _vacuum_boot_done
+    now = time.time()
+    if not force and now - _last_maintain < _MAINTAIN_INTERVAL:
+        return
+    _last_maintain = now
+    try:
+        # 【卡顿优化 2026-10-11】checkpoint(PASSIVE)/incremental_vacuum 不阻塞业务写，
+        # 不再抢 _db_lock；只有大 VACUUM 才短暂持锁，避免维护期间全站请求排队卡死。
+        conn = sqlite3.connect(DB_PATH, timeout=30)
+        try:
+            conn.execute('PRAGMA wal_checkpoint(PASSIVE)')
+            size_mb = os.path.getsize(DB_PATH) / (1024 * 1024)
+            av = _auto_vacuum_enabled(conn)
+            need_boot_vacuum = (av == 0 and not _vacuum_boot_done)
+            if need_boot_vacuum or size_mb > _VACUUM_SIZE_MB:
+                # VACUUM 不能在事务内执行；用全局锁串行化，避免与业务写互相等待
+                if need_boot_vacuum:
+                    _dbg(f'[SQLite] 存量库未启用 auto_vacuum，执行一次性 VACUUM 启用（{size_mb:.0f}MB）...')
+                else:
+                    _dbg(f'[SQLite] 库文件 {size_mb:.0f}MB，执行 VACUUM 整理碎片...')
+                conn.close()
+                with _db_lock:
+                    conn = sqlite3.connect(DB_PATH, timeout=2)
+                    try:
+                        # 【修复 2026-10-16】维护连接用短 busy_timeout（2s）：
+                        # F1 线程本地连接池下，任一线程残留读事务都会让
+                        # checkpoint(TRUNCATE) 忙等——旧代码默认 30s，期间持有
+                        # _db_lock，全站 DB API 排队卡死（观测到 32.7s 持锁）。
+                        # 抢不到就快速放弃，下次维护周期自动重试。
+                        conn.execute('PRAGMA busy_timeout=2000')
+                        conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+                        if need_boot_vacuum:
+                            conn.execute('PRAGMA auto_vacuum=INCREMENTAL')
+                            conn.commit()
+                        conn.execute('VACUUM')
+                        conn.execute('PRAGMA incremental_vacuum(512)')
+                        conn.commit()
+                    except sqlite3.OperationalError as _me:
+                        _dbg(f'[SQLite] 维护跳过（库被业务连接占用）: {_me}')
+                        # 【修复 2026-10-16·采纳审核意见】回退计时，后台线程下轮（6h 内）
+                        # 立即重试，避免 boot VACUUM 被顺延一个完整 24h 周期
+                        _last_maintain = time.time() - _MAINTAIN_INTERVAL + 300
+                        conn.close()
+                        return
+                    # 【加固 2026-10-11】置位移入锁块内：仅 VACUUM 成功提交后才置 True，
+                    # 异常中断时保持 False，下次维护自动重试 boot VACUUM。
+                    _vacuum_boot_done = True
+            else:
+                conn.execute('PRAGMA incremental_vacuum(512)')
+                conn.commit()
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+        _dbg('[SQLite] 定期维护完成（checkpoint + vacuum）')
+    except Exception as e:
+        _dbg(f'[SQLite] 定期维护失败(忽略): {e}')
+
+
+def _start_maintenance_thread():
+    """后台轻量线程：每 6 小时触发一次 db_maintenance（内部 24h 节流兜底）。
+    常规整理只做 PASSIVE checkpoint + 增量回收，不会阻塞业务写入。
+    """
+    def _loop():
+        while True:
+            time.sleep(6 * 3600)
+            try:
+                cleanup_agent_turns()  # 先清理过期数据，再 checkpoint/vacuum 才能真正回收空间
+                db_maintenance()
+            except Exception:
+                pass
+    t = threading.Thread(target=_loop, name='db-maintenance', daemon=True)
+    t.start()
+
+
+def _try_sqlite_recover():
+    """温和恢复：抢救聊天记录 + 整库备份留底，绝不删除源文件。
+    返回 (db_backup, chat_export)，均可能为 None。
+    """
+    if not os.path.exists(DB_PATH):
+        return None, None
+
+    stamp = time.strftime('%Y%m%d_%H%M%S')
+    db_rec = None
+    chat_rec = None
+
+    # 抢救聊天记录到独立备份
+    try:
+        import sqlite3
+        with sqlite3.connect(DB_PATH, timeout=30) as conn:
+            conn.row_factory = sqlite3.Row
+            n = conn.execute('SELECT COUNT(*) AS c FROM chat_history').fetchone()['c']
+            if n > 0:
+                chat_rec = os.path.join(BACKUP_DIR, f'chat_{stamp}_{n}msgs.db')
+                shutil.copy2(DB_PATH, chat_rec)
+                _dbg(f'[SQLite] 已抢救聊天记录({n}条) -> {chat_rec}')
+    except Exception as e:
+        _dbg(f'[SQLite] 抢救聊天记录失败(忽略): {e}')
+
+    # 尝试整库备份留底
+    try:
+        if os.path.getsize(DB_PATH) > 0:
+            db_rec = os.path.join(BACKUP_DIR, f'pre_rebuild_{stamp}_recover.db')
+            shutil.copy2(DB_PATH, db_rec)
+            _dbg(f'[SQLite] 整库备份留底 -> {db_rec}')
+    except Exception as e:
+        _dbg(f'[SQLite] 整库备份失败(忽略): {e}')
+
+    return (db_rec, chat_rec)
+
+
+def init_db():
+    """初始化数据库表（含损坏自动恢复）。
+
+    安全策略（防止中途停止导致数据被不可抗力永久删除）：
+      1. 首次失败先温和恢复：先抢救数据留底，再尝试只移除损坏的 WAL/SHM（不删主库）；
+      2. 任何删除/重建前必须先安全备份（_safe_backup_db），确保可找回；
+      3. 全程绝不直接删除主库文件：重建仅在原库上建表，原库始终保留留底，
+         把"不可抗力删除"变为"允许安全删除（可找回）"。
+    """
+    last_err = None
+    # 撞锁重试（2026-11-16 复盘加固）：wait 序列 2/5/10/20/30s，累计约 67s——
+    # 应对「附属线路进程僵死持锁」场景：旧版 4 次/14s 熬不过整夜锁，但锁挂几小时以上
+    # 再怎么重试也没用，加长只为覆盖「几分钟级短暂持锁」+给自愈体系更多时间。
+    _LOCK_WAITS = [2, 5, 10, 20, 30]
+    for attempt, wait in enumerate([0] + _LOCK_WAITS):
+        if attempt > 0:
+            _dbg(f'[SQLite] init 撞到数据库锁(第{attempt}次), {wait}s 后重试...')
+            time.sleep(wait)
+        try:
+            _init_db_inner()
+            _sweep_misplaced_tables()  # 【分离化收口 2026-11-12】搬回错位表，保证裸表名路由直达分库
+            return
+        except sqlite3.OperationalError as e:
+            if 'database is locked' not in str(e):
+                last_err = e
+                break
+            last_err = e
+        except Exception as e:
+            last_err = e
+            break
+    # 【2026-11-16 事故加固】锁≠损坏：若最终失败原因是 database is locked，
+    # 说明有别的进程正持有本库写锁（如附属线路僵死事务）——此时库是【活的】，
+    # 绝不能进入下方"删 -wal/-shm"恢复流程（删活库 WAL = 数据丢失风险）。
+    # 直接带清晰错误退出，交由外部守护（托盘/重启看门狗）稍后重试整次启动。
+    if isinstance(last_err, sqlite3.OperationalError) and 'database is locked' in str(last_err):
+        _dbg('[SQLite] init 重试耗尽仍是 database is locked：库被其他进程持锁（锁≠损坏），'
+             '禁止删WAL恢复流程，本轮启动放弃，等待守护进程重试')
+        raise last_err
+    if last_err is not None:
+        _dbg(f'[SQLite] 初始化失败，进入安全恢复流程: {last_err}')
+        traceback.print_exc()
+
+    # ===== 阶段1：温和恢复（先留底，再仅处理 WAL）=====
+    _try_sqlite_recover()
+    try:
+        _init_db_inner()
+        _sweep_misplaced_tables()
+        _dbg('[SQLite] 温和恢复成功（主库数据保留）')
+        return
+    except Exception as e2:
+        _dbg(f'[SQLite] 温和恢复仍未成功: {e2}')
+
+    # ===== 阶段2：备份留底，然后安全移除副作用文件 =====
+    _safe_backup_db('init_rebuild')
+
+    for suffix in ['-wal', '-shm']:
+        fpath = DB_PATH + suffix
+        try:
+            if os.path.exists(fpath):
+                os.remove(fpath)
+                _dbg(f'[SQLite] 已安全移除损坏副作用文件: {fpath}')
+        except Exception as e3:
+            _dbg(f'[SQLite] 移除 {fpath} 失败: {e3}')
+
+    # ===== 阶段3：最终重建（保留主库，仅在其上建表）=====
+    _init_db_inner()
+    _sweep_misplaced_tables()
+    _dbg('[SQLite] 数据库重建完成，原主库已备份留底（可找回）')
+
+_write_fail_count = 0  # 连续落库失败计数（成功即清零），连续 3 次打 WARN 告警
+
+
+def write_agent_turn(session_id, turn_no, role, content, box_id=''):
+    """agent 循环每轮（用户提问/assistant工具调用/tool结果）实时落库，供重启后重放恢复。
+
+    【F3 治理 2026-10】失败不再静默：连续 3 次失败打 WARN（[DB-SLOW] 同级可观测）；
+    content >64KB 截断（防单条巨文本撑爆 agent_turns）。
+    """
+    global _write_fail_count
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        text = str(content or '')
+        if len(text) > 65536:
+            text = text[:65536] + f'\n...[截断，原文 {len(text)} 字符]'
+        cur.execute('''
+            INSERT INTO agent_turns (session_id, box_id, turn_no, role, content, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(session_id or ''), str(box_id or ''), int(turn_no or 0),
+              str(role or ''), text, int(time.time())))
+        conn.commit()
+        _write_fail_count = 0
+    except Exception as e:
+        # 【safe_commit 兜底 2026-11-19】commit/execute 失败必须回滚，否则线程本地连接
+        # 携带未关闭的写事务回到队列，会永久占死 SQLite 写锁（11-18 锁灾根因）。
+        try:
+            if conn is not None: conn.rollback()
+        except Exception:
+            pass
+        _write_fail_count += 1
+        if _write_fail_count >= 3:
+            log.error(f'[WARN][agent_turns] 落库连续失败 {_write_fail_count} 次: {e}')
+        else:
+            _dbg(f'[agent_turns] 落库失败(第{_write_fail_count}次,忽略): {e}')
+
+
+AGENT_TURNS_RETENTION_DAYS = 30  # agent_turns 保留天数（可调）
+
+
+def cleanup_agent_turns():
+    """清理超过保留期的 agent_turns 记录（防无限增长）。
+    在 db_maintenance 的 VACUUM 之前调用可让空间真正回收。
+    """
+    try:
+        conn = get_db()
+        cutoff = int(time.time()) - AGENT_TURNS_RETENTION_DAYS * 86400
+        cur = conn.cursor()
+        cur.execute('DELETE FROM agent_turns WHERE created_at < ?', (cutoff,))
+        if cur.rowcount > 0:
+            conn.commit()
+            _dbg(f'[agent_turns] 清理 {cur.rowcount} 条过期记录（>{AGENT_TURNS_RETENTION_DAYS}天）')
+    except Exception as e:
+        _dbg(f'[agent_turns] 清理失败(忽略): {e}')
+
+
+def get_agent_turns(session_id, turn_no=None):
+    """读取某会话(可选某轮)的 agent 轮次记录，按序返回。"""
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        if turn_no is None:
+            cur.execute('SELECT * FROM agent_turns WHERE session_id=? ORDER BY id', (str(session_id),))
+        else:
+            cur.execute('SELECT * FROM agent_turns WHERE session_id=? AND turn_no=? ORDER BY id',
+                        (str(session_id), int(turn_no)))
+        rows = [dict(r) for r in cur.fetchall()]
+        return rows
+    except Exception as e:
+        _dbg(f'[agent_turns] 读取失败: {e}')
+        return []
+
+
+# ============================================================================
+# Jobs：后台流水线任务表（可编排后台流水线 P0）
+# 仿 agent_turns 惰性建表范式；report_json 只存摘要，正文经 session_id 关联 agent_turns。
+# 写库走 get_db()+commit（与 agent_turns 同，依赖 WAL/busy_timeout），读走 SELECT。
+# ============================================================================
+_JOBS_READY = False
+
+
+def _ensure_jobs(conn):
+    """惰性建表：保证 jobs 表存在（即便服务启动早于本函数上线）。"""
+    global _JOBS_READY
+    if _JOBS_READY:
+        return
+    try:
+        conn.execute('''CREATE TABLE IF NOT EXISTS jobs (
+            id TEXT PRIMARY KEY,
+            goal TEXT,
+            status TEXT DEFAULT 'queued',
+            session_id TEXT,
+            cfg_json TEXT,
+            report_json TEXT,
+            error TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+        )''')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC)')
+        # [指挥舱 2026-11-02] 旧表迁移：CREATE TABLE IF NOT EXISTS 对已存在的 jobs 表
+        # 不会加新列，必须显式 ALTER（列已存在时 SQLAlchemy/SQLite 报 duplicate column，吞掉即可）
+        for _col_sql in ("ALTER TABLE jobs ADD COLUMN stage TEXT",
+                         "ALTER TABLE jobs ADD COLUMN heartbeat_at INTEGER",
+                         "ALTER TABLE jobs ADD COLUMN started_at INTEGER"):
+            try:
+                conn.execute(_col_sql)
+            except Exception:
+                pass
+        conn.commit()
+        _JOBS_READY = True
+    except Exception as e:
+        _dbg(f'[jobs] 惰性建表失败(忽略): {e}')
+
+
+def create_job(job_id, goal, session_id, cfg_json):
+    """落一条 queued 任务。返回是否成功。
+
+    【2026-10-22 修复】db 被外部进程短暂独占时报 database is locked，
+    加退避重试（最多 5 次 / 共约 6s），并把最后一次异常写进 _dbg 日志。
+    """
+    import time as _t
+    last_err = None
+    for attempt in range(5):
+        try:
+            conn = get_db()
+            _ensure_jobs(conn)
+            now = int(_t.time())
+            conn.execute(
+                '''INSERT OR REPLACE INTO jobs
+                   (id, goal, status, session_id, cfg_json, created_at, updated_at)
+                   VALUES (?, ?, 'queued', ?, ?, ?, ?)''',
+                (str(job_id), str(goal or ''), str(session_id or ''),
+                 str(cfg_json or '{}'), now, now))
+            conn.commit()
+            return True
+        except Exception as e:
+            last_err = e
+            _dbg(f'[jobs] create 第{attempt + 1}次失败: {e}')
+            _t.sleep(0.5 + attempt * 0.5)
+    _dbg(f'[jobs] create 最终失败: {last_err}')
+    return False
+
+
+def update_job(job_id, status=None, report_json=None, error=None, session_id=None,
+               stage=None, heartbeat=False):
+    """更新任务状态/报告/错误。仅传入字段参与 SET。
+
+    [指挥舱 2026-11-02] 新增 stage=当前阶段名、heartbeat=True 只刷 heartbeat_at/updated_at
+    （供 worker 心跳线程低频保活，让前端区分"慢"与"僵死"）。
+    """
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        now = int(time.time())
+        sets = ['updated_at=?']
+        vals = [now]
+        if status is not None:
+            sets.append('status=?'); vals.append(str(status))
+        if report_json is not None:
+            sets.append('report_json=?'); vals.append(str(report_json))
+        if error is not None:
+            sets.append('error=?'); vals.append(str(error))
+        if session_id is not None:
+            sets.append('session_id=?'); vals.append(str(session_id))
+        if stage is not None:
+            sets.append('stage=?'); vals.append(str(stage))
+        if heartbeat:
+            sets.append('heartbeat_at=?'); vals.append(now)
+        vals.append(str(job_id))
+        conn.execute('UPDATE jobs SET ' + ','.join(sets) + ' WHERE id=?', vals)
+        conn.commit()
+        return True
+    except Exception as e:
+        _dbg(f'[jobs] update 失败: {e}')
+        return False
+
+
+def get_job(job_id):
+    """按 id 读单个任务（dict）；不存在返回 None。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT * FROM jobs WHERE id=?', (str(job_id),))
+        r = cur.fetchone()
+        return dict(r) if r else None
+    except Exception as e:
+        _dbg(f'[jobs] get 失败: {e}')
+        return None
+
+
+def list_jobs(limit=50):
+    """最近任务列表（按创建时间倒序），每项 dict。"""
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute('SELECT id, goal, status, session_id, created_at, updated_at, '
+                    'stage, heartbeat_at FROM jobs ORDER BY created_at DESC LIMIT ?', (int(limit),))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        _dbg(f'[jobs] list 失败: {e}')
+        return []
+
+
+def reconcile_jobs_on_startup():
+    """[僵尸回收] 服务刚启动时调用一次：把 jobs 表里所有残留的 queued/running
+    标记为 failed（error=进程重启中断）。
+
+    背景：流水线 worker 是 daemon 线程，进程一旦重启，线程全部死亡，但 jobs 表
+    status 仍卡在 running/queued，无人回收 → 面板「N 进行中」计数虚高，且这些
+    任务永远停在进行中状态。本进程启动时内存中尚无任何 worker，故此刻表里所有
+    queued/running 记录必然是上一个进程遗留的僵尸，安全标记为中断。
+
+    返回被回收的任务 id 列表。
+    """
+    ids = []
+    try:
+        conn = get_db()
+        _ensure_jobs(conn)
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM jobs WHERE status IN ('queued','running')")
+        ids = [r['id'] for r in cur.fetchall()]
+        if ids:
+            cur.executemany(
+                "UPDATE jobs SET status='failed', error='进程重启导致流水线中断（僵尸任务自动回收）', "
+                "updated_at=? WHERE id=?",
+                [(int(time.time()), jid) for jid in ids])
+            conn.commit()
+        _dbg(f'[jobs] 启动回收僵尸任务 {len(ids)} 个')
+    except Exception as e:
+        _dbg(f'[jobs] 启动回收失败: {e}')
+    return ids
+
+
+_local = threading.local()
+_WAL_SET = False
+
+
+def _attach_and_proxy(conn):
+    """【分离化收口 2026-11-12】ATTACH 全部分库。
+
+    裸表名解析规则（SQLite 官方）：temp -> main -> attached 依次查找。
+    只要 main（chat 库）里【不存在】非 chat 域的表，裸表名 SQL
+    （SELECT/INSERT/UPDATE/DELETE/JOIN）会自动落到对应 attached 分库，
+    业务代码零改动、读写物理隔离。
+    ⚠️ 前提条件由 _sweep_misplaced_tables() 在每次启动时保证：
+    chat 库中不得残留非 chat 域表（历史污染会被搬回归位后 DROP）。
+    ⚠️ 不要在这里建 TEMP VIEW 代理：实测 view 不可写
+    （cannot modify ... because it is a view），会打断所有写操作。
+
+    ATTACH 失败【硬失败 raise】（2026-11-12 采纳架构师建议）：静默降级会导致
+    SQL 回落旧大库产生双写漂移，宁可让请求报错也不写错库。
+    """
+    for alias, path in DB_ATTACH_MAP.items():
+        if alias == 'chat':
+            continue  # 主连接本身就是 chat 库
+        conn.execute(f"ATTACH DATABASE ? AS {alias}", (path,))
+
+
+def _sweep_misplaced_tables():
+    """启动清扫：把 chat 库中残留的非 chat 域表搬回对应分库后 DROP。
+
+    背景：迁移时 server 在线热加载新 db.py，惰性建表把全域表建进了 chat 库；
+    裸表名解析 main 优先，导致非 chat 域读写全部落在 chat.db（污染）。
+    每次启动执行本函数可收敛任何来源（init/惰性建表/旧迁移）的错位：
+    - 目标分库无此表 -> 整表搬移（DDL+数据+索引）；
+    - 目标分库已有   -> INSERT OR IGNORE 合并增量（主键冲突跳过，不丢双方数据）；
+    - 搬完从 chat 库 DROP，此后裸表名解析直达分库。
+    需要迁移的表过多时逐条打印。
+    """
+    from config import TABLE_ALIAS_MAP
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    try:
+        _attach_and_proxy(conn)
+        main_tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        misplaced = [t for t in main_tables
+                     if TABLE_ALIAS_MAP.get(t, 'chat') != 'chat']
+        if not misplaced:
+            return
+        for t in misplaced:
+            alias = TABLE_ALIAS_MAP[t]
+            cols = [r[1] for r in conn.execute(f'PRAGMA table_info("{t}")')]
+            collist = ','.join(f'"{x}"' for x in cols)
+            has = conn.execute(
+                f"SELECT name FROM {alias}.sqlite_master WHERE type='table' AND name=?",
+                (t,)).fetchone()
+            if not has:
+                # 先搬建表 DDL（去掉 IF NOT EXISTS 语义无妨，目标库确认无此表），
+                # 再搬索引 DDL（CREATE INDEX xxx -> CREATE INDEX alias.xxx）
+                for typ, name, sql in conn.execute(
+                        "SELECT type, name, sql FROM sqlite_master "
+                        "WHERE type IN ('table','index') AND tbl_name=? AND sql IS NOT NULL", (t,)):
+                    ddl = sql
+                    if typ == 'index':
+                        ddl = sql.replace(f'CREATE INDEX {name}', f'CREATE INDEX {alias}.{name}', 1) \
+                                 .replace(f'CREATE UNIQUE INDEX {name}', f'CREATE UNIQUE INDEX {alias}.{name}', 1)
+                    else:
+                        ddl = sql.replace('CREATE TABLE ', f'CREATE TABLE {alias}.', 1)
+                    try:
+                        conn.execute(ddl)
+                    except Exception as e:
+                        _dbg(f'[SQLite][sweep] {t} DDL->{alias}: {e}')
+            rows = conn.execute(f'SELECT {collist} FROM "{t}"').fetchall()
+            n_new = 0
+            if rows:
+                ph = ','.join('?' * len(cols))
+                cur = conn.executemany(
+                    f'INSERT OR IGNORE INTO {alias}."{t}" ({collist}) VALUES ({ph})', rows)
+                n_new = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+            conn.execute(f'DROP TABLE "{t}"')
+            _dbg(f'[SQLite][sweep] {t}: {len(rows)}行 -> {alias} 库（新增{n_new}），已从 chat 库移除')
+        conn.commit()
+    finally:
+        conn.close()
+
+
+
+def close_all_connections():
+    """关闭当前进程内所有线程本地缓存的连接（供服务器关停收口调用）。
+    其他线程的连接无法跨线程关闭，靠 daemon 线程随进程退出自然释放。
+    """
+    conn = getattr(_local, 'conn', None)
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _local.conn = None
+
+
+# 【读锁分离 2026-10-17】纯 SELECT 专用：不再排队全局 _db_lock。
+# 原理：WAL 模式下读写互不阻塞、多读可并发，全局锁只应保护写事务。
+# 独立短连接 + busy_timeout 兜底：碰上正在写时短暂等待而非报错。
+def db_read(sql, params=(), fetch='all'):
+    """无锁只读查询（SELECT 专用，严禁传入写语句）。
+
+    fetch: 'all'=返回 [dict]；'one'=返回 dict 或 None。
+    每次开独立连接用完即关，不占用线程本地连接、不碰全局 _db_lock。
+    入口校验：只允许 SELECT/WITH/PRAGMA/EXPLAIN 开头，防止误传写语句绕锁。
+    """
+    if not sql.lstrip().lower().startswith(('select', 'with', 'pragma', 'explain')):
+        raise ValueError('db_read 只接受只读语句(SELECT/WITH/PRAGMA/EXPLAIN)，写操作请走 get_db + _db_lock')
+    conn = _new_split_conn(timeout=5)
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute('PRAGMA busy_timeout=5000')
+        cur = conn.execute(sql, params)
+        if fetch == 'one':
+            row = cur.fetchone()
+            return dict(row) if row is not None else None
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _new_split_conn(timeout=8):
+    """新建一个 ATTACH 了全部分库 + TEMP VIEW 代理的连接。
+
+    主连接 = chat 库（DB_CHAT_PATH）；非 chat 域裸表名经 TEMP VIEW 透传到
+    对应分库（见 _attach_and_proxy 注释）。【收口 2026-11-12】ATTACH/代理
+    建失败直接 raise，不再静默降级（防双写漂移）。
+    """
+    from config import DB_CHAT_PATH
+    conn = sqlite3.connect(DB_CHAT_PATH, timeout=timeout)
+    _attach_and_proxy(conn)
+    return conn
+
+
+def get_db():
+    """获取数据库连接（线程本地复用：每线程首次新建并设一次 PRAGMA，之后复用）。
+
+    复用策略（2026-10 数据库优化 F1，见 private/记忆/策划案-数据库读写优化.md）：
+      - threading.local 缓存连接，省去每次新建连接 + 重复设 4 条 PRAGMA 的开销；
+      - 复用前先 ping（SELECT 1）自检：连接被调用方 close 过或已损坏则自动重建（兜底 R2）；
+      - 调用方沿用旧习惯 conn.close() 也安全：关闭后下次 get_db 自动重建，
+        代价只是回到"用完即建"，不会出错。
+    """
+    conn = getattr(_local, 'conn', None)
+    if conn is not None:
+        try:
+            conn.execute('SELECT 1')
+            return conn
+        except Exception:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            _local.conn = None
+    # 【B1 止血 2026-10-25 蜂群收口】120s→8s：经 A1 持锁栈诊断坐实真凶——
+    # HTTP 线程在 `with _db_lock:` 内调本函数，若 SQLite 底层被外部连接/维护占用，
+    # 会在【全局锁内】死等最长 120s，正是实测「持锁 90~132s 堵死全站 500」的元凶。
+    # busy_timeout 是 SQLite 层等待，发生在 _db_lock 持有期间，所以这个值几乎等于
+    # 「最坏持锁时长」。降到 8s：写库最多占全局锁 8s 即快速失败（返回 500 远好于
+    # 拖死全站 120s）。原 2026-10-24 提到 120s 是为「通宵赛马外部子进程」落库——
+    # 但那是独立进程自己的连接，根本不走本函数，与本服务无关；本服务 HTTP 线程
+    # 不该为子进程问题陪绑死等 120s。子进程落库重试应在子进程侧解决。
+    conn = _new_split_conn(timeout=8)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA busy_timeout=8000')
+    # WAL 模式：journal_mode 持久化，进程内只需设一次。
+    # 【修复 2026-09-22】此前每次连接都执行 journal_mode=WAL，当数据库文件被
+    # 短暂独占（检查点/外部进程）时该 PRAGMA 会阻塞最长 30s，期间持有全局
+    # _db_lock，导致登录/画布等所有 DB 请求排队超时（前端满屏 500、"登录中"卡死）。
+    global _WAL_SET
+    if not _WAL_SET:
+        try:
+            conn.execute('PRAGMA journal_mode=WAL')
+            _WAL_SET = True
+        except Exception:
+            pass
+    # 【优化 2026-09-22】WAL 模式下 synchronous=NORMAL：写操作不再每笔强制 fsync，
+    # 由 WAL 检查点批量落盘。断电最多丢最近一次检查点后的事务（WAL 文件本身完好，
+    # 数据库不会损坏），换取每次写入减少数毫秒~数十毫秒的磁盘等待，
+    # 高频聊天/画布写入场景明显降卡。
+    try:
+        conn.execute('PRAGMA synchronous=NORMAL')
+        conn.execute('PRAGMA temp_store=MEMORY')
+        conn.execute('PRAGMA cache_size=-4000')  # 4MB 页缓存，减少重复读盘
+    except Exception:
+        pass
+    # 不启用 foreign_keys=ON：前端用 cb1/cb2 作为 session_id，不在 sessions 表中
+    _ensure_agent_turns(conn)
+    _local.conn = conn
+    return conn
+
+
+_AGENT_TURNS_READY = False
+
+
+def _ensure_agent_turns(conn):
+    """惰性建表：即使服务器启动早于新版 db.py，也能保证 agent_turns 存在。"""
+    global _AGENT_TURNS_READY
+    if _AGENT_TURNS_READY:
+        return
+    try:
+        conn.execute('''CREATE TABLE IF NOT EXISTS agent_turns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            box_id TEXT,
+            turn_no INTEGER DEFAULT 0,
+            role TEXT,
+            content TEXT,
+            created_at INTEGER
+        )''')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_turns(session_id, turn_no)')
+        conn.commit()
+        _AGENT_TURNS_READY = True
+    except Exception as e:
+        _dbg(f'[agent_turns] 惰性建表失败(忽略): {e}')
+
+
+def _init_db_inner():
+    """实际建表逻辑（按表域拆分为 init 函数族，域内代码零改动——绞杀者 Step3）"""
+    conn = get_db()
+    cursor = conn.cursor()
+    # WAL 模式只需在初始化时设一次，后续所有连接自动继承
+    cursor.execute('PRAGMA journal_mode=WAL')
+
+    _init_table_canvas(conn, cursor)
+    _init_table_chat(conn, cursor)
+    _init_table_common(conn, cursor)
+    _init_table_migrations(conn, cursor)
+    _init_table_token_usage(conn, cursor)
+
+    conn.commit()
+    conn.close()
+    # 启动后自动做一次定期维护（WAL 检查点 + 空间回收），24h 内不重复
+    db_maintenance()  # 修复：去掉 force=True，走 24h 节流，避免启动 VACUUM 持锁 30-65s 堵死 API
+    _start_maintenance_thread()
+    # 【员工定时器】启动持久化调度线程（P2：重启后从 员工定时器.json 恢复注册，见验收）
+    try:
+        import employee_scheduler
+        employee_scheduler.start()
+    except Exception as _e:
+        _dbg(f'[SQLite] 员工定时器启动失败(不影响主流程): {_e}')
+    # 【v8.3 B方案·后台为脑】队列消费哨兵：前端离场（心跳断供）时由 server
+    # 无头页接管全量消费；前端回场自动退出。失败不影响主流程。
+    try:
+        import monitor_daemon
+        monitor_daemon.start()
+    except Exception as _e:
+        _dbg(f'[SQLite] 队列消费哨兵启动失败(不影响主流程): {_e}')
+    _dbg(f'[SQLite] 数据库已初始化: {DB_PATH}')
+
+
+_INIT_TABLE_DOMAINS = ('_init_table_canvas', '_init_table_chat', '_init_table_common',
+                       '_init_table_migrations', '_init_table_token_usage')
+# 【插件化挂载点】存储域注册表：未来存储类插件可替换/追加表域 init 函数
+_INIT_TABLE_EXTRAS = []
+
+
+def register_table_domain(fn):
+    """插件化挂载点：注册额外的表域 init 函数（fn(conn, cursor)），返回 fn。"""
+    _INIT_TABLE_EXTRAS.append(fn)
+    return fn
+
+
+def _init_table_canvas(conn, cursor):
+    """画布域：canvas_nodes / canvas_view"""
+    # 1. 画布节点（对话框）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS canvas_nodes (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            model_id TEXT,
+            x REAL DEFAULT 0,
+            y REAL DEFAULT 0,
+            w REAL DEFAULT 320,
+            h REAL DEFAULT 420,
+            collapsed INTEGER DEFAULT 0,
+            z_index INTEGER DEFAULT 50,
+            created_at INTEGER,
+            updated_at INTEGER
+        )
+    ''')
+    # 新表首次创建时直接补齐会话级累计统计列
+    try:
+        cur_node_cols = conn.cursor()
+        cur_node_cols.execute('PRAGMA table_info(canvas_nodes)')
+        node_cols = [row[1] for row in cur_node_cols.fetchall()]
+        for col in ('session_total_tokens', 'session_total_api_calls', 'session_total_duration',
+                    'session_total_prompt_tokens', 'session_total_completion_tokens',
+                    'session_total_cache_hit_tokens', 'session_total_cache_miss_tokens'):
+            if col not in node_cols:
+                cur_node_cols.execute(f'ALTER TABLE canvas_nodes ADD COLUMN {col} INTEGER DEFAULT 0')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 canvas_nodes 会话统计列跳过: {e}')
+
+    # 补齐 per-chat 模型覆盖列（model_id_override / reasoning_effort）
+    try:
+        cur_node_cols2 = conn.cursor()
+        cur_node_cols2.execute('PRAGMA table_info(canvas_nodes)')
+        node_cols2 = [row[1] for row in cur_node_cols2.fetchall()]
+        for col in ('model_id_override', 'reasoning_effort', 'engine'):
+            if col not in node_cols2:
+                cur_node_cols2.execute(f'ALTER TABLE canvas_nodes ADD COLUMN {col} TEXT DEFAULT \'\'')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 canvas_nodes 模型覆盖列跳过: {e}')
+
+    # 补齐 sub_role / role_status 列（2026-11-14 修复箭头/父子关系重启丢失：
+    # 前端 saveNode payload 带了 subRole/roleStatus，但服务端 POST /nodes 白名单没这两列，
+    # 落库时被静默丢弃，重启恢复后 subRole 恒为空 → 子角色身份标志丢失 → 箭头不画）
+    try:
+        cur_node_cols3 = conn.cursor()
+        cur_node_cols3.execute('PRAGMA table_info(canvas_nodes)')
+        node_cols3 = [row[1] for row in cur_node_cols3.fetchall()]
+        for col in ('sub_role', 'role_status', 'collab_identity'):
+            if col not in node_cols3:
+                cur_node_cols3.execute(f'ALTER TABLE canvas_nodes ADD COLUMN {col} TEXT')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 canvas_nodes 子角色列跳过: {e}')
+
+    # 2. 画布视口状态
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS canvas_view (
+            id INTEGER PRIMARY KEY DEFAULT 1,
+            x REAL DEFAULT 0,
+            y REAL DEFAULT 0,
+            scale REAL DEFAULT 1,
+            updated_at INTEGER
+        )
+    ''')
+    cursor.execute('INSERT OR IGNORE INTO canvas_view (id, x, y, scale) VALUES (1, 0, 0, 1)')
+
+    # 3. 通用键值存储
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS kv_store (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at INTEGER
+        )
+    ''')
+    # 4. i工程旁挂表（策划案 v3.0 A2 路线 2026-11-13）：
+    #    canvas_node_ext = 节点语义扩展（状态机/题目正文/分组/任务板/总结/软删），
+    #    canvas_edge = 连线边表（kind: normal/pass/verify，pass=验证回流箭头）。
+    #    宿主活表 canvas_nodes 不动（零侵入），两张表都在 roles 域与 canvas_nodes 同库。
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS canvas_node_ext (
+            node_id TEXT PRIMARY KEY,
+            status TEXT DEFAULT '',
+            body TEXT DEFAULT '',
+            group_id TEXT DEFAULT '',
+            board_id TEXT DEFAULT '',
+            summary TEXT DEFAULT '',
+            deleted INTEGER DEFAULT 0,
+            updated_at INTEGER
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS canvas_edge (
+            id TEXT PRIMARY KEY,
+            src TEXT NOT NULL,
+            dst TEXT NOT NULL,
+            kind TEXT DEFAULT 'normal',
+            label TEXT DEFAULT '',
+            created_at INTEGER
+        )
+    ''')
+    # ---- 画布域结束 ----
+
+def _init_table_chat(conn, cursor):
+    """会话/对话域：sessions / chat_history / archive / agent_turns"""
+    # 4. 会话管理
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+        )
+    ''')
+
+    # 5. 对话历史
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT,
+            content TEXT,
+            created_at INTEGER,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        )
+    ''')
+
+    # 5b. 已关闭会话的历史归档（独立于 sessions，避免级联删除）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_history_archive (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            session_name TEXT,
+            role TEXT,
+            content TEXT,
+            model_id TEXT,
+            created_at INTEGER
+        )
+    ''')
+
+    # 5c. agent 循环工具轮次全量落库（重启后可重放恢复）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS agent_turns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            box_id TEXT,
+            turn_no INTEGER DEFAULT 0,
+            role TEXT,
+            content TEXT,
+            created_at INTEGER
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_turns(session_id, turn_no)')
+    # ---- 对话域结束 ----
+
+def _init_table_common(conn, cursor):
+    """通用表域：app_data / trash_items / app_logs / projects / task_stats"""
+    # 6. 通用数据表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS app_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            key TEXT,
+            value TEXT,
+            created_at INTEGER,
+            updated_at INTEGER
+        )
+    ''')
+    # [修复] (category, key) 唯一约束：此前无索引导致 INSERT OR REPLACE 永远追加新行，
+    # zf3d cookies 积累了 100+ 条重复记录。建索引前先按 (category,key) 去重保留最新一条
+    cursor.execute('DELETE FROM app_data WHERE id NOT IN (SELECT MAX(id) FROM app_data GROUP BY category, key)')
+    cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_app_data_cat_key ON app_data(category, key)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_app_data_cat ON app_data(category)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_history(session_id)')
+    # [修复] 关闭对话卡顿：归档去重时对 chat_history_archive 全表扫描（无索引），
+    # 历史积累后关闭十几个对话会明显卡顿。补 (session_id, role, content, created_at) 索引
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_archive_dedup ON chat_history_archive(session_id, role, content, created_at)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_archive_session ON chat_history_archive(session_id)')
+
+    # 6b. 删除缓冲垃圾箱（删除只是移入 system/trash 并登记此处，可恢复/强制删除/30天自动清理）
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS trash_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            orig_path TEXT NOT NULL,
+            trash_path TEXT NOT NULL,
+            name TEXT,
+            size INTEGER DEFAULT 0,
+            is_dir INTEGER DEFAULT 0,
+            deleted_at INTEGER,
+            expires_at INTEGER,
+            source TEXT,
+            restored INTEGER DEFAULT 0
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_trash_expires ON trash_items(expires_at)')
+
+    # 7. 运行日志表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS app_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts INTEGER,
+            level TEXT,
+            box_id TEXT,
+            action TEXT,
+            detail TEXT
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_logs_ts ON app_logs(ts)')
+
+    # 8. 项目表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at INTEGER,
+            updated_at INTEGER
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)')
+
+    # 9. 任务统计表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS task_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            model_id TEXT,
+            task_title TEXT,
+            success INTEGER DEFAULT 0,
+            tokens_used INTEGER DEFAULT 0,
+            duration_ms INTEGER DEFAULT 0,
+            depth INTEGER DEFAULT 0,
+            created_at INTEGER
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_task_stats_ts ON task_stats(created_at)')
+    # ---- 通用域结束 ----
+
+def _init_table_migrations(conn, cursor):
+    """兼容性迁移段：为旧表添加新列（已存在则跳过）"""
+    # === 兼容性迁移：为旧表添加新列（已存在则跳过） ===
+    # canvas_nodes 加 scroll_pos（记录对话内滚动位置）
+    try:
+        cur2 = conn.cursor()
+        cur2.execute('PRAGMA table_info(canvas_nodes)')
+        cols_nodes = [row[1] for row in cur2.fetchall()]
+        if 'scroll_pos' not in cols_nodes:
+            cur2.execute('ALTER TABLE canvas_nodes ADD COLUMN scroll_pos REAL DEFAULT 0')
+            _dbg('[SQLite] 迁移: canvas_nodes + scroll_pos')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 canvas_nodes 跳过: {e}')
+
+    # chat_history 加 model_id（记录每条消息使用的模型）
+    try:
+        cur3 = conn.cursor()
+        cur3.execute('PRAGMA table_info(chat_history)')
+        cols_chat = [row[1] for row in cur3.fetchall()]
+        if 'model_id' not in cols_chat:
+            cur3.execute('ALTER TABLE chat_history ADD COLUMN model_id TEXT')
+            _dbg('[SQLite] 迁移: chat_history + model_id')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 chat_history 跳过: {e}')
+
+    # chat_history_archive 加 model_id（清理会话后仍可统计所用模型）
+    try:
+        cur_archive = conn.cursor()
+        cur_archive.execute('PRAGMA table_info(chat_history_archive)')
+        cols_archive = [row[1] for row in cur_archive.fetchall()]
+        if cols_archive and 'model_id' not in cols_archive:
+            cur_archive.execute('ALTER TABLE chat_history_archive ADD COLUMN model_id TEXT')
+            _dbg('[SQLite] 迁移: chat_history_archive + model_id')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 chat_history_archive 跳过: {e}')
+
+    # chat_history 加 parent_id（AI回复关联的用户消息ID，精准绑定问答对）
+    try:
+        cur_parent = conn.cursor()
+        cur_parent.execute('PRAGMA table_info(chat_history)')
+        cols_chat2 = [row[1] for row in cur_parent.fetchall()]
+        if 'parent_id' not in cols_chat2:
+            cur_parent.execute('ALTER TABLE chat_history ADD COLUMN parent_id INTEGER')
+            _dbg('[SQLite] 迁移: chat_history + parent_id')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 chat_history parent_id 跳过: {e}')
+
+    # canvas_nodes 加 project_id（关联项目）
+    try:
+        cur4 = conn.cursor()
+        cur4.execute('PRAGMA table_info(canvas_nodes)')
+        cols_nodes2 = [row[1] for row in cur4.fetchall()]
+        if 'project_id' not in cols_nodes2:
+            cur4.execute('ALTER TABLE canvas_nodes ADD COLUMN project_id TEXT')
+            _dbg('[SQLite] 迁移: canvas_nodes + project_id')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 canvas_nodes project_id 跳过: {e}')
+
+    # projects 加 folder_path（关联的本地文件夹路径）
+    try:
+        cur5 = conn.cursor()
+        cur5.execute('PRAGMA table_info(projects)')
+        cols_proj = [row[1] for row in cur5.fetchall()]
+        if 'folder_path' not in cols_proj:
+            cur5.execute('ALTER TABLE projects ADD COLUMN folder_path TEXT DEFAULT NULL')
+            _dbg('[SQLite] 迁移: projects + folder_path')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 projects folder_path 跳过: {e}')
+
+    # projects 加 memory_text / memory_status（AI 自动生成的项目记忆）
+    try:
+        cur5b = conn.cursor()
+        cur5b.execute('PRAGMA table_info(projects)')
+        cols_proj2 = [row[1] for row in cur5b.fetchall()]
+        if 'memory_text' not in cols_proj2:
+            cur5b.execute('ALTER TABLE projects ADD COLUMN memory_text TEXT DEFAULT NULL')
+            _dbg('[SQLite] 迁移: projects + memory_text')
+        if 'memory_status' not in cols_proj2:
+            cur5b.execute("ALTER TABLE projects ADD COLUMN memory_status TEXT DEFAULT 'none'")
+            _dbg('[SQLite] 迁移: projects + memory_status')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 projects memory_text/status 跳过: {e}')
+
+    # task_stats 加 api_calls（记录每次任务的 API 调用次数）
+    try:
+        cur6 = conn.cursor()
+        cur6.execute('PRAGMA table_info(task_stats)')
+        cols_stats = [row[1] for row in cur6.fetchall()]
+        if 'api_calls' not in cols_stats:
+            cur6.execute('ALTER TABLE task_stats ADD COLUMN api_calls INTEGER DEFAULT 0')
+            _dbg('[SQLite] 迁移: task_stats + api_calls')
+    except Exception as e:
+        _dbg(f'[SQLite] 迁移 task_stats api_calls 跳过: {e}')
+    # ---- 迁移段结束 ----
+
+def _init_table_token_usage(conn, cursor):
+    """token_usage 统计表域"""
+    # token_usage 加（Token 用量长期统计表：按次记录，可按日/月聚合）
+    try:
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS token_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                day TEXT NOT NULL,
+                month TEXT NOT NULL,
+                provider TEXT,
+                model TEXT,
+                box_id TEXT,
+                prompt_tokens INTEGER DEFAULT 0,
+                completion_tokens INTEGER DEFAULT 0,
+                cached_tokens INTEGER DEFAULT 0,
+                total_tokens INTEGER DEFAULT 0
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_token_usage_day ON token_usage(day)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_token_usage_month ON token_usage(month)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_token_usage_model ON token_usage(model)')
+        # 明细翻页索引（ts 倒序扫描）+ 模型筛选组合索引
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_token_usage_ts ON token_usage(ts DESC)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_token_usage_model_ts ON token_usage(model, ts DESC)')
+        # 明细扩展列（session_title/duration_ms/status），历史行缺列为 NULL，渐进迁移
+        try:
+            cursor.execute('ALTER TABLE token_usage ADD COLUMN session_title TEXT')
+        except Exception:
+            pass
+        try:
+            cursor.execute('ALTER TABLE token_usage ADD COLUMN duration_ms INTEGER')
+        except Exception:
+            pass
+        try:
+            cursor.execute('ALTER TABLE token_usage ADD COLUMN status TEXT DEFAULT \'ok\'')
+        except Exception:
+            pass
+    except Exception as e:
+        _dbg(f'[SQLite] 建表 token_usage 跳过: {e}')
+    # ---- token_usage 域结束 ----

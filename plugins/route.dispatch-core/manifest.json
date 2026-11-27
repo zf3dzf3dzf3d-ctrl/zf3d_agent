@@ -1,0 +1,18 @@
+{
+ "id": "route.dispatch-core",
+ "name": "蜂群/存档/埋点域路由（T2 尾巴）",
+ "version": "1.0.0",
+ "spec": 1,
+ "type": "tool",
+ "entry": {
+  "py": "main.py"
+ },
+ "capabilities": [
+  "http.route",
+  "log.write"
+ ],
+ "provides": "route_dispatch_core",
+ "depends": [],
+ "zfVersion": ">=6.0.0",
+ "description": "T2 尾巴（策划案v4）：蜂群/存档/埋点域逐字节插件化，源=domain_dispatch_core.py；禁用经注册栈回栈恢复静态接线"
+}

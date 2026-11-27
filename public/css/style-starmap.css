@@ -1,0 +1,68 @@
+/* ========== style-starmap.css - 星空知识图谱面板（右侧栏） ========== */
+.starmap-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    --starmap-width: 560px; width: var(--starmap-width);
+    background: rgba(8, 10, 22, 0.96);
+    border-left: 1px solid #2a2d4a;
+    z-index: 9999;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: -4px 0 32px rgba(0,0,0,0.6);
+    transform: translateX(100%); transition: transform 0.3s ease;
+    will-change: transform;
+}
+.starmap-panel.open { transform: translateX(0); }
+
+.starmap-header {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: 1px solid #2a2d4a;
+    background: rgba(15,18,38,0.8);
+}
+.starmap-title { color: #cfd3dc; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; }
+.starmap-title small { color: #666c88; font-weight: 400; font-size: 11px; margin-left: 6px; }
+.starmap-btn {
+    background: #232642; border: 1px solid #3a3f5a; color: #cfd3dc;
+    border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px; line-height: 1.6;
+}
+.starmap-btn:hover { background: #3a3f5a; color: #fff; }
+.starmap-btn.active { background: #2d4a7a; border-color: #4a6aaa; color: #fff; }
+
+.starmap-toolbar {
+    flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    padding: 6px 10px; border-bottom: 1px solid #232640; background: rgba(12,14,28,0.9);
+    font-size: 11px; color: #8b8f98;
+}
+.starmap-toolbar .sm-sp { flex: 1 1 auto; }
+.starmap-canvas-wrap { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; background: radial-gradient(ellipse at center, #0a0c1a 0%, #05060e 100%); }
+.starmap-canvas-wrap canvas { position: absolute; inset: 0; display: block; cursor: crosshair; }
+
+/* 框选矩形 */
+.sm-select-box { position: absolute; border: 1px dashed #6fa8ff; background: rgba(80,140,255,0.12); pointer-events: none; display: none; z-index: 5; }
+
+/* hover 提示卡 */
+.sm-tooltip {
+    position: absolute; z-index: 10; pointer-events: none; display: none;
+    background: rgba(12,16,34,0.95); border: 1px solid #3a4a7a; border-radius: 8px;
+    padding: 8px 10px; max-width: 320px; font-size: 12px; color: #dfe4ef;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.6); line-height: 1.6;
+}
+.sm-tooltip .sm-tt-name { color: #9ecbff; font-weight: 600; word-break: break-all; }
+.sm-tooltip .sm-tt-sub { color: #8b8fa8; font-size: 11px; }
+
+/* 底部状态条 */
+.starmap-footer {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 5px 12px; border-top: 1px solid #232640; font-size: 11px; color: #666c88;
+    background: rgba(10,12,24,0.9);
+}
+.starmap-footer .sm-legend { display: flex; align-items: center; gap: 4px; }
+.sm-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* 时间回放条（二期） */
+.sm-replay {
+    flex: 0 0 auto; display: none; align-items: center; gap: 8px;
+    padding: 6px 12px; border-top: 1px solid #232640; background: rgba(12,14,28,0.95);
+    font-size: 11px; color: #8b8f98;
+}
+.sm-replay.show { display: flex; }
+.sm-replay input[type=range] { flex: 1 1 auto; accent-color: #5b8cff; }
+.sm-replay .sm-replay-time { color: #9ecbff; min-width: 130px; text-align: right; }

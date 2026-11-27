@@ -1,0 +1,34 @@
+{
+  "spec": 1,
+  "id": "self_promotion",
+  "name": "推广运营管家",
+  "icon": "📣",
+  "description": "专门负责朱峰智能体智能体自身的内容带货与推广：选题、脚本、视频生产、平台发布计划、SEO 文章与开源引流",
+  "version": "0.1.0",
+  "enabled": true,
+
+  "avatar": { "vrm": "/assets/avatars/doll.vrm" },
+
+  "prompt": "prompt.md",
+
+  "tools": {
+    "backend": [],
+    "frontend": []
+  },
+
+  "fileAccess": [
+    "private/记忆",
+    "modes/self_promotion"
+  ],
+
+  "db": "db/self_promotion.db",
+
+  "limits": {
+    "max_tools_in_request": 500,
+    "request_timeout_seconds": 1800
+  },
+
+  "entry": {
+    "panel": "frontend/panel.js"
+  }
+}

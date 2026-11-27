@@ -1,0 +1,28 @@
+﻿{
+    "spec":  1,
+    "id":  "tool.banner",
+    "name":  "启动横幅",
+    "version":  "1.0.0",
+    "zfVersion":  "\u003e=5.8.0",
+    "type":  "tool",
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "depends":  [
+
+                ],
+    "capabilities":  [
+                         "tool.register",
+                         "event.use"
+                     ],
+    "mounts":  {
+                   "toolCategory":  "系统"
+               },
+    "config":  {
+                   "enabled":  {
+                                   "default":  true,
+                                   "desc":  "是否输出启动横幅"
+                               }
+               },
+    "description":  "启动横幅：服务启动时在界面顶部显示系统横幅提示，纯展示无副作用，禁用后启动更安静。"
+}

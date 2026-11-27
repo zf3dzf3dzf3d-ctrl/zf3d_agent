@@ -1,0 +1,14 @@
+
+/* ===== 做梦系统 Dream v1 ===== */
+.dream-panel { position: fixed; right: 16px; bottom: 76px; width: 360px; max-height: 55vh; display: flex; flex-direction: column; background: rgba(18, 22, 34, .96); color: #dfe6f2; border: 1px solid rgba(140, 130, 220, .35); border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, .45); z-index: 9990; overflow: hidden; }
+.dream-panel .dream-msgs { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+.dream-msg { color: #cbc3f5; font-style: italic; line-height: 1.6; }
+.dream-time { display: inline-block; margin-right: 6px; font-size: 11px; color: rgba(160, 150, 230, .55); font-style: normal; }
+.dream-fab .brain-fab-icon { filter: hue-rotate(280deg); }
+/* 拖拽把手 + 右下角调整大小手柄 */
+.dream-head { cursor: move; user-select: none; }
+.dream-resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; z-index: 5;
+  background: linear-gradient(135deg, transparent 50%, rgba(140, 130, 220, .5) 50%); border-bottom-right-radius: 12px; }
+body.light-theme .dream-resize { background: linear-gradient(135deg, transparent 50%, rgba(120, 100, 200, .4) 50%); }
+body.light-theme .dream-panel { background: rgba(244, 242, 255, .97); color: #35315c; border-color: rgba(120, 100, 200, .3); }
+body.light-theme .dream-msg { color: #5a4fa0; }

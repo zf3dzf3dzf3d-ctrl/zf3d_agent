@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i小说 · 播放器</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  /* ================= 大师双主题 =================
+     纸白：宣纸米白 + 浓墨字 + 朱砂点睛（钤印之美）
+     墨黑：玄墨夜色 + 月白字 + 鎏金点睛（墨拓之美）
+     data-theme=auto 时跟随系统 prefers-color-scheme */
+  :root, body[data-theme="paper"], body[data-theme="auto"] {
+    --bg:#efe9da; --head:#e7dfcc; --shelf:#e9e2d0; --card:#f8f4e9; --border:#cfc4aa; --line:#d9cfb8;
+    --text:#2b2620; --muted:#7d7362; --content-bg:#f4efe1; --content-tx:#2e2a24;
+    --accent:#9e3b2c; --accent-soft:#e9d9c4; --h3:#7a2f22; --btn:#efe9db; --sel-bg:#f8f4e9;
+    --shadow:0 2px 14px rgba(60,45,20,.10); --seal:#9e3b2c;
+  }
+  body[data-theme="ink"] {
+    --bg:#101012; --head:#17171a; --shelf:#141416; --card:#1c1c20; --border:#35353c; --line:#26262c;
+    --text:#ddd8cc; --muted:#7c7a72; --content-bg:#151517; --content-tx:#d3cec2;
+    --accent:#c9a35f; --accent-soft:#2b2618; --h3:#d8b877; --btn:#202024; --sel-bg:#1c1c20;
+    --shadow:0 2px 14px rgba(0,0,0,.5); --seal:#c9a35f;
+  }
+  @media (prefers-color-scheme: dark) {
+    body[data-theme="auto"] {
+      --bg:#101012; --head:#17171a; --shelf:#141416; --card:#1c1c20; --border:#35353c; --line:#26262c;
+      --text:#ddd8cc; --muted:#7c7a72; --content-bg:#151517; --content-tx:#d3cec2;
+      --accent:#c9a35f; --accent-soft:#2b2618; --h3:#d8b877; --btn:#202024; --sel-bg:#1c1c20;
+      --shadow:0 2px 14px rgba(0,0,0,.5); --seal:#c9a35f;
+    }
+  }
+  body {
+    font-family:"Noto Serif SC","Source Han Serif SC","STZhongsong","KaiTi","SimSun",serif;
+    background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden;
+  }
+  header {
+    padding:14px 24px; background:var(--head); border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:16px; flex-shrink:0;
+  }
+  header h1 { font-size:19px; color:var(--accent); letter-spacing:6px; font-weight:700; }
+  header h1::before { content:""; display:inline-block; width:8px; height:19px; background:var(--accent); margin-right:12px; border-radius:1px; transform:translateY(3px); }
+  header .spacer { flex:1; }
+  button {
+    background:var(--btn); color:var(--text); border:1px solid var(--border); border-radius:4px;
+    padding:8px 16px; cursor:pointer; font-size:14px; font-family:inherit; letter-spacing:1px;
+    transition:border-color .15s, color .15s;
+  }
+  button:hover { border-color:var(--accent); color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#f8f4e9; }
+  button.primary:hover { filter:brightness(1.1); color:#f8f4e9; }
+  button.primary:disabled { opacity:.5; cursor:wait; }
+  main { flex:1; display:flex; overflow:hidden; }
+
+  /* ---- 书架：立轴书签风 ---- */
+  #shelf { width:288px; background:var(--shelf); border-right:1px solid var(--line); overflow-y:auto; padding:18px 16px; }
+  #shelf h2 { font-size:13px; color:var(--muted); margin-bottom:14px; letter-spacing:4px; }
+  #shelf h2::after { content:""; display:block; width:28px; height:2px; background:var(--accent); margin-top:6px; opacity:.6; }
+  .book {
+    display:flex; gap:12px; align-items:center; padding:12px; background:var(--card);
+    border:1px solid var(--border); border-radius:4px; margin-bottom:12px; cursor:pointer;
+    box-shadow:var(--shadow); transition:transform .15s, border-color .15s;
+  }
+  .book:hover { transform:translateX(3px); border-color:var(--accent); }
+  .book.active { border-color:var(--accent); }
+  .book.active::before { content:""; width:3px; align-self:stretch; background:var(--accent); border-radius:2px; margin:-12px 0 -12px -12px; }
+  .book .cover {
+    width:52px; height:72px; flex-shrink:0; border-radius:2px; border:1px solid var(--border);
+    background:linear-gradient(160deg, var(--accent-soft), var(--card));
+    writing-mode:vertical-rl; font-size:17px; font-weight:700; letter-spacing:2px; color:var(--h3);
+    display:flex; align-items:center; justify-content:center; overflow:hidden; padding:4px;
+  }
+  .book .t { font-size:15px; font-weight:700; letter-spacing:1px; }
+  .book .d { font-size:12px; color:var(--muted); margin-top:5px; }
+
+  /* ---- 阅读区：书页 ---- */
+  #reader { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  #readerHead { padding:12px 28px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:center; flex-shrink:0; background:var(--head); }
+  #bookTitle { font-size:17px; font-weight:700; letter-spacing:2px; }
+  #content {
+    flex:1; overflow-y:auto; padding:44px max(15%, 48px); font-size:17px; line-height:2.15;
+    background:var(--content-bg); color:var(--content-tx); letter-spacing:.4px;
+  }
+  #content p { margin-bottom:1.3em; text-indent:2em; }
+  #content h3 {
+    color:var(--h3); margin:2em 0 1.2em; text-indent:0; font-size:1.25em; letter-spacing:2px;
+    text-align:center; position:relative; padding-bottom:12px;
+  }
+  #content h3::after { content:""; display:block; width:42px; height:2px; background:var(--accent); margin:10px auto 0; opacity:.75; }
+  .empty { color:var(--muted); text-align:center; margin-top:20vh; font-size:15px; letter-spacing:2px; }
+
+  /* ---- 底部控制条 ---- */
+  #controls { flex-shrink:0; background:var(--head); border-top:1px solid var(--line); padding:12px 28px; display:flex; align-items:center; gap:14px; }
+  #progress { flex:1; -webkit-appearance:none; height:5px; background:var(--border); border-radius:3px; cursor:pointer; }
+  #progress::-webkit-slider-thumb { -webkit-appearance:none; width:15px; height:15px; background:var(--accent); border-radius:50%; }
+  #pos { font-size:12px; color:var(--muted); min-width:44px; text-align:center; font-variant-numeric:tabular-nums; }
+  #fontUp,#fontDown { padding:6px 12px; }
+
+  /* ---- 弹层 ---- */
+  #panel { position:fixed; inset:0; background:rgba(10,8,4,.55); display:none; align-items:center; justify-content:center; z-index:99; }
+  #panel.show { display:flex; }
+  #panelBox, #importBox { background:var(--card); border:1px solid var(--border); border-radius:6px; box-shadow:var(--shadow); }
+  #panelBox { width:540px; max-width:92vw; padding:28px; }
+  #panelBox h3 { margin-bottom:18px; color:var(--accent); letter-spacing:2px; }
+  #panelBox label { display:block; font-size:13px; color:var(--muted); margin:14px 0 6px; letter-spacing:1px; }
+  #panelBox textarea, #panelBox input, #panelBox select {
+    width:100%; background:var(--content-bg); color:var(--content-tx); border:1px solid var(--border);
+    border-radius:4px; padding:10px; font-size:14px; font-family:inherit;
+  }
+  #panelBox textarea { height:90px; resize:vertical; }
+  #panelBtns { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+  #genStatus { color:var(--h3); font-size:13px; display:none; }
+  .tag { display:inline-block; background:var(--btn); border:1px solid var(--border); border-radius:3px; padding:4px 12px; font-size:12px; margin:0 6px 6px 0; cursor:pointer; letter-spacing:1px; }
+  .tag:hover, .tag.on { background:var(--accent); border-color:var(--accent); color:#f8f4e9; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📖 i小说</h1>
+  <div class="spacer"></div>
+  <div style="display:flex;flex:1;max-width:480px;position:relative">
+    <input id="searchBox" placeholder="🔍 搜索小说（书名/作者，多源）…" autocomplete="off" style="flex:1;padding:8px 14px;border-radius:6px 0 0 6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:14px;outline:none" oninput="hdrSearch(this.value)" onkeydown="if(event.key==='Enter')hdrSearchGo()">
+    <button onclick="hdrSearchGo()" style="padding:8px 16px;border-radius:0 6px 6px 0;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:14px;cursor:pointer">搜索</button>
+  </div>
+  <div id="hdrDrop" style="display:none;position:absolute;top:52px;left:50%;transform:translateX(-50%);width:min(560px,92vw);max-height:60vh;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);z-index:98;padding:8px"></div>
+</header>
+<main>
+  <div id="shelf"><h2>我的书架</h2><div id="bookList"></div></div>
+  <div id="reader">
+    <div id="readerHead">
+      <span id="bookTitle">选择一本书开始阅读</span>
+      <div class="spacer" style="flex:1"></div>
+      <button id="fontDown" onclick="setFont(-1)">A-</button>
+      <button id="fontUp" onclick="setFont(1)">A+</button>
+      <button id="ttsBtn" onclick="toggleTTS()">🔊 听书</button>
+      <button onclick="exportTxt()">⬇ 导出TXT</button>
+    </div>
+    <div id="content"><div class="empty">从左侧书架选一本，或打开「🏆 排行榜」挑一本好书导入</div></div>
+    <div id="controls">
+      <button onclick="jump(-1)">⏮ 上一屏</button>
+      <button onclick="togglePlay()" id="playBtn">▶ 自动播放</button>
+      <button onclick="jump(1)">下一屏 ⏭</button>
+      <input type="range" id="progress" min="0" max="1000" value="0" oninput="seek(this.value)">
+      <span id="pos">0%</span>
+    </div>
+  </div>
+</main>
+
+<div id="importPanel" style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:99">
+  <div id="importBox" style="width:600px;max-width:92vw;max-height:80vh;display:flex;flex-direction:column;padding:28px">
+    <h3 style="margin-bottom:16px;color:var(--accent)">🏆 小说排行榜</h3>
+    <input id="rankSearch" placeholder="🔍 搜索书名/作者…" oninput="renderRank(this.value)"><div id="impList" style="flex:1;overflow-y:auto"></div>
+    <div id="impStatus" style="color:var(--h3);font-size:13px;display:none;margin-top:10px"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px">
+      <button onclick="closeImport()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let books = [], cur = null, curData = null, playTimer = null;
+let fontSize = 17;
+
+function onHeaderSearch(v){
+  openImport();
+  const box = $('rankSearch');
+  if(box){ box.value = v; renderRank(v); }
+}
+
+async function loadShelf() {
+  try {
+    const r = await fetch('/api/novel/list'); const j = await r.json();
+    books = j.items || [];
+    $('bookList').innerHTML = books.map((b,i) => {
+      const vtitle = (b.title||b.file||'书').replace(/\.novel\.json$/,'').slice(0,4);
+      return `<div class="book" onclick="openBook(${i})" id="bk${i}"><div class="cover">${vtitle}</div><div class="t">${(b.title||b.file).slice(0,20)}</div><div class="d">${(b.genre&&b.genre!=='不限')?b.genre+' · ':''}${b.chapters?b.chapters+'章 · ':''}${b.date||new Date(b.created_at||b.updated_at||Date.now()).toLocaleDateString()}</div></div>`;
+    }).join('')
+      || '<div class="empty">书架空空的，去「🏆 排行榜」导入一本吧</div>';
+    // 恢复上次阅读
+    const last = localStorage.getItem('inovel_last');
+    if (last) { const i = books.findIndex(b=>b.file===last); if(i>=0) openBook(i); }
+  } catch(e) { $('bookList').innerHTML = '<div class="empty">书架加载失败</div>'; }
+}
+
+async function openBook(i) {
+  cur = books[i];
+  document.querySelectorAll('.book').forEach(el=>el.classList.remove('active'));
+  const el = $('bk'+i); if(el) el.classList.add('active');
+  try {
+    const r = await fetch('/api/novel/get?file='+encodeURIComponent(cur.file));
+    const j = await r.json();
+    if (!j.ok) throw 0;
+    curData = j.data;
+    $('bookTitle').textContent = curData.title || cur.title || cur.file;
+    render();
+    localStorage.setItem('inovel_last', cur.file);
+    restorePos(cur.file);
+  } catch(e) { $('content').innerHTML = '<div class="empty">加载失败</div>'; }
+}
+
+function render() {
+  // 连载书：按章节渲染 + 章节下拉导航
+  if (curData && curData.chapters && curData.chapters.length) {
+    const chs = curData.chapters;
+    const nav = '<div style="text-indent:0;margin-bottom:12px"><select onchange="gotoCh(this.value)" style="background:var(--sel-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:14px">' +
+      chs.map((c,i)=>`<option value="${i}">第${i+1}章 ${c.title||''}${c.text?'':'（未生成）'}</option>`).join('') + '</select></div>';
+    const body = chs.map((c,i)=>`<h3 id="ch${i}">第${i+1}章 ${c.title||''}${c.text?'':' <span style="color:#666;font-size:13px">（待生成，点下方「写下一章」）</span>'}</h3>` +
+      (c.text ? c.text.split(/\n+/).map(p=>p.trim()?`<p>${p}</p>`:'').join('') : '')).join('');
+    $('content').innerHTML = nav + (body || '<div class="empty">本书暂无内容</div>');
+    $('content').style.fontSize = fontSize+'px';
+    updatePos(); return;
+  }
+  const txt = (curData && (curData.content||curData.text)) || '';
+  const html = txt.split(/\n+/).map(p => {
+    p = p.trim(); if(!p) return '';
+    return /^第.{1,8}章/.test(p) ? `<h3>${p}</h3>` : `<p>${p}</p>`;
+  }).join('');
+  $('content').innerHTML = html || '<div class="empty">本书暂无内容</div>';
+  $('content').style.fontSize = fontSize+'px';
+  updatePos();
+}
+function gotoCh(i) { const el=$('ch'+i); if(el) el.scrollIntoView({behavior:'smooth'}); }
+
+function setFont(d) { fontSize = Math.min(26, Math.max(13, fontSize+d)); $('content').style.fontSize = fontSize+'px'; localStorage.setItem('inovel_font', fontSize); }
+function jump(dir) { const c=$('content'); c.scrollBy({top: dir*c.clientHeight*0.9, behavior:'smooth'}); }
+function seek(v) { const c=$('content'); c.scrollTop = (c.scrollHeight-c.clientHeight)*v/1000; updatePos(); }
+function updatePos() {
+  const c=$('content'); const max=c.scrollHeight-c.clientHeight;
+  const p = max>0 ? c.scrollTop/max : 0;
+  $('progress').value = Math.round(p*1000);
+  $('pos').textContent = Math.round(p*100)+'%';
+}
+$('content').addEventListener('scroll', ()=>{ updatePos(); if(cur){ localStorage.setItem('inovel_pos_'+cur.file, $('content').scrollTop); serverSaveProgress(); } });
+
+/* V1.5 双源续读：localStorage + 服务端 /api/novel/progress，取服务端为准（跨设备/清缓存不丢） */
+let _progTimer = null, _serverProg = null;
+function loadServerProgress(cb){
+  fetch('/api/novel/progress').then(r=>r.json()).then(j=>{ _serverProg = (j.ok && j.progress) || {}; cb && cb(); }).catch(()=>{ _serverProg = {}; cb && cb(); });
+}
+function restorePos(file){
+  const apply = (sp)=>{ if(sp) setTimeout(()=>{ $('content').scrollTop = +sp; }, 60); };
+  const ls = localStorage.getItem('inovel_pos_'+file);
+  if (_serverProg){
+    const key = file.replace(/\.novel\.json$/,'');
+    apply(_serverProg[key] ? _serverProg[key].scroll : ls);
+  } else loadServerProgress(()=>restorePos(file));
+}
+function serverSaveProgress(){
+  if(!cur) return;
+  clearTimeout(_progTimer);
+  _progTimer = setTimeout(()=>{
+    fetch('/api/novel/progress', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({file: cur.file, scroll: $('content').scrollTop})}).catch(()=>{});
+  }, 1500);
+}
+
+function togglePlay() {
+  if (playTimer) { clearInterval(playTimer); playTimer=null; $('playBtn').textContent='▶ 自动播放'; return; }
+  $('playBtn').textContent='⏸ 暂停';
+  playTimer = setInterval(()=>{ const c=$('content');
+    if (c.scrollTop + c.clientHeight >= c.scrollHeight-4) { togglePlay(); return; }
+    c.scrollBy({top:c.clientHeight*0.9, behavior:'smooth'}); }, 3000);
+}
+
+function saveProgress() { if(cur){ localStorage.setItem('inovel_pos_'+cur.file, $('content').scrollTop); serverSaveProgress(); } }
+$('content').style.fontSize = (localStorage.getItem('inovel_font')||17)+'px';
+
+/* 主题跟随宿主界面（parent html[data-theme]，与全站黑/白风格统一）；宿主无主题时兜底跟随系统 */
+document.body.dataset.theme = 'auto';
+(function syncHostTheme(){
+  function hostTheme(){
+    try {
+      var p = window.parent;
+      // 优先读宿主 localStorage quiet-theme（ink=墨黑），与主界面风格一致
+      var qt = null;
+      try { qt = p.localStorage.getItem('quiet-theme'); } catch(e2){}
+      if (qt === 'ink' || qt === 'dark') return 'dark';
+      if (qt === 'light' || qt === 'paper') return 'light';
+      var dt = (p && (p.document.documentElement.getAttribute('data-theme') || p.document.body && p.document.body.getAttribute('data-theme'))) || '';
+      if (dt === 'light' || dt === 'dark' || dt === 'ink') return (dt === 'ink') ? 'dark' : dt;
+    } catch(e){}
+    return null;
+  }
+  function apply(){
+    var t = hostTheme();
+    if (!t) { try { t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch(e){ t='dark'; } }
+    document.body.dataset.theme = t;
+  }
+  apply();
+  try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', apply); } catch(e){}
+  try {
+    if (window.MutationObserver) {
+      var obs = null;
+      try { obs = new MutationObserver(apply); obs.observe(window.parent.document.documentElement, {attributes:true, attributeFilter:['data-theme']}); } catch(e){}
+    }
+  } catch(e){}
+  setInterval(function(){ if (document.body.dataset.theme !== (hostTheme()||document.body.dataset.theme)) apply(); }, 2000);
+})();
+
+/* TTS 听书 */
+let ttsOn = false;
+function bookText() {
+  if (!curData) return '';
+  if (curData.chapters && curData.chapters.length) return curData.chapters.filter(c=>c.text).map(c=>'第'+(curData.chapters.indexOf(c)+1)+'章 '+c.title+'。'+c.text).join('\n');
+  return curData.content||curData.text||'';
+}
+function toggleTTS() {
+  if (!('speechSynthesis' in window)) { alert('当前浏览器不支持语音合成'); return; }
+  if (ttsOn) { speechSynthesis.cancel(); ttsOn=false; $('ttsBtn').textContent='🔊 听书'; return; }
+  const txt = bookText().slice(0, 30000);
+  if (!txt) { alert('本书暂无内容'); return; }
+  const u = new SpeechSynthesisUtterance(txt);
+  u.lang = 'zh-CN'; u.rate = 1;
+  u.onend = ()=>{ ttsOn=false; $('ttsBtn').textContent='🔊 听书'; };
+  speechSynthesis.speak(u); ttsOn=true; $('ttsBtn').textContent='⏹ 停止';
+}
+
+/* 导出 TXT */
+function exportTxt() {
+  const txt = bookText();
+  if (!txt) { alert('本书暂无内容'); return; }
+  const name = ((curData&&curData.title)||'小说') + '.txt';
+  const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+loadShelf();
+
+/* v1.1 P3'：网络书库（古登堡公版导入） */
+let _novelToken = '';
+async function getToken(){ if(_novelToken) return _novelToken;
+  const j = await (await fetch('/api/novel/token')).json(); _novelToken = j.token||''; return _novelToken; }
+let _catalog = [];
+async function openImport(){
+  $('panel') && $('panel').classList.remove('show');
+  $('importPanel').style.display='flex';
+  $('impStatus').textContent = '加载排行榜…'; $('impStatus').style.display='block';
+  try {
+    await getToken();
+    if (!_catalog.length) {
+      const j = await (await fetch('/api/novel/import/catalog')).json();
+      _catalog = j.items || [];
+    }
+    $('impStatus').style.display='none';
+    renderRank('');
+  } catch(e){ $('impStatus').textContent = '排行榜加载失败：'+e.message; }
+}
+function renderRank(kw){
+  kw = (kw||'').trim().toLowerCase();
+  const list = _catalog.filter(it => !kw || (it.title+it.author).toLowerCase().includes(kw));
+  $('impList').innerHTML = list.map((it,i) => {
+    const no = _catalog.indexOf(it)+1;
+    return `<div class="book rank-item">
+      <div class="rank-no">${no}</div>
+      <div style="flex:1"><div class="t">${it.title}</div><div class="d">${it.author} · 热度 ${1000-no*7}</div></div>
+      <button class="primary" style="padding:6px 14px;white-space:nowrap" onclick="doImport('${it.gid}','${it.title}',this)">导入阅读</button>
+    </div>`;
+  }).join('') || '<div class="empty">没有匹配的小说</div>';
+}
+function closeImport(){ $('importPanel').style.display='none'; $('searchBox').value=''; }
+async function doImport(gid, title, btn){
+  btn.disabled = true; btn.textContent = '导入中…';
+  $('impStatus').textContent = `正在从古登堡拉取《${title}》整本（约几秒到几十秒）…`;
+  $('impStatus').style.display='block';
+  try {
+    const token = await getToken();
+    const r = await fetch('/api/novel/import', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({gid, title, token})});
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.err||'导入失败');
+    $('impStatus').textContent = `✅ 《${j.title}》已入库（${j.chars} 字），书架见！`;
+    await loadShelf();
+    setTimeout(closeImport, 1200);
+  } catch(e){
+    $('impStatus').textContent = '❌ ' + e.message;
+    btn.disabled = false; btn.textContent = '导入';
+  }
+}
+/* v2.0 顶栏内联多源搜索（公版+网络书源+本地书架），无弹窗 */
+let _hdrItems = [], _hdrTimer = null;
+function hdrSearch(v){
+  clearTimeout(_hdrTimer);
+  if(!v.trim()){ $('hdrDrop').style.display='none'; return; }
+  _hdrTimer = setTimeout(()=>hdrSearchGo(), 350);
+}
+async function hdrSearchGo(){
+  const q = $('searchBox').value.trim();
+  if(!q) return;
+  const drop = $('hdrDrop');
+  drop.style.display='block';
+  drop.innerHTML = '<div class="hdr-empty">搜索中…</div>';
+  try {
+    const j = await (await fetch('/api/novel/search?wd='+encodeURIComponent(q))).json();
+    const items = j.items||[];
+    _hdrItems = items;
+    if(!items.length){ drop.innerHTML='<div class="hdr-empty">未找到「'+q+'」，换个关键词试试</div>'; return; }
+    drop.innerHTML = items.map((it,i)=>{
+      const srcTag = it.src==='gutenberg' ? '公版' : (it.src==='web' ? '网络' : (it.src==='69shu' ? '网络' : '本地'));
+      const btn = it.src==='local' ? '' :
+        `<button class="primary" style="padding:5px 12px;white-space:nowrap" onclick="hdrImport(${i},this)">导入</button>`;
+      return `<div class="book rank-item" style="cursor:default">
+        <span class="tag">${srcTag}</span>
+        <div style="flex:1;min-width:0;overflow:hidden"><div class="t" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.title}</div></div>
+        ${btn}
+      </div>`;
+    }).join('');
+  } catch(e){ drop.innerHTML = '<div class="hdr-empty">搜索失败：'+e.message+'</div>'; }
+}
+async function hdrImport(i, btn){
+  const it = _hdrItems[i]; if(!it) return;
+  btn.disabled = true; btn.textContent = '导入中…';
+  try {
+    const token = await getToken();
+    let r;
+    if(it.src==='gutenberg'){
+      r = await fetch('/api/novel/import', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({gid: it.gid, title: it.title, token})});
+    } else {
+      r = await fetch('/api/novel/import_web', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({url: it.url, title: it.title, token})});
+    }
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.err||'导入失败');
+    btn.textContent = '✅ 已入库';
+    await loadShelf();
+    setTimeout(()=>{ $('hdrDrop').style.display='none'; $('searchBox').value=''; }, 900);
+  } catch(e){
+    btn.disabled = false; btn.textContent = '导入';
+    // 失败不弹窗：内联提示 + 「交给AI下载」按钮（复制任务词到剪贴板，用户粘到主界面对话即可让AI补种）
+    const msg = e.message || '';
+    it._fail = msg;
+    const drop2 = $('hdrDrop');
+    const tip = document.createElement('div');
+    tip.className = 'fail-bar';
+    tip.innerHTML = '😮 这个源暂时没抓到《' + (it.title||'').replace(/</g,'&lt;') + '》全文' +
+      ' &nbsp;<button class="primary" style="padding:4px 12px;font-size:13px" onclick="aiDownload(this)">🤖 交给AI下载</button>';
+    drop2.appendChild(tip);
+  }
+}
+function aiDownload(btn){
+  const q = $('searchBox').value.trim() || '这本小说';
+  const task = '请帮我在i小说书架补入《' + q + '》全书正文（多源搜索网络书源，找到可下载的目录页后逐章抓取，存为 .novel.json 放进 server/data/books/）。';
+  (navigator.clipboard ? navigator.clipboard.writeText(task) : Promise.reject()).then(()=>{ btn.textContent='✅ 已复制，去主界面对话粘贴发给AI'; }, ()=>{ btn.textContent='请手动复制：' + task.slice(0,60); });
+}
+document.addEventListener('click', e=>{
+  const d = $('hdrDrop');
+  if(d && d.style.display==='block' && !d.contains(e.target) && e.target!==$('searchBox') && !(e.target.tagName==='BUTTON' && e.target.getAttribute('onclick')&&e.target.getAttribute('onclick').includes('hdrSearchGo'))) d.style.display='none';
+});
+</script>
+</body>
+</html>

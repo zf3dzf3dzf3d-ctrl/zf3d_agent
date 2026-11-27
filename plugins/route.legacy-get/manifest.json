@@ -1,0 +1,18 @@
+{
+ "id": "route.legacy-get",
+ "name": "GET巨链域路由（T2 尾巴）",
+ "version": "1.0.0",
+ "spec": 1,
+ "type": "tool",
+ "entry": {
+  "py": "main.py"
+ },
+ "capabilities": [
+  "http.route",
+  "log.write"
+ ],
+ "provides": "route_legacy_get",
+ "depends": [],
+ "zfVersion": ">=6.0.0",
+ "description": "T2 尾巴（策划案v4）：GET巨链域逐字节插件化，源=domain_legacy_get.py；禁用经注册栈回栈恢复静态接线"
+}

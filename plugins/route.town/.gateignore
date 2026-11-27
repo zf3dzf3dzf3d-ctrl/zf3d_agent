@@ -1,0 +1,4 @@
+# 过渡豁免登记（策划案v4 T2.4 批量）
+# old-track-import = 副本忠实保留源 domain 文件的服务导入（db/engines.common/brain 等），
+# 与原 domain_*.py 同等地位；实现体/服务面随 T5/T8 收口后删除本豁免。
+old-track-import

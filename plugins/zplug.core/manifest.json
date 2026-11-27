@@ -1,0 +1,17 @@
+﻿{
+    "id":  "zplug.core",
+    "name":  "ZPlug 共享包",
+    "version":  "1.0.0",
+    "spec":  1,
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "capabilities":  [
+                         "tool.register",
+                         "log.write",
+                         "plugin.manage"
+                     ],
+    "provides":  "zplug_tools",
+    "description":  ".zplug 插件共享包：导出(sha256签名)/导入(四道闸)",
+    "type":  "tool"
+}

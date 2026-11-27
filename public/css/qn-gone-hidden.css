@@ -1,0 +1,20 @@
+/* ============================================================
+   对话框隐藏态样式 v1（i缩小整理模式·隐藏/显示）
+   qn-gone = 已隐藏：普通模式画布上只留一个空外框，内部内容全部
+   不渲染（visibility 而非 display——保留布局占位，拾取与渲染在
+   app-canvas.js 逻辑侧也被排除，大幅降低渲染量提速）。
+   ============================================================ */
+
+.chat-box.qn-gone {
+    /* 内部内容整体不绘制（不触发子树 paint/layout） */
+    visibility: hidden;
+    /* 只留外框：透明背景+虚线边框，提示此处有隐藏对话 */
+    background: transparent !important;
+    border: 1px dashed rgba(160, 160, 180, 0.55) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    /* 子树彻底跳过渲染（visibility:hidden 的强优化补充） */
+    content-visibility: hidden;
+    /* 禁交互：鼠标事件穿透，避免误点隐藏框 */
+    pointer-events: none;
+}

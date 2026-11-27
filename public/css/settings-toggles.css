@@ -1,0 +1,182 @@
+.email-toggle-field{display:flex!important;align-items:center;justify-content:space-between;gap:24px;width:100%;max-width:100%;padding:12px 26px 12px 14px!important;box-sizing:border-box;overflow:visible}.email-toggle-info{display:block;min-width:0;flex:1 1 auto}.email-toggle-title{color:var(--text-primary,#e5e7eb);font-weight:600;line-height:26px}.email-toggle-control{display:flex;align-items:center;width:46px;height:26px;flex:0 0 46px;margin-left:auto;margin-right:0}.email-toggle-wrapper{display:block;cursor:pointer;width:46px;height:26px;flex:0 0 46px}.away-toggle-field{display:flex;align-items:center;justify-content:space-between;gap:16px}.away-toggle-title{color:var(--text-primary,#e5e7eb);font-weight:600}.away-toggle-control{display:flex;align-items:center;gap:10px}.away-toggle-label{min-width:52px;color:#ef4444;font-size:12px;font-weight:700;text-align:right}.away-toggle-label.is-on{color:#22c55e}.away-toggle-wrapper{display:inline-flex;cursor:pointer}.email-toggle-checkbox{position:absolute;opacity:0;pointer-events:none}.email-toggle-track{display:block;position:relative;width:46px;height:26px;padding:3px;border-radius:999px;background:#64748b;transition:.2s;box-sizing:border-box}.email-toggle-track::before{content:none!important}.email-toggle-thumb{display:block;position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#f8fafc;box-shadow:0 1px 3px #0006;transition:.2s}.email-toggle-checkbox:checked+.email-toggle-track{background:#16a34a}.email-toggle-checkbox:checked+.email-toggle-track .email-toggle-thumb{left:23px;right:auto;transform:none}.email-toggle-wrapper:focus-within .email-toggle-track{outline:2px solid #38bdf8;outline-offset:2px}
+
+.settings-modal{position:relative;box-sizing:border-box;width:920px;min-width:920px;max-width:calc(100vw - 32px);height:min(80vh,calc(100vh - 32px));min-height:0;display:none;overflow:hidden}
+.settings-modal.show,.settings-modal[style*="display: flex"],.settings-modal[style*="display:flex"],.overlay.show .settings-modal{display:flex !important}
+/* 2026-11-13 小队收口 S6.2：z-index 2→21。原值 2 低于顶部拖拽条 .settings-drag-bar
+   (z-index:20)，× 按钮上半部 y=12~22 被热区盖住，点上半触发拖窗而非关窗；
+   抬到 21 与顶部三向缩放热区同层，压在拖拽条之上。改此值前 L5 曾被并行会话回退过一次。 */
+.settings-close-btn{position:absolute;top:12px;right:14px;z-index:21;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:4px;background:transparent;color:var(--text,#e5e7eb);font-size:20px;line-height:1;cursor:pointer}
+.settings-close-btn:hover{background:var(--bg-hover,rgba(255,255,255,.1));color:var(--text,#fff)}
+/* 背景统一：左导航列不再叠加半透明黑遮罩，与对话框(.modal/.chatbox)同底 */
+.settings-nav{padding:14px 10px 14px;box-sizing:border-box;background:transparent;border-right:1px solid var(--border,rgba(255,255,255,.12));}
+.settings-nav-header{margin:0 6px 12px;font-size:16px;font-weight:700;color:var(--text,#f8fafc);}
+.settings-nav-item{display:flex;align-items:center;gap:8px;min-height:42px;margin:5px 0;padding:7px 9px;box-sizing:border-box;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:7px;background:rgba(255,255,255,.035);color:var(--text2,#aab4c3);cursor:pointer;transition:border-color .18s ease,background .18s ease,color .18s ease,transform .18s ease;}
+.settings-nav-item:hover{background:rgba(255,255,255,.06);border-color:var(--s-accent,#1c80e0);color:var(--text,#fff);transform:none}
+.settings-nav-item.active{background:var(--s-accent-soft,rgba(28,128,224,.10));border-color:var(--s-accent,#1c80e0);border-left:2px solid var(--s-accent,#1c80e0);color:var(--s-accent,#1c80e0);box-shadow:none;}
+.settings-nav-icon{display:grid;place-items:center;width:24px;height:24px;flex:0 0 24px;border-radius:5px;background:rgba(255,255,255,.1);font-size:14px;}
+.settings-nav-item.active .settings-nav-icon{background:var(--s-accent-soft,rgba(28,128,224,.14));}
+/* 浅色主题适配：文字用深色，激活态用深色文字+浅蓝背景 */
+[data-theme="light"] .settings-nav{background:transparent;border-right-color:var(--border,#cdd5e0);} /* 背景统一：浅色导航列也不再加深色遮罩 */
+[data-theme="light"] .settings-nav-header{color:var(--text,#1f2430);}
+[data-theme="light"] .settings-nav-item{background:rgba(0,0,0,.035);color:var(--text2,#4a5361);}
+[data-theme="light"] .settings-nav-item:hover{background:var(--s-accent-soft,rgba(28,128,224,.08));color:var(--s-accent,#075cad);border-color:var(--s-accent,#075cad)}
+[data-theme="light"] .settings-nav-item.active{background:var(--s-accent-soft,rgba(9,132,227,.10));border-left:2px solid var(--s-accent,#075cad);color:var(--s-accent,#075cad)}
+[data-theme="light"] .settings-nav-icon{background:rgba(0,0,0,.07);}
+[data-theme="light"] .settings-nav-item.active .settings-nav-icon{background:rgba(9,132,227,.14);}
+#settingsPanel-git{display:none!important}
+@media(max-width:952px){.settings-nav{padding:14px 8px 12px}.settings-nav-item{min-height:40px;padding:6px 8px}.settings-nav-header{margin-left:4px;margin-bottom:10px}}
+.settings-close-btn:focus-visible{outline:2px solid var(--blue,#38bdf8);outline-offset:2px}
+.settings-nav{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;flex:0 0 auto}
+.settings-content{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;flex:1 1 auto}
+.settings-content .settings-panel{display:none;visibility:hidden}
+.settings-content .settings-panel.active{display:block;visibility:visible}
+@media(max-width:952px){.settings-modal{width:calc(100vw - 32px);min-width:0}.settings-close-btn{top:10px;right:10px}}
+
+/* ============================================================
+ * 设置面板极简进化 S3 — 色彩单一化（accent 变量 + 灰阶化）
+ * 文件末尾后置获得同级优先；!important 前缀加固防历史规则覆盖
+ * ============================================================ */
+:root {
+  --s-accent: var(--blue, #1c80e0);
+  --s-accent-soft: rgba(28, 128, 224, .10);
+}
+[data-icon] svg { width: 16px; height: 16px; flex: none; vertical-align: middle; }
+.settings-nav-header[data-icon] svg { width: 16px; height: 16px; }
+.settings-nav-header-text { margin-left: 6px; }
+
+/* 左导航激活/hover：单一 accent */
+.settings-nav-item { transform: none !important; }
+.settings-nav-item:hover,
+.settings-nav-item.active {
+  background: var(--s-accent-soft) !important;
+  color: var(--s-accent) !important;
+  box-shadow: none !important;
+}
+.settings-nav-item.active { border-left: 2px solid var(--s-accent) !important; }
+.settings-nav-item.active .settings-nav-icon { background: var(--s-accent-soft) !important; }
+[data-theme="light"] .settings-nav-item:hover,
+[data-theme="light"] .settings-nav-item.active {
+  background: var(--s-accent-soft) !important;
+  color: var(--s-accent) !important;
+}
+.settings-nav-item .settings-nav-icon { background: transparent !important; }
+.settings-nav-item.active .settings-nav-icon { background: transparent !important; }
+
+/* 关于页徽章 → 单一 accent 徽章 */
+.settings-content .gitee-badge,
+.settings-content .gh-badge {
+  background: var(--s-accent-soft) !important;
+  color: var(--s-accent) !important;
+  border: 1px solid var(--s-accent) !important;
+}
+/* 内联彩色点已在 JS 源头改为 var(--s-accent)（panel-mail/panel-log-health），此段属性选择器补丁已删除 */
+/* 警示/健康/引导图标统一 accent */
+.zf-warn-accent, .zf-warn-accent svg,
+.zf-health-dot, .zf-health-dot svg,
+.guide-intro-icon, .guide-intro-icon svg { color: var(--s-accent) !important; }
+
+/* 错误语义红保留（唯一特例，仅具体语义类） */
+.settings-content .test-result.err,
+.settings-content .btn-danger,
+.settings-content .error-text { color: #e05252 !important; }
+
+/* ============================================================
+ * 设置面板极简进化 S4 — 内部图标线性化 + 结构优化
+ * 1) emoji 替换出的线性图标对齐与 hover 反馈
+ * 2) 表单分组：卡片化分组标题/统一间距，降低拥挤感
+ * ============================================================ */
+/* 图标按钮：统一尺寸对齐 */
+.settings-content button[data-icon],
+.settings-content [data-icon].mc-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+}
+.settings-content button[data-icon] svg,
+.settings-content [data-icon].mc-icon-btn svg { width: 15px; height: 15px; }
+.settings-content button[data-icon]:hover,
+.settings-content [data-icon].mc-icon-btn:hover { color: var(--s-accent); }
+/* 前导图标 + 文字按钮 */
+.settings-content button > span[data-icon] { display: inline-flex; margin-right: 6px; }
+.settings-content button > span[data-icon] svg { width: 14px; height: 14px; }
+
+/* 表单结构：分组标题统一为小节样式 */
+.settings-content h3,
+.settings-content h4 {
+  margin: 18px 0 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,.12));
+  font-size: 13px; font-weight: 700;
+  color: var(--text, #e5e7eb);
+}
+.settings-content h3:first-child { margin-top: 0; }
+.settings-content h3 > span[data-icon],
+.settings-content h4 > span[data-icon] { margin-right: 7px; color: var(--s-accent); }
+
+/* 表单行间距统一 */
+.settings-content .settings-panel p,
+.settings-content .settings-panel label { line-height: 1.7; }
+.settings-content input[type="text"],
+.settings-content input[type="password"],
+.settings-content input[type="number"],
+.settings-content select,
+.settings-content textarea { box-sizing: border-box; }
+.settings-content .settings-panel { padding-bottom: 24px; }
+
+
+/* ============================================================
+ * 设置面板 UI 统一（S5）— 分组标签 / 导航排版 / 图标比例
+ * ============================================================ */
+/* 左侧导航分组标签：统一字号/间距/颜色，不再依赖内联样式 */
+.settings-nav .settings-nav-group {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  color: var(--text2, #8a94a6);
+  padding: 14px 16px 5px;
+  margin: 0;
+  opacity: .9;
+  text-transform: none;
+}
+.settings-nav .settings-nav-group--sep {
+  margin-top: 10px;
+  border-top: 1px solid var(--border, rgba(255,255,255,.12));
+  padding-top: 12px;
+}
+/* 导航项文字与图标：统一 13px / 图标 16px 网格对齐 */
+.settings-nav .settings-nav-item > span:last-child { font-size: 13px; line-height: 1.4; }
+.settings-nav .settings-nav-icon { display: inline-flex; width: 16px; height: 16px; flex: 0 0 16px; align-items: center; justify-content: center; }
+.settings-nav .settings-nav-icon svg { width: 16px; height: 16px; }
+.settings-nav .settings-nav-header svg { width: 18px; height: 18px; }
+/* 右侧面板标题字号统一 */
+.settings-content .settings-panel > h3 { font-size: 16px; margin: 0 0 12px 0; font-weight: 700; }
+.settings-content .settings-panel > h4 { font-size: 14px; margin: 0 0 8px 0; font-weight: 600; }
+/* 字号规范四档：12.5 说明 / 13 次强调 / 16 标题级 / 20 大强调（2026-11-09 档位合并：旧 11px→12、22px→20，消除历史遗留档） */
+.settings-content .settings-panel > .settings-fs-12 { font-size: 12.5px !important; line-height: 1.7 !important; }
+.settings-content .settings-panel .settings-fs-13 { font-size: 13px; }
+.settings-content .settings-panel .settings-fs-16 { font-size: 16px; }
+.settings-content .settings-panel .settings-fs-20 { font-size: 20px; font-weight: 700; }
+
+/* ============================================================
+ * S6 — 设置面板左上留白治理（2026-11-13）
+ * 用户诉求：左上角直接顶到最上面，去掉「核心配置」上方大片区域。
+ * 实测空白构成（宽屏 72px）：导航列 padding-top 14px + 「⚙ 设置」标题行 46px
+ *   + 版本号徽标行（app-version.js 注入，约 21px）。
+ * 处理：宽屏下隐藏标题行与版本徽标；导航列顶距取 22px ——
+ *   22px 恰为顶部 .settings-drag-bar 拖拽热区高度，内容起点贴住热区下沿，
+ *   既最大化贴顶，又避免导航文字落进热区（否则点文字误触发拖动、
+ *   且拖拽条渐变背景会压在文字上）。压到 0~8px 实测会重叠 9~14px，不可取。
+ * 只隐藏不删 DOM：panel-settings-drag.js:140/152 仍以 .settings-nav-header
+ *   作拖拽 / 双击复位热区，删节点会静默丢该热区，保守处理。
+ * 窄屏（<=952px）不改：那里为横向 tab 布局，标题行充当「设置」标签，原顶距另有用途。
+ * 回滚：删本段 + 还原 app-version.js 徽标注入即可。
+ * ============================================================ */
+@media(min-width:953px){
+  .settings-modal .settings-nav-header,
+  #settingsVersionBadge { display: none !important; }
+  .settings-nav { padding-top: 22px !important; }
+  /* S6.1（2026-11-13 小队收口）：首分组「核心配置」自身 padding-top 14px 再压到 2px，
+     让分组文字真正贴住拖拽热区下沿。注意必须用「header + group」相邻兄弟选择器：
+     分组不是 nav 的第一个 div（第一个是 .settings-nav-header），写成
+     .settings-nav-group:first-of-type 会命中不到（:first-of-type 按标签名 div 判定）。
+     组间区隔仍靠后序 --sep 组的 margin-top 表达，不影响其余分组。 */
+  .settings-nav > .settings-nav-header + .settings-nav-group { padding-top: 2px !important; }
+}

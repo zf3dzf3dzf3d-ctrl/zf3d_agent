@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>权限策略 · 待批请求</title>
+<style>
+  body { font-family: "Microsoft YaHei", system-ui, sans-serif; background: #0e1117; color: #e8eaf0;
+         margin: 0; padding: 28px; }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  .sub { color: #9aa3b5; font-size: 12px; margin-bottom: 18px; }
+  .card { background: #141821; border: 1px solid #2c3342; border-radius: 12px; padding: 14px 16px;
+          margin-bottom: 12px; }
+  .cap { font-weight: 600; color: #7fb0ff; }
+  .meta { color: #9aa3b5; font-size: 12px; margin: 6px 0 10px; word-break: break-all; }
+  button { border: 0; border-radius: 8px; padding: 7px 18px; cursor: pointer; font-size: 13px; }
+  .allow { background: #2e9e5b; color: #fff; }
+  .deny  { background: #553040; color: #e8b4c0; }
+  .modebtn { background: #26304a; color: #cfe0ff; margin-right: 6px; }
+  .modebtn.cur { outline: 2px solid #3b7cff; }
+  .empty { color: #6d7688; text-align: center; padding: 30px 0; }
+  .msg { min-height: 18px; font-size: 12px; color: #e5c07b; margin-top: 8px; }
+  .modes { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<h1>能力策略 · 待批请求</h1>
+<div class="sub">这些操作被策略判定为「需人工批准」。批准会弹出本机确认窗口，确认后票据自动下发（一次性，10 分钟）。
+当前模式：<span id="modeNow">…</span></div>
+
+<div class="modes">
+  切换模式：
+  <button class="modebtn" data-mode="standard">标准</button>
+  <button class="modebtn" data-mode="strict">严格</button>
+  <button class="modebtn" data-mode="full">完全访问（1 小时）</button>
+  <button class="modebtn" data-mode="readonly">只读</button>
+  <span class="msg" id="modeMsg"></span>
+</div>
+
+<div id="list"><div class="empty">加载中…</div></div>
+
+<script>
+function api(method, url, body) {
+  return fetch(url, { method: method, credentials: 'same-origin',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined })
+    .then(function (r) { return r.json().catch(function () { return {}; }); });
+}
+
+function render() {
+  api('GET', '/api/policy/status').then(function (st) {
+    document.getElementById('modeNow').textContent =
+      st.mode ? (st.mode.mode + (st.mode.expires_in ? '（' + st.mode.expires_in + 's 后回落）' : '')) : '?';
+    document.querySelectorAll('.modebtn').forEach(function (b) {
+      b.className = 'modebtn' + (st.mode && st.mode.mode === b.dataset.mode ? ' cur' : '');
+    });
+  });
+  api('GET', '/api/policy/pending').then(function (r) {
+    var list = document.getElementById('list');
+    var pend = (r && r.pending) || [];
+    if (!pend.length) { list.innerHTML = '<div class="empty">没有待批请求。</div>'; return; }
+    list.innerHTML = '';
+    pend.forEach(function (p) {
+      var div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML =
+        '<div class="cap">' + p.capability + '</div>' +
+        '<div class="meta">目标: ' + (p.target || '(空)') + '<br>会话: ' + (p.session_id || '(无)') +
+        ' · 调用: ' + (p.call_id || '(无)') + ' · 已等待 ' + p.age + 's · 编号 ' + p.request_id + '</div>' +
+        '<button class="allow">批准</button> <button class="deny">拒绝</button><div class="msg"></div>';
+      var btns = div.querySelectorAll('button');
+      btns[0].addEventListener('click', function () { act(p.request_id, '/api/policy/approve', div); });
+      btns[1].addEventListener('click', function () { act(p.request_id, '/api/policy/reject', div); });
+      list.appendChild(div);
+    });
+  });
+}
+
+function act(rid, url, div) {
+  var msg = div.querySelector('.msg');
+  api('POST', url, { request_id: rid }).then(function (r) {
+    if (r.ok && r.ticket) {
+      msg.textContent = '已批准。票据 ' + r.ticket + '（' + r.expires_in + 's）已生效——' + r.hint;
+      msg.style.color = '#7ddf9a';
+      setTimeout(render, 1200);
+    } else {
+      msg.textContent = r.err || r.error || '未成功';
+      msg.style.color = '#e5636c';
+      setTimeout(render, 1500);
+    }
+  });
+}
+
+document.querySelectorAll('.modebtn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    api('POST', '/api/policy/mode', { mode: b.dataset.mode }).then(function (r) {
+      var m = document.getElementById('modeMsg');
+      m.textContent = r.ok ? '已切换' : (r.err || r.error || '未成功（需要本机确认）');
+      render();
+    });
+  });
+});
+
+render();
+setInterval(render, 5000);
+</script>
+</body>
+</html>

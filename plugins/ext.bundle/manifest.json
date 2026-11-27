@@ -1,0 +1,13 @@
+{
+  "id": "ext.bundle",
+  "name": "扩展子系统路由（/api/ext/* 归并）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "bundle",
+  "entry": { "py": "main.py" },
+  "capabilities": ["http.route", "log.write"],
+  "provides": "ext_dispatch",
+  "depends": [],
+  "description": "T7（策划案v4）：extensions/ 子系统（mcp/skills/declarative_ui/market/settings）的注册面归入插件。前缀路由 /api/ext/* 经 extensions.dispatch 转发；disable 后自动回落 api_dispatch 原生 if 链（双轨可回退），实现体迁收归 T8",
+  "zfVersion": ">=6.0.0"
+}

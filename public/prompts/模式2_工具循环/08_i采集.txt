@@ -1,0 +1,61 @@
+# 08 i采集 - 通用网页媒体采集（甩任意网址→全量媒体清单→归档）
+
+> 分工边界：偶像人物向采集走 07_i偶像采集编排；本篇是【通用网页采集】——任意网址，提取全部图片（带标题）+视频链接，AI 直接干活，用户可指定任何网页（登录墙/付费墙按本篇红线处理，不拒绝）。
+
+## 触发意图
+"帮我采集这个网址""把这个网页的图片视频都列出来""扒这个页面""i采集" 等。
+
+## 标准流程
+1. **打开与加载**：browser_control goto 目标网址；若为懒加载站，滚动 2~3 轮触发加载（每轮后 diff 图数，连续 2 轮无新增即停，封顶 8 轮），每轮滚动后等 1~2s 再提取。
+2. **万能提取脚本**（eval 执行，单次跑完）：
+
+```js
+JSON.stringify((()=>{
+  const abs = s => { try { return new URL(s, location.href).href } catch(e){ return null } };
+  const seen = new Set();
+  const imgs = [];
+  document.querySelectorAll('img, [style*="background-image"]').forEach(el => {
+    let url = el.tagName==='IMG' ? (el.currentSrc || el.src || el.getAttribute('data-src') || '') : null;
+    if (!url && el.style && el.style.backgroundImage) {
+      const m = el.style.backgroundImage.match(/url\(["']?([^"')]+)["']?\)/);
+      if (m) url = m[1];
+    }
+    if (!url) {
+      const ss = el.getAttribute('srcset') || el.getAttribute('data-srcset');
+      if (ss) url = ss.split(',')[0].trim().split(' ')[0];
+    }
+    if (!url) return;
+    url = abs(url);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    imgs.push({url, title: el.alt || el.title || el.getAttribute('aria-label') || '', w: el.naturalWidth||0, h: el.naturalHeight||0});
+  });
+  document.querySelectorAll('picture source').forEach(s => {
+    const url = abs(s.srcset && s.srcset.split(',')[0].trim().split(' ')[0]);
+    if (url && !seen.has(url)) { seen.add(url); imgs.push({url, title:'', w:0, h:0}); }
+  });
+  const vids = [];
+  document.querySelectorAll('video, video source').forEach(v => {
+    const url = abs(v.src || v.getAttribute('data-src'));
+    if (url && !seen.has(url)) { seen.add(url); vids.push(url); }
+  });
+  document.querySelectorAll('a[href]').forEach(a => {
+    const h = abs(a.href);
+    if (h && /\.(mp4|webm|mov|m3u8)(\?|$)/i.test(h) && !seen.has(h)) { seen.add(h); vids.push(h); }
+  });
+  return {imgCount: imgs.length, vidCount: vids.length, imgs: imgs.slice(0,500), vids: vids.slice(0,100)};
+})())
+```
+
+3. **标题三级降级**（针对无 alt 站）：① alt/title 属性 → ② 查 `meta[property="og:image:alt"]`、`og:title`、JSON-LD、父级 `<figcaption>` 或包裹 `<a>` 文本 → ③ 仍无则留空并明确告知"该站图片无文字标题，共 N 张"。
+4. **汇报清单**：表格输出 图片标题 | 尺寸 | URL（视频单独列）。**覆盖率自检话术**：主动声明盲区——跨域 iframe 内媒体取不到（可逐开 iframe URL 再抓）、blob: 视频流、shadow DOM、无限滚动流未滚动到的部分。
+5. **归档（需用户确认）**：ask_user 确认后，逐张 POST /api/idol/media/add（先 /api/idol/save 建档，id 由域名派生小写）；https 图自动落盘 private/idols/，视频只存指针。iframe 内媒体：先 open iframe URL 到新标签再抓。
+6. **登录墙站**：browser_profile 有持久登录态——让用户在浏览器登录后直接重跑提取。
+7. **失败兜底**：懒加载站滚动后仍抓不全 → 模式 B：读 snapshot 现场写专用选择器再 eval，并用 site_note 沉淀站点记忆，下次秒抓。
+
+## 红线
+- 只采公开内容；付费墙站只输出清单不下载正文内容图片。
+- 归档前必须 ask_user 确认建档 id 与范围；单站单次图≤30 张（用户明确要求可放宽并留痕）。
+- 低频节流，不对同站短时高频请求。
+- 只落 private/idols/，绝不写 public/。
+- 归档失败（防盗链 archive_err）如实列出，不静默跳过；可重试 1 次。

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i大赛 · 模型竞速场</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background:#f5f6fa; color:#2a2d38; padding:18px; }
+  h1 { font-size:20px; margin-bottom:4px; color:#1a1c26; }
+  .sub { color:#6a7080; font-size:12px; margin-bottom:16px; }
+  .card { background:#ffffff; border:1px solid #e2e5ee; border-radius:10px; padding:14px; margin-bottom:14px; box-shadow:0 1px 3px rgba(20,24,40,.06); }
+  .card h2 { font-size:14px; color:#3d4356; margin-bottom:10px; }
+  select, input[type=text], textarea { background:#ffffff; color:#2a2d38; border:1px solid #d3d8e4; border-radius:6px; padding:6px 8px; font-size:13px; width:100%; }
+  textarea { resize:vertical; min-height:60px; }
+  .row { display:flex; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:120px; }
+  button { background:#7c5cff; color:#fff; border:none; border-radius:6px; padding:8px 16px; font-size:13px; cursor:pointer; }
+  button:hover { background:#8f74ff; }
+  button.ghost { background:#eef0f6; color:#3d4356; }
+  button:disabled { opacity:.45; cursor:default; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:7px 8px; border-bottom:1px solid #e2e5ee; text-align:left; }
+  th { color:#6a7080; font-weight:600; font-size:12px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; }
+  .b-ready { background:#eef0f6; color:#6a7080; }
+  .b-running { background:#e2f6e6; color:#1f8a3c; }
+  .b-done { background:#e2eefc; color:#1c66c4; }
+  .b-failed, .b-interrupted { background:#fbe2e2; color:#c43131; }
+  .b-overdue { background:#fbf0dc; color:#a06a10; }
+  .mono { font-family:Consolas, monospace; }
+  .hidden { display:none; }
+  .rank1 { color:#b8860b; font-weight:700; }
+  #log { font-size:11px; color:#6a7080; max-height:80px; overflow:auto; }
+  /* v4：计时卡片 */
+  .tcards { display:flex; gap:10px; flex-wrap:wrap; }
+  .tcard { background:#fafbfe; border:1px solid #d3d8e4; border-radius:10px; padding:10px 12px; min-width:180px; flex:1; }
+  .tcard .big { font-size:26px; font-weight:700; color:#1f8a3c; font-family:Consolas,monospace; }
+  .tcard .meta { font-size:11px; color:#6a7080; line-height:1.7; }
+  .tcard.lead { border-color:#e0a800; }
+  .tcard .rank { font-size:16px; }
+  .varrow { font-size:11px; color:#3d4356; margin-top:6px; }
+  .tcard .ans { font-size:11px; color:#6a7080; max-height:120px; overflow:auto; white-space:pre-wrap; margin-top:6px; border-top:1px dashed #d3d8e4; padding-top:6px; }
+</style>
+</head>
+<body>
+<h1>🏁 i大赛 · 模型竞速场</h1>
+<div class="sub">同一道题，多个模型分支同场竞速；完成时间自动记录，分支可随时旁听/追加。</div>
+
+<div class="card">
+  <h2>① 新建场次</h2>
+  <div class="row"><input type="text" id="cTitle" placeholder="场次名（如：复赛第1场）"></div>
+  <div class="row" style="flex:0;">
+    <label style="flex:0;font-size:13px;"><input type="radio" name="qmode" value="question" checked onchange="qModeSwitch()"> 题库选题</label>
+    <label style="flex:0;font-size:13px;"><input type="radio" name="qmode" value="custom" onchange="qModeSwitch()"> 自定义题目</label>
+  </div>
+  <div class="row" id="qBankRow"><select id="cQuestion"><option value="">加载题库中…</option></select></div>
+  <div class="row hidden" id="qCustomRow"><textarea id="cCustom" maxlength="4000" placeholder="自定义赛题（≤4000字，自定义题不支持评委打分）"></textarea></div>
+  <div class="card" style="margin:8px 0;background:#fafbfe;">
+    <h2>派出参赛分支（box_id 自动生成防串位，点一次派出一个，模型走默认上游）</h2>
+    <div id="branchList"></div>
+    <div class="row" style="flex:0;margin-top:6px;">
+      <button class="ghost" style="flex:0 0 auto;" onclick="deployBranch()">🚀 派出分支</button>
+    </div>
+  </div>
+  <button id="btnCreate" onclick="startContestFlow()">🏁 开始比赛</button>
+</div>
+
+<div class="card">
+  <h2>② 场次列表</h2>
+  <table><thead><tr><th>场次</th><th>状态</th><th colspan="3">计时卡片 / 分支</th><th>评委/战报</th><th>操作</th></tr></thead>
+  <tbody id="contestRows"><tr><td colspan="8">加载中…</td></tr></tbody></table>
+</div>
+
+<div class="card">
+  <h2>③ 日志</h2>
+  <div id="log"></div>
+</div>
+
+<script>
+var POLLS = {};  // contestId -> timer
+function log(m){ var el=document.getElementById('log'); var d=document.createElement('div'); d.textContent='['+new Date().toLocaleTimeString()+'] '+m; el.prepend(d); }
+
+function api(path, opts, cb){
+  fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}))
+    .then(function(r){ return r.json(); }).then(cb).catch(function(e){ log('请求失败: '+e); });
+}
+
+// v4·M3：逐个派出——本地队列建待命卡，开始比赛时一次 batch create+start（突破师②采纳，后端零改动）
+var PENDING = [];   // 待命分支 [{model}]
+var DEPLOY_N = 0;   // 本页派出序号，用于卡片展示
+
+function addBranch(boxId, model){ /* 兼容保留（旧调用），不再默认建行 */ }
+
+function deployBranch(){
+  if(PENDING.length>=10){ alert('最多派出 10 个分支'); return; }
+  PENDING.push({model:''});
+  DEPLOY_N++;
+  renderPending();
+  log('已派出分支 #'+DEPLOY_N+'，待命 '+PENDING.length+' 个');
+}
+
+function renderPending(){
+  var el=document.getElementById('branchList');
+  el.innerHTML=PENDING.map(function(p,i){
+    return '<div class="row"><span class="badge b-ready">待命#'+(i+1)+'</span>'+
+      '<span style="flex:1;font-size:12px;color:#6a7080;">分支'+(i+1)+'（默认上游模型）</span>'+
+      '<button class="ghost" style="flex:0 0 auto;" onclick="undeploy('+i+')">撤</button></div>';
+  }).join('') || '<div style="color:#999;font-size:12px;">尚未派出分支（点「🚀 派出分支」逐个加入）</div>';
+}
+
+function undeploy(i){ log('撤销分支 '+(i+1)); PENDING.splice(i,1); renderPending(); }
+
+function startContestFlow(){
+  var title=document.getElementById('cTitle').value.trim();
+  var m=document.querySelector('input[name=qmode]:checked').value;
+  var qid=m==='question'?document.getElementById('cQuestion').value:'';
+  var custom=m==='custom'?document.getElementById('cCustom').value.trim():'';
+  if(!title){ alert('场次名必填'); return; }
+  if(m==='question'&&!qid){ alert('请选择题目'); return; }
+  if(m==='custom'&&!custom){ alert('请输入自定义题目'); return; }
+  var branches=PENDING.map(function(p){ return { model:p.model }; });  // box_id 后端自动生成
+  if(branches.length<2){ alert('至少派出 2 个分支再开始比赛'); return; }
+  var payload={title:title, question_mode:m, branches:branches, custom_prompt:custom};
+  if(qid) payload.question_id=qid;
+  document.getElementById('btnCreate').disabled=true;
+  api('/api/contest/create', {method:'POST', body:JSON.stringify(payload)}, function(r){
+    if(!r.ok){ alert(r.error); document.getElementById('btnCreate').disabled=false; return; }
+    log('场次已创建 '+r.contest_id+'，'+branches.length+' 个分支同时起跑');
+    PENDING=[]; renderPending();
+    startContest(r.contest_id);
+  });
+}
+function loadQuestions(cid){
+  api('/api/contest/questions', null, function(r){
+    var sel=document.getElementById('cQuestion'); sel.innerHTML='';
+    (r.questions||[]).forEach(function(q){
+      var o=document.createElement('option'); o.value=q.id; o.textContent=q.title+'（'+(q.source||'')+'）'; sel.appendChild(o);
+    });
+    if(!sel.children.length) sel.innerHTML='<option value="">题库为空</option>';
+  });
+}
+
+function qModeSwitch(){
+  var m=document.querySelector('input[name=qmode]:checked').value;
+  document.getElementById('qBankRow').classList.toggle('hidden', m!=='question');
+  document.getElementById('qCustomRow').classList.toggle('hidden', m!=='custom');
+}
+
+
+function startContest(cid){
+  api('/api/contest/start', {method:'POST', body:JSON.stringify({contest_id:cid})}, function(r){
+    if(r.ok){ log('一键开始：'+cid); watchContest(cid); } else { alert(r.error); }
+    refreshList();
+  });
+}
+function judgeContest(cid){
+  api('/api/contest/judge', {method:'POST', body:JSON.stringify({contest_id:cid})}, function(r){
+    if(r.ok){ log('评委完成，评了 '+r.applied+' 个分支'); refreshList(); } else { alert('评委失败：'+(r.error||'')); }
+  });
+}
+function finishContest(cid){
+  var idx=prompt('收卷分支序号（0/1/2...）：','0'); if(idx===null) return;
+  api('/api/contest/finish', {method:'POST', body:JSON.stringify({contest_id:cid, branch_idx:parseInt(idx,10)})}, function(r){
+    if(r.ok){ log('已收卷分支'+idx); pollStatus(cid); } else { alert(r.error); }
+  });
+}
+
+function watchContest(cid){
+  if(POLLS[cid]) return;
+  POLLS[cid]=setInterval(function(){ pollStatus(cid); }, 3000);
+  pollStatus(cid);
+}
+
+function pollStatus(cid){
+  api('/api/contest/status?id='+encodeURIComponent(cid), null, function(r){
+    if(!r.ok) return;
+    renderContest(r.contest);
+    var allEnd=(r.contest.branches||[]).every(function(b){ return ['done','failed','interrupted'].indexOf(b.status)>=0; });
+    if(allEnd && r.contest.status==='finished'){ clearInterval(POLLS[cid]); delete POLLS[cid]; log('场次完成 '+cid); refreshList(); }
+  });
+}
+
+function finishBranch(cid, idx){
+  api('/api/contest/finish', {method:'POST', body:JSON.stringify({contest_id:cid, idx:idx})}, function(r){ pollStatus(cid); refreshList(); });
+}
+
+function fmtDur(s){ if(s==null) return '—'; if(s<60) return s.toFixed(1)+'s'; var m=Math.floor(s/60); return m+'m'+Math.round(s%60)+'s'; }
+function fmtT(t){ return t? new Date(t*1000).toLocaleTimeString() : '—'; }
+function badge(st, od){
+  var cls='b-'+st+(od?' b-overdue':'');
+  return '<span class="badge '+cls+'">'+st+(od?' ⏰超1h':'')+'</span>';
+}
+
+var LAST_SNAP = {};  // cid -> last status snapshot（前端秒表兜底）
+
+function renderContest(c){
+  var tr=document.getElementById('cr-'+c.id);
+  if(!tr) return refreshList();
+  var bs=(c.branches||[]);
+  // v4⑤：计时卡片（running 用前端秒表每秒走，终态定格）
+  var doneDurs=bs.filter(function(b){return b.duration_sec!=null;}).map(function(b){return b.duration_sec;});
+  var minD=doneDurs.length?Math.min.apply(null,doneDurs):null;
+  var cards=bs.map(function(b){
+    var dur=b.duration_sec;
+    if(dur==null&&b.started_at){ dur=(Date.now()/1000)-b.started_at; }  // 秒表兜底
+    var isLead=(b.duration_sec!=null&&minD!=null&&b.duration_sec===minD&&b.status==='done');
+    var medals={0:'🥇',1:'🥈',2:'🥉'};
+    var rankIdx=doneDurs.length>1?doneDurs.slice().sort(function(a,c){return a-c;}).indexOf(b.duration_sec):-1;
+    var wait=(b.submitted_at&&b.gate_released_at)?('排队'+fmtDur(b.gate_released_at-b.submitted_at)):'';
+    return '<div class="tcard'+(isLead?' lead':'')+'">'+
+      '<div>'+badge(b.status,b.overdue)+' '+(b.timeout_auto?'<span class="badge b-failed">⏰限时收卷</span>':'')+(isLead?'<span class="rank">🏆</span>':'')+'</div>'+
+      '<div class="mono" style="font-size:12px;margin:4px 0;">分支'+(b.idx+1)+((b.replica>1)?('#'+b.replica):'')+'</div>'+
+      '<div class="big">'+(dur!=null?fmtDur(dur):'—')+'</div>'+
+      '<div class="meta">提交 '+fmtT(b.submitted_at)+'<br>起跑 '+fmtT(b.gate_released_at||b.started_at)+'<br>收卷 '+fmtT(b.finished_at)+(wait?'<br>'+wait:'')+(b.score?'<br>⚖评分 '+b.score.score:'')+'</div>'+
+      (b.answer?'<div class="ans">'+(b.answer||'').slice(0,200)+'</div>':'')+
+      (b.status==='running'?'<button class="ghost" style="margin-top:6px;padding:2px 8px;font-size:11px;" onclick="finishBranch(\''+c.id+'\','+b.idx+')">收卷</button>':'')+
+      '</div>';
+  }).join('');
+  // v4·M3 点6/7：成绩汇总条（完成时间统计 + 成功率，口径 done/(done+failed)，AI 评委判定）
+  var nDone=bs.filter(function(b){return b.status==='done';}).length;
+  var nFail=bs.filter(function(b){return b.status==='failed';}).length;
+  var nFin=nDone+nFail;
+  var rate=nFin?('✅ 成功率 '+Math.round(nDone/nFin*100)+'%（'+nDone+'/'+nFin+'，口径 done/(done+failed)，'+(nFin<bs.length?bs.length-nFin+' 个未终态不计':'全部终态')+'）')
+                :'（暂无终态分支）';
+  var fastest=null;
+  doneDurs.forEach(function(d){ if(fastest===null||d<fastest) fastest=d; });
+  var summary='<div class="varrow" style="border-color:#2d6;">🏁 汇总：完成 '+nDone+'/'+bs.length+' · 最快 '+(fastest!=null?fmtDur(fastest):'—')+' · '+rate+(c.judged_at?' · ⚖AI 评委已判':'')+'</div>';
+  // v4③进化师：同模型组方差汇总
+  var byModel={};
+  bs.forEach(function(b){ if(b.duration_sec!=null){ (byModel[b.model]=byModel[b.model]||[]).push(b.duration_sec); } });
+  var varRows=Object.keys(byModel).filter(function(m){return byModel[m].length>1;}).map(function(m){
+    var a=byModel[m],mn=Math.min.apply(null,a),mx=Math.max.apply(null,a),avg=a.reduce(function(x,y){return x+y;},0)/a.length;
+    return '<div class="varrow">📊 '+m+'×'+a.length+'：min '+fmtDur(mn)+' / avg '+fmtDur(avg)+' / max '+fmtDur(mx)+'</div>';
+  }).join('');
+  var endBtn=(c.status==='finished')?'<button class="ghost" onclick="reportContest(\''+c.id+'\')">📝战报</button>':'';
+  if((c.status==='finished'||bs.some(function(b){return b.status==='done';}))&&c.question_mode!=='custom') endBtn+=' <button class="ghost" onclick="judgeContest(\''+c.id+'\')">⚖评委</button>';
+  if(!POLLS[c.id]) endBtn+=' <button class="ghost" onclick="finishContest(\''+c.id+'\')">收卷</button>';
+  tr.innerHTML='<td>'+(c.title||c.id)+((c.question_mode==='custom')?'<span class="badge b-ready">自定义</span>':'')+
+    (c.auto_finished?'<span class="badge b-overdue">限时自动收卷</span>':'')+'</td><td>'+badge(c.status,false)+'</td>'+
+      '<td colspan="3"><div class="tcards">'+cards+'</div>'+summary+varRows+'</td>'+
+    '<td>'+endBtn+'</td>'+
+    '<td>'+(POLLS[c.id]?'<span class="badge b-running">计时中</span>':'<button class="ghost" onclick="watchContest(\''+c.id+'\')">刷新</button>')+'</td>';
+}
+
+function reportContest(cid){
+  api('/api/contest/report', {method:'POST', body:JSON.stringify({contest_id:cid})}, function(r){
+    if(r.ok){ log('战报已落盘：'+r.report_path); if(r.reporter_turn_id) log('记录员对话已派出 '+r.reporter_turn_id); }
+    else alert('战报失败：'+(r.error||''));
+  });
+}
+
+function refreshList(){
+  api('/api/contest/list', null, function(r){
+    var tb=document.getElementById('contestRows'); tb.innerHTML='';
+    (r.contests||[]).slice().reverse().forEach(function(c){
+      var tr=document.createElement('tr'); tr.id='cr-'+c.id;
+      tr.innerHTML='<td colspan="7">…</td>'; tb.appendChild(tr);
+      api('/api/contest/status?id='+encodeURIComponent(c.id), null, function(rs){
+        if(rs.ok) renderContest(rs.contest);
+      });
+    });
+    if(!(r.contests||[]).length) tb.innerHTML='<tr><td colspan="7">暂无场次</td></tr>';
+  });
+}
+
+loadQuestions(); refreshList();
+</script>
+</body>
+</html>

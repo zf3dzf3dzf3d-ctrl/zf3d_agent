@@ -1,0 +1,13 @@
+{
+  "id": "route.games",
+  "name": "i游戏域路由实现（T2.4 试点）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "tool",
+  "entry": { "py": "main.py" },
+  "capabilities": ["http.route", "log.write"],
+  "provides": "route_games",
+  "depends": [],
+  "description": "策划案v4 T2.4 首个实现体迁移试点：games 六端点的路由函数与实现体自 mixin_games/domain_games 迁入本插件（逐行等价搬运，self→handler）。禁用=回注册栈恢复 domain_games 静态接线（restore 语义）；共享服务面（_steam_*/_cache_get 等）暂经 handler 调用，T5 存储收口后随实现体下沉",
+  "zfVersion": ">=6.0.0"
+}

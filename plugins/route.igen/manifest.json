@@ -1,0 +1,18 @@
+{
+ "spec": 1,
+ "type": "tool",
+ "entry": {
+  "py": "main.py"
+ },
+ "capabilities": [
+  "http.route",
+  "log.write"
+ ],
+ "depends": [],
+ "zfVersion": ">=6.0.0",
+ "id": "route.igen",
+ "name": "i模型生成域路由（T2.4 批量·自包含域）",
+ "provides": "route_igen",
+ "description": "T2.4 批量（策划案v4）：i模型生成域自包含域逐字节插件化，源=domain_igen.py（含 __file__ 重指适配）；禁用经注册栈回栈恢复静态接线",
+ "version": "1.0.0"
+}

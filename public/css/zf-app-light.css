@@ -1,0 +1,248 @@
+/* ============================================================
+ * zf-app-light.css —— i程序 白色主题适配补丁
+ * 背景：各 i程序(i计算器/i电视/i新闻/i笔记/i视频/i音乐/i漫画/i图片/i游戏/i偶像/i家居/i网页/i硬件等)
+ *      的 JS 注入样式大量硬编码深色（#1b1b1d/#2a2a2c/rgba(255,255,255,.05) 等），
+ *      还有部分是元素行内 style（cssText），普通 CSS 无法覆盖 → 统一用 !important 压过。
+ * 范围：仅 html[data-theme="light"] 时生效；深色主题零影响。
+ * 类前缀速查：zfc=计算器 zfg=游戏 zfm=漫画 zfn(新闻)=新闻 zfn(笔记)=笔记 zfv=视频
+ *            zf-mus=音乐 zf-img=图片 zfi=偶像 ihome=家居 zfTv=电视
+ * ============================================================ */
+
+/* ---------- 1) i程序窗口容器兜底：浅色面板 + 深色文字 ---------- */
+html[data-theme="light"] [class*="zfc-"],
+html[data-theme="light"] [class*="zfg-"],
+html[data-theme="light"] [class*="zfm-"],
+html[data-theme="light"] [class*="zfv-"],
+html[data-theme="light"] [class*="zf-img"],
+html[data-theme="light"] [class*="zf-mus"],
+html[data-theme="light"] [class*="zfi-"],
+html[data-theme="light"] [class*="ihome-"] {
+  color: #1f2430 !important;
+}
+
+/* ---------- 2) 通用输入框/下拉/文本域：浅色化 ---------- */
+html[data-theme="light"] [class*="zfc-"] input,
+html[data-theme="light"] [class*="zfg-"] input,
+html[data-theme="light"] [class*="zfm-"] input, html[data-theme="light"] [class*="zfm-"] textarea, html[data-theme="light"] [class*="zfm-"] select,
+html[data-theme="light"] [class*="zfv-"] input,
+html[data-theme="light"] [class*="zf-mus"] input,
+html[data-theme="light"] [class*="zf-img"] input, html[data-theme="light"] [class*="zf-img"] select,
+html[data-theme="light"] [class*="zfi-"] input, html[data-theme="light"] [class*="zfi-"] select, html[data-theme="light"] [class*="zfi-"] textarea,
+html[data-theme="light"] [class*="ihome-"] input, html[data-theme="light"] [class*="ihome-"] select {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+
+/* ---------- 3) 半透明白卡片（深色主题下 rgba(255,255,255,.05~.08)）浅色下改为浅灰底 ---------- */
+html[data-theme="light"] [class*="zfg-card"],
+html[data-theme="light"] [class*="zfg-deal"],
+html[data-theme="light"] [class*="zfg-epic"],
+html[data-theme="light"] [class*="zf-img-card"],
+html[data-theme="light"] [class*="zfv-card"],
+html[data-theme="light"] [class*="zfm-card"],
+html[data-theme="light"] [class*="zfi-card"],
+html[data-theme="light"] [class*="zfc-hitem"] {
+  background: #f2f5fa !important;
+  color: #1f2430 !important;
+}
+
+/* ---------- 4) 列表行 hover / 选中态 ---------- */
+html[data-theme="light"] [class*="zfm-row"]:hover,
+html[data-theme="light"] [class*="zf-mus-row"]:hover,
+html[data-theme="light"] [class*="zfn-card"]:hover,
+html[data-theme="light"] [class*="zfi-item"]:hover,
+html[data-theme="light"] [class*="ihome-row"]:hover {
+  background: #e8eef6 !important;
+}
+html[data-theme="light"] [class*="zfi-item"].on,
+html[data-theme="light"] [class*="ihome-row"][style*="background"] {
+  background: #dfe9f7 !important;
+}
+
+/* ---------- 5) 新闻/笔记 卡片与面板 ---------- */
+html[data-theme="light"] [class*="zfn-card"] { background: #ffffff !important; color: #1f2430 !important; border-color: #e4e8ee !important; }
+html[data-theme="light"] [class*="zfn-chip"], html[data-theme="light"] [class*="zfn-item"] { background: #f2f5fa !important; color: #1f2430 !important; }
+html[data-theme="light"] [class*="zfn-chip"].on, html[data-theme="light"] [class*="zfn-chip"].on * { background: #dfe9f7 !important; color: #1a3a6b !important; }
+html[data-theme="light"] [class*="zfn-side"], html[data-theme="light"] [class*="zfn-main"],
+html[data-theme="light"] [class*="zfn-bar"], html[data-theme="light"] [class*="zfn-wrap"],
+html[data-theme="light"] [class*="zfm-toolbar"], html[data-theme="light"] [class*="zfm-subbar"],
+html[data-theme="light"] [class*="zfv-bar"], html[data-theme="light"] [class*="zfv-wrap"],
+html[data-theme="light"] [class*="zfi-side"], html[data-theme="light"] [class*="zfi-wrap"],
+html[data-theme="light"] [class*="zfm-views"], html[data-theme="light"] [class*="zfm-chips"],
+html[data-theme="light"] [class*="zfm-grid"], html[data-theme="light"] [class*="zfm-tip"] {
+  background: transparent !important;
+  color: #1f2430 !important;
+}
+html[data-theme="light"] [class*="zfn-editor"], html[data-theme="light"] [class*="zfn-title"] {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+
+/* ---------- 6) 工具条按钮/胶囊（深色主题下 rgba(255,255,255,.06~.15) 边框+底）---------- */
+html[data-theme="light"] [class*="zfm-"] button,
+html[data-theme="light"] [class*="zfv-"] button,
+html[data-theme="light"] [class*="zfi-"] button,
+html[data-theme="light"] [class*="ihome-"] button,
+html[data-theme="light"] [class*="zfc-"] button,
+html[data-theme="light"] [class*="zf-mus"] button,
+html[data-theme="light"] [class*="zf-img"] button {
+  background: #f2f5fa !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+html[data-theme="light"] [class*="zfv-back"], html[data-theme="light"] [class*="zfv-errbtn"],
+html[data-theme="light"] [class*="zfm-on"], html[data-theme="light"] [class*="zfc-eq"] {
+  background: #dfe9f7 !important;
+  color: #1a3a6b !important;
+}
+
+/* ---------- 7) 遮罩弹窗内面板（i偶像建档弹窗等硬编码 #1b1b1d/#2a2a2c）---------- */
+html[data-theme="light"] [class*="zfi-"] [style*="background:#1b1b1d"],
+html[data-theme="light"] [style*="background:#1b1b1d"] {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+}
+html[data-theme="light"] [style*="background:#2a2a2c"] {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+html[data-theme="light"] [style*="background:#333"] {
+  background: #e8eef6 !important;
+  color: #1f2430 !important;
+}
+
+/* ---------- 8) i电视 / i视频 内嵌 <style> 的深色变量兜底（窗口整体浅色）---------- */
+html[data-theme="light"] [class*="zfTv"], html[data-theme="light"] [id*="zfTv"],
+html[data-theme="light"] [class*="zfv-grid"], html[data-theme="light"] [class*="zfv-status"],
+html[data-theme="light"] [class*="zfv-err"], html[data-theme="light"] [class*="zfv-tag"],
+html[data-theme="light"] [class*="zfv-name"], html[data-theme="light"] [class*="zfv-meta"],
+html[data-theme="light"] [class*="zfm-list"], html[data-theme="light"] [class*="zfm-wall"] {
+  color: #1f2430 !important;
+  background: transparent !important;
+}
+
+/* ---------- 10) i管家面板（butlerTeamPanel，cssText 行内硬编码深色）---------- */
+html[data-theme="light"] #butlerTeamPanel,
+html[data-theme="light"] #butlerTeamPanel * {
+  background-color: #f7f9fc;
+  color: #1f2430;
+  border-color: #d8dfe9;
+}
+html[data-theme="light"] #butlerTeamPanel {
+  background: rgba(248,250,253,.98) !important;
+  border: 1px solid #d8dfe9 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15) !important;
+}
+html[data-theme="light"] #butlerTeamPanel .bt-item:hover { background: rgba(60,100,160,.10) !important; }
+
+/* ---------- 11) i托管面板（zfTrusteePanel）---------- */
+html[data-theme="light"] #zfTrusteePanel,
+html[data-theme="light"] #zfTrusteePanel * {
+  color: #1f2430;
+  border-color: #d8dfe9;
+}
+html[data-theme="light"] #zfTrusteePanel {
+  background: #f7f9fc !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15) !important;
+}
+
+/* ---------- 12) i等级面板（growthPanel 白模式下文字变黑可见）---------- */
+html[data-theme="light"] #growthPanel,
+html[data-theme="light"] #growthPanel * { color: #1f2430; }
+html[data-theme="light"] #growthPanel .growth-panel-head,
+html[data-theme="light"] #growthPanel .growth-loading { color: #1f2430 !important; }
+html[data-theme="light"] #growthPanel { background: #f7f9fc !important; }
+html[data-theme="light"] #growthPanel .growth-lhandle { background: #d8dfe9 !important; }
+
+/* ---------- 13) i指挥台菜单（canvasMoreMenu，原下拉面板浅色化）---------- */
+html[data-theme="light"] #canvasMoreMenu {
+  background: #f7f9fc !important;
+  border-color: #d8dfe9 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15) !important;
+}
+html[data-theme="light"] #canvasMoreMenu div { color: #1f2430 !important; }
+html[data-theme="light"] #canvasMoreMenu div[style*="height:1px"] { background: #d8dfe9 !important; }
+
+/* ---------- 14) i模型生成（zfigen，C 常量硬编码深色）---------- */
+html[data-theme="light"] .zfigen-main,
+html[data-theme="light"] [id*="zfigen"] {
+  background: #f7f9fc !important;
+  color: #1f2430 !important;
+}
+html[data-theme="light"] #igenPrompt, html[data-theme="light"] #igenParams select {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+html[data-theme="light"] #igenGo {
+  background: #1f2430 !important;
+  color: #ffffff !important;
+}
+html[data-theme="light"] #igenHistTitle { color: #5a6b85 !important; border-top-color: #d8dfe9 !important; }
+
+/* ---------- 15) i挂件列表菜单（kite 挂件相关弹层浅色化兜底）---------- */
+html[data-theme="light"] .kite-aux-panel,
+html[data-theme="light"] .kite-image-panel,
+html[data-theme="light"] .kite-chat-panel,
+html[data-theme="light"] .kite-dual-create-panel {
+  background: #f7f9fc !important;
+  color: #1f2430 !important;
+  border-color: #d8dfe9 !important;
+}
+html[data-theme="light"] .kite-aux-panel *:not(svg):not(path),
+html[data-theme="light"] .kite-image-panel *:not(svg):not(path),
+html[data-theme="light"] .kite-chat-panel *:not(svg):not(path) { color: inherit; }
+
+
+html[data-theme="light"] [class*="zfw-"], html[data-theme="light"] [id*="zfWeb"] {
+  background: #f5f7fb !important;
+  color: #1f2430 !important;
+}
+html[data-theme="light"] [class*="zfw-"] input {
+  background: #ffffff !important;
+  color: #1f2430 !important;
+  border-color: #cdd5e0 !important;
+}
+
+/* ---------- 10) i硬件 弹窗遮罩保持半透明黑（正常），内部面板浅色 ---------- */
+html[data-theme="light"] [class*="hw-"], html[data-theme="light"] [id*="ihw"] {
+  color: #1f2430 !important;
+}
+
+/* ---------- 11) 滚动条浅色化 ---------- */
+html[data-theme="light"] [class*="zfc-"] ::-webkit-scrollbar-thumb,
+html[data-theme="light"] [class*="zfm-"] ::-webkit-scrollbar-thumb,
+html[data-theme="light"] [class*="zfv-"] ::-webkit-scrollbar-thumb,
+html[data-theme="light"] [class*="zfn-"] ::-webkit-scrollbar-thumb {
+  background: #c3ccd8 !important;
+}
+
+/* ---------- 12) i漫画 窗口/加载动画 浅色（大师纸白风）适配 ----------
+   深色侧由 zf-app-dock.js 注入样式 + var(--bg-card) 等主题变量自适应；
+   此处仅补：窗口容器底色、工具条容器、spinner 颜色、卡片底。 */
+html[data-theme="light"] #zfMangaWin {
+  background: #fafaf8 !important;
+  border-color: #e8e8e4 !important;
+  box-shadow: 0 24px 70px rgba(28,28,30,.18) !important;
+}
+html[data-theme="light"] #zfMangaWin .zf-appwin-head {
+  background: rgba(28,28,30,.04) !important;
+  border-bottom-color: #e8e8e4 !important;
+}
+html[data-theme="light"] #zfMangaWin .zf-appwin-btn { color: #6b6b70 !important; }
+html[data-theme="light"] #zfMangaWin .zf-appwin-btn:hover { background: rgba(28,28,30,.08) !important; color: #1c1c1e !important; }
+html[data-theme="light"] .zf-manga-body { background: #fafaf8 !important; }
+html[data-theme="light"] .zfm-spin { border-top-color: #1c1c1e !important; border-right-color: #1c1c1e !important; opacity: .5 !important; }
+html[data-theme="light"] .zfm-boot { color: #8a8a8e !important; }
+html[data-theme="light"] .zfm-card { background: #ffffff !important; box-shadow: 0 1px 4px rgba(28,28,30,.06); }
+html[data-theme="light"] .zfm-card:hover { box-shadow: 0 8px 22px rgba(28,28,30,.14) !important; }
+html[data-theme="light"] .zfm-cover { background: #f2f2f0 !important; }
+html[data-theme="light"] .zfm-title { color: #1c1c1e !important; }
+html[data-theme="light"] .zfm-toolbar input,
+html[data-theme="light"] .zfm-toolbar select {
+  background: #ffffff !important; color: #1c1c1e !important; border-color: #e8e8e4 !important;
+}
+html[data-theme="light"] .zfm-toolbar input:focus { border-color: #6c8ebf !important; }

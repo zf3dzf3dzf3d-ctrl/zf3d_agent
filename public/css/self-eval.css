@@ -1,0 +1,57 @@
+/* ========== self-eval.css —— 自评分徽章 + 接棒按钮条 ========== */
+.self-eval-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(128,128,128,.35);
+}
+.self-eval-badge {
+    display: inline-block;
+    font-size: 12px;
+    color: #fff;
+    background: #57606a;
+    border-radius: 10px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+.successor-wrap { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.successor-label { font-size: 12px; opacity: .75; }
+.successor-btn {
+    font-size: 12px;
+    padding: 3px 10px;
+    border: 1px solid rgba(128,128,128,.5);
+    border-radius: 12px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: all .15s;
+}
+.successor-btn:hover { border-color: #0969da; color: #0969da; }
+.successor-btn.hot { border-color: #0969da; background: rgba(9,105,218,.12); }
+.successor-btn.custom { border-style: dashed; }
+.successor-btn:disabled { opacity: .55; cursor: wait; }
+
+.successor-recommend-tag{font-style:normal;font-size:11px;margin-left:6px;padding:0 5px;border-radius:8px;background:#fff3;color:#ffd77a;border:1px solid #ffd77a55;vertical-align:middle;}
+
+/* ===== 自评大号彩色数字徽章 ===== */
+.self-eval-score {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+}
+.self-eval-score .se-label { font-size: 12px; opacity: .8; }
+.self-eval-score .se-num {
+    font-size: 20px;              /* 数字更大 */
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 8px;
+    border-radius: 8px;
+    border: 1px solid transparent; /* 颜色由 JS 按分数注入 */
+    font-variant-numeric: tabular-nums;
+}
+.self-eval-score .se-max { font-size: 11px; opacity: .6; }
+

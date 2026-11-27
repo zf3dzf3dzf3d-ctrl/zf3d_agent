@@ -1,0 +1,256 @@
+/* ==========================================================================
+ * right-queue.css — 注意力模式·右侧返回队列（P1）
+ * 卡片：源对话标题 + 全部完成徽标 + 成员分数行 + ⬅ 回收按钮
+ * ========================================================================== */
+
+.zf-right-queue {
+  position: fixed;
+  right: 16px;
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 9600;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+  pointer-events: none; /* 容器不挡视线，卡片自身恢复事件 */
+}
+
+.zf-rq-card {
+  pointer-events: auto;
+  /* 【v2 修复·主题跟随】默认深色主题：半透明深色卡片，浅色主题在下方 [data-theme=light] 覆盖 */
+  background: linear-gradient(135deg, rgba(30, 38, 52, .96), rgba(24, 30, 42, .96));
+  border: 2px solid #f5a623;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(245, 166, 35, .25);
+  padding: 10px 12px;
+  cursor: pointer;
+  animation: zfrqIn .3s ease-out;
+  transition: box-shadow .25s, border-color .25s, transform .2s;
+  user-select: none;
+}
+.zf-rq-card.zf-rq-ready {
+  border-color: #22b14c;
+  box-shadow: 0 0 0 3px rgba(34, 177, 76, .35), 0 6px 18px rgba(34, 177, 76, .3);
+}
+.zf-rq-card.zf-rq-gone { animation: zfrqOut .25s ease-in forwards; }
+
+@keyframes zfrqIn { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; transform: none; } }
+@keyframes zfrqOut { to { opacity: 0; transform: translateX(60px); } }
+
+.zf-rq-title {
+  position: relative;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd58a; /* 深色主题：暖金高亮标题 */
+  margin-bottom: 4px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* 【2026-11-16 用户拍板：标题居中，✕ 浮空右上角不占排版】 */
+  padding: 2px 28px 2px 28px;
+}
+.zf-rq-title .zf-rq-close {
+  position: absolute;
+  right: 6px; top: 50%;
+  transform: translateY(-50%);
+}
+.zf-rq-badge {
+  flex: none;
+  font-size: 11px;
+  color: #fff;
+  background: #22b14c;
+  border-radius: 8px;
+  padding: 1px 8px;
+}
+.zf-rq-badge.zf-rq-badge-partial { background: #f5a623; }
+.zf-rq-badge.zf-rq-badge-discuss { background: #3b82f6; }
+/* 【S2】轮次徽标：该源对话已完成 N 轮收口 */
+.zf-rq-round {
+  flex: none;
+  font-size: 11px;
+  color: #ffd666;
+  background: rgba(245, 166, 35, .18);
+  border: 1px solid rgba(245, 166, 35, .55);
+  border-radius: 8px;
+  padding: 1px 7px;
+}
+[data-theme="light"] .zf-rq-round { color: #b26a00; background: #fff4e0; border-color: #f0b95c; }
+
+.zf-rq-members { font-size: 12px; color: rgba(220, 228, 240, .8); line-height: 1.7; }
+.zf-rq-mem { display: flex; justify-content: space-between; gap: 8px; }
+.zf-rq-mem .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zf-rq-mem .sc { font-weight: 700; color: #4ade80; flex: none; }
+.zf-rq-mem .sc.zf-rq-noscore { color: #7a8397; }
+
+.zf-rq-btn {
+  margin-top: 8px;
+  width: 100%;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #22b14c, #1a9a40);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 0;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(34, 177, 76, .35);
+  transition: filter .15s;
+}
+.zf-rq-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.zf-rq-actions .zf-rq-btn { margin-top: 0; flex: 0 0 calc(50% - 3px); min-width: 0; width: auto; padding: 7px 2px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+/* 【2026-11-16 用户拍板：卡片宽高可调】容器宽度跟随卡片，卡片支持右下角 resize 手柄 */
+.zf-right-queue:has(.zf-rq-card) { width: max-content; }
+.zf-rq-card { resize: horizontal; overflow: hidden; min-width: 240px; max-width: 520px; min-height: 88px; }
+.zf-rq-card::after {
+  content: '';
+  position: absolute; right: 2px; bottom: 2px;
+  width: 14px; height: 14px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, rgba(245,166,35,.7) 50%);
+  border-bottom-right-radius: 10px;
+  pointer-events: none;
+}
+.zf-rq-card { position: relative; }
+.zf-rq-btn.zf-rq-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); box-shadow: 0 2px 8px rgba(59, 130, 246, .35); }
+.zf-rq-btn:hover { filter: brightness(1.12); }
+.zf-rq-btn:active { transform: scale(.97); }
+
+/* 已忽略折叠区 */
+.zf-rq-ignored {
+  pointer-events: auto;
+  background: rgba(30, 38, 52, .85);
+  border: 1px dashed #6b7590;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #9aa4bb;
+  cursor: pointer;
+  text-align: center;
+}
+.zf-rq-ignored:hover { color: #d5dceb; border-color: #9aa4bb; }
+
+/* ===== 【v2】浅色主题（[data-theme=light]）：保持原米白暖色卡片 ===== */
+[data-theme="light"] .zf-rq-card {
+  background: linear-gradient(135deg, #fffdf5, #fff7e0);
+}
+[data-theme="light"] .zf-rq-title { color: #8a5a00; }
+[data-theme="light"] .zf-rq-members { color: #555; }
+[data-theme="light"] .zf-rq-mem .sc { color: #22b14c; }
+[data-theme="light"] .zf-rq-mem .sc.zf-rq-noscore { color: #bbb; }
+[data-theme="light"] .zf-rq-ignored {
+  background: rgba(255, 255, 255, .92);
+  border-color: #bbb;
+  color: #888;
+}
+[data-theme="light"] .zf-rq-ignored:hover { color: #555; border-color: #999; }
+
+/* 【v3】浅色主题按钮/徽标适配（UI师遗留意见） */
+[data-theme="light"] .zf-rq-btn {
+  background: linear-gradient(135deg, #34c05c, #22a04a);
+  box-shadow: 0 2px 8px rgba(34, 160, 74, .25);
+}
+[data-theme="light"] .zf-rq-btn.zf-rq-primary {
+  background: linear-gradient(135deg, #4f94f8, #2f6fe0);
+  box-shadow: 0 2px 8px rgba(47, 111, 224, .25);
+}
+[data-theme="light"] .zf-rq-badge { background: rgba(34, 160, 74, .9); }
+[data-theme="light"] .zf-rq-badge.zf-rq-badge-partial { background: #e08a00; }
+[data-theme="light"] .zf-rq-badge.zf-rq-badge-discuss { background: #2563eb; }
+/* ========== 【v29】积分榜矩阵：成员×轮次一张表，每轮分数+增减箭头一目了然 ========== */
+.zf-rq-score { margin-top: 6px; }
+.zf-rq-score-t {
+  font-size: 10px; font-weight: 700; color: #8fb0e8;
+  margin-bottom: 4px; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 4px;
+}
+.zf-rq-score-t .zfg-lg { margin-left: auto; font-weight: 400; letter-spacing: 0; color: #7a8397; font-size: 9px; }
+.zf-rq-score-t .zfg-lg i { font-style: normal; font-weight: 700; }
+.zf-rq-score-t .zfg-lg i.up { color: #4ade80; }
+.zf-rq-score-t .zfg-lg i.down { color: #f87171; }
+.zf-rq-score-scroll {
+  overflow: auto; max-height: 168px;
+  border: 1px solid rgba(140, 160, 200, .30);
+  border-radius: 8px;
+  background: rgba(120, 150, 220, .07);
+}
+.zf-rq-score-grid {
+  display: inline-grid; min-width: 100%;
+  grid-template-columns: minmax(64px, auto) repeat(var(--zn, 1), auto);
+}
+.zf-rq-score-grid > div {
+  padding: 3px 8px;
+  font-size: 11px; line-height: 1.6; white-space: nowrap;
+  border-bottom: 1px solid rgba(140, 160, 200, .14);
+}
+.zf-rq-score-grid > div:last-row-free { border-bottom: none; }
+.zfg-h {
+  font-size: 10px; font-weight: 700; color: #9fb4d8;
+  background: rgba(120, 150, 220, .14);
+  position: sticky; top: 0; z-index: 2;
+}
+.zfg-h.zfg-role { left: 0; z-index: 3; background: rgba(28, 36, 50, .98); }
+.zfg-role {
+  color: #c6d2e6; max-width: 104px;
+  overflow: hidden; text-overflow: ellipsis;
+  position: sticky; left: 0; z-index: 1;
+  background: rgba(24, 31, 44, .97);
+}
+.zfg-role.zfg-blank { color: #5d6880; }
+.zfg-c { text-align: right; color: #b9c4d8; font-variant-numeric: tabular-nums; }
+.zfg-c.zfg-noscore { color: #5d6880; }
+.zfg-c.zfg-cur { color: #ffd666; font-weight: 700; background: rgba(245, 166, 35, .13); }
+.zfg-h.zfg-cur { color: #ffd666; background: rgba(245, 166, 35, .22); }
+.zfg-d { font-size: 9px; font-weight: 700; margin-left: 4px; color: #7a8397; }
+.zfg-d.zfg-up { color: #4ade80; }
+.zfg-d.zfg-down { color: #f87171; }
+[data-theme="light"] .zf-rq-score-scroll { background: rgba(60, 90, 180, .05); border-color: rgba(60, 90, 180, .28); }
+[data-theme="light"] .zf-rq-score-grid > div { border-bottom-color: rgba(60, 90, 180, .14); }
+[data-theme="light"] .zfg-h { color: #3b6bd4; background: rgba(60, 90, 180, .10); }
+[data-theme="light"] .zfg-h.zfg-role { background: #fdf8e8; }
+[data-theme="light"] .zfg-role { color: #445; background: #fffdf5; }
+[data-theme="light"] .zfg-role.zfg-blank { color: #b5bdc9; }
+[data-theme="light"] .zfg-c { color: #445; }
+[data-theme="light"] .zfg-c.zfg-noscore { color: #b5bdc9; }
+[data-theme="light"] .zfg-c.zfg-cur { color: #b26a00; background: #fff3d6; }
+[data-theme="light"] .zfg-h.zfg-cur { color: #b26a00; background: #ffe9b8; }
+[data-theme="light"] .zfg-d { color: #999; }
+[data-theme="light"] .zfg-d.zfg-up { color: #22b14c; }
+[data-theme="light"] .zfg-d.zfg-down { color: #d9534f; }
+
+
+/* ========== 【v13】卡片右上角关闭按钮（浮空绝对定位，不被标题裁剪） ========== */
+.zf-rq-card { position: relative; } /* 锚点：✕ 钉在卡片右上角而非标题行内 */
+.zf-rq-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  width: 18px; height: 18px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #9aa4b5;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.zf-rq-close:hover { background: rgba(248,113,113,.25); color: #f87171; border-color: rgba(248,113,113,.5); }
+[data-theme="light"] .zf-rq-close { color: #667; background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.12); }
+[data-theme="light"] .zf-rq-close:hover { background: rgba(217,83,79,.15); color: #d9534f; }
+
+/* ========== 【v29】积分榜矩阵（见上）之上的旧「按轮积分流水行」样式已随 v29 前端改版移除 ========== */
+
+/* ========== 【v10】扩展动作按钮（总结/全关） ========== */
+.zf-rq-actions .zf-rq-sum { border-color: #4da3ff; color: #8fc4ff; }
+.zf-rq-actions .zf-rq-sum:hover { background: rgba(77,163,255,.18); }
+.zf-rq-actions .zf-rq-closeall { border-color: #f87171; color: #f8a0a0; }
+.zf-rq-actions .zf-rq-closeall:hover { background: rgba(248,113,113,.18); }
+[data-theme="light"] .zf-rq-actions .zf-rq-sum { color: #2563eb; }
+[data-theme="light"] .zf-rq-actions .zf-rq-closeall { color: #d9534f; }
+/* 【v28】第6按钮「关闭卡片」：轻量退出，中性灰语义（区别于红色破坏性「全关」） */
+.zf-rq-actions .zf-rq-closecard { border-color: rgba(160,170,190,.5); color: #aeb8c8; }
+.zf-rq-actions .zf-rq-closecard:hover { background: rgba(160,170,190,.15); }
+[data-theme="light"] .zf-rq-actions .zf-rq-closecard { color: #66707e; border-color: rgba(90,100,115,.4); }
+[data-theme="light"] .zf-rq-actions .zf-rq-closecard:hover { background: rgba(90,100,115,.12); }

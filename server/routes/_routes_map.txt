@@ -1,0 +1,187 @@
+1446 lines, 186 branches
+24 if dispatch_get(self, path, parsed):
+29 if path in ('/api/agents', '/agent-info', '/.well-known/agent.json'):
+45 if path in ('/api/lab/status', '/api/lab/curve', '/api/lab/journal'):
+83 if path == '/api/verify-pairs':
+96 if path == '/api/fengkong/files':
+98 if path == '/api/fengkong/changes':
+100 if path == '/api/fengkong/download':
+102 if path == '/api/fengkong/thumb':
+106 if path in ('/api/device/list', '/api/device/control', '/api/device/scene'):
+124 if path == '/api/growth/full':
+131 if path == '/api/growth/summary':
+140 if path == '/api/model-link-stats':
+150 if path == '/api/settings':
+164 if path == '/api/download/progress':
+168 if path == '/api/download/list':
+174 if path == '/api/roles':
+186 if path == '/api/agent/protocol':
+190 if path == '/api/supervisor':
+194 if path == '/api/butler/state':
+207 if path == '/api/workbench/widgets':
+217 if path == '/api/butler/team':
+233 if path == '/api/butler/chat_brief':
+256 if path == '/api/pins':
+271 if path == '/api/brain/state':
+274 if path == '/api/brain/report':
+278 if path == '/api/agent/protocol/last':
+282 if path == '/api/gate/status':
+286 if path == '/api/gate/active':
+294 if path == '/api/db/lockdiag':
+319 if path.startswith('/api/'):
+324 if path.startswith('/api/chat-pool/slot/') and path.endswith('/events'):
+327 if path == '/api/chat-pool/status':
+330 if path == '/api/chat-pool/active':
+333 if path == '/api/chat-pool/config':
+338 if path == '/api/loop_s/events':
+341 if path == '/api/loop_s/status':
+346 if path == '/api/approval/list':
+351 if path == '/api/jobs' or path.startswith('/api/jobs/'):
+355 if path == '/api/cleanup/speed':
+359 if path == '/api/cleanup/step':
+363 if path == '/api/trash/list':
+368 if path == '/api/avatar/tts':
+373 if path == '/api/models/refresh':
+383 if path == '/api/models/reveal-key':
+399 if path == '/api/models/config':
+409 if path.startswith('/api/external/'):
+415 if path == '/api/health':
+419 if path == '/api/health/config':
+424 if path == '/api/keys/audit':
+429 if path == '/api/health/state':
+432 if path == '/api/health/report':
+437 if path == '/api/usage/tokens':
+451 if path == '/api/usage/detail':
+468 if path == '/api/agent/turns':
+483 if path == '/api/agent/monitor':
+539 if path == '/api/network_guard':
+544 if path == '/api/briefing':
+550 if path == '/api/backup_version':
+555 if path == '/api/repair_inject_status':
+560 if path == '/api/updater/check':
+564 if path == '/api/updater/config':
+568 if path == '/api/version':
+571 if path == '/api/appdocs':
+574 if path == '/api/app-root':
+580 if path == '/api/scenes' or path.startswith('/api/scenes/'):
+584 if path.startswith('/api/db/'):
+589 if path == '/api/workspace/list':
+592 if path == '/api/workspace/open-folder':
+595 if path == '/api/workspace/load':
+600 if path == '/api/app/restart':
+603 if path == '/api/app/quit':
+608 if path == '/api/pixel/display':
+613 if path == '/api/pixel/export_gif':
+619 if path == '/api/monitor/poll':
+624 if path == '/api/fps-guard/list':
+629 if path == '/api/employee/timers':
+635 if path == '/api/backup/list':
+638 if path == '/api/backup/open-folder':
+643 if path == '/api/models/config':
+648 if path == '/api/prompt-gen' and self.command == 'POST':
+653 if path == '/api/fps-guard/report' and self.command == 'POST':
+658 if path.startswith('/api/ui-sync/sse'):
+663 if path == '/api/hot-reload/sse':
+668 if path == '/api/chat/last-model' and self.command == 'GET':
+671 if path == '/api/chat/last-model' and self.command == 'POST':
+676 if path.startswith('/api/share'):
+681 if path == '/api/zf3d/status':
+686 if path == '/api/zf3d/status':
+691 if path == '/api/zf3d/site-config':
+694 if path == '/api/zf3d/logo-img':
+698 if path == '/api/geo/ip':
+702 if path == '/api/geo/reverse':
+707 if path.startswith('/api/qq/') or path.startswith('/api/qqbot/'):
+712 if path == '/api/zf3d/ai-balance':
+715 if path == '/api/zf3d/heartbeat-status':
+718 if path == '/api/zf3d/ai-token':
+721 if path == '/api/zf3d/identity-ticket':
+724 elif path == '/api/zf3d/ai-channels':
+734 if path == '/api/zf3d/remote_sync':
+739 if path == '/api/zf3d/remote/sessions':
+742 if path == '/api/zf3d/remote/history':
+745 if path == '/api/zf3d/remote/chat_status':
+748 if path == '/api/zf3d/remote/chat_pull':
+753 if path.startswith('/api/zf3d/'):
+763 if path.startswith('/api/vault/'):
+768 if path.startswith('/api/loginstate/'):
+772 if path == '/api/update-status':
+777 if path == '/api/hot-reload/status':
+783 if path == '/api/loop-mode-config':
+791 if path == '/api/engines':
+801 if path == '/api/modes':
+811 if path.startswith('/api/project/open-folder'):
+816 if path.startswith('/api/project/browse-folder'):
+819 if path.startswith('/api/project/filetree'):
+822 if path.startswith('/api/fs/browse'):
+825 if path.startswith('/api/starmap/scan'):
+828 if path.startswith('/api/save'):
+831 if path.startswith('/api/git/graph'):
+834 if path.startswith('/api/git/commit'):
+837 if path == '/api/git/branches':
+845 if path.startswith('/api/remote/id'):
+848 if path.startswith('/api/fs/file'):
+851 if path.startswith('/api/fs/thumb'):
+854 if path.startswith('/api/fs/text'):
+859 if path in ('/api/fs/docx', '/api/fs/xlsx', '/api/fs/office_pdf'):
+873 if path == '/api/refboard-save':
+876 if path == '/api/refboard-load':
+880 if path.startswith('/api/refboard-media/'):
+885 if path == '/api/fs/ops':
+894 if path == '/api/chat-mode-rules':
+902 if path == '/api/tool-result-limits':
+910 if path == '/api/user-settings':
+918 if path == '/api/chat-attachments':
+923 if path == '/api/background':
+930 if path == '/api/macro-lib':
+940 if path == '/api/pyconsole/history':
+945 if path == '/api/user-tools':
+952 if path == '/api/user-preferences':
+960 if path == '/api/worklog':
+965 if path == '/api/config/export':
+971 if path == '/api/workbench/tools':
+974 if path == '/api/workbench/state':
+977 if path == '/api/workbench/gallery':
+980 if path == '/api/workbench/thumb':
+983 if path.startswith('/api/ext/'):
+988 if path == '/api/config-agent/memory':
+996 if path == '/api/user/brief':
+1003 if path == '/api/table-viewer':
+1008 if path == '/api/schedule':
+1013 if path == '/api/webproxy':
+1016 if path == '/api/webproxy_sync_cookies':
+1021 if path == '/api/browser':
+1026 if path == '/api/demo/list':
+1029 if path == '/api/demo/get':
+1034 if path == '/api/sheets/list':
+1036 if path == '/api/sheets/get':
+1038 if path == '/api/docs/list':
+1040 if path == '/api/docs/get':
+1042 if path == '/api/minds/list':
+1044 if path == '/api/minds/get':
+1046 if path == '/api/psds/list':
+1048 if path == '/api/psds/get':
+1050 if path == '/api/boards/list':
+1052 if path == '/api/boards/get':
+1056 if path == '/api/comics/sources':
+1058 if path == '/api/comics/list':
+1060 if path == '/api/comics/chapters':
+1062 if path == '/api/comics/pages':
+1064 if path == '/api/comics/img':
+1066 if path == '/api/comics/proxy':
+1068 if path == '/api/comics/progress':
+1072 if path == '/api/convert/status':
+1076 if path == '/api/pathguard/status':
+1082 if path == '/api/video/stream':
+1200 if not expect or key != expect:
+1240 if not ip:
+1242 if not ip:
+1246 if (not ip) or ip.startswith(('127.', '10.', '192.168.', '172.16.', '172.17.', '172.18.',
+1259 if cache['ip'] == ip and cache['data'] and (_time.time() - cache['t'] < 6 * 3600):
+1278 if not self._remote_check_key(qs):
+1299 if not self._remote_check_key(qs):
+1302 if not sid:
+1322 if not self._remote_check_key(qs):
+1325 if not sid:
+1344 if not self._remote_check_key(qs):
+1348 if not sid:

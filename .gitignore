@@ -1,0 +1,49 @@
+# 运行时数据与私有数据（本仓库只含源码，永不收录以下内容）
+private/
+data/
+python/
+tmp/
+system/
+svg_icons/
+matrix/
+server/archive/
+server/data/
+server/logs/
+server/private/
+public/audio/
+public/music/
+public/canvas/
+public/data/
+public/项目记录/
+plugins/*/data/
+plugins/*/private/
+plugins/*/uploads/
+plugins/*/logs/
+
+# 数据库与运行痕迹
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.jsonl
+
+# 备份与临时文件
+*.bak
+*.bak.*
+tmp_*
+_tmp_*
+debug_*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+
+# 环境与密钥（双保险：源码里也不应有任何真实密钥）
+.env
+.env.*
+*.key
+*.pem

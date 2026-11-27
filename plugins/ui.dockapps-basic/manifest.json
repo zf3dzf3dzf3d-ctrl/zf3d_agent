@@ -1,0 +1,13 @@
+{
+  "id": "ui.dockapps-basic",
+  "name": "Dock 程序·第一波（i模型生成/i网页/i设置/新建对话）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "ui",
+  "entry": { "py": "main.py" },
+  "capabilities": ["ui.mount", "log.write"],
+  "provides": "ui_dockapps_basic",
+  "depends": [],
+  "description": "R1-2 第一波收编（策划案v4 T1）：4 个自包含 Dock 程序声明化。disable 后图标消失（已开窗口刷新即清）；原 zf-app-dock.js 冻结区对应 register 分支已删除",
+  "zfVersion": ">=6.0.0"
+}

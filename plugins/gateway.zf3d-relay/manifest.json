@@ -1,0 +1,16 @@
+﻿{
+    "id":  "gateway.zf3d-relay",
+    "name":  "zf3d 中继网关（桥接）",
+    "version":  "1.0.0",
+    "spec":  1,
+    "type":  "gateway",
+    "description":  "S5 网关插件化：zf_models_relay 请求构造（URL+鉴权头+body）单一真源，mixin 经内核调用。",
+    "capabilities":  [
+                         "tool.register",
+                         "log.write"
+                     ],
+    "provides":  "zf3d_relay_request",
+    "entry":  {
+                  "py":  "main.py"
+              }
+}

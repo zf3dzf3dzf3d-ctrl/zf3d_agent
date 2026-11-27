@@ -1,0 +1,15 @@
+/* ===== Token 用量统计面板（卡片式）===== */
+#tokenUsageMount .tu-card {
+    background: rgba(255, 255, 255, .035);
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+#tokenUsageMount table th,
+#tokenUsageMount table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+#tokenUsageMount table tbody tr:hover { background: rgba(255, 255, 255, .03); }
+#tokenUsageMount select,
+#tokenUsageMount input { outline: none; }

@@ -1,0 +1,74 @@
+{
+  "id": "mountain_villa",
+  "title": "雪夜山庄停电之谜",
+  "player_count": [1, 6],
+  "player_count_note": " Schema 字段重复说明见注释——此字段仅为演示，实际以 [1,6] 为准",
+  "player_count": [1, 6],
+  "intro": "2024年除夕，城郊云顶山庄。一年一度的同窗聚会，夜里十点整大雪压断电缆，山庄全面停电。备用电源启动后发现：十年没回来的老同学林默死在二楼书房，胸口中刀。大门被雪封住，凶手就在这六个人里。",
+  "background": "林默是当年班级里最成功的人，这次聚会是他张罗的。但十年前的旧事从未翻篇：那年实验室失火，有人顶了罪，有人拿了封口费。停电从 22:00 到 22:08，备用电源恢复时，书房的门从里面虚掩着。每个人都记得停电时的黑暗里，走廊上有脚步声。",
+  "scenes": [
+    {"id": "sc_study", "name": "二楼书房", "desc": "案发现场。林默倒在书桌旁，桌上蜡烛未燃尽，一支钢笔滚落在地。", "spots": ["spot_body", "spot_desk", "spot_shelf"]},
+    {"id": "sc_hall", "name": "一楼大厅", "desc": "停电时众人聚在此处，壁炉里还有余烬。", "spots": ["spot_hearth", "spot_guestbook"]},
+    {"id": "sc_kitchen", "name": "厨房", "desc": "备餐中，停电后管家点起了蜡烛。", "spots": ["spot_blockboard", "spot_drawer"]}
+  ],
+  "characters": [
+    {"id": "lin", "name": "林默（死者）", "is_victim": true, "is_murderer": false,
+     "persona": "成功商人，本次聚会召集人。",
+     "secret": "他打算今晚公布十年前火灾的真相。",
+     "prewritten": ["（死者不发言）", "（死者不发言）"],
+     "knowledge": []},
+    {"id": "xu", "name": "徐峥（老班长）", "is_victim": false, "is_murderer": true,
+     "persona": "中学老班长，如今是山庄的常客，热心张罗。",
+     "secret": "【凶手】十年前实验室失火，实际是徐峥违规操作引发，林默替他顶了罪、坐了三个月牢，徐峥一直付封口费。今晚林默约他在书房'最后谈一次'，要撤销封口协议、公开真相。停电是徐峥预先破坏的（他下午把配电站的备用启动延时调过），他趁黑暗在书房用裁纸刀杀了林默，然后把刀藏进厨房切菜板的夹层里。他左袖口有一道细小割口。",
+     "prewritten": ["停电时我就在大厅壁炉边，大家都看见我了——我只离开过一小会儿去看配电箱。", "十年前的事我们都翻篇了，默子今晚挺高兴的，怎么会有人对他下手？"],
+     "knowledge": ["f_fire_truth", "f_blackout_sabotage"]},
+    {"id": "su", "name": "苏晴（医生）", "is_victim": false, "is_murderer": false,
+     "persona": "班里的学霸，现在是外科医生。",
+     "secret": "她收过林默一笔'感谢费'——当年她作伪证说火灾是电路老化。她怕真相公开自己身败名裂，但她是医生，下不了手。",
+     "prewritten": ["我停电时在二楼走廊摔了一跤，膝盖现在还疼，你们可以看我淤青的位置。", "当年的证词我承认有压力成分，但我今晚没有离开过二楼东边。"],
+     "knowledge": ["f_false_testimony"]},
+    {"id": "tang", "name": "唐军（司机）", "is_victim": false, "is_murderer": false,
+     "persona": "当年的体育委员，如今给林默开车。",
+     "secret": "停电时他确实在大厅，但他看见徐峥中途离开约十分钟回来时袖口有血迹般的暗渍，他犹豫要不要说——说了就是背叛老同学情面。",
+     "prewritten": ["我一直在大厅看火，谁进谁出我看了一晚上。", "有些话……我需要想清楚再说，你们别逼我。"],
+     "knowledge": ["f_xu_left_hall"]},
+    {"id": "fang", "name": "方圆（管家）", "is_victim": false, "is_murderer": false,
+     "persona": "山庄管家，服务了三届聚会。",
+     "secret": "他知道配电站下午被人动过（他看见徐峥从配电站出来），也发现厨房切菜板藏过东西的痕迹。",
+     "prewritten": ["山庄的规矩我清楚，下午配电站那儿确实有人进去过。", "厨房的东西都归我管，切菜板今天被动过，我能看出来。"],
+     "knowledge": ["f_blackout_sabotage", "f_knife_hidden"]}
+  ],
+  "clues": [
+    {"id": "clue_wound", "spot": "spot_body", "name": "伤口形态", "desc": "苏晴验看：刀口极薄、深而整齐——不是厨房菜刀，是薄刃裁纸刀一类。创口角度显示凶手比死者矮或俯身。", "owner": null, "implies": ["f_weapon_type"]},
+    {"id": "clue_letter", "spot": "spot_desk", "name": "未寄出的信", "desc": "林默写给全班的信打印了一半：'十年前那场火，其实……今晚我必须告诉大家真相，也解除那份协议。'", "owner": null, "implies": ["f_truth_plan"]},
+    {"id": "clue_agreement", "spot": "spot_shelf", "name": "旧协议副本", "desc": "书架夹层有一份《保密协议》复印件：甲方徐峥，乙方林默，'因2024年前实验室事故之补偿'。", "owner": null, "implies": ["f_fire_truth", "f_agreement"]},
+    {"id": "clue_sleeve", "spot": "spot_hearth", "name": "壁炉边的袖扣", "desc": "壁炉地毯上有一枚袖扣，款式是定制款。徐峥被问到时发现自己少了一枚袖扣，脸色一变。", "owner": null, "implies": ["f_xu_at_scene"]},
+    {"id": "clue_powerbox", "spot": "spot_blockboard", "name": "配电站的延时器", "desc": "备用电源启动延时被人从 30 秒调到了 8 分钟——手动旋钮上有新鲜的指痕。下午配电站有人进出（管家目击）。", "owner": null, "implies": ["f_blackout_sabotage"]},
+    {"id": "clue_knife", "spot": "spot_blockboard", "name": "切菜板夹层", "desc": "方圆发现切菜板夹层里有一把带血槽的薄刃裁纸刀，擦过但没擦净。刀柄缠着的布条与徐峥外搭内衬同料。", "owner": null, "implies": ["f_weapon_type", "f_knife_hidden"]},
+    {"id": "clue_tang", "spot": "spot_guestbook", "name": "大厅签到与证词", "desc": "唐军最终开口：'22:02 徐峥说去看配电箱，22:12 才回来，回来时他一直拢着左袖。'", "owner": null, "implies": ["f_xu_left_hall"]},
+    {"id": "clue_su", "spot": "spot_drawer", "name": "苏晴的证词", "desc": "苏晴承认当年作了伪证，并指出停电在 22:00 整、林默约谈徐峥是 21:50——谈话地点就在书房。", "owner": null, "implies": ["f_false_testimony", "f_meeting_2150"]}
+  ],
+  "timeline": [
+    {"id": "f_fire_truth", "t": "2014-06-01", "who": "xu", "what": "十年前实验室失火实为徐峥违规操作，林默顶罪入狱三月，徐峥付封口费", "is_key": false},
+    {"id": "f_agreement", "t": "2014-06-20", "who": "xu", "what": "双方签保密协议，林默终身保密换补偿", "is_key": false, "deps": ["f_fire_truth"]},
+    {"id": "f_false_testimony", "t": "2014-06-05", "who": "su", "what": "苏晴作伪证称电路老化（受压力）", "is_key": false},
+    {"id": "f_truth_plan", "t": "2024-02-09 20:00", "who": "lin", "what": "林默写信决定今晚公布真相并解除协议", "is_key": false},
+    {"id": "f_blackout_sabotage", "t": "2024-02-09 15:00", "who": "xu", "what": "徐峥下午调配电站延时器，制造 8 分钟黑暗窗口", "is_key": true, "deps": ["f_fire_truth"]},
+    {"id": "f_meeting_2150", "t": "2024-02-09 21:50", "who": "xu", "what": "林默约徐峥 21:50 在书房最后谈一次", "is_key": false, "deps": ["f_truth_plan"]},
+    {"id": "f_weapon_type", "t": "2024-02-09 22:03", "who": "xu", "what": "凶器为薄刃裁纸刀（非现场常见刀具）", "is_key": false},
+    {"id": "f_xu_at_scene", "t": "2024-02-09 22:03", "who": "xu", "what": "徐峥 22:02-22:12 离开大厅，袖扣遗落在书房壁炉边——其在场铁证", "is_key": true, "deps": ["f_meeting_2150", "f_xu_left_hall"]},
+    {"id": "f_xu_left_hall", "t": "2024-02-09 22:02", "who": "tang", "what": "唐军证词：徐峥 22:02 离开大厅 22:12 返回、拢着左袖", "is_key": false},
+    {"id": "f_knife_hidden", "t": "2024-02-09 22:15", "who": "xu", "what": "凶器藏入厨房切菜板夹层（后被发现）", "is_key": true, "deps": ["f_weapon_type"]},
+    {"id": "f_murderer", "t": "2024-02-09 22:03", "who": "xu", "what": "凶手即徐峥：动机（协议将被解除）+破坏停电+离席时间吻合+袖扣+凶器同料布条", "is_key": true, "deps": ["f_xu_at_scene", "f_knife_hidden", "f_blackout_sabotage"]}
+  ],
+  "tasks": [
+    {"id": "t_xu1", "char": "xu", "desc": "让真相不被公开：避免被指认为凶手", "check": {"type": "survive"}, "score": 3},
+    {"id": "t_su1", "char": "su", "desc": "公开当年伪证换取主动，防止被灭口叙事拖入", "check": {"type": "know_clue", "clue": "clue_su"}, "score": 2},
+    {"id": "t_tang1", "char": "tang", "desc": "说出徐峥离席的目击证词", "check": {"type": "know_clue", "clue": "clue_tang"}, "score": 2},
+    {"id": "t_fang1", "char": "fang", "desc": "报告配电站异常与切菜板夹层的发现", "check": {"type": "know_clue", "clue": "clue_knife"}, "score": 2}
+  ],
+  "win_conditions": {
+    "murderer_win": "凶手未被过半数指认，则凶手逃脱获胜",
+    "town_win": "过半数票投中凶手，则好人胜（任务链不全记低质量胜利 0.5）"
+  }
+}

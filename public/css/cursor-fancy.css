@@ -1,0 +1,191 @@
+/* ===== 朱峰智能体 · 漂亮鼠标光标（v1）=====
+   自定义光标 + 惯性跟随光晕 + 点击涟漪
+   想还原：在 index.html 删除本文件的 <link> 和 cursor-fancy.js 即可
+   临时关闭：body 加 class "no-fancy-cursor"，或在 localStorage 设 zf_fancy_cursor=off
+============================================= */
+
+:root{
+  --cur-c1: #4da3ff;   /* 主光色（跟随主题蓝） */
+  --cur-c2: #a78bfa;   /* 渐变副色 */
+}
+
+/* 隐藏系统光标（仅精确设备） */
+@media (pointer: fine){
+  body.fancy-cursor, body.fancy-cursor *{
+    cursor: none !important;
+  }
+}
+
+/* ---- 中心光点（核心光标） ---- */
+.zf-cursor-dot{
+  position: fixed; left: 0; top: 0;
+  width: 10px; height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cur-c1), var(--cur-c2));
+  box-shadow: 0 0 10px rgba(var(--blue-rgb,77,163,255), .9),
+              0 0 22px rgba(var(--blue-rgb,77,163,255), .45);
+  pointer-events: none;
+  z-index: 2147483646;
+  transition: transform .18s cubic-bezier(.2,.8,.3,1), opacity .2s;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+/* ---- 外圈光环（惯性跟随） ---- */
+.zf-cursor-ring{
+  position: fixed; left: 0; top: 0;
+  width: 34px; height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(var(--blue-rgb,77,163,255), .65);
+  box-shadow: 0 0 14px rgba(var(--blue-rgb,77,163,255), .25),
+              inset 0 0 10px rgba(var(--blue-rgb,77,163,255), .12);
+  pointer-events: none;
+  z-index: 2147483645;
+  will-change: transform;
+}
+/* 悬停在可点击元素上时放大高亮 */
+body.fancy-cursor.zf-cur-hover .zf-cursor-ring{
+  transform: scale(1.55);
+  border-color: rgba(var(--blue-rgb,77,163,255), .95);
+  box-shadow: 0 0 22px rgba(var(--blue-rgb,77,163,255), .5),
+              inset 0 0 14px rgba(var(--blue-rgb,77,163,255), .2);
+}
+/* 按下时收缩 */
+body.fancy-cursor.zf-cur-down .zf-cursor-dot{ transform: scale(.55); }
+body.fancy-cursor.zf-cur-down .zf-cursor-ring{ transform: scale(.8); }
+/* 文本输入区变为竖线样式 */
+body.fancy-cursor.zf-cur-text .zf-cursor-dot{
+  width: 3px; height: 20px; margin: -10px 0 0 -1.5px; border-radius: 2px;
+}
+
+/* ---- 点击涟漪 ---- */
+.zf-ripple{
+  position: fixed;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--blue-rgb,77,163,255), .8);
+  pointer-events: none;
+  z-index: 2147483644;
+  animation: zfRipple .5s cubic-bezier(.2,.7,.3,1) forwards;
+}
+@keyframes zfRipple{
+  from{ transform: scale(1); opacity: .9; }
+  to  { transform: scale(4.5); opacity: 0; }
+}
+
+/* 关闭开关 */
+body.no-fancy-cursor .zf-cursor-dot,
+body.no-fancy-cursor .zf-cursor-ring,
+body.no-fancy-cursor .zf-ripple{ display: none !important; }
+body.no-fancy-cursor, body.no-fancy-cursor *{ cursor: auto !important; }
+
+/* 尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce){
+  .zf-ripple{ animation-duration: .01s; }
+}
+
+/* ===== v2 新增：4 种美化光标风格 + 选择器网格 ===== */
+
+/* off 原始鼠标 */
+html.no-fancy-cursor-host, html.no-fancy-cursor-host *{ cursor: auto !important; }
+
+/* ---- 星辉光环（glow，默认） ---- */
+body.zf-cur-style-glow .zf-cursor-dot{
+  background: linear-gradient(135deg, #4da3ff, #a78bfa);
+  box-shadow: 0 0 10px rgba(77,163,255,.9), 0 0 22px rgba(77,163,255,.45);
+}
+body.zf-cur-style-glow .zf-cursor-ring{
+  border: 1.5px solid rgba(77,163,255,.65);
+  box-shadow: 0 0 14px rgba(77,163,255,.25), inset 0 0 10px rgba(77,163,255,.12);
+}
+body.zf-cur-style-glow.zf-cur-hover .zf-cursor-ring{
+  border-color: rgba(77,163,255,.95);
+  box-shadow: 0 0 22px rgba(77,163,255,.5), inset 0 0 14px rgba(77,163,255,.2);
+}
+
+/* ---- 霓虹方环（neon） ---- */
+body.zf-cur-style-neon .zf-cursor-dot{
+  width: 6px; height: 6px; margin: -3px 0 0 -3px;
+  background: #0ff; border-radius: 2px;
+  box-shadow: 0 0 8px #0ff, 0 0 18px rgba(0,255,255,.6);
+}
+body.zf-cur-style-neon .zf-cursor-ring{
+  width: 26px; height: 26px; margin: -13px 0 0 -13px;
+  border-radius: 4px;
+  border: 2px solid rgba(0,255,255,.8);
+  box-shadow: 0 0 12px rgba(0,255,255,.5), inset 0 0 8px rgba(0,255,255,.25);
+  animation: zf-neon-glow 3.2s ease-in-out infinite;
+}
+body.zf-cur-style-neon.zf-cur-hover .zf-cursor-ring{
+  border-color: #0ff;
+  box-shadow: 0 0 20px rgba(0,255,255,.8), inset 0 0 12px rgba(0,255,255,.4);
+}
+@keyframes zf-neon-glow{ 0%,100%{ filter: brightness(1); } 50%{ filter: hue-rotate(60deg) brightness(1.35); } }
+
+/* ---- 彩虹拖尾（rainbow） ---- */
+body.zf-cur-style-rainbow .zf-cursor-dot{
+  width: 12px; height: 12px; margin: -6px 0 0 -6px;
+  background: linear-gradient(90deg,#ff5f6d,#ffc371,#47e891,#4da3ff,#a78bfa,#ff5f6d);
+  background-size: 300% 100%;
+  animation: zf-rainbow-hue 2.4s linear infinite;
+  box-shadow: 0 0 12px rgba(167,139,250,.8);
+}
+body.zf-cur-style-rainbow .zf-cursor-ring{
+  border: 1.5px dashed rgba(255,255,255,.5);
+  animation: zf-rainbow-hue 2.4s linear infinite;
+  box-shadow: 0 0 10px rgba(255,120,180,.35);
+}
+@keyframes zf-rainbow-hue{ from{ filter: hue-rotate(0deg); } to{ filter: hue-rotate(360deg); } }
+
+/* 拖尾粒子（rainbow / comet 共用） */
+.zf-trail-p{
+  position: fixed; width: 7px; height: 7px;
+  margin: -3.5px 0 0 -3.5px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(167,139,250,.9), rgba(77,163,255,.35) 65%, transparent);
+  pointer-events: none; z-index: 2147483644;
+  animation: zf-trail-fade .7s ease-out forwards;
+}
+body.zf-cur-style-rainbow .zf-trail-p{
+  background: radial-gradient(circle, rgba(255,120,180,.85), rgba(120,200,255,.3) 65%, transparent);
+}
+@keyframes zf-trail-fade{ to{ transform: scale(.15) translateY(14px); opacity: 0; } }
+
+/* ---- 彗星流光（comet） ---- */
+body.zf-cur-style-comet .zf-cursor-dot{
+  width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  background: radial-gradient(circle, #fff 18%, #ffd76a 45%, rgba(255,160,60,.35) 75%, transparent);
+  box-shadow: 0 0 14px rgba(255,200,90,.9), 0 0 30px rgba(255,160,60,.5);
+}
+body.zf-cur-style-comet .zf-cursor-ring{
+  border: 1px solid rgba(255,200,90,.45);
+  box-shadow: 0 0 16px rgba(255,180,70,.3), inset 0 0 10px rgba(255,180,70,.15);
+}
+body.zf-cur-style-comet.zf-cur-hover .zf-cursor-ring{
+  border-color: rgba(255,210,110,.9);
+  box-shadow: 0 0 24px rgba(255,190,80,.6), inset 0 0 14px rgba(255,190,80,.25);
+}
+body.zf-cur-style-comet .zf-trail-p{
+  width: 9px; height: 9px;
+  background: radial-gradient(circle, rgba(255,215,110,.9), rgba(255,160,60,.35) 65%, transparent);
+}
+
+/* ---- 风格设置面板选择网格 ---- */
+.cursor-style-btn{
+  display: inline-flex; align-items: center; gap: 6px;
+  margin: 3px; padding: 7px 12px;
+  font-size: 12px; color: inherit;
+  background: rgba(127,127,127,.08);
+  border: 1px solid rgba(127,127,127,.25);
+  border-radius: 10px; cursor: pointer;
+  transition: all .18s;
+}
+.cursor-style-btn:hover{ border-color: rgba(77,163,255,.7); background: rgba(77,163,255,.12); }
+.cursor-style-btn.active{
+  border-color: #4da3ff; color: #4da3ff;
+  background: rgba(77,163,255,.15);
+  box-shadow: 0 0 10px rgba(77,163,255,.25);
+}
+.cursor-style-icon{ font-size: 14px; }
+

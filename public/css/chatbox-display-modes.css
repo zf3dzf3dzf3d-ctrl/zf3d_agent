@@ -1,0 +1,52 @@
+/* ==== chatbox-display-modes.css — P2 三档显示模式 ==== */
+
+/* ---------- minimal 极简档：只显示最近一轮「用户问题→AI答案」 ---------- */
+/* 原理：隐藏全部 .msg，再单独放行 chatbox-body 内最后一个 .msg.user 及其之后的所有兄弟节点
+   （= 最近一轮问答）。用 :not + 兄弟选择器不可行（.msg 混排），改用「全隐+尾部放行」两段式：
+   body 内的 .msg 全部隐藏；CSS 无法直接选"最后一个 .msg.user 之后"，由 JS 在 setMode 时
+   给最后一轮起点的 .msg 加 .zf-minimal-show 标记（chatbox-display-modes.js 补挂），
+   这里 CSS 只负责按标记放行，保证流式追加新节点后旧标记仍正确（新 AI 节点在其后，天然显示）。 */
+.chatbox.zf-minimal .chatbox-body > .msg:not(.zf-minimal-show) { display: none !important; }
+/* 【2026-11-23 md错乱修复】放行档必须是 block，绝不能是 flex：
+   原值 display:flex(默认row) 会把气泡里 markdown 的块级子元素(p/h3/ul/table…)变成并排
+   flex item、各自被压到 min-content 宽(~2-6字)，整条消息呈"竖排细条"错乱——凡多段落
+   AI 回答在极简档必炸。气泡自身块状堆叠由 .chatbox-body(flex column) + .msg(align-self:
+   stretch) 保证，此处 block 即可；若某天需要气泡内横排，须指定 flex-direction:column。 */
+.chatbox.zf-minimal .chatbox-body > .msg.zf-minimal-show { display: block !important; }
+/* 极简档隐藏思维链/工具/选项等重元素（凡带下列特征类的一律不显） */
+.chatbox.zf-minimal .msg .think-block,
+.chatbox.zf-minimal .msg .thinking,
+.chatbox.zf-minimal .msg .tool-call,
+.chatbox.zf-minimal .msg .zf-tool-trace,
+.chatbox.zf-minimal .msg .msg-options,
+.chatbox.zf-minimal .msg .option-btns,
+.chatbox.zf-minimal .msg .msg-copy-btn,
+.chatbox.zf-minimal .msg .msg-edit-btn,
+.chatbox.zf-minimal .msg .msg-del-btn,
+.chatbox.zf-minimal .msg .msg-nav-prev,
+.chatbox.zf-minimal .msg .msg-nav-next { display: none !important; }
+/* 极简档收紧：隐藏配置行（引擎/分类/模型行），只留标题条 + 答案流 */
+.chatbox.zf-minimal .chatbox-configrow { display: none !important; }
+/* 标题条上放一个档位指示角标（CSS 生成，不占 DOM） */
+.chatbox.zf-minimal .chatbox-header .title::after {
+    content: '≡';
+    margin-left: 6px; font-size: 10px; opacity: .55;
+}
+
+/* ---------- title 标题档（叠加在 .collapsed 之上） ---------- */
+/* collapsed 已把 body/inputrow/row2 藏成 36px 标题条；这里再隐藏 row1 上的多余控件，
+   只留标题 + 状态点（状态点复用现有发送状态指示）。 */
+.chatbox[data-display="title"] .chatbox-header .zf-display-mode-btn,
+.chatbox[data-display="title"] .chatbox-header .close-btn { display: none !important; }
+.chatbox[data-display="title"] .chatbox-header .title::after {
+    content: '▬'; margin-left: 6px; font-size: 9px; opacity: .5;
+}
+
+/* ---------- 档位按钮（header row1 右侧，事件委托无需每框绑定） ---------- */
+.zf-display-mode-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; margin-left: 4px;
+    border: none; background: transparent; color: inherit;
+    font-size: 11px; cursor: pointer; opacity: .55; border-radius: 4px;
+}
+.zf-display-mode-btn:hover { opacity: 1; background: rgba(128,128,128,.18); }

@@ -1,0 +1,22 @@
+/* ===== 指示灯（底部 dock：文字在前、灯在后；绿=开，灰=关）===== */
+.tk-label { display: inline-block; font-size: 12px; margin-right: 5px; vertical-align: middle; }
+/* 底部 dock 按钮文字与模型选择器同色（强调色） */
+.tp-fab-group .zf-dock-btn .tk-label,
+.tp-fab-group .dog-guard-btn .tk-label { color: var(--accent); }
+.tk-dot {
+    display: inline-block !important;
+    vertical-align: middle;
+    position: static;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: #8a8f98; /* 灰色：关闭 */
+    border: 1px solid rgba(255,255,255,.35);
+    pointer-events: none;
+    transition: background .3s, box-shadow .3s;
+    z-index: 2;
+}
+/* 绿色：开启（JS 加 .on 或父级 .turbo-on） */
+.tk-dot.on, .turbo-on .tk-dot {
+    background: #2ecc71;
+    box-shadow: 0 0 6px rgba(46,204,113,.9), 0 0 12px rgba(46,204,113,.5);
+}

@@ -1,0 +1,13 @@
+{
+  "id": "schedule.employee",
+  "name": "员工调度线程（定时任务派发）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "schedule",
+  "entry": { "py": "main.py" },
+  "capabilities": ["schedule.every", "log.write"],
+  "provides": "employee_scheduler",
+  "depends": [],
+  "description": "T5（策划案v4）：employee_scheduler 定时派发线程插件化。start() 自带幂等锁（_started 全局），与 db.init_db 的启动调用天然互斥无需守卫；启用即接管计时，禁用后 db 侧行为不受影响",
+  "zfVersion": ">=6.0.0"
+}

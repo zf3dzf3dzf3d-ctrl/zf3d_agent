@@ -1,0 +1,11 @@
+{
+  "id": "brain.core",
+  "name": "主脑（桥接）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "engine",
+  "description": "主脑观察线程插件化：桥接 server/brain 旧轨 start_brain_thread（单一真源不复制），S4 阶段绞杀者过渡。",
+  "capabilities": ["schedule.every", "log.write"],
+  "provides": "brain",
+  "entry": {"py": "main.py"}
+}

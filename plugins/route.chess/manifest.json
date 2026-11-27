@@ -1,0 +1,13 @@
+{
+  "id": "route.chess",
+  "name": "i棋域路由（T2.4 批量·自包含域）",
+  "version": "1.0.0",
+  "spec": 1,
+  "type": "tool",
+  "entry": { "py": "main.py" },
+  "capabilities": ["http.route", "log.write"],
+  "provides": "route_chess",
+  "depends": [],
+  "description": "T2.4 批量：i棋三合一（五子棋/象棋/围棋 move/score）自包含域逐字节插件化，源=domain_chess.py（实现体本在域文件，零 mixin 耦合）；禁用经注册栈回栈恢复 domain_chess 静态接线",
+  "zfVersion": ">=6.0.0"
+}

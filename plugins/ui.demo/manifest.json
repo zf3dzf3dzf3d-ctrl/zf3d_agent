@@ -1,0 +1,17 @@
+﻿{
+    "id":  "ui.demo",
+    "name":  "UI 挂载示例",
+    "version":  "1.0.0",
+    "spec":  1,
+    "entry":  {
+                  "py":  "main.py"
+              },
+    "capabilities":  [
+                         "http.route",
+                         "ui.mount",
+                         "log.write"
+                     ],
+    "provides":  "ui_demo",
+    "description":  "S7 前端挂载点示例：向 banner slot 挂一段只读徽标 JS",
+    "type":  "ui"
+}

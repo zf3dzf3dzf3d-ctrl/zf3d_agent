@@ -1,0 +1,88 @@
+﻿/* ============================================================
+ * P3 标题极简模式（zf-canvas-title-mode）补充样式
+ * DOM 对话框已由 JS display:none，这里压掉画布上的其余视觉层，
+ * 避免背景网格/箭头在 Canvas 覆盖层下干扰。
+ * ============================================================ */
+body.zf-canvas-title-mode #canvasGrid { opacity: 0.25; }
+body.zf-canvas-title-mode .canvas-arrows-svg,
+body.zf-canvas-title-mode #canvasArrows,
+body.zf-canvas-title-mode svg.zf-arrows { opacity: 0.15; pointer-events: none; }
+body.zf-canvas-title-mode #canvasHint { display: none; }
+body.zf-canvas-title-mode .minimap { opacity: 0.6; }
+body.zf-canvas-title-mode .chatbox { display: none !important; } /* JS 漏网兜底（新建节点） */
+#zfCanvasModeBtn:hover { border-color: #5b9dff; color: #fff; }
+body.zf-canvas-title-mode #zfCanvasModeBtn { border-color: #5b9dff; background: rgba(40,70,140,0.9); }
+
+/* ============================================================
+ * P5 搜索/摘要/标题胶囊条（仅标题模式显示，挂 #canvasArea 顶部）
+ * ============================================================ */
+#zfCanvasSearchBar {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(920px, 92%);
+  pointer-events: none; /* 容器穿透，子元素开启 */
+}
+#zfCanvasSearchBar .zf-search-wrap { position: relative; pointer-events: auto; width: min(560px, 100%); }
+#zfCanvasSearchBar input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(120,125,140,0.6);
+  background: rgba(24,26,32,0.92);
+  color: #e8eaf0;
+  font-size: 13px;
+  outline: none;
+}
+#zfCanvasSearchBar input:focus { border-color: #5b9dff; box-shadow: 0 0 0 2px rgba(91,157,255,0.25); }
+.zf-search-list {
+  margin-top: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: rgba(24,26,32,0.95);
+  border: 1px solid rgba(120,125,140,0.5);
+  border-radius: 12px;
+  padding: 4px;
+}
+.zf-search-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  width: 100%; text-align: left;
+  padding: 8px 10px; margin: 2px 0;
+  border: none; border-radius: 8px;
+  background: transparent; color: #dfe3ea;
+  cursor: pointer; font-size: 12px;
+}
+.zf-search-row:hover { background: rgba(60,110,220,0.28); }
+.zf-search-rowtitle { font-size: 13px; font-weight: 600; color: #f0f2f7; }
+.zf-search-rowsum {
+  font-size: 11px; color: #9aa0ac;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 440px;
+}
+.zf-search-empty { padding: 10px; color: #9aa0ac; font-size: 12px; text-align: center; }
+.zf-caps {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 6px; pointer-events: auto;
+  max-width: min(920px, 92%);
+}
+.zf-cap {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(120,125,140,0.55);
+  background: rgba(28,30,36,0.88);
+  color: #dfe3ea; font-size: 12px;
+  cursor: pointer; max-width: 210px;
+}
+.zf-cap:hover { border-color: #5b9dff; background: rgba(40,50,70,0.9); }
+.zf-cap-hit { border-color: #ffb020; box-shadow: 0 0 0 1px rgba(255,176,32,0.5); }
+.zf-cap-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.zf-cap-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zf-cap-empty { color: #9aa0ac; font-size: 12px; padding: 4px 8px; }
+

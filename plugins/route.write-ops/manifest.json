@@ -1,0 +1,18 @@
+{
+ "id": "route.write-ops",
+ "name": "写操作POST域路由（T2 尾巴）",
+ "version": "1.0.0",
+ "spec": 1,
+ "type": "tool",
+ "entry": {
+  "py": "main.py"
+ },
+ "capabilities": [
+  "http.route",
+  "log.write"
+ ],
+ "provides": "route_write_ops",
+ "depends": [],
+ "zfVersion": ">=6.0.0",
+ "description": "T2 尾巴（策划案v4）：写操作POST域逐字节插件化，源=domain_write_ops_post.py；禁用经注册栈回栈恢复静态接线"
+}
