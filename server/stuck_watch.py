@@ -62,7 +62,6 @@ def unwatch(key):
 
 
 _PYSPY_CANDIDATES = [
-    r"C:\Users\Administrator\AppData\Local\Programs\Python\Python311\Scripts\py-spy.exe",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                  "python", "Scripts", "py-spy.exe"),
 ]

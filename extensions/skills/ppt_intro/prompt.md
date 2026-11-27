@@ -16,7 +16,7 @@
 最后一页：谢谢观看
 
 ## 生成方式（必须真实生成文件）
-1. 确保依赖：在临时目录 `C:\Users\Administrator\AppData\Local\Temp\pptgen` 下 `npm init -y && npm install pptxgenjs`（已装过可跳过）。
+1. 确保依赖：在临时目录（如系统 Temp 下的 `pptgen` 目录）里 `npm init -y && npm install pptxgenjs`（已装过可跳过）。
 2. 用 Node 写脚本生成，模板开头：
    ```js
    const pptxgen = require("pptxgenjs");

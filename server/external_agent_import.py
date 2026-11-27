@@ -248,7 +248,7 @@ def _codex_extract(sessions_dir):
 def _claude_extract(projects_dir):
     files = _glob_files(projects_dir, '*.jsonl')
     for path in files:
-        # 项目路径从目录名还原：C--Users-Administrator -> C:\Users\Administrator
+        # 项目路径从目录名还原：C--Users-xxx -> C:\Users\xxx
         proj_dir = os.path.basename(os.path.dirname(path))
         project_path = proj_dir.replace('-', os.sep) if '--' not in proj_dir else \
             proj_dir.split('--', 1)[0].replace('-', ':\\') + os.sep + proj_dir.split('--', 1)[1].replace('-', os.sep)

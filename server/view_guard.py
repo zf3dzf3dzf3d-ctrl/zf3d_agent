@@ -1,7 +1,4 @@
-with open(r'F:\朱峰智能体无限_新版本\朱峰智能体无限_5.1.2\server\network_guard.py', 'r', encoding='utf-8-sig') as f:
-    lines = f.read().split('\n')
-print(f'总行数: {len(lines)}')
-# 打印 40 行以后（前面 import 已看过）
-for i, l in enumerate(lines):
-    if i >= 25:
-        print(f'{i+1:4d}: {l}')
+# -*- coding: utf-8 -*-
+# view_guard.py 已退役：曾是一次性视图核对脚本（读取旧版本 network_guard.py 打印行号）。
+# 保留占位防止外部引用断裂；如需检查 network_guard，请直接查看本目录下源文件。
+raise SystemExit("view_guard.py 已退役（deprecated）。请直接阅读 network_guard.py 源码。")

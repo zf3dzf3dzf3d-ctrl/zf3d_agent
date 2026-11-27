@@ -73,7 +73,7 @@ def _search_roots():
         if os.path.isdir(drv):
             roots.append(drv)
     roots += [os.path.expanduser('~'), os.path.expanduser('~\\Desktop'),
-              'C:\\Users\\Administrator\\AppData\\Local\\Programs']
+              os.environ.get('ProgramFiles', 'C:\\Program Files')]
     seen, uniq = set(), []
     for r in roots:
         rr = os.path.realpath(r)

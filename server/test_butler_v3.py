@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """策划案 v3 验收单测（临时，验收后删除）"""
-import sys, time
+import os, sys, time
 from util_log import get_logger
 
 log = get_logger('test_butler_v3')
-sys.path.insert(0, r'F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.7.0\server')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 T0 = time.time()
 import butler_knowledge as bk

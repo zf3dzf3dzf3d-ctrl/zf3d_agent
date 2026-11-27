@@ -5,7 +5,8 @@ log = get_logger('_mk_b64')
 code = r'''
 import sqlite3, shutil, os, json, io, sys
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-root = r"F:\朱峰社区智能体无限_新版本\朱峰社区智能体无限_5.6.0"
+root = os.environ.get("ZF3D_ROOT",
+                      os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 src = os.path.join(root, "private", "db", "zf3d_canvas.db")
 dst = os.path.join(root, "server", "data", "_tmp_canvas.db")
 shutil.copy(src, dst)

@@ -10,11 +10,11 @@ if BASE not in sys.path:
     sys.path.insert(0, BASE)
 import dispatch_swarm as swarm
 
-ROOT = r'F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\评测\AI横屏题目8_朱峰智能体改进01'
+ROOT = os.environ.get('SWARM_EXAM_ROOT', os.path.join(BASE, '_eval_workspace'))
 Q = os.path.join(ROOT, '1问题')
 OUT = os.path.join(ROOT, '考卷结果')
 os.makedirs(OUT, exist_ok=True)
-PY = r'F:\朱峰智能体无限_新版本\朱峰智能体无限_5.2.2\python\python.exe'
+PY = sys.executable
 
 def rd(p, limit=None):
     with open(p, encoding='utf-8', errors='ignore') as f:
