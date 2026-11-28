@@ -156,4 +156,4 @@ Dock 栏一整排 i 开头的应用。它们不是外挂插件，而是这套系
 - 朱峰社区（介绍与下载）：https://www.zf3d.com/agent.asp
 - Gitee:https://gitee.com/zf3d/zf3d_agent
 - B站（演示与教程）：https://space.bilibili.com/39993282
-- QQ群138658926
+- QQ群1138215088
